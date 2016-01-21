@@ -1,0 +1,23 @@
+type project
+owners
+    MIYAZAKI Shohei
+authors 
+    MIYAZAKI Shohei
+projectUrl
+    http://github.com/hafuu/FSharpApiSearch
+iconUrl
+    https://raw.githubusercontent.com/hafuu/FSharpApiSearch/master/docs/files/img/logo.png
+licenseUrl
+    http://github.com/hafuu/FSharpApiSearch/blob/master/LICENSE.txt
+requireLicenseAcceptance
+    false
+copyright
+    Copyright 2015
+tags
+    
+summary
+    F# API search engine
+description
+    Description not set
+
+
