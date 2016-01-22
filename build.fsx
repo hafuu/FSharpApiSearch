@@ -3,6 +3,7 @@
 // --------------------------------------------------------------------------------------
 
 #r @"packages/build/FAKE/tools/FakeLib.dll"
+#r @"packages/build/FAKE.Persimmon/lib/net451/FAKE.Persimmon.dll"
 open Fake
 open Fake.Git
 open Fake.AssemblyInfoFile
@@ -144,11 +145,7 @@ Target "Build" (fun _ ->
 
 Target "RunTests" (fun _ ->
     !! testAssemblies
-    |> NUnit (fun p ->
-        { p with
-            DisableShadowCopy = true
-            TimeOut = TimeSpan.FromMinutes 20.
-            OutputFile = "TestResults.xml" })
+    |> Persimmon id
 )
 
 #if MONO

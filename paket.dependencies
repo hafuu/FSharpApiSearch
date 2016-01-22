@@ -1,16 +1,19 @@
 source https://nuget.org/api/v2
 
+nuget FParsec
+
 group Build
   source https://nuget.org/api/v2
   
   nuget SourceLink.Fake
   nuget FAKE
   nuget FSharp.Formatting
+  nuget FAKE.Persimmon
 
   github fsharp/FAKE modules/Octokit/Octokit.fsx
 
 group Test
   source https://nuget.org/api/v2
   
-  nuget NUnit ~> 2
-  nuget NUnit.Runners ~> 2
+  nuget Persimmon
+  nuget Persimmon.Console
