@@ -6,8 +6,8 @@ open FSharpApiSearch.Types
 open FSharpApiSearch
 
 let rec updateSource newSource = function
-  | TypeIdentity (Variable (_, name)) -> TypeIdentity (Variable (newSource, name))
-  | TypeIdentity (Type _) as x -> x
+  | Variable (_, name) -> Variable (newSource, name)
+  | Identity _ as x -> x
   | Arrow xs -> Arrow (List.map (updateSource newSource) xs)
   | Generic (id, xs) -> Generic (id, List.map (updateSource newSource) xs)
   | Tuple xs -> Tuple (List.map (updateSource newSource) xs)

@@ -3,30 +3,31 @@
 open FSharpApiSearch.Types
 open FParsec
 
-let identity = regex @"\w+"
+let name = regex @"\w+"
 
 let inline trim p = spaces >>. p .>> spaces
 let inline pcharAndTrim c = pchar c |> trim
 
 let query, queryRef = createParserForwardedToRef()
 
-let ptype = identity |>> (fun name -> Type name) |> trim
-let variable = pchar ''' .>>. identity |>> (fun (prefix, name) -> Variable (Source.Query, string prefix + name)) |> trim  
-let typeIdentity = attempt variable <|> ptype
+let identity = name |>> (fun name -> Identity name) |> trim
+let variable = pchar ''' .>>. name |>> (fun (prefix, name) -> Variable (Source.Query, string prefix + name)) |> trim  
 
-let dotNetGeneric = typeIdentity .>>. between (pcharAndTrim '<') (pcharAndTrim '>') (sepBy1 query (pchar ',')) |>> (fun (id, parameter) -> Generic (id, parameter))
+let idOrVariable = attempt identity <|> variable
+
+let dotNetGeneric = idOrVariable .>>. between (pcharAndTrim '<') (pcharAndTrim '>') (sepBy1 query (pchar ',')) |>> (fun (id, parameter) -> Generic (id, parameter))
 
 let term1 =
   choice [
     attempt dotNetGeneric
     attempt (between (pcharAndTrim '(') (pcharAndTrim ')') query)
-    (typeIdentity |>> TypeIdentity)
+    idOrVariable
   ]
   
 let mlMultiGenericParameter = between (pcharAndTrim '(') (pcharAndTrim ')') (sepBy1 query (pchar ','))
 let mlSingleGenericParameter = term1 |>> List.singleton
 let mlGenericParameter = attempt mlMultiGenericParameter <|> mlSingleGenericParameter
-let mlGeneric = mlGenericParameter .>>. typeIdentity |>> (fun (parameter, id) -> Generic (id, parameter))
+let mlGeneric = mlGenericParameter .>>. idOrVariable |>> (fun (parameter, id) -> Generic (id, parameter))
 
 let term2 = choice [ attempt mlGeneric; term1 ]
 

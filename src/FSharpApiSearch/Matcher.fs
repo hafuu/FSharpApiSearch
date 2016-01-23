@@ -3,8 +3,8 @@
 open FSharpApiSearch.Types
 
 type Equations = {
-  Equalities: (Type * Type) list
-  Inequalities: (Type * Type) list
+  Equalities: (Signature * Signature) list
+  Inequalities: (Signature * Signature) list
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -55,9 +55,9 @@ module MatchResult =
 
   let inline bind f = function Success x -> f x | Failure -> Failure
 
-let rec run (left: Type) (right: Type) (eqs: Equations): MatchResult =
+let rec run (left: Signature) (right: Signature) (eqs: Equations): MatchResult =
   match left, right with
-  | TypeIdentity (Type leftName), TypeIdentity (Type rightName) ->
+  | Identity leftName, Identity rightName ->
     if leftName = rightName then
       Success eqs
     else
@@ -65,21 +65,21 @@ let rec run (left: Type) (right: Type) (eqs: Equations): MatchResult =
   | Arrow leftTypes, Arrow rightTypes ->
     runGeneric leftTypes rightTypes eqs
   | Generic (leftId, leftParams), Generic (rightId, rightParams) ->
-    runGeneric (TypeIdentity leftId :: leftParams) (TypeIdentity rightId :: rightParams) eqs
+    runGeneric (leftId :: leftParams) (rightId :: rightParams) eqs
   | Tuple leftTypes, Tuple rightTypes ->
     runGeneric leftTypes rightTypes eqs
-  | TypeIdentity (Variable _), TypeIdentity (Variable _) ->
+  | Variable _, Variable _ ->
     let left, right = Equations.sortTerm left right
     if Equations.containsEquality left right eqs then
       Success eqs
     else
       attemptToAddEquality left right eqs
-  | (TypeIdentity (Variable _) as left), right
-  | right, (TypeIdentity (Variable _) as left) ->
+  | (Variable _ as left), right
+  | right, (Variable _ as left) ->
     attemptToAddEquality left right eqs
   | _ ->
     Failure
-and runGeneric (leftTypes: Type list) (rightTypes: Type list) (eqs: Equations): MatchResult =
+and runGeneric (leftTypes: Signature list) (rightTypes: Signature list) (eqs: Equations): MatchResult =
   if leftTypes.Length <> rightTypes.Length then
     Failure
   else

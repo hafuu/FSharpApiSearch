@@ -2,26 +2,24 @@
 
 type Source = Query | Target
 
-type TypeIdentity =
+type Signature =
   | Variable of Source * string
-  | Type of string
-type Type =
-  | TypeIdentity of TypeIdentity
-  | Arrow of Type list
-  | Generic of TypeIdentity * Type list
-  | Tuple of Type list
+  | Identity of string
+  | Arrow of Signature list
+  | Generic of Signature * Signature list
+  | Tuple of Signature list
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Type =
   let rec private collectVariables' = function
-    | TypeIdentity (Variable _) as v -> [ v ]
+    | Variable _ as v -> [ v ]
     | (Tuple xs | Arrow xs) -> List.collect collectVariables' xs
-    | TypeIdentity (Type _) -> []
-    | Generic (x, ys) -> List.concat (collectVariables' (TypeIdentity x) :: (List.map collectVariables' ys))
+    | Identity _ -> []
+    | Generic (x, ys) -> List.collect collectVariables' (x :: ys)
     
   let collectVariables t = collectVariables' t |> List.distinct |> List.sort
 
 type Query = {
   OriginalString: string
-  Query: Type
+  Query: Signature
 }
