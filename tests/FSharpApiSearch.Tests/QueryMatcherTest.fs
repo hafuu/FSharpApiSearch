@@ -5,13 +5,6 @@ open Persimmon.Syntax.UseTestNameByReflection
 open FSharpApiSearch.Types
 open FSharpApiSearch
 
-let rec updateSource newSource = function
-  | Variable (_, name) -> Variable (newSource, name)
-  | Identity _ as x -> x
-  | Arrow xs -> Arrow (List.map (updateSource newSource) xs)
-  | Generic (id, xs) -> Generic (id, List.map (updateSource newSource) xs)
-  | Tuple xs -> Tuple (List.map (updateSource newSource) xs)
-
 type MatchOption =
   | Strict
   | NoOption
@@ -87,7 +80,7 @@ let strictMatchTest =
       let query = QueryParser.parse query
       let target =
         let t = QueryParser.parse target
-        updateSource Source.Target t.Query
+        TestHelpers.updateSource Source.Target t.Query
       let initialEquations =
         match matchOpt with
         | Strict -> Matcher.Equations.strict query

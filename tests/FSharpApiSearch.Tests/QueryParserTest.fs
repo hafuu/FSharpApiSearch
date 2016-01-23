@@ -4,12 +4,7 @@ open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
 open FSharpApiSearch.Types
 open FSharpApiSearch
-
-let identity name = Identity name
-let variable name = Variable (Query, name)
-let arrow xs = Arrow xs
-let generic id xs = Generic (id, xs)
-let tuple xs = Tuple xs
+open TestHelpers.DSL
 
 let runParseTest (input, expected) = test {
   let actual = QueryParser.parse input
@@ -19,7 +14,7 @@ let runParseTest (input, expected) = test {
 let parseTest = parameterize {
   source [
     "a", (identity "a")
-    "'a", (variable "'a")
+    "'a", (variable "a")
   ]
   run runParseTest
 }
@@ -27,8 +22,8 @@ let parseTest = parameterize {
 let arrowParseTest = parameterize {
   source [
     "a -> a", (arrow [ identity "a"; identity "a" ])
-    "('a -> 'b) -> 'c", (arrow [ (arrow [ variable "'a"; variable "'b" ]); variable "'c" ])
-    "('a -> 'b)", (arrow [ variable "'a"; variable "'b" ])
+    "('a -> 'b) -> 'c", (arrow [ (arrow [ variable "a"; variable "b" ]); variable "c" ])
+    "('a -> 'b)", (arrow [ variable "a"; variable "b" ])
   ]
   run runParseTest
 }
@@ -36,7 +31,7 @@ let arrowParseTest = parameterize {
 let dotNetGenericParseTest = parameterize {
   source [
     "a<b, c>", (generic (identity "a") [ identity "b"; identity "c" ])
-    "'a -> b<c, d> -> d", (arrow [ variable "'a"; generic (identity "b") [ identity "c"; identity "d" ]; identity "d" ])
+    "'a -> b<c, d> -> d", (arrow [ variable "a"; generic (identity "b") [ identity "c"; identity "d" ]; identity "d" ])
   ]
   run runParseTest
 }

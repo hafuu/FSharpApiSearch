@@ -8,6 +8,7 @@ type Signature =
   | Arrow of Signature list
   | Generic of Signature * Signature list
   | Tuple of Signature list
+  | Unknown
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Type =
@@ -22,4 +23,9 @@ module Type =
 type Query = {
   OriginalString: string
   Query: Signature
+}
+
+type Api = {
+  Name: string
+  Signature: Signature
 }

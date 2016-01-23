@@ -11,7 +11,7 @@ let inline pcharAndTrim c = pchar c |> trim
 let query, queryRef = createParserForwardedToRef()
 
 let identity = name |>> (fun name -> Identity name) |> trim
-let variable = pchar ''' .>>. name |>> (fun (prefix, name) -> Variable (Source.Query, string prefix + name)) |> trim  
+let variable = pchar ''' >>. name |>> (fun name -> Variable (Source.Query, name)) |> trim  
 
 let idOrVariable = attempt identity <|> variable
 

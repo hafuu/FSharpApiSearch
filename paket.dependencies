@@ -1,6 +1,7 @@
 source https://nuget.org/api/v2
 
 nuget FParsec
+nuget FSharp.Compiler.Service
 
 group Build
   source https://nuget.org/api/v2

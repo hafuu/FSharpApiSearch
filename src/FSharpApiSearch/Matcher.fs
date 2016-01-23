@@ -57,6 +57,9 @@ module MatchResult =
 
 let rec run (left: Signature) (right: Signature) (eqs: Equations): MatchResult =
   match left, right with
+  | _, Unknown
+  | Unknown, _ ->
+    Failure
   | Identity leftName, Identity rightName ->
     if leftName = rightName then
       Success eqs
