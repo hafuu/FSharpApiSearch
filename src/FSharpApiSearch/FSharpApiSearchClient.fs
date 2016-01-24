@@ -6,6 +6,7 @@ open FSharpApiSearch.Types
 type FSharpApiSearchClient (apis: Api seq) =
   new (assemblies: FSharpAssembly seq) = FSharpApiSearchClient(Seq.collect ApiLoader.collectApi assemblies)
   new (references: string seq) = FSharpApiSearchClient(ApiLoader.loadAssembly references)
+  new () = FSharpApiSearchClient(Seq.empty<string>)
 
   member this.Search(query: Query) =
     let initialEquations = Matcher.Equations.strict query

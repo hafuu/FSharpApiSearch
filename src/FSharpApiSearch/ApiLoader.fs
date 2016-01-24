@@ -67,7 +67,7 @@ and toFlatArrow (t: FSharpType) xs =
   | _ -> Unknown :: xs
 
     
-let toApi (x: FSharpMemberOrFunctionOrValue) = { Name = x.FullName; Signature = toSignature x.FullType }
+let toApi (x: FSharpMemberOrFunctionOrValue) = { Name = x.FullName; Signature = toSignature x.FullType; }
 
 let rec collectFromModule (e: FSharpEntity): Api seq = seq {
   if e.IsFSharpModule then

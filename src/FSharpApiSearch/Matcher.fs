@@ -36,7 +36,7 @@ module Equations =
   let strict { Query = t } =
     let nonEqualities =
       [
-        let variables = Type.collectVariables t
+        let variables = Signature.collectVariables t
         for x in variables do
           for y in variables do
             if x < y then yield (x, y)
