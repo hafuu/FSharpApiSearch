@@ -66,6 +66,7 @@
     <Compile Include="QueryParser.fs" />
     <Compile Include="Matcher.fs" />
     <Compile Include="ApiLoader.fs" />
+    <Compile Include="FSharpApiSearchClient.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

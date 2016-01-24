@@ -4,7 +4,7 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open System.IO
 open FSharpApiSearch.Types
 
-let loadAssembly assemblies =
+let loadAssembly references =
   let checker = FSharpChecker.Create()
   let base1 = Path.GetTempFileName()
   let fileName1 = Path.ChangeExtension(base1, ".fs")
@@ -31,14 +31,14 @@ let loadAssembly assemblies =
             yield "--flaterrors" 
             yield "--target:library" 
             yield fileName1
-            let references =
+            let defaultReferences =
               [ syslib "mscorlib" 
                 syslib "System"
                 syslib "System.Core"
                 fscore4400 ]
-            for r in references do 
+            for r in defaultReferences do 
               yield "-r:" + r
-            for a in assemblies do
+            for a in references do
               yield "-r:" + a |]
       )
   let refAssemblies =
