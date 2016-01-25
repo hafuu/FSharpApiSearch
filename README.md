@@ -1,4 +1,6 @@
 # FSharpApiSearch
+
+[![Join the chat at https://gitter.im/hafuu/FSharpApiSearch](https://badges.gitter.im/hafuu/FSharpApiSearch.svg)](https://gitter.im/hafuu/FSharpApiSearch?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 F# API search engine 名前はテキトーなので何か思いついたら変えたい。
 
 ## 使い方
