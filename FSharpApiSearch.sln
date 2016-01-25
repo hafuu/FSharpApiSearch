@@ -41,6 +41,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "SearchTestAssembly", "tests
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharpApiSearch.Console", "src\FSharpApiSearch.Console\FSharpApiSearch.Console.fsproj", "{2C2F8D38-E62F-41CD-A4CC-DC5C74DF3B08}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharpApiSearch.Trace", "src\FSharpApiSearch.Trace\FSharpApiSearch.Trace.fsproj", "{9B49EA5B-EF46-44D5-ABDE-58E092F72FA9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -67,6 +69,10 @@ Global
 		{2C2F8D38-E62F-41CD-A4CC-DC5C74DF3B08}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2C2F8D38-E62F-41CD-A4CC-DC5C74DF3B08}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2C2F8D38-E62F-41CD-A4CC-DC5C74DF3B08}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9B49EA5B-EF46-44D5-ABDE-58E092F72FA9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9B49EA5B-EF46-44D5-ABDE-58E092F72FA9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9B49EA5B-EF46-44D5-ABDE-58E092F72FA9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9B49EA5B-EF46-44D5-ABDE-58E092F72FA9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
