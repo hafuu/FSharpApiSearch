@@ -19,7 +19,7 @@ let expectedValue matchOpt expected =
   | WhenStrict b, Strict -> b
   | WhenStrict b, NoOption -> not b
 
-let strictMatchTest =
+let matchTest =
   let patterns = [
     "int", "int", Always true
     "int", "string", Always false
@@ -69,6 +69,11 @@ let strictMatchTest =
     "'a * 'b -> 'a", "int * int -> int", WhenStrict false
     "'a * 'b -> 'b", "int * string -> int", Always false
     "string * 'a -> int", "'a * int -> 'b", Always true
+
+    // bug #12 recursive and circular generic type
+    "'a -> 'a", "nativeptr<'T> -> 'T", Always false
+    "('a -> 'b) -> 'a option -> 'b option", "('a -> 'b option) -> 'a option -> 'b option", Always false
+    "('a -> 'b) -> 'a 'm -> 'b 'm", "('T -> option<'U>) -> seq<'T> -> 'U", Always false
   ]
   parameterize {
     source (seq {

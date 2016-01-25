@@ -19,7 +19,9 @@ module Signature =
     | Generic (x, ys) -> List.collect collectVariables' (x :: ys)
     | Unknown -> []
 
-  let collectVariables t = collectVariables' t |> List.distinct |> List.sort
+  let collectVariables t = collectVariables' t
+
+  let collectUniqueVariables t = collectVariables t |> List.distinct
 
   let rec display = function
     | Variable (_, name) -> "'" + name
