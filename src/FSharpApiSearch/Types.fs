@@ -23,47 +23,28 @@ module Signature =
 
   let collectUniqueVariables t = collectVariables t |> List.distinct
 
-  let rec display = function
-    | Variable (_, name) -> "'" + name
+  let rec private display' prefix = function
+    | Variable (source, name) -> prefix source name
     | Identity name -> name
     | Arrow xs ->
       xs
       |> Seq.map (function
-        | Arrow _ as a -> sprintf "(%s)" (display a)
-        | x -> display x
+        | Arrow _ as a -> sprintf "(%s)" (display' prefix a)
+        | x -> display' prefix x
       )
       |> String.concat " -> "
-    | Generic (x, ys) -> sprintf "%s<%s>" (display x) (ys |> Seq.map display |> String.concat ", ")
+    | Generic (x, ys) -> sprintf "%s<%s>" (display' prefix x) (ys |> Seq.map (display' prefix) |> String.concat ", ")
     | Tuple xs ->
       xs
       |> Seq.map (function
-        | Tuple _ as t -> sprintf "(%s)" (display t)
-        | x -> display x)
+        | Tuple _ as t -> sprintf "(%s)" (display' prefix t)
+        | x -> display' prefix x)
       |> String.concat " * "
     | Unknown -> "Unknown"
 
-  let rec debugDisplay = function
-    | Variable (source, name) ->
-      match source with
-      | Query -> "'q" + name
-      | Target -> "'t" + name
-    | Identity name -> name
-        | Arrow xs ->
-      xs
-      |> Seq.map (function
-        | Arrow _ as a -> sprintf "(%s)" (debugDisplay a)
-        | x -> debugDisplay x
-      )
-      |> String.concat " -> "
-    | Generic (x, ys) -> sprintf "%s<%s>" (debugDisplay x) (ys |> Seq.map debugDisplay |> String.concat ", ")
-    | Tuple xs ->
-      xs
-      |> Seq.map (function
-        | Tuple _ as t -> sprintf "(%s)" (debugDisplay t)
-        | x -> debugDisplay x)
-      |> String.concat " * "
-    | Unknown -> "Unknown"
-      
+  let rec display = display' (fun _ name -> "'" + name)
+
+  let rec debugDisplay = display' (fun source name -> match source with Query -> "'q" + name | Target -> "'t" + name)
 
 type Query = {
   OriginalString: string
