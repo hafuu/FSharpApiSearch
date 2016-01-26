@@ -11,7 +11,7 @@ type FSharpApiSearchClient (apis: Api seq) =
   member this.Search(query: Query) =
     let initialEquations = Matcher.Equations.strict query
     apis
-    |> Seq.filter (fun api -> Matcher.matches query api.Signature initialEquations)
+    |> Seq.filter (fun api -> Matcher.matches query api initialEquations)
     |> Seq.cache
 
   member this.Search(query: string) = this.Search(QueryParser.parse query)

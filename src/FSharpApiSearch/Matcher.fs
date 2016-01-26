@@ -79,7 +79,12 @@ module Equations =
 
   let empty = { Equalities = []; Inequalities = [] }
 
-  let strict { Query = t } =
+  let strict query =
+    let t =
+      match query.Method with
+      | ByName (_, SignatureQuery s) -> s
+      | BySignature s -> s
+      | _ -> Unknown
     let nonEqualities =
       [
         let variables = Signature.collectUniqueVariables t |> List.sort
@@ -99,9 +104,13 @@ module MatchResult =
     | Some newEqs -> Success newEqs
     | None -> Failure
 
+  let toBool = function
+    | Success _ -> true
+    | Failure -> false
+
   let inline bind f = function Success x -> f x | Failure -> Failure
 
-let rec run (left: Signature) (right: Signature) (eqs: Equations): MatchResult =
+let rec matchesSignature (left: Signature) (right: Signature) (eqs: Equations): MatchResult =
   Debug.WriteLine(sprintf "begin test: %s, %s" (Signature.debugDisplay left) (Signature.debugDisplay right))
   Debug.Indent()
   try
@@ -150,7 +159,7 @@ and runGeneric (leftTypes: Signature list) (rightTypes: Signature list) (eqs: Eq
     Failure
   else
     List.zip leftTypes rightTypes
-    |> List.fold (fun result (left, right) -> MatchResult.bind (run left right) result) (Success eqs)
+    |> List.fold (fun result (left, right) -> MatchResult.bind (matchesSignature left right) result) (Success eqs)
 and attemptToAddEquality left right eqs =
   let left, right = Equations.sortTerm left right
   Debug.WriteLine(sprintf "test equaliity: %s = %s" (Signature.debugDisplay left) (Signature.debugDisplay right))
@@ -163,7 +172,7 @@ and attemptToAddEquality left right eqs =
     Debug.WriteLine(sprintf "It found known equalities of %s.: %A" (Signature.debugDisplay left) (List.map Equations.debugDisplayEquality leftEqualities))
     let result =
       leftEqualities
-      |> List.fold (fun result (_, x) -> MatchResult.bind (run right x) result) (Success eqs)
+      |> List.fold (fun result (_, x) -> MatchResult.bind (matchesSignature right x) result) (Success eqs)
       |> MatchResult.bind (Equations.tryAddEquality left right >> MatchResult.ofOption)
     Debug.WriteLine(
       match result with
@@ -171,7 +180,15 @@ and attemptToAddEquality left right eqs =
       | Failure -> sprintf "It failed to add the equality.: %s = %s" (Signature.debugDisplay left) (Signature.debugDisplay right))
     result
 
-let matches { Query = query } target initialEquations =
-  match run query target initialEquations with
-  | Success _ -> true
-  | Failure -> false
+let matchesName queryName targetApi =
+  let targetName = targetApi.Name.Split('.') |> Seq.last
+  queryName = targetName
+
+let matches query targetApi initialEquations =
+  let result =
+    match query.Method with
+    | ByName (name, _) when matchesName name targetApi = false -> Failure
+    | ByName (_, Wildcard) -> Success initialEquations
+    | ByName (_, SignatureQuery signature) 
+    | BySignature signature -> matchesSignature signature targetApi.Signature initialEquations
+  result |> MatchResult.toBool

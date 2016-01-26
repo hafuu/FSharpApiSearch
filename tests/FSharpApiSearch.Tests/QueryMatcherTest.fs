@@ -19,7 +19,7 @@ let expectedValue matchOpt expected =
   | WhenStrict b, Strict -> b
   | WhenStrict b, NoOption -> not b
 
-let matchTest =
+let signatureMatchTest =
   let patterns = [
     "int", "int", Always true
     "int", "string", Always false
@@ -83,9 +83,8 @@ let matchTest =
     })
     run (fun (matchOpt, query, target, expected) -> test {
       let query = QueryParser.parse query
-      let target =
-        let t = QueryParser.parse target
-        TestHelpers.updateSource Source.Target t.Query
+      let targetSig = QueryParser.parseSignature target |> TestHelpers.updateSource Source.Target
+      let target = { Name = "test"; Signature = targetSig }
       let initialEquations =
         match matchOpt with
         | Strict -> Matcher.Equations.strict query
@@ -93,3 +92,19 @@ let matchTest =
       do! Matcher.matches query target initialEquations |> assertEquals expected
     })
   }
+
+let nameMatchTest = parameterize {
+  source [
+    "map : _", "Microsoft.FSharp.Collections.List.map", "('a -> 'b) -> 'a list -> 'b list", true
+    "bind : _", "Microsoft.FSharp.Collections.List.map", "('a -> 'b) -> 'a list -> 'b list", false
+    "map : ('a -> 'b) -> 'a option -> 'b option", "Microsoft.FSharp.Core.Option.map", "('a -> 'b) -> 'a option -> 'b option", true
+    "map : ('a -> 'b) -> 'a option -> 'b option", "Microsoft.FSharp.Collections.List.map", "('a -> 'b) -> 'a list -> 'b list", false
+  ]
+  run (fun (query, targetName, targetSig, expected) -> test {
+    let query = QueryParser.parse query
+    let targetSig = QueryParser.parseSignature targetSig |> TestHelpers.updateSource Source.Target
+    let target = { Name = targetName; Signature = targetSig }
+    let actual = Matcher.matches query target (Matcher.Equations.strict query)
+    do! actual |> assertEquals expected
+  })
+}

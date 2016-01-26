@@ -46,9 +46,17 @@ module Signature =
 
   let rec debugDisplay = display' (fun source name -> match source with Query -> "'q" + name | Target -> "'t" + name)
 
+type SignaturePart =
+  | SignatureQuery of Signature
+  | Wildcard
+
+type QueryMethod =
+  | ByName of string * SignaturePart
+  | BySignature of Signature
+
 type Query = {
   OriginalString: string
-  Query: Signature
+  Method: QueryMethod
 }
 
 type Api = {

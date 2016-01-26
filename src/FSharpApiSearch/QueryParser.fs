@@ -3,45 +3,60 @@
 open FSharpApiSearch.Types
 open FParsec
 
-let name = regex @"\w+"
-
 let inline trim p = spaces >>. p .>> spaces
 let inline pcharAndTrim c = pchar c |> trim
 
-let query, queryRef = createParserForwardedToRef()
+module SignatureParser =
+  let name = regex @"\w+"
 
-let identity = name |>> (fun name -> Identity name) |> trim
-let variable = pchar ''' >>. name |>> (fun name -> Variable (Source.Query, name)) |> trim  
+  let signature, signatureRef = createParserForwardedToRef()
 
-let idOrVariable = attempt identity <|> variable
+  let identity = name |>> (fun name -> Identity name) |> trim
+  let variable = pchar ''' >>. name |>> (fun name -> Variable (Source.Query, name)) |> trim  
 
-let dotNetGeneric = idOrVariable .>>. between (pcharAndTrim '<') (pcharAndTrim '>') (sepBy1 query (pchar ',')) |>> (fun (id, parameter) -> Generic (id, parameter))
+  let idOrVariable = attempt identity <|> variable
 
-let term1 =
-  choice [
-    attempt dotNetGeneric
-    attempt (between (pcharAndTrim '(') (pcharAndTrim ')') query)
-    idOrVariable
-  ]
+  let dotNetGeneric = idOrVariable .>>. between (pcharAndTrim '<') (pcharAndTrim '>') (sepBy1 signature (pchar ',')) |>> (fun (id, parameter) -> Generic (id, parameter))
+
+  let term1 =
+    choice [
+      attempt dotNetGeneric
+      attempt (between (pcharAndTrim '(') (pcharAndTrim ')') signature)
+      idOrVariable
+    ]
   
-let mlMultiGenericParameter = between (pcharAndTrim '(') (pcharAndTrim ')') (sepBy1 query (pchar ','))
-let mlSingleGenericParameter = term1 |>> List.singleton
-let mlGenericParameter = attempt mlMultiGenericParameter <|> mlSingleGenericParameter
-let mlGeneric = mlGenericParameter .>>. idOrVariable |>> (fun (parameter, id) -> Generic (id, parameter))
+  let mlMultiGenericParameter = between (pcharAndTrim '(') (pcharAndTrim ')') (sepBy1 signature (pchar ','))
+  let mlSingleGenericParameter = term1 |>> List.singleton
+  let mlGenericParameter = attempt mlMultiGenericParameter <|> mlSingleGenericParameter
+  let mlGeneric = mlGenericParameter .>>. idOrVariable |>> (fun (parameter, id) -> Generic (id, parameter))
 
-let term2 = choice [ attempt mlGeneric; term1 ]
+  let term2 = choice [ attempt mlGeneric; term1 ]
 
-let maybeTuple t = sepBy1 t (pstring "*") |>> function [ x ] -> x | xs -> Tuple xs
+  let maybeTuple t = sepBy1 t (pstring "*") |>> function [ x ] -> x | xs -> Tuple xs
 
-let term3 = maybeTuple term2
+  let term3 = maybeTuple term2
 
-let maybeArrow t = sepBy1 t (pstring "->") |>> function [ x ] -> x | xs -> Arrow xs
+  let maybeArrow t = sepBy1 t (pstring "->") |>> function [ x ] -> x | xs -> Arrow xs
 
-let term4 = maybeArrow term3
+  let term4 = maybeArrow term3
 
-do queryRef := term4
+  do signatureRef := term4
+
+let memberName = many1 (letter <|> anyOf "_'") |> trim |>> (fun xs -> System.String(Array.ofList xs))
+let wildcard = pstring "_" |> trim >>% Wildcard
+
+let wildCardOrSignature = attempt wildcard <|> (SignatureParser.signature |>> SignatureQuery)
+let nameQuery = memberName .>> pstring ":" .>>. wildCardOrSignature |>> (fun (name, sigPart) -> ByName (name, sigPart))
+
+let signatureQuery = SignatureParser.signature |>> BySignature
+let query = attempt nameQuery <|> signatureQuery
+
+let parseSignature (sigStr: string) =
+  match runParserOnString (SignatureParser.signature .>> eof) () "" sigStr with
+  | Success (s, _, _) -> s
+  | Failure (msg, _, _) -> failwithf "%s" msg
 
 let parse (queryStr: string) =
   match runParserOnString (query .>> eof) () "" queryStr with
-  | Success (q, _, _) -> { OriginalString = queryStr; Query = q }
+  | Success (query, _, _) -> { OriginalString = queryStr; Method = query }
   | Failure (msg, _, _) -> failwithf "%s" msg
