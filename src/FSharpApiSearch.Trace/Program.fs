@@ -13,7 +13,7 @@ let rec updateSource newSource = function
 let matchAndShowResult (query: string) (target: string) =
   let query = QueryParser.parse query
   let target = { Name = "test"; Signature = QueryParser.parseSignature target |> updateSource Source.Target }
-  let result = Matcher.matches query target (Matcher.Equations.strict query)
+  let result = Matcher.matches query target (Matcher.Context.initialize (Matcher.Equations.strict query)) |> Matcher.MatchResult.toBool
   printfn "result: %b" result
 
 [<EntryPoint>]

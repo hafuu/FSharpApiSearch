@@ -85,11 +85,14 @@ let signatureMatchTest =
       let query = QueryParser.parse query
       let targetSig = QueryParser.parseSignature target |> TestHelpers.updateSource Source.Target
       let target = { Name = "test"; Signature = targetSig }
-      let initialEquations =
-        match matchOpt with
-        | Strict -> Matcher.Equations.strict query
-        | NoOption -> Matcher.Equations.empty 
-      do! Matcher.matches query target initialEquations |> assertEquals expected
+      let initialContext =
+        let eqs =
+          match matchOpt with
+          | Strict -> Matcher.Equations.strict query
+          | NoOption -> Matcher.Equations.empty
+        Matcher.Context.initialize eqs
+        
+      do! Matcher.matches query target initialContext |> Matcher.MatchResult.toBool |> assertEquals expected
     })
   }
 
@@ -104,7 +107,33 @@ let nameMatchTest = parameterize {
     let query = QueryParser.parse query
     let targetSig = QueryParser.parseSignature targetSig |> TestHelpers.updateSource Source.Target
     let target = { Name = targetName; Signature = targetSig }
-    let actual = Matcher.matches query target (Matcher.Equations.strict query)
+    let actual = Matcher.matches query target (Matcher.Context.initialize (Matcher.Equations.strict query)) |> Matcher.MatchResult.toBool
     do! actual |> assertEquals expected
+  })
+}
+
+let distanceTest = parameterize {
+  source [
+    "int", "int", 0
+    "'a", "int", 1
+    "int -> string", "'a -> 'b", 2
+    "'a", "'b", 0
+    "'a", "list<int>", 1
+    "'a", "int -> string", 2
+    "'a", "int -> int -> int", 3
+    "'a", "(int -> int) -> int -> int", 4
+    "('a -> 'b) -> 'a list -> 'b list", "('T -> 'U) -> 'T list -> 'U list", 0
+    "('a -> 'b) -> 'a list -> 'b list", "('T -> 'U) -> 'T list -> 'T", 1 // 'b list ant 'T
+  ]
+  run (fun (query, targetSig, expected) -> test {
+    let query = QueryParser.parse query
+    let targetSig = QueryParser.parseSignature targetSig |> TestHelpers.updateSource Source.Target
+    let target = { Name = "test"; Signature = targetSig }
+    let result = Matcher.matches query target (Matcher.Context.initialize (Matcher.Equations.strict query))
+    match result with
+    | Matcher.Success { Distance = actual} ->
+      do! actual |> assertEquals expected
+    | Matcher.Failure ->
+      do! fail "not matched"
   })
 }

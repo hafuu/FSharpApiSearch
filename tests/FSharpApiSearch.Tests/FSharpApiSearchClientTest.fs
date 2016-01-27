@@ -26,7 +26,7 @@ let searchTest = parameterize {
   ]
   run (fun (query, expecteds) -> test {
     let! client = testClient
-    let actual = client.Search(query) |> Seq.map (fun x -> x.Name) |> Seq.toList
+    let actual = client.Search(query) |> Seq.map (fun x -> x.Api.Name) |> Seq.toList
     do! actual |> assertEquals expecteds
   })
 }

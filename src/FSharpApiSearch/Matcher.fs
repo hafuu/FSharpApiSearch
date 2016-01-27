@@ -8,6 +8,22 @@ type Equations = {
   Inequalities: (Signature * Signature) list
 }
 
+type Context = {
+  Distance: int
+  Equations: Equations
+}
+
+type MatchResult =
+  | Success of Context
+  | Failure
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module Context =
+  let setEquations eqs ctx = { ctx with Equations = eqs }
+  let addDistance x (ctx: Context) = { ctx with Distance = ctx.Distance + x }
+
+  let initialize eqs = { Distance = 0; Equations = eqs }
+
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Equations =
   let debugDisplayEquality (left, right) = Signature.debugDisplay left + " = " + Signature.debugDisplay right
@@ -70,12 +86,14 @@ module Equations =
           false)
     | _ -> false
 
-  let tryAddEquality left right eqs =
+  let tryAddEquality left right (ctx: Context) =
     let left, right = sortTerm left right
-    if testInequality left right eqs then
-      Some { eqs with Equalities = (left, right) :: eqs.Equalities }
+    if testInequality left right ctx.Equations then
+      let eqs = ctx.Equations
+      let newEqs = { eqs with Equalities = (left, right) :: eqs.Equalities }
+      Success (Context.setEquations newEqs ctx)
     else
-      None
+      Failure
 
   let empty = { Equalities = []; Inequalities = [] }
 
@@ -94,23 +112,28 @@ module Equations =
       ]
     { Equalities = []; Inequalities = nonEqualities }
 
-type MatchResult =
-  | Success of Equations
-  | Failure
-
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module MatchResult =
-  let ofOption = function
-    | Some newEqs -> Success newEqs
-    | None -> Failure
-
   let toBool = function
     | Success _ -> true
     | Failure -> false
 
   let inline bind f = function Success x -> f x | Failure -> Failure
+  let inline map f = function Success x -> Success (f x) | Failure -> Failure
 
-let rec matchesSignature (left: Signature) (right: Signature) (eqs: Equations): MatchResult =
+  let distance = function
+    | Success { Distance = distance } -> distance
+    | Failure -> System.Int32.MaxValue
+
+let rec distanceFromVariable = function
+  | Identity _ -> 1
+  | Variable _ -> 0
+  | Generic _ -> 1
+  | Tuple _ -> 1
+  | Arrow xs -> List.sumBy (distanceFromVariable >> max 1) xs
+  | Unknown -> 0
+
+let rec matchesSignature (left: Signature) (right: Signature) (ctx: Context): MatchResult =
   Debug.WriteLine(sprintf "begin test: %s, %s" (Signature.debugDisplay left) (Signature.debugDisplay right))
   Debug.Indent()
   try
@@ -122,58 +145,59 @@ let rec matchesSignature (left: Signature) (right: Signature) (eqs: Equations): 
       Debug.WriteLine("identity type")
       if leftName = rightName then
         Debug.WriteLine("There are same identities.")
-        Success eqs
+        Success ctx
       else
         Debug.WriteLine("There are deferent identities.")
         Failure
     | Arrow leftTypes, Arrow rightTypes ->
       Debug.WriteLine("arrow type")
-      runGeneric leftTypes rightTypes eqs
+      runGeneric leftTypes rightTypes ctx
     | Generic (leftId, leftParams), Generic (rightId, rightParams) ->
       Debug.WriteLine("generic type")
-      runGeneric (leftId :: leftParams) (rightId :: rightParams) eqs
+      runGeneric (leftId :: leftParams) (rightId :: rightParams) ctx
     | Tuple leftTypes, Tuple rightTypes ->
       Debug.WriteLine("tuple type")
-      runGeneric leftTypes rightTypes eqs
+      runGeneric leftTypes rightTypes ctx
     | Variable _, Variable _ ->
       Debug.WriteLine("both variable")
-      Debug.WriteLine(sprintf "equations: %s" (Equations.debugDisplay eqs))
-      if Equations.containsEquality left right eqs then
+      Debug.WriteLine(sprintf "equations: %s" (Equations.debugDisplay ctx.Equations))
+      if Equations.containsEquality left right ctx.Equations then
         Debug.WriteLine("The equality already exists.")
-        Success eqs
+        Success ctx
       else
-        attemptToAddEquality left right eqs
+        attemptToAddEquality left right ctx
     | (Variable _ as left), right
     | right, (Variable _ as left) ->
       Debug.WriteLine("either variable or other")
-      Debug.WriteLine(sprintf "equations: %s" (Equations.debugDisplay eqs))
-      attemptToAddEquality left right eqs
+      Debug.WriteLine(sprintf "equations: %s" (Equations.debugDisplay ctx.Equations))
+      attemptToAddEquality left right ctx
+      |> MatchResult.map (Context.addDistance (distanceFromVariable right))
     | _ ->
       Failure
   finally
     Debug.Unindent()
-and runGeneric (leftTypes: Signature list) (rightTypes: Signature list) (eqs: Equations): MatchResult =
+and runGeneric (leftTypes: Signature list) (rightTypes: Signature list) (ctx: Context): MatchResult =
   Debug.WriteLine(sprintf "test parameters: %A, %A" (List.map Signature.debugDisplay leftTypes) (List.map Signature.debugDisplay rightTypes))
   if leftTypes.Length <> rightTypes.Length then
     Debug.WriteLine("The number of the parameters is different.")
     Failure
   else
     List.zip leftTypes rightTypes
-    |> List.fold (fun result (left, right) -> MatchResult.bind (matchesSignature left right) result) (Success eqs)
-and attemptToAddEquality left right eqs =
+    |> List.fold (fun result (left, right) -> MatchResult.bind (matchesSignature left right) result) (Success ctx)
+and attemptToAddEquality left right (ctx: Context) =
   let left, right = Equations.sortTerm left right
   Debug.WriteLine(sprintf "test equaliity: %s = %s" (Signature.debugDisplay left) (Signature.debugDisplay right))
   if Equations.isRecirsive left right then
     Failure
-  elif Equations.isCircular left right eqs then
+  elif Equations.isCircular left right ctx.Equations then
     Failure
   else
-    let leftEqualities = eqs |> Equations.findEqualities left
+    let leftEqualities = ctx.Equations |> Equations.findEqualities left
     Debug.WriteLine(sprintf "It found known equalities of %s.: %A" (Signature.debugDisplay left) (List.map Equations.debugDisplayEquality leftEqualities))
     let result =
       leftEqualities
-      |> List.fold (fun result (_, x) -> MatchResult.bind (matchesSignature right x) result) (Success eqs)
-      |> MatchResult.bind (Equations.tryAddEquality left right >> MatchResult.ofOption)
+      |> List.fold (fun result (_, x) -> MatchResult.bind (matchesSignature right x) result) (Success ctx)
+      |> MatchResult.bind (Equations.tryAddEquality left right)
     Debug.WriteLine(
       match result with
       | Success _ -> sprintf "It was added the equality.: %s = %s" (Signature.debugDisplay left) (Signature.debugDisplay right)
@@ -191,4 +215,4 @@ let matches query targetApi initialEquations =
     | ByName (_, Wildcard) -> Success initialEquations
     | ByName (_, SignatureQuery signature) 
     | BySignature signature -> matchesSignature signature targetApi.Signature initialEquations
-  result |> MatchResult.toBool
+  result

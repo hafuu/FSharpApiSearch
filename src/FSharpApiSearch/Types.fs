@@ -63,3 +63,8 @@ type Api = {
   Name: string
   Signature: Signature
 }
+
+type SearchResult = {
+  Distance: int
+  Api: Api
+}

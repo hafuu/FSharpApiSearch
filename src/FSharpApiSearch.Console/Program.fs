@@ -1,13 +1,17 @@
 ﻿open FSharpApiSearch
 open FSharpApiSearch.Types
 open System.Diagnostics
+open System
 
 let searchAndShowResult (client: FSharpApiSearchClient) (query: string) =
   let sw = Stopwatch.StartNew()
   let results = client.Search(query)
   results
   |> Seq.iter (fun x ->
-    printfn "%s: %s" x.Name (Signature.display x.Signature)
+    Console.Write(sprintf "%s: %s" x.Api.Name (Signature.display x.Api.Signature))
+    Console.ForegroundColor <- ConsoleColor.DarkGray
+    Console.WriteLine(sprintf ", distance: %d" x.Distance)
+    Console.ResetColor()
   )
   sw.Stop()
   printfn "total %d [ms]" sw.ElapsedMilliseconds
