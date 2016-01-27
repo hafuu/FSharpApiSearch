@@ -7,6 +7,7 @@ let searchAndShowResult (client: FSharpApiSearchClient) (query: string) =
   let sw = Stopwatch.StartNew()
   let results = client.Search(query)
   results
+  |> Seq.filter (fun x -> x.Distance < 3)
   |> Seq.iter (fun x ->
     Console.Write(sprintf "%s: %s" x.Api.Name (Signature.display x.Api.Signature))
     Console.ForegroundColor <- ConsoleColor.DarkGray
