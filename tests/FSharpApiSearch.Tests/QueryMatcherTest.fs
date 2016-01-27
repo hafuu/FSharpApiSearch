@@ -124,6 +124,10 @@ let distanceTest = parameterize {
     "'a", "(int -> int) -> int -> int", 4
     "('a -> 'b) -> 'a list -> 'b list", "('T -> 'U) -> 'T list -> 'U list", 0
     "('a -> 'b) -> 'a list -> 'b list", "('T -> 'U) -> 'T list -> 'T", 1 // 'b list ant 'T
+
+    // bug #16
+    "('a * string) -> string", "('a * 'b) -> 'b", 1
+    "('a * string) -> string", "('a * 'b) -> 'a", 2
   ]
   run (fun (query, targetSig, expected) -> test {
     let query = QueryParser.parse query

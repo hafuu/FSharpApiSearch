@@ -20,7 +20,10 @@ type MatchResult =
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Context =
   let setEquations eqs ctx = { ctx with Equations = eqs }
-  let addDistance x (ctx: Context) = { ctx with Distance = ctx.Distance + x }
+  let addDistance x (ctx: Context) =
+    let newDistance = ctx.Distance + x
+    Debug.WriteLine(sprintf "Update distance from %d to %d" ctx.Distance newDistance)
+    { ctx with Distance = newDistance }
 
   let initialize eqs = { Distance = 0; Equations = eqs }
 
@@ -170,8 +173,12 @@ let rec matchesSignature (left: Signature) (right: Signature) (ctx: Context): Ma
     | right, (Variable _ as left) ->
       Debug.WriteLine("either variable or other")
       Debug.WriteLine(sprintf "equations: %s" (Equations.debugDisplay ctx.Equations))
-      attemptToAddEquality left right ctx
-      |> MatchResult.map (Context.addDistance (distanceFromVariable right))
+      if Equations.containsEquality left right ctx.Equations then
+        Debug.WriteLine("The equality already exists.")
+        Success ctx
+      else
+        attemptToAddEquality left right ctx
+        |> MatchResult.map (Context.addDistance (distanceFromVariable right))
     | _ ->
       Failure
   finally
