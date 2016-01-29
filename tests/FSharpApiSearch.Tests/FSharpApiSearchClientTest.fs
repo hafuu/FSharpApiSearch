@@ -20,13 +20,13 @@ let testClient = test {
 
 let searchTest = parameterize {
   source [
-    "int -> int -> int", [ "TestModule.f" ]
-    "int -> int -> 'a", [ "TestModule.f"; "TestModule.h" ]
-    "'a -> 'a -> 'a", [ "TestModule.f"; "TestModule.g" ]
+    "int -> int -> int", [ "TestModule.f"; "TestModule.TestClass.f" ]
+    "int -> int -> 'a", [ "TestModule.f"; "TestModule.h"; "TestModule.TestClass.f"; "TestModule.TestClass.h" ]
+    "'a -> 'a -> 'a", [ "TestModule.f"; "TestModule.g"; "TestModule.TestClass.f"; "TestModule.TestClass.g" ]
   ]
   run (fun (query, expecteds) -> test {
     let! client = testClient
-    let actual = client.Search(query) |> Seq.map (fun x -> x.Api.Name) |> Seq.toList
-    do! actual |> assertEquals expecteds
+    let actual = client.Search(query) |> Seq.map (fun x -> x.Api.Name) |> Seq.toList |> List.sort
+    do! actual |> assertEquals (List.sort expecteds)
   })
 }

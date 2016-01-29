@@ -72,6 +72,11 @@
     <Compile Include="FSharpApiSearchClientTest.fs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\CSharpLoadTestAssembly\CSharpLoadTestAssembly.csproj">
+      <Name>CSharpLoadTestAssembly</Name>
+      <Project>{6273542c-01f5-4ebf-8aab-9fcaa96bea62}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\LoadTestAssembly\LoadTestAssembly.fsproj">
       <Name>LoadTestAssembly</Name>
       <Project>{c05f3812-b549-4220-9853-eb4bbbf6c78b}</Project>

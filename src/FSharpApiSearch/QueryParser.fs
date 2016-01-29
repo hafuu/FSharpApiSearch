@@ -6,26 +6,26 @@ open FParsec
 let inline trim p = spaces >>. p .>> spaces
 let inline pcharAndTrim c = pchar c |> trim
 
-module SignatureParser =
+module FSharpSignatureParser =
   let name = regex @"\w+"
 
-  let signature, signatureRef = createParserForwardedToRef()
+  let fsharpSignature, fsharpSignatureRef = createParserForwardedToRef()
 
   let identity = name |>> (fun name -> Identity name) |> trim
   let variable = pchar ''' >>. name |>> (fun name -> Variable (Source.Query, name)) |> trim  
 
   let idOrVariable = attempt identity <|> variable
 
-  let dotNetGeneric = idOrVariable .>>. between (pcharAndTrim '<') (pcharAndTrim '>') (sepBy1 signature (pchar ',')) |>> (fun (id, parameter) -> Generic (id, parameter))
+  let dotNetGeneric = idOrVariable .>>. between (pcharAndTrim '<') (pcharAndTrim '>') (sepBy1 fsharpSignature (pchar ',')) |>> (fun (id, parameter) -> Generic (id, parameter))
 
   let term1 =
     choice [
       attempt dotNetGeneric
-      attempt (between (pcharAndTrim '(') (pcharAndTrim ')') signature)
+      attempt (between (pcharAndTrim '(') (pcharAndTrim ')') fsharpSignature)
       idOrVariable
     ]
   
-  let mlMultiGenericParameter = between (pcharAndTrim '(') (pcharAndTrim ')') (sepBy1 signature (pchar ','))
+  let mlMultiGenericParameter = between (pcharAndTrim '(') (pcharAndTrim ')') (sepBy1 fsharpSignature (pchar ','))
   let mlSingleGenericParameter = term1 |>> List.singleton
   let mlGenericParameter = attempt mlMultiGenericParameter <|> mlSingleGenericParameter
   let mlGeneric = mlGenericParameter .>>. idOrVariable |>> (fun (parameter, id) -> Generic (id, parameter))
@@ -40,19 +40,19 @@ module SignatureParser =
 
   let term4 = maybeArrow term3
 
-  do signatureRef := term4
+  do fsharpSignatureRef := term4
 
 let memberName = many1 (letter <|> anyOf "_'") |> trim |>> (fun xs -> System.String(Array.ofList xs))
 let wildcard = pstring "_" |> trim >>% Wildcard
 
-let wildCardOrSignature = attempt wildcard <|> (SignatureParser.signature |>> SignatureQuery)
+let wildCardOrSignature = attempt wildcard <|> (FSharpSignatureParser.fsharpSignature |>> SignatureQuery)
 let nameQuery = memberName .>> pstring ":" .>>. wildCardOrSignature |>> (fun (name, sigPart) -> ByName (name, sigPart))
 
-let signatureQuery = SignatureParser.signature |>> BySignature
+let signatureQuery = FSharpSignatureParser.fsharpSignature |>> BySignature
 let query = attempt nameQuery <|> signatureQuery
 
-let parseSignature (sigStr: string) =
-  match runParserOnString (SignatureParser.signature .>> eof) () "" sigStr with
+let parseFSharpSignature (sigStr: string) =
+  match runParserOnString (FSharpSignatureParser.fsharpSignature .>> eof) () "" sigStr with
   | Success (s, _, _) -> s
   | Failure (msg, _, _) -> failwithf "%s" msg
 

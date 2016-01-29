@@ -8,11 +8,12 @@ let rec updateSource newSource = function
   | Arrow xs -> Arrow (List.map (updateSource newSource) xs)
   | Generic (id, xs) -> Generic (id, List.map (updateSource newSource) xs)
   | Tuple xs -> Tuple (List.map (updateSource newSource) xs)
+  | StaticMethod (xs, y) -> StaticMethod (List.map (updateSource newSource) xs, updateSource newSource y)
   | Unknown as x -> x
 
 let matchAndShowResult (query: string) (target: string) =
   let query = QueryParser.parse query
-  let target = { Name = "test"; Signature = QueryParser.parseSignature target |> updateSource Source.Target }
+  let target = { Name = "test"; Signature = QueryParser.parseFSharpSignature target |> updateSource Source.Target }
   let result = Matcher.matches query target (Matcher.Context.initialize (Matcher.Equations.strict query)) |> Matcher.MatchResult.toBool
   printfn "result: %b" result
 

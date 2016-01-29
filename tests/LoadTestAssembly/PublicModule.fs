@@ -16,5 +16,7 @@ let private privateFunction x y = y
 
 let value = 3
 
+let floatReturnType (x: int): float = 0.0
+
 module NestedModule =
   let publicFunction (x: int) = 3

@@ -8,6 +8,7 @@ type Signature =
   | Arrow of Signature list
   | Generic of Signature * Signature list
   | Tuple of Signature list
+  | StaticMethod of arguments: Signature list * returnType: Signature
   | Unknown
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -17,6 +18,7 @@ module Signature =
     | (Tuple xs | Arrow xs) -> List.collect collectVariables' xs
     | Identity _ -> []
     | Generic (x, ys) -> List.collect collectVariables' (x :: ys)
+    | StaticMethod (parameters, returnType) -> List.collect collectVariables' (returnType :: parameters)
     | Unknown -> []
 
   let collectVariables t = collectVariables' t
@@ -40,6 +42,7 @@ module Signature =
         | Tuple _ as t -> sprintf "(%s)" (display' prefix t)
         | x -> display' prefix x)
       |> String.concat " * "
+    | StaticMethod (parameters, returnType) -> sprintf "%s -> %s" (display' prefix (Tuple parameters)) (display' prefix returnType)
     | Unknown -> "Unknown"
 
   let rec display = display' (fun _ name -> "'" + name)

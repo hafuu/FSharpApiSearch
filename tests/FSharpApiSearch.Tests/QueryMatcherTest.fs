@@ -83,7 +83,7 @@ let signatureMatchTest =
     })
     run (fun (matchOpt, query, target, expected) -> test {
       let query = QueryParser.parse query
-      let targetSig = QueryParser.parseSignature target |> TestHelpers.updateSource Source.Target
+      let targetSig = QueryParser.parseFSharpSignature target |> TestHelpers.updateSource Source.Target
       let target = { Name = "test"; Signature = targetSig }
       let initialContext =
         let eqs =
@@ -96,6 +96,21 @@ let signatureMatchTest =
     })
   }
 
+let staticMethodMatchTest = parameterize {
+  source [
+    "'a -> 'b", "'a -> 'b", true
+    "'a -> 'b -> 'c", "'a * 'b -> 'c", true
+    "'a -> 'b -> 'c", "'a * 'b * 'c -> 'd", false
+  ]
+  run (fun (query, targetSig, expected) -> test {
+    let query = QueryParser.parse query
+    let targetSig = targetSig |> QueryParser.parseFSharpSignature |> TestHelpers.updateSource Source.Target |> TestHelpers.toStaticMethod
+    let target = { Name = "test"; Signature = targetSig }
+    let actual = Matcher.matches query target (Matcher.Context.initialize (Matcher.Equations.strict query)) |> Matcher.MatchResult.toBool
+    do! actual |> assertEquals expected
+  })
+}
+
 let nameMatchTest = parameterize {
   source [
     "map : _", "Microsoft.FSharp.Collections.List.map", "('a -> 'b) -> 'a list -> 'b list", true
@@ -105,7 +120,7 @@ let nameMatchTest = parameterize {
   ]
   run (fun (query, targetName, targetSig, expected) -> test {
     let query = QueryParser.parse query
-    let targetSig = QueryParser.parseSignature targetSig |> TestHelpers.updateSource Source.Target
+    let targetSig = QueryParser.parseFSharpSignature targetSig |> TestHelpers.updateSource Source.Target
     let target = { Name = targetName; Signature = targetSig }
     let actual = Matcher.matches query target (Matcher.Context.initialize (Matcher.Equations.strict query)) |> Matcher.MatchResult.toBool
     do! actual |> assertEquals expected
@@ -131,7 +146,7 @@ let distanceTest = parameterize {
   ]
   run (fun (query, targetSig, expected) -> test {
     let query = QueryParser.parse query
-    let targetSig = QueryParser.parseSignature targetSig |> TestHelpers.updateSource Source.Target
+    let targetSig = QueryParser.parseFSharpSignature targetSig |> TestHelpers.updateSource Source.Target
     let target = { Name = "test"; Signature = targetSig }
     let result = Matcher.matches query target (Matcher.Context.initialize (Matcher.Equations.strict query))
     match result with

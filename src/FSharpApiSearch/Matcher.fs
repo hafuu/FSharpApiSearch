@@ -134,7 +134,10 @@ let rec distanceFromVariable = function
   | Generic _ -> 1
   | Tuple _ -> 1
   | Arrow xs -> List.sumBy (distanceFromVariable >> max 1) xs
+  | StaticMethod (xs, y) -> List.sumBy (distanceFromVariable >> max 1) (y :: xs)
   | Unknown -> 0
+
+let addLast x xs = [ yield! xs; yield x ]
 
 let rec matchesSignature (left: Signature) (right: Signature) (ctx: Context): MatchResult =
   Debug.WriteLine(sprintf "begin test: %s, %s" (Signature.debugDisplay left) (Signature.debugDisplay right))
@@ -155,6 +158,13 @@ let rec matchesSignature (left: Signature) (right: Signature) (ctx: Context): Ma
     | Arrow leftTypes, Arrow rightTypes ->
       Debug.WriteLine("arrow type")
       runGeneric leftTypes rightTypes ctx
+    | Arrow arrowTypes, StaticMethod (methodArguments, returnType)
+    | StaticMethod (methodArguments, returnType), Arrow arrowTypes ->
+      Debug.WriteLine("static method and arrow")
+      runGeneric arrowTypes (addLast returnType methodArguments) ctx
+    | StaticMethod (leftArguments, leftReturnType), StaticMethod (rightArguments, rightReturnType) ->
+      Debug.WriteLine("both static method")
+      runGeneric (leftReturnType :: leftArguments) (rightReturnType :: rightArguments) ctx
     | Generic (leftId, leftParams), Generic (rightId, rightParams) ->
       Debug.WriteLine("generic type")
       runGeneric (leftId :: leftParams) (rightId :: rightParams) ctx

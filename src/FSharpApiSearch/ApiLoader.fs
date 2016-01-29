@@ -4,6 +4,8 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open System.IO
 open FSharpApiSearch.Types
 
+let toAssemblyName assemblyPath = Path.GetFileName(assemblyPath).Replace(".dll", "")
+
 let loadAssembly references =
   let checker = FSharpChecker.Create()
   let base1 = Path.GetTempFileName()
@@ -35,16 +37,33 @@ let loadAssembly references =
               [ syslib "mscorlib" 
                 syslib "System"
                 syslib "System.Core"
+                syslib "System.Xml"
+                syslib "System.Configuration"
                 fscore4400 ]
             for r in defaultReferences do 
               yield "-r:" + r
             for a in references do
               yield "-r:" + a |]
       )
+  let targetAssemblies = [
+    yield "mscorlib"
+    yield "System"
+    yield "System.Core"
+    yield "FSharp.Core"
+    yield! references |> Seq.map toAssemblyName
+  ]
+
   let refAssemblies =
     let x = checker.ParseAndCheckProject(options) |> Async.RunSynchronously
     x.ProjectContext.GetReferencedAssemblies()
   refAssemblies
+  |> List.filter (fun x -> List.exists ((=)x.SimpleName) targetAssemblies)
+
+let genericArguments (t: FSharpType) =
+  if t.HasTypeDefinition && t.TypeDefinition.DisplayName = "float" then
+    t.GenericArguments |> Seq.filter (fun x -> not x.HasTypeDefinition || (x.HasTypeDefinition && x.TypeDefinition.DisplayName <> "MeasureOne"))
+  else
+    t.GenericArguments :> _ seq
 
 let rec toSignature (t: FSharpType) =
   if t.IsFunctionType then
@@ -54,10 +73,10 @@ let rec toSignature (t: FSharpType) =
   elif t.IsGenericParameter then
     Variable (Target, t.GenericParameter.Name)
   elif t.HasTypeDefinition then
-    let name = t.TypeDefinition.DisplayName
-    match List.ofSeq t.GenericArguments with
-    | [] -> Identity name
-    | xs -> Generic (Identity name, List.map toSignature xs)
+    let args = genericArguments t
+    match List.ofSeq args with
+    | [] -> identity t.TypeDefinition
+    | xs -> Generic (identity t.TypeDefinition, List.map toSignature xs)
   else
     Unknown
 and toFlatArrow (t: FSharpType) xs =
@@ -65,20 +84,68 @@ and toFlatArrow (t: FSharpType) xs =
   | [ x; y ] when y.IsFunctionType -> toSignature x :: toFlatArrow y xs
   | [ x; y ] -> toSignature x :: toSignature y :: xs
   | _ -> Unknown :: xs
+and identity (e: FSharpEntity) = Identity e.DisplayName
 
-    
-let toApi (x: FSharpMemberOrFunctionOrValue) = { Name = x.FullName; Signature = toSignature x.FullType; }
+let isStaticMember (x: FSharpMemberOrFunctionOrValue) = not x.IsInstanceMember
+let isMethod (x: FSharpMemberOrFunctionOrValue) = x.FullType.IsFunctionType && not x.IsPropertyGetterMethod && not x.IsPropertySetterMethod
 
-let rec collectFromModule (e: FSharpEntity): Api seq = seq {
-  if e.IsFSharpModule then
+let internal staticMethodSignature' returnTypeSignature (t: FSharpType) =
+  match List.ofSeq t.GenericArguments with
+  | [ parameters; returnType ] ->
+    let parameters =
+      if parameters.IsTupleType then
+        parameters.GenericArguments |> Seq.map toSignature |> Seq.toList
+      else
+        [ toSignature parameters ]
+    let returnType = returnTypeSignature returnType
+    StaticMethod (parameters, returnType)
+  | _ -> Unknown
+
+let staticMethodSignature = staticMethodSignature' toSignature
+
+module CSharp =
+  let constructorName = ".ctor"
+  let isConstructor (x: FSharpMemberOrFunctionOrValue) = x.DisplayName = constructorName
+  let constructorSignature (declaringType: FSharpEntity) = staticMethodSignature' (fun _ -> identity declaringType)
+  
+let toFSharpApi (x: FSharpMemberOrFunctionOrValue) = { Name = x.FullName; Signature = toSignature x.FullType; }
+
+let toClassMemberApi (declaringType: FSharpEntity) (x: FSharpMemberOrFunctionOrValue) =
+  if CSharp.isConstructor x then
+    { Name = declaringType.FullName; Signature = CSharp.constructorSignature declaringType x.FullType }
+  elif isStaticMember x && isMethod x then
+    { Name = x.FullName; Signature = staticMethodSignature x.FullType }
+  else
+    { Name = x.FullName; Signature = Unknown }
+
+let rec collectApi' (e: FSharpEntity): Api seq =
+  seq {
+    if e.IsNamespace then
+      yield! collectFromNestedEntities e
+    if e.IsFSharpModule then
+      yield! collectFromModule e
+    if e.IsClass then
+      yield! collectFromClass e
+  }
+and collectFromModule (e: FSharpEntity): Api seq =
+  seq {
     yield! e.MembersFunctionsAndValues
-           |> Seq.filter (fun x -> x.Accessibility.IsPublic)
-           |> Seq.map toApi
-           |> Seq.filter (fun x -> x.Signature <> Unknown)
-    yield! e.NestedEntities |> Seq.collect collectFromModule
-}
+            |> Seq.filter (fun x -> x.Accessibility.IsPublic)
+            |> Seq.map toFSharpApi
+            |> Seq.filter (fun x -> x.Signature <> Unknown)
+    yield! collectFromNestedEntities e
+  }
+and collectFromClass (e: FSharpEntity): Api seq =
+  seq {
+    yield! e.MembersFunctionsAndValues
+            |> Seq.filter (fun x -> x.Accessibility.IsPublic)
+            |> Seq.map (toClassMemberApi e)
+            |> Seq.filter (fun x -> x.Signature <> Unknown)
+    yield! collectFromNestedEntities e
+  }
+and collectFromNestedEntities (e: FSharpEntity): Api seq = seq { for ne in e.NestedEntities do yield! collectApi' ne }
   
 let collectApi (assembly: FSharpAssembly): Api seq =
   assembly.Contents.Entities
-  |> Seq.collect collectFromModule
+  |> Seq.collect collectApi'
   |> Seq.cache
