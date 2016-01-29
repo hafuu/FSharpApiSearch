@@ -16,7 +16,19 @@ module BySignature =
   let parseTest = parameterize {
     source [
       "a", (identity "a")
+      "!a", (strongIdentity "a")
       "'a", (variable "a")
+      "!'a", (strongVariable "a")
+    ]
+    run runParseTest
+  }
+
+  let wildcardTest = parameterize {
+    source [
+      "?", (wildcard)
+      "?a", (wildcardGroup "a")
+      "? -> ?", (arrow [ wildcard; wildcard ])
+      "a<?, ?b>", (generic (identity "a") [ wildcard; wildcardGroup "b" ])
     ]
     run runParseTest
   }
@@ -34,6 +46,8 @@ module BySignature =
     source [
       "a<b, c>", (generic (identity "a") [ identity "b"; identity "c" ])
       "'a -> b<c, d> -> d", (arrow [ variable "a"; generic (identity "b") [ identity "c"; identity "d" ]; identity "d" ])
+      "?<b, c>", (generic (wildcard) [ identity "b"; identity "c" ])
+      "?a<b, c>", (generic (WildcardGroup "a") [ identity "b"; identity "c" ])
     ]
     run runParseTest
   }
@@ -46,6 +60,8 @@ module BySignature =
       "(a, b) c -> d", (arrow [ generic (identity "c") [ identity "a"; identity "b" ]; identity "d" ])
       "(a, b -> b) c", (generic (identity "c") [ identity "a"; arrow [ identity "b"; identity "b" ] ])
       "a<b> c", (generic (identity "c") [ generic (identity "a") [ identity "b" ] ])
+      "a ?", (generic (wildcard) [ identity "a" ])
+      "b ?a", (generic (wildcardGroup "a") [ identity "b" ])
     ]
     run runParseTest
   }
@@ -70,7 +86,7 @@ module ByName =
     let option_beta = generic (identity "option") [ beta ]
     parameterize {
       source [
-        "map : _", "map", Wildcard
+        "map : _", "map", AnySignature
         "bind : ('a -> 'b option) -> 'a option -> 'b option", "bind", (SignatureQuery (arrow [ (arrow [ alpha; option_beta ]); option_alpha; option_beta ]))
       ]
       run (fun (input, expectedName, expectedSig) -> test {

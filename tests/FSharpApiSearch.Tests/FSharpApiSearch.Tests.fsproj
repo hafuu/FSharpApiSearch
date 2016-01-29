@@ -67,7 +67,7 @@
     <Compile Include="TestHelpers.fs" />
     <Compile Include="TypesTest.fs" />
     <Compile Include="QueryParserTest.fs" />
-    <Compile Include="QueryMatcherTest.fs" />
+    <Compile Include="MatcherTest.fs" />
     <Compile Include="ApiLoaderTest.fs" />
     <Compile Include="FSharpApiSearchClientTest.fs" />
   </ItemGroup>

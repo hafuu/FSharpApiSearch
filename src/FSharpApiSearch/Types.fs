@@ -3,8 +3,12 @@
 type Source = Query | Target
 
 type Signature =
+  | WildcardGroup of string
+  | Wildcard
   | Variable of Source * string
+  | StrongVariable of Source * string
   | Identity of string
+  | StrongIdentity of string
   | Arrow of Signature list
   | Generic of Signature * Signature list
   | Tuple of Signature list
@@ -13,21 +17,39 @@ type Signature =
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Signature =
-  let rec private collectVariables' = function
+  let rec collectVariables = function
     | Variable _ as v -> [ v ]
-    | (Tuple xs | Arrow xs) -> List.collect collectVariables' xs
+    | StrongVariable _ as v -> [ v ]
+    | (Tuple xs | Arrow xs) -> List.collect collectVariables xs
     | Identity _ -> []
-    | Generic (x, ys) -> List.collect collectVariables' (x :: ys)
-    | StaticMethod (parameters, returnType) -> List.collect collectVariables' (returnType :: parameters)
+    | StrongIdentity _ -> []
+    | Wildcard -> []
+    | WildcardGroup _ -> []
+    | Generic (x, ys) -> List.collect collectVariables (x :: ys)
+    | StaticMethod (parameters, returnType) -> List.collect collectVariables (returnType :: parameters)
     | Unknown -> []
 
-  let collectVariables t = collectVariables' t
+  let rec collectWildcardGroup = function
+    | Variable _ -> []
+    | StrongVariable _ -> []
+    | (Tuple xs | Arrow xs) -> List.collect collectWildcardGroup xs
+    | Identity _ -> []
+    | StrongIdentity _ -> []
+    | Wildcard -> []
+    | WildcardGroup _ as w -> [ w ]
+    | Generic (x, ys) -> List.collect collectWildcardGroup (x :: ys)
+    | StaticMethod (parameters, returnType) -> List.collect collectWildcardGroup (returnType :: parameters)
+    | Unknown -> []
 
-  let collectUniqueVariables t = collectVariables t |> List.distinct
+  let collectVariableOrWildcardGroup x = List.concat [ collectVariables x; collectWildcardGroup x ]
 
   let rec private display' prefix = function
     | Variable (source, name) -> prefix source name
+    | StrongVariable (source, name) -> "!" + prefix source name
     | Identity name -> name
+    | StrongIdentity name -> "!" + name
+    | Wildcard -> "?"
+    | WildcardGroup name -> "?" + name
     | Arrow xs ->
       xs
       |> Seq.map (function
@@ -51,7 +73,7 @@ module Signature =
 
 type SignaturePart =
   | SignatureQuery of Signature
-  | Wildcard
+  | AnySignature
 
 type QueryMethod =
   | ByName of string * SignaturePart

@@ -21,8 +21,8 @@ let testClient = test {
 let searchTest = parameterize {
   source [
     "int -> int -> int", [ "TestModule.f"; "TestModule.TestClass.f" ]
-    "int -> int -> 'a", [ "TestModule.f"; "TestModule.h"; "TestModule.TestClass.f"; "TestModule.TestClass.h" ]
-    "'a -> 'a -> 'a", [ "TestModule.f"; "TestModule.g"; "TestModule.TestClass.f"; "TestModule.TestClass.g" ]
+    "int -> int -> ?", [ "TestModule.f"; "TestModule.h"; "TestModule.TestClass.f"; "TestModule.TestClass.h" ]
+    "?a -> ?a -> ?a", [ "TestModule.f"; "TestModule.g"; "TestModule.TestClass.f"; "TestModule.TestClass.g" ]
   ]
   run (fun (query, expecteds) -> test {
     let! client = testClient

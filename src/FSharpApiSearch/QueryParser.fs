@@ -7,28 +7,37 @@ let inline trim p = spaces >>. p .>> spaces
 let inline pcharAndTrim c = pchar c |> trim
 
 module FSharpSignatureParser =
-  let name = regex @"\w+"
+  let name = regex @"\w+" <?> "name"
 
   let fsharpSignature, fsharpSignatureRef = createParserForwardedToRef()
 
-  let identity = name |>> (fun name -> Identity name) |> trim
-  let variable = pchar ''' >>. name |>> (fun name -> Variable (Source.Query, name)) |> trim  
+  let strong = pchar '!'
+  let identity = opt strong .>>. name |>> (function (None, name) -> Identity name | (Some _, name) -> StrongIdentity name) |> trim <?> "identity"
+  let variable = opt strong .>> pchar ''' .>>. name |>> (function (None, name) -> Variable (Source.Query, name) | (Some _, name) -> StrongVariable (Source.Query, name)) |> trim <?> "variable"
+  let wildcard = pchar '?' >>. opt name |>> (function Some name -> WildcardGroup name | None -> Wildcard) |> trim <?> "wildcard"
 
-  let idOrVariable = attempt identity <|> variable
+  let genericId =
+    choice [
+      attempt identity
+      attempt variable
+      wildcard
+    ]
 
-  let dotNetGeneric = idOrVariable .>>. between (pcharAndTrim '<') (pcharAndTrim '>') (sepBy1 fsharpSignature (pchar ',')) |>> (fun (id, parameter) -> Generic (id, parameter))
+  let dotNetGeneric = genericId .>>. between (pcharAndTrim '<') (pcharAndTrim '>') (sepBy1 fsharpSignature (pchar ',')) |>> (fun (id, parameter) -> Generic (id, parameter))
 
   let term1 =
     choice [
       attempt dotNetGeneric
       attempt (between (pcharAndTrim '(') (pcharAndTrim ')') fsharpSignature)
-      idOrVariable
+      attempt identity
+      attempt variable
+      wildcard
     ]
   
   let mlMultiGenericParameter = between (pcharAndTrim '(') (pcharAndTrim ')') (sepBy1 fsharpSignature (pchar ','))
   let mlSingleGenericParameter = term1 |>> List.singleton
   let mlGenericParameter = attempt mlMultiGenericParameter <|> mlSingleGenericParameter
-  let mlGeneric = mlGenericParameter .>>. idOrVariable |>> (fun (parameter, id) -> Generic (id, parameter))
+  let mlGeneric = mlGenericParameter .>>. genericId |>> (fun (parameter, id) -> Generic (id, parameter))
 
   let term2 = choice [ attempt mlGeneric; term1 ]
 
@@ -43,10 +52,10 @@ module FSharpSignatureParser =
   do fsharpSignatureRef := term4
 
 let memberName = many1 (letter <|> anyOf "_'") |> trim |>> (fun xs -> System.String(Array.ofList xs))
-let wildcard = pstring "_" |> trim >>% Wildcard
+let wildcard = pstring "_" |> trim >>% AnySignature
 
-let wildCardOrSignature = attempt wildcard <|> (FSharpSignatureParser.fsharpSignature |>> SignatureQuery)
-let nameQuery = memberName .>> pstring ":" .>>. wildCardOrSignature |>> (fun (name, sigPart) -> ByName (name, sigPart))
+let anyOrSignature = attempt wildcard <|> (FSharpSignatureParser.fsharpSignature |>> SignatureQuery)
+let nameQuery = memberName .>> pstring ":" .>>. anyOrSignature |>> (fun (name, sigPart) -> ByName (name, sigPart))
 
 let signatureQuery = FSharpSignatureParser.fsharpSignature |>> BySignature
 let query = attempt nameQuery <|> signatureQuery
