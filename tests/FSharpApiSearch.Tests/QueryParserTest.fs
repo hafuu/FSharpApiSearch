@@ -91,6 +91,15 @@ module BySignature =
     run runParseTest
   }
 
+  let instanceMemberParseTest = parameterize {
+    source [
+      "a => b", (instanceMember (identity "a") [] (identity "b"))
+      "a => b -> c", (instanceMember (identity "a") [ identity "b" ] (identity "c"))
+      "a => b -> c -> d", (instanceMember (identity "a") [ identity "b"; identity "c" ] (identity "d"))
+    ]
+    run runParseTest
+  }
+
 module ByName =
   let parseTest =
     let alpha = variable "a"
@@ -101,6 +110,7 @@ module ByName =
       source [
         "map : _", "map", AnySignature
         "bind : ('a -> 'b option) -> 'a option -> 'b option", "bind", (SignatureQuery (arrow [ (arrow [ alpha; option_beta ]); option_alpha; option_beta ]))
+        "ToString : obj => unit -> string", "ToString", (SignatureQuery (instanceMember (identity "obj") [ identity "unit" ] (identity "string")))
       ]
       run (fun (input, expectedName, expectedSig) -> test {
         let actual = QueryParser.parse input

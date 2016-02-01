@@ -11,7 +11,18 @@ let rec updateSource newSource = function
   | Arrow xs -> Arrow (List.map (updateSource newSource) xs)
   | Generic (id, xs) -> Generic (id, List.map (updateSource newSource) xs)
   | Tuple xs -> Tuple (List.map (updateSource newSource) xs)
-  | StaticMethod (xs, y) -> StaticMethod (List.map (updateSource newSource) xs, updateSource newSource y)
+  | StaticMethod x ->
+    StaticMethod {
+      Arguments = List.map (updateSource newSource) x.Arguments
+      ReturnType = updateSource newSource x.ReturnType
+    }
+  | InstanceMember x ->
+    InstanceMember {
+      Source = newSource
+      Receiver = updateSource newSource x.Receiver
+      Arguments = List.map (updateSource newSource) x.Arguments
+      ReturnType = updateSource newSource x.ReturnType
+    }
   | Unknown as x -> x
 
 let matchAndShowResult (query: string) (target: string) =

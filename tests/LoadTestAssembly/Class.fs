@@ -13,3 +13,11 @@ type StaticMemberClass() =
   static member OverloadMethod (x: string, y: int) = ""
 
   static member val Property = 0 with get, set
+
+type InstanceMemberClass() =
+  member this.InstanceMethod1() = 3
+  member this.InstanceMethod2(x: int) = ""
+  member this.InstanceMethod3(x: string, y: float): float = 0.0
+
+  member this.OverloadMethod (x: int) = 0
+  member this.OverloadMethod (x: string) = 0

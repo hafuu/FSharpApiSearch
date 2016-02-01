@@ -25,6 +25,8 @@ module Result =
   let inline bindContinue f = function Continue x -> f x | r -> r
   let inline bindMatched f = function Matched x -> f x | r -> r
   let inline mapMatched f = function Matched x -> Matched (f x) | Continue x -> Continue x | Failure -> Failure
+  let inline continueFailure ctx = function Failure -> Continue ctx | x -> x
+
   let toBool = function Matched _ -> true | _ -> false
   let distance = function
     | Matched { Distance = d } -> d
@@ -229,6 +231,25 @@ module SignatureRules =
       | StrongVariable _ -> None
       | _ -> Some ()
 
+    let (|QueryInstanceMember|_|) = function
+      | InstanceMember ({ Source = Source.Query} as x) -> Some x
+      | _ -> None
+
+    let (|NoArguments|_|) (x: InstanceMemberInfo) =
+      match x with
+      | { Arguments = [] } -> Some ()
+      | _ -> None
+
+    let (|Unit'|_|) = function
+      | Identity' "unit" -> Some ()
+      | _ -> None
+
+    let (|OnlyUnitArgument|_|) (x: InstanceMemberInfo) =
+      match x with
+      | { Arguments = [ Unit' ] } -> Some ()
+      | _ -> None
+
+
   let identityRule _ left right ctx =
     match left, right with
     | Patterns.Identity' leftName, Patterns.Identity' rightName ->
@@ -265,9 +286,11 @@ module SignatureRules =
     | StrongVariable _ -> 0
     | Generic _ -> 1
     | Tuple _ -> 1
-    | Arrow xs -> List.sumBy (distanceFromVariable >> max 1) xs
-    | StaticMethod (xs, y) -> List.sumBy (distanceFromVariable >> max 1) (y :: xs)
+    | Arrow xs -> seqDistance xs
+    | StaticMethod x -> seqDistance (x.ReturnType :: x.Arguments)
+    | InstanceMember x -> seqDistance (x.Receiver :: x.ReturnType :: x.Arguments)
     | Unknown -> 0
+  and seqDistance xs = xs |> Seq.sumBy (distanceFromVariable >> max 1)
 
   let similarityVariableRule test left right ctx =
     match left, right with
@@ -309,13 +332,45 @@ module SignatureRules =
 
   let staticMethodRule test left right ctx =
     match left, right with
-    | Arrow arrowTypes, StaticMethod (methodArguments, returnType)
-    | StaticMethod (methodArguments, returnType), Arrow arrowTypes ->
+    | Arrow arrowTypes, StaticMethod (staticMethod)
+    | StaticMethod (staticMethod), Arrow arrowTypes ->
       Debug.WriteLine("static method and arrow")
-      testAll test arrowTypes (addLast returnType methodArguments) ctx
-    | StaticMethod (leftArguments, leftReturnType), StaticMethod (rightArguments, rightReturnType) ->
+      testAll test arrowTypes (addLast staticMethod.ReturnType staticMethod.Arguments) ctx
+    | StaticMethod (leftStaticMethod), StaticMethod (rightStaticMethod) ->
       Debug.WriteLine("both static method")
-      testAll test (leftReturnType :: leftArguments) (rightReturnType :: rightArguments) ctx
+      testAll test (leftStaticMethod.ReturnType :: leftStaticMethod.Arguments) (rightStaticMethod.ReturnType :: rightStaticMethod.Arguments) ctx
+    | _ -> Continue ctx
+
+  let instanceFieldOrPropertyAndOnlyUnitArgumentMemberRule test left right ctx =
+    match left, right with
+    | (Patterns.QueryInstanceMember (queryMember & Patterns.NoArguments)), (InstanceMember (otherMember & Patterns.OnlyUnitArgument))
+    | (InstanceMember (otherMember & Patterns.OnlyUnitArgument)), (Patterns.QueryInstanceMember (queryMember & Patterns.NoArguments)) ->
+      testAll test [ queryMember.Receiver; queryMember.ReturnType ] [ otherMember.Receiver; otherMember.ReturnType ] ctx
+      |> Result.mapMatched (Context.addDistance 1)
+      |> Result.continueFailure ctx
+    | _ -> Continue ctx
+
+  let instanceMemberAndArrowRule test left right ctx =
+    match left, right with
+    | (Patterns.QueryInstanceMember queryMember), Arrow arrow
+    | Arrow arrow, (Patterns.QueryInstanceMember queryMember) ->
+      let xs = [
+        match queryMember with
+        | Patterns.NoArguments -> ()
+        | Patterns.OnlyUnitArgument -> ()
+        | _ -> yield! queryMember.Arguments
+        yield queryMember.Receiver
+        yield queryMember.ReturnType
+      ]
+      testAll test xs arrow ctx
+      |> Result.mapMatched (Context.addDistance 1)
+      |> Result.continueFailure ctx
+    | _ -> Continue ctx
+
+  let instanceMemberRule test left right ctx =
+    match left, right with
+    | InstanceMember leftMember, InstanceMember rightMember ->
+      testAll test (leftMember.Receiver :: leftMember.ReturnType :: leftMember.Arguments) (rightMember.Receiver :: rightMember.ReturnType :: rightMember.Arguments) ctx
     | _ -> Continue ctx
 
   let wildcardRule _ left right ctx =
@@ -347,6 +402,9 @@ let defaultRule =
     SignatureRules.tupleRule
     SignatureRules.arrowRule
     SignatureRules.staticMethodRule
+    SignatureRules.instanceMemberAndArrowRule
+    SignatureRules.instanceFieldOrPropertyAndOnlyUnitArgumentMemberRule
+    SignatureRules.instanceMemberRule
     SignatureRules.terminator
   ]
 
@@ -360,6 +418,9 @@ let similaritySearchingRule =
     SignatureRules.tupleRule
     SignatureRules.arrowRule
     SignatureRules.staticMethodRule
+    SignatureRules.instanceMemberAndArrowRule
+    SignatureRules.instanceFieldOrPropertyAndOnlyUnitArgumentMemberRule
+    SignatureRules.instanceMemberRule
     SignatureRules.terminator
   ]
 

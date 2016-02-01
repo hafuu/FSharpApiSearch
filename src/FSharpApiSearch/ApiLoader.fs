@@ -90,17 +90,30 @@ let isMethod (x: FSharpMemberOrFunctionOrValue) = x.FullType.IsFunctionType && n
 
 let internal staticMethodSignature' returnTypeSignature (t: FSharpType) =
   match List.ofSeq t.GenericArguments with
-  | [ parameters; returnType ] ->
-    let parameters =
-      if parameters.IsTupleType then
-        parameters.GenericArguments |> Seq.map toSignature |> Seq.toList
+  | [ arguments; returnType ] ->
+    let arguments =
+      if arguments.IsTupleType then
+        arguments.GenericArguments |> Seq.map toSignature |> Seq.toList
       else
-        [ toSignature parameters ]
+        [ toSignature arguments ]
     let returnType = returnTypeSignature returnType
-    StaticMethod (parameters, returnType)
+    StaticMethod { Arguments = arguments; ReturnType = returnType }
   | _ -> Unknown
 
 let staticMethodSignature = staticMethodSignature' toSignature
+
+let instanceMethodSIgnature (declaringType: FSharpEntity) (t: FSharpType) =
+  match List.ofSeq t.GenericArguments with
+  | [ arguments; returnType ] ->
+    let receiver = identity declaringType
+    let arguments =
+      if arguments.IsTupleType then
+        arguments.GenericArguments |> Seq.map toSignature |> Seq.toList
+      else
+        [ toSignature arguments ]
+    let returnType = toSignature returnType
+    InstanceMember { Source = Source.Target; Receiver = receiver; Arguments = arguments; ReturnType = returnType }
+  | _ -> Unknown
 
 module CSharp =
   let constructorName = ".ctor"
@@ -114,6 +127,8 @@ let toClassMemberApi (declaringType: FSharpEntity) (x: FSharpMemberOrFunctionOrV
     { Name = declaringType.FullName; Signature = CSharp.constructorSignature declaringType x.FullType }
   elif isStaticMember x && isMethod x then
     { Name = x.FullName; Signature = staticMethodSignature x.FullType }
+  elif x.IsInstanceMember && isMethod x then
+    { Name = x.FullName; Signature = instanceMethodSIgnature declaringType x.FullType }
   else
     { Name = x.FullName; Signature = Unknown }
 
@@ -147,4 +162,3 @@ and collectFromNestedEntities (e: FSharpEntity): Api seq = seq { for ne in e.Nes
 let collectApi (assembly: FSharpAssembly): Api seq =
   assembly.Contents.Entities
   |> Seq.collect collectApi'
-  |> Seq.cache

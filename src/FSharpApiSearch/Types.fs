@@ -15,8 +15,19 @@ type Signature =
   | Arrow of Signature list
   | Generic of Signature * Signature list
   | Tuple of Signature list
-  | StaticMethod of arguments: Signature list * returnType: Signature
+  | StaticMethod of StaticMethodInfo
+  | InstanceMember of InstanceMemberInfo
   | Unknown
+and InstanceMemberInfo = {
+  Source: Source
+  Receiver: Signature
+  Arguments: Signature list
+  ReturnType: Signature
+}
+and StaticMethodInfo = {
+  Arguments: Signature list
+  ReturnType: Signature
+}
 
 let internal arrayRegexPattern = @"\[,*\]"
 
@@ -37,7 +48,8 @@ module Signature =
     | Wildcard -> []
     | WildcardGroup _ -> []
     | Generic (x, ys) -> List.collect collectVariables (x :: ys)
-    | StaticMethod (parameters, returnType) -> List.collect collectVariables (returnType :: parameters)
+    | StaticMethod x -> List.collect collectVariables (x.ReturnType :: x.Arguments)
+    | InstanceMember x -> List.collect collectVariables (x.Receiver :: x.ReturnType :: x.Arguments)
     | Unknown -> []
 
   let rec collectWildcardGroup = function
@@ -49,7 +61,8 @@ module Signature =
     | Wildcard -> []
     | WildcardGroup _ as w -> [ w ]
     | Generic (x, ys) -> List.collect collectWildcardGroup (x :: ys)
-    | StaticMethod (parameters, returnType) -> List.collect collectWildcardGroup (returnType :: parameters)
+    | StaticMethod x -> List.collect collectWildcardGroup (x.ReturnType :: x.Arguments)
+    | InstanceMember x -> List.collect collectWildcardGroup (x.Receiver :: x.ReturnType :: x.Arguments)
     | Unknown -> []
 
   let collectVariableOrWildcardGroup x = List.concat [ collectVariables x; collectWildcardGroup x ]
@@ -76,12 +89,20 @@ module Signature =
         | Tuple _ as t -> sprintf "(%s)" (display' prefix t)
         | x -> display' prefix x)
       |> String.concat " * "
-    | StaticMethod (parameters, returnType) -> sprintf "%s -> %s" (display' prefix (Tuple parameters)) (display' prefix returnType)
+    | StaticMethod x -> sprintf "%s -> %s" (display' prefix (Tuple x.Arguments)) (display' prefix x.ReturnType)
+    | InstanceMember x ->
+      match x.Arguments with
+      | [] -> sprintf "%s" (display' prefix x.ReturnType)
+      | _ -> sprintf "%s -> %s" (display' prefix (Tuple x.Arguments)) (display' prefix x.ReturnType)
     | Unknown -> "Unknown"
 
-  let rec display = display' (fun _ name -> "'" + name)
+  let display = display' (fun _ name -> "'" + name)
 
-  let rec debugDisplay = display' (fun source name -> match source with Query -> "'q" + name | Target -> "'t" + name)
+  let debugDisplay signature =
+    let display = display' (fun source name -> match source with Query -> "'q" + name | Target -> "'t" + name)
+    match signature with
+    | InstanceMember x -> sprintf "%s => %s" (display x.Receiver) (display signature)
+    | _ -> display signature
 
 type SignaturePart =
   | SignatureQuery of Signature

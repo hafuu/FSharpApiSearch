@@ -70,6 +70,21 @@ module FSharpTest =
     })
   }
 
+  let loadInstanceMemberTest = parameterize {
+    source [
+      "TopLevelNamespace.InstanceMemberClass.InstanceMethod1", [ "InstanceMemberClass => unit -> int" ]
+      "TopLevelNamespace.InstanceMemberClass.InstanceMethod2", [ "InstanceMemberClass => int -> string" ]
+      "TopLevelNamespace.InstanceMemberClass.InstanceMethod3", [ "InstanceMemberClass => string -> float -> float" ]
+      "TopLevelNamespace.InstanceMemberClass.OverloadMethod", [ "InstanceMemberClass => int -> int"; "InstanceMemberClass => string -> int" ]
+    ]
+    run (fun (name, signatures) -> test {
+      let! apis = fsharpAssemblyApi
+      let actuals = Seq.filter (fun x -> x.Name = name) apis |> Seq.map (fun x -> x.Signature) |> Seq.toList |> List.sort
+      let expecteds = signatures |> List.map (QueryParser.parseFSharpSignature >> TestHelpers.updateSource Source.Target) |> List.sort
+      do! actuals |> assertEquals expecteds
+    })
+  }
+
   let nonloadedApiTest = parameterize {
     source [
       "PublicModule.internalFunction"

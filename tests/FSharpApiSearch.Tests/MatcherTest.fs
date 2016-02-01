@@ -78,7 +78,7 @@ module EquationsTest =
   }
 
 module DefaultMatcherTest =
-  let matchTest updateSource cases = parameterize {
+  let matchTest updateTargetSignature cases = parameterize {
     source (seq {
       for matchOpt in [ Strict; NoOption ] do
         for (q, t, expected) in cases do
@@ -86,7 +86,7 @@ module DefaultMatcherTest =
     })
     run (fun (matchOpt, query, target, expected) -> test {
       let query = QueryParser.parse query
-      let targetSig = targetSugnature target |> updateSource
+      let targetSig = targetSugnature target |> updateTargetSignature
       let target = { Name = "test"; Signature = targetSig }
       let ctx = initialContext matchOpt query
       let actual = Matcher.matches query target Matcher.defaultRule ctx |> Matcher.Result.toBool
@@ -198,6 +198,27 @@ module DefaultMatcherTest =
     ]
     matchTest TestHelpers.toStaticMethod cases
 
+  let instanceMemberMatchTest =
+    let cases = [
+      "receiver => returnType", "receiver => returnType", Always true
+      "a => returnType", "a => anotherReturnType", Always false
+      "receiver => b", "anotherReceiver => b", Always false
+      "a => b -> c", "a => b -> c", Always true
+
+      // property or field
+      "a => b", "a => unit -> b", Always true
+      "receiver => b", "anotherReceiver => unit -> b", Always false
+      "a => returnType", "a => unit -> anotherReturnType", Always false
+      "a => unit -> b", "a => b", Always false
+
+      // instance member and arrow
+      "a => unit -> b", "a -> b", Always true
+      "a => b", "a -> b", Always true
+      "a => b -> c", "b -> a -> c", Always true
+      "a => b -> c", "a -> b -> c", Always false
+    ]
+    matchTest id cases
+
 module SimilarityMatchTest =
   let matchTest updateSource cases = parameterize {
     source (seq {
@@ -271,6 +292,9 @@ module SimilarityMatchTest =
 
       "? -> ?", "'a -> 'b", 0
       "? -> int", "'a -> 'b", 1
+
+      "a => b", "a => unit -> b", 1
+      "a => unit -> b", "a -> b", 1
 
       // bug #16
       "('a * string) -> string", "('a * 'b) -> 'b", 1

@@ -32,6 +32,9 @@ module SearchOptions =
     | Disabled -> Matcher.defaultRule
 
 type FSharpApiSearchClient (apis: Api seq) =
+  let apis = Seq.cache apis
+  do apis |> Seq.iter (fun _ -> ())
+
   new (assemblies: FSharpAssembly seq) = FSharpApiSearchClient(Seq.collect ApiLoader.collectApi assemblies)
   new (references: string seq) = FSharpApiSearchClient(ApiLoader.loadAssembly references)
   new () = FSharpApiSearchClient(Seq.empty<string>)

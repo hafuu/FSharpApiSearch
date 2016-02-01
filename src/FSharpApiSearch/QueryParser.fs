@@ -5,6 +5,8 @@ open FParsec
 let inline trim p = spaces >>. p .>> spaces
 let inline pcharAndTrim c = pchar c |> trim
 
+let source = Source.Query
+
 module FSharpSignatureParser =
   let name = regex @"\w+" <?> "name"
 
@@ -12,7 +14,7 @@ module FSharpSignatureParser =
 
   let strong = pchar '!'
   let identity = opt strong .>>. name |>> (function (None, name) -> Identity name | (Some _, name) -> StrongIdentity name) |> trim <?> "identity"
-  let variable = opt strong .>> pchar ''' .>>. name |>> (function (None, name) -> Variable (Source.Query, name) | (Some _, name) -> StrongVariable (Source.Query, name)) |> trim <?> "variable"
+  let variable = opt strong .>> pchar ''' .>>. name |>> (function (None, name) -> Variable (source, name) | (Some _, name) -> StrongVariable (source, name)) |> trim <?> "variable"
   let wildcard = pchar '?' >>. opt name |>> (function Some name -> WildcardGroup name | None -> Wildcard) |> trim <?> "wildcard"
 
   let genericId =
@@ -59,17 +61,29 @@ module FSharpSignatureParser =
 
   do fsharpSignatureRef := term5
 
+  let instanceMember =
+    fsharpSignature .>> pstring "=>" .>>. fsharpSignature
+    |>> (fun (receiver, argsAndRet) ->
+      let args, ret =
+        match argsAndRet with
+        | Arrow xs -> (List.take (xs.Length - 1) xs), (List.last xs)
+        | ret -> [], ret
+      InstanceMember { Source = source; Receiver = receiver; Arguments = args; ReturnType = ret }
+    )
+
+  let extendedFsharpSignature = choice [ attempt instanceMember <|> fsharpSignature ]
+
 let memberName = many1 (letter <|> anyOf "_'") |> trim |>> (fun xs -> System.String(Array.ofList xs))
 let wildcard = pstring "_" |> trim >>% AnySignature
 
-let anyOrSignature = attempt wildcard <|> (FSharpSignatureParser.fsharpSignature |>> SignatureQuery)
+let anyOrSignature = attempt wildcard <|> (FSharpSignatureParser.extendedFsharpSignature |>> SignatureQuery)
 let nameQuery = memberName .>> pstring ":" .>>. anyOrSignature |>> (fun (name, sigPart) -> ByName (name, sigPart))
 
-let signatureQuery = FSharpSignatureParser.fsharpSignature |>> BySignature
+let signatureQuery = FSharpSignatureParser.extendedFsharpSignature |>> BySignature
 let query = attempt nameQuery <|> signatureQuery
 
 let parseFSharpSignature (sigStr: string) =
-  match runParserOnString (FSharpSignatureParser.fsharpSignature .>> eof) () "" sigStr with
+  match runParserOnString (FSharpSignatureParser.extendedFsharpSignature .>> eof) () "" sigStr with
   | Success (s, _, _) -> s
   | Failure (msg, _, _) -> failwithf "%s" msg
 
