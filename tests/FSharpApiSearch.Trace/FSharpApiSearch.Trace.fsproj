@@ -53,7 +53,7 @@
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\FSharpApiSearch\FSharpApiSearch.fsproj">
+    <ProjectReference Include="..\..\src\FSharpApiSearch\FSharpApiSearch.fsproj">
       <Name>FSharpApiSearch</Name>
       <Project>{ddc5e009-4efa-49eb-b4aa-46216d00992e}</Project>
       <Private>True</Private>
