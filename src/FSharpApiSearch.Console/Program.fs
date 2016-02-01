@@ -47,6 +47,7 @@ let searchAndShowResult (client: FSharpApiSearchClient) (query: string) opt =
     Console.WriteLine(sprintf ", distance: %d" x.Distance)
     Console.ResetColor()
   )
+  Console.WriteLine()
 
 module Interactive =
   type Lens<'a, 'b> = {
@@ -76,7 +77,7 @@ module Interactive =
 
   let rec loop (client: FSharpApiSearchClient) opt =
     printf "> "
-    match System.Console.ReadLine().TrimEnd(';') with
+    match Console.ReadLine().TrimEnd(';') with
     | "#q" -> opt
     | OptionSetting "#strict" StrictQueryVariable opt newOpt -> loop client newOpt
     | OptionSetting "#similarity" SimilaritySearching opt newOpt -> loop client newOpt
