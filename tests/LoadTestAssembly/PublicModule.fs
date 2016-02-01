@@ -18,5 +18,9 @@ let value = 3
 
 let floatReturnType (x: int): float = 0.0
 
+let array: int[] = Array.zeroCreate<int> 0
+let array2d: int[,] = Array2D.zeroCreate<int> 0 0
+let nestedArray: int[,][] = Array.zeroCreate<int[,]> 0
+
 module NestedModule =
   let publicFunction (x: int) = 3

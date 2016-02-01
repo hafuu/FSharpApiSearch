@@ -40,6 +40,9 @@ module FSharpTest =
       "PublicModule.listmap", "('a -> 'b) -> 'a list -> 'b list"
       "PublicModule.partialGenericMap", "Map<int, 'a> -> 'a"
       "PublicModule.floatReturnType", "int -> float"
+      "PublicModule.array", "int[]"
+      "PublicModule.array2d", "int[,]"
+      "PublicModule.nestedArray", "int[,][]"
     ]
     run (fun (name, signature) -> test {
       let! apis = fsharpAssemblyApi
@@ -92,6 +95,9 @@ module CSharpTest =
       "CSharpLoadTestAssembly.StaticMemberClass.StaticMethod1", [ "unit -> int" ]
       "CSharpLoadTestAssembly.StaticMemberClass.StaticMethod2", [ "int * int * string -> float" ]
       "CSharpLoadTestAssembly.StaticMemberClass.StaticMethod3", [ "unit -> unit" ]
+      "CSharpLoadTestAssembly.StaticMemberClass.ArrayMethod", [ "unit -> int[]" ]
+      "CSharpLoadTestAssembly.StaticMemberClass.Array2dMethod", [ "unit -> int[,]" ]
+      "CSharpLoadTestAssembly.StaticMemberClass.NestedArrayMethod", [ "unit -> int[][,]" ] // defined as int[,][] in C#
       "CSharpLoadTestAssembly.StaticMemberClass", [ "unit -> StaticMemberClass"; "string * string -> StaticMemberClass" ]
       "CSharpLoadTestAssembly.OuterClass.InnerClass.StaticMethod", [ "unit -> int" ]
       "CSharpLoadTestAssembly.OuterClass.InnerClass", [ "unit -> InnerClass" ]

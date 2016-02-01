@@ -18,6 +18,10 @@ namespace CSharpLoadTestAssembly
 
         public static int StaticProperty { get; set; }
         public static int StaticField;
+
+        public static int[] ArrayMethod() => null;
+        public static int[,] Array2dMethod() => null;
+        public static int[,][] NestedArrayMethod() => new[,] { { new int[0], new int[0] } };
     }
 
     public class OuterClass

@@ -15,6 +15,9 @@ module SignatureTest =
       arrow [ identity "a"; arrow [ identity "a"; identity "b" ]; identity "b" ], "a -> (a -> b) -> b"
       tuple [ identity "a"; identity "b" ], "a * b"
       tuple [ identity "a"; tuple [ identity "a"; identity "b" ] ], "a * (a * b)"
+      array (identity "a"), "a[]"
+      array2d (identity "a"), "a[,]"
+      array (array2d (identity "a")), "a[,][]"
     ]
     run (fun (input, expected) -> test {
       let actual = Signature.display input

@@ -1,6 +1,8 @@
 ﻿[<AutoOpen>]
 module FSharpApiSearch.Types
 
+open System.Text.RegularExpressions
+
 type Source = Query | Target
 
 type Signature =
@@ -15,6 +17,14 @@ type Signature =
   | Tuple of Signature list
   | StaticMethod of arguments: Signature list * returnType: Signature
   | Unknown
+
+let internal arrayRegexPattern = @"\[,*\]"
+
+let (|Array|_|) = function
+  | Generic (Identity name, [ t ]) when Regex.IsMatch(name, arrayRegexPattern) ->
+    let dimension = name.Split(',').Length
+    Some (dimension, name, t)
+  | _ -> None
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Signature =
@@ -58,6 +68,7 @@ module Signature =
         | x -> display' prefix x
       )
       |> String.concat " -> "
+    | Array (_, name, x) -> display' prefix x + name
     | Generic (x, ys) -> sprintf "%s<%s>" (display' prefix x) (ys |> Seq.map (display' prefix) |> String.concat ", ")
     | Tuple xs ->
       xs

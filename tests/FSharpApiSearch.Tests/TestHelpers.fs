@@ -33,3 +33,6 @@ module DSL =
   let generic id xs = Generic (id, xs)
   let tuple xs = Tuple xs
   let staticMethod xs ret = StaticMethod(xs, ret)
+  let array x = generic (identity "[]") [ x ]
+  let array2d x = generic (identity "[,]") [ x ]
+  let array3d x = generic (identity "[,,]") [ x ]

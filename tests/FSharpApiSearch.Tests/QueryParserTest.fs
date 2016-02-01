@@ -77,6 +77,20 @@ module BySignature =
     run runParseTest
   }
 
+  let arrayParseTest = parameterize {
+    source [
+      "a[]", (array (identity "a"))
+      "a[,]", (array2d (identity "a"))
+      "a[][]", (array (array (identity "a")))
+      "a[][,]", (array2d (array (identity "a")))
+      "a<b>[]", (array (generic (identity "a") [ identity "b" ]))
+      "a<b[]>", (generic (identity "a") [ array (identity "b") ])
+      "(a -> b)[]", (array (arrow [ identity "a"; identity "b" ]))
+      "a[] b", (generic (identity "b") [ array (identity "a") ])
+    ]
+    run runParseTest
+  }
+
 module ByName =
   let parseTest =
     let alpha = variable "a"

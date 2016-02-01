@@ -33,22 +33,31 @@ module FSharpSignatureParser =
       wildcard
     ]
   
+  let arraySymbol = regex arrayRegexPattern |> trim
+  let maybeArray t =
+    t
+    .>>. many arraySymbol
+    |>> (function
+      | (t, []) -> t
+      | (t, x :: xs) -> List.fold (fun x array -> Generic (Identity array, [ x ])) (Generic (Identity x, [ t ])) xs)
+  let term2 = maybeArray term1
+
   let mlMultiGenericParameter = between (pcharAndTrim '(') (pcharAndTrim ')') (sepBy1 fsharpSignature (pchar ','))
-  let mlSingleGenericParameter = term1 |>> List.singleton
+  let mlSingleGenericParameter = term2 |>> List.singleton
   let mlGenericParameter = attempt mlMultiGenericParameter <|> mlSingleGenericParameter
   let mlGeneric = mlGenericParameter .>>. genericId |>> (fun (parameter, id) -> Generic (id, parameter))
 
-  let term2 = choice [ attempt mlGeneric; term1 ]
+  let term3 = choice [ attempt mlGeneric; term2 ]
 
   let maybeTuple t = sepBy1 t (pstring "*") |>> function [ x ] -> x | xs -> Tuple xs
 
-  let term3 = maybeTuple term2
+  let term4 = maybeTuple term3
 
   let maybeArrow t = sepBy1 t (pstring "->") |>> function [ x ] -> x | xs -> Arrow xs
 
-  let term4 = maybeArrow term3
+  let term5 = maybeArrow term4
 
-  do fsharpSignatureRef := term4
+  do fsharpSignatureRef := term5
 
 let memberName = many1 (letter <|> anyOf "_'") |> trim |>> (fun xs -> System.String(Array.ofList xs))
 let wildcard = pstring "_" |> trim >>% AnySignature
