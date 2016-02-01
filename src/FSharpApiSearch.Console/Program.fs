@@ -1,6 +1,8 @@
 ﻿open FSharpApiSearch
 open System.Diagnostics
 open System
+open System.Reflection
+open Microsoft.FSharp.Compiler.SourceCodeServices
 
 type Args = {
   Query: string option
@@ -93,8 +95,18 @@ options:
   --help
       Print this message."""
 
+let ignoreFSharpCompilerServiceError() =
+  typeof<FSharpChecker>.Assembly.GetType("Microsoft.FSharp.Compiler.AbstractIL.Diagnostics")
+  |> Option.ofObj
+  |> Option.bind (fun diagMod -> diagMod.GetMember("diagnosticsLog", BindingFlags.NonPublic ||| BindingFlags.Static) |> Array.tryHead)
+  |> Option.bind (tryUnbox<PropertyInfo>)
+  |> Option.bind (fun x -> x.GetValue(null) |> Option.ofObj)
+  |> Option.bind (tryUnbox<ref<Option<System.IO.TextWriter>>>)
+  |> Option.iter (fun x -> x := None)
+
 [<EntryPoint>]
 let main argv =
+  ignoreFSharpCompilerServiceError()
   let args = Args.parse Args.empty (List.ofArray argv)
   match args with
   | { Help = true } ->
