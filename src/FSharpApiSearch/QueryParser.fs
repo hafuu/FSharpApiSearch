@@ -1,6 +1,5 @@
 ﻿module FSharpApiSearch.QueryParser
 
-open FSharpApiSearch.Types
 open FParsec
 
 let inline trim p = spaces >>. p .>> spaces

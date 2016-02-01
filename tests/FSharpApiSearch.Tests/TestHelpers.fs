@@ -1,5 +1,5 @@
 ﻿module TestHelpers
-open FSharpApiSearch.Types
+open FSharpApiSearch
 
 let rec updateSource newSource = function
   | Variable (_, name) -> Variable (newSource, name)

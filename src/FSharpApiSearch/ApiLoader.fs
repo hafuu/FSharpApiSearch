@@ -2,7 +2,6 @@
 
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open System.IO
-open FSharpApiSearch.Types
 
 let toAssemblyName assemblyPath = Path.GetFileName(assemblyPath).Replace(".dll", "")
 

@@ -2,7 +2,6 @@
 
 open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
-open FSharpApiSearch.Types
 open FSharpApiSearch
 open TestHelpers.DSL
 

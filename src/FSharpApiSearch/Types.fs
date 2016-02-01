@@ -1,4 +1,5 @@
-﻿module FSharpApiSearch.Types
+﻿[<AutoOpen>]
+module FSharpApiSearch.Types
 
 type Source = Query | Target
 
@@ -87,9 +88,4 @@ type Query = {
 type Api = {
   Name: string
   Signature: Signature
-}
-
-type SearchResult = {
-  Distance: int
-  Api: Api
 }

@@ -4,7 +4,6 @@ open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
 
 open FSharpApiSearch
-open FSharpApiSearch.Types
 open TestHelpers.DSL
 open System.Reflection
 open System.IO

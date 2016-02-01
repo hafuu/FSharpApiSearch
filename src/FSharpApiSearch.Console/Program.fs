@@ -1,5 +1,4 @@
 ﻿open FSharpApiSearch
-open FSharpApiSearch.Types
 open System.Diagnostics
 open System
 

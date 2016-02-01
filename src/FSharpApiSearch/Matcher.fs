@@ -1,6 +1,5 @@
 ﻿module FSharpApiSearch.Matcher
 
-open FSharpApiSearch.Types
 open System.Diagnostics
 
 type Equations = {
