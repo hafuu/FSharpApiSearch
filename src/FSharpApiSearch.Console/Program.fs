@@ -76,7 +76,7 @@ module Interactive =
 
   let rec loop (client: FSharpApiSearchClient) opt =
     printf "> "
-    match System.Console.ReadLine() with
+    match System.Console.ReadLine().TrimEnd(';') with
     | "#q" -> opt
     | OptionSetting "#strict" StrictQueryVariable opt newOpt -> loop client newOpt
     | OptionSetting "#similarity" SimilaritySearching opt newOpt -> loop client newOpt
