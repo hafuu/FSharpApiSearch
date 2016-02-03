@@ -136,9 +136,9 @@ module Equations =
 
   let signatureFromQuery q =
     match q.Method with
-    | ByName (_, SignatureQuery s) -> s
-    | BySignature s -> s
-    | _ -> Unknown
+    | ByName (_, SignatureQuery s) -> Some s
+    | BySignature s -> Some s
+    | _ -> None
 
   let variableGroup signature =
     signature
@@ -147,32 +147,38 @@ module Equations =
     |> List.groupBy (function Variable (_, n) | StrongVariable (_, n) -> n | _ -> "")
 
   let initialize query =
-    let equalities = [
-      for (_, group) in variableGroup (signatureFromQuery query) do
-        for x in group do
+    match signatureFromQuery query with
+    | Some querySig ->
+      let groups = variableGroup querySig
+      let equalities = [
+        for (_, group) in groups do
+          for x in group do
           for y in group do
             if x < y then yield (x, y)
-    ]
-    { Equalities = equalities; Inequalities = [] }
+      ]
+      { Equalities = equalities; Inequalities = [] }
+    | None -> { Equalities = []; Inequalities = [] }
 
   let strictVariables query x =
-    let signature = signatureFromQuery query
-    let inequalities = [
-      let variableGroup = variableGroup signature
-      for (xname, xs) in variableGroup do
-        for (yname, ys) in variableGroup do
-          if xname <> yname then
-            for x in xs do
-              for y in ys do
-                let left, right = if x < y then (x, y) else (y, x)
-                yield (left, right)
+    match signatureFromQuery query with
+    | Some querySig ->
+      let inequalities = [
+        let variableGroup = variableGroup querySig
+        for (xname, xs) in variableGroup do
+          for (yname, ys) in variableGroup do
+            if xname <> yname then
+              for x in xs do
+                for y in ys do
+                  let left, right = if x < y then (x, y) else (y, x)
+                  yield (left, right)
 
-      let wildcards = Signature.collectWildcardGroup signature |> List.distinct
-      for x in wildcards do
-        for y in wildcards do
-          if x < y then yield (x, y)
-    ]
-    { x with Inequalities = List.distinct inequalities }
+        let wildcards = Signature.collectWildcardGroup querySig |> List.distinct
+        for x in wildcards do
+          for y in wildcards do
+            if x < y then yield (x, y)
+      ]
+      { x with Inequalities = List.distinct inequalities }
+    | None -> x
 
 module SignatureRules =
   let tryAddEquality test left right (ctx: Context) =
@@ -289,7 +295,6 @@ module SignatureRules =
     | Arrow xs -> seqDistance xs
     | StaticMethod x -> seqDistance (x.ReturnType :: x.Arguments)
     | InstanceMember x -> seqDistance (x.Receiver :: x.ReturnType :: x.Arguments)
-    | Unknown -> 0
   and seqDistance xs = xs |> Seq.sumBy (distanceFromVariable >> max 1)
 
   let similarityVariableRule test left right ctx =

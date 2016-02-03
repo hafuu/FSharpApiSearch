@@ -17,7 +17,6 @@ type Signature =
   | Tuple of Signature list
   | StaticMethod of StaticMethodInfo
   | InstanceMember of InstanceMemberInfo
-  | Unknown
 and InstanceMemberInfo = {
   Source: Source
   Receiver: Signature
@@ -50,7 +49,6 @@ module Signature =
     | Generic (x, ys) -> List.collect collectVariables (x :: ys)
     | StaticMethod x -> List.collect collectVariables (x.ReturnType :: x.Arguments)
     | InstanceMember x -> List.collect collectVariables (x.Receiver :: x.ReturnType :: x.Arguments)
-    | Unknown -> []
 
   let rec collectWildcardGroup = function
     | Variable _ -> []
@@ -63,7 +61,6 @@ module Signature =
     | Generic (x, ys) -> List.collect collectWildcardGroup (x :: ys)
     | StaticMethod x -> List.collect collectWildcardGroup (x.ReturnType :: x.Arguments)
     | InstanceMember x -> List.collect collectWildcardGroup (x.Receiver :: x.ReturnType :: x.Arguments)
-    | Unknown -> []
 
   let collectVariableOrWildcardGroup x = List.concat [ collectVariables x; collectWildcardGroup x ]
 
@@ -94,7 +91,6 @@ module Signature =
       match x.Arguments with
       | [] -> sprintf "%s" (display' prefix x.ReturnType)
       | _ -> sprintf "%s -> %s" (display' prefix (Tuple x.Arguments)) (display' prefix x.ReturnType)
-    | Unknown -> "Unknown"
 
   let display = display' (fun _ name -> "'" + name)
 

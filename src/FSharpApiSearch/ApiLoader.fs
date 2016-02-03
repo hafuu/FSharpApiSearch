@@ -59,30 +59,60 @@ let loadAssembly references =
   |> List.filter (fun x -> List.exists ((=)x.SimpleName) targetAssemblies)
 
 let genericArguments (t: FSharpType) =
+  let args = t.GenericArguments |> Seq.toList
   if t.HasTypeDefinition && t.TypeDefinition.DisplayName = "float" then
-    t.GenericArguments |> Seq.filter (fun x -> not x.HasTypeDefinition || (x.HasTypeDefinition && x.TypeDefinition.DisplayName <> "MeasureOne"))
+    args |> List.filter (fun x -> not x.HasTypeDefinition || (x.HasTypeDefinition && x.TypeDefinition.DisplayName <> "MeasureOne"))
   else
-    t.GenericArguments :> _ seq
+    args
+
+let private cons xs x = x :: xs
 
 let rec toSignature (t: FSharpType) =
   if t.IsFunctionType then
-    Arrow (toFlatArrow t [])
+    option {
+      let! xs = toFlatArrow t
+      return Arrow xs
+    }
   elif t.IsTupleType then
-    Tuple (t.GenericArguments |> Seq.map toSignature |> Seq.toList)
+    option {
+      let! xs = listSignature t.GenericArguments
+      return Tuple xs
+    }
   elif t.IsGenericParameter then
-    Variable (Target, t.GenericParameter.Name)
+    Some (Variable (Target, t.GenericParameter.Name))
   elif t.HasTypeDefinition then
-    let args = genericArguments t
-    match List.ofSeq args with
-    | [] -> identity t.TypeDefinition
-    | xs -> Generic (identity t.TypeDefinition, List.map toSignature xs)
+    match genericArguments t with
+    | [] -> Some (identity t.TypeDefinition)
+    | xs -> 
+      option {
+        let! xs = listSignature xs
+        return Generic (identity t.TypeDefinition, xs)
+      }
   else
-    Unknown
-and toFlatArrow (t: FSharpType) xs =
+    None
+and toFlatArrow (t: FSharpType): Signature list option =
   match Seq.toList t.GenericArguments with
-  | [ x; y ] when y.IsFunctionType -> toSignature x :: toFlatArrow y xs
-  | [ x; y ] -> toSignature x :: toSignature y :: xs
-  | _ -> Unknown :: xs
+  | [ x; y ] when y.IsFunctionType ->
+    option {
+      let! xSig = toSignature x
+      let! ySigs = toFlatArrow y
+      return xSig :: ySigs
+    }
+  | [ x; y ] ->
+    option {
+      let! xSig = toSignature x
+      let! ySig = toSignature y
+      return [ xSig; ySig ]
+    }
+  | _ -> None
+and listSignature (ts: FSharpType seq) =
+  let f (t: FSharpType) (acc: Signature list option) =
+    option {
+      let! acc = acc
+      let! signature = toSignature t
+      return signature :: acc
+    }
+  Seq.foldBack f ts (Some [])
 and identity (e: FSharpEntity) = Identity e.DisplayName
 
 let isStaticMember (x: FSharpMemberOrFunctionOrValue) = not x.IsInstanceMember
@@ -91,28 +121,43 @@ let isMethod (x: FSharpMemberOrFunctionOrValue) = x.FullType.IsFunctionType && n
 let private memberSignature (t: FSharpType) =
   match List.ofSeq t.GenericArguments with
   | [ arguments; returnType ] ->
-    let arguments =
-      if arguments.IsTupleType then
-        arguments.GenericArguments |> Seq.map toSignature |> Seq.toList
-      else
-        [ toSignature arguments ]
-    let returnType = toSignature returnType
-    Some (arguments, returnType)
+    option {
+      let! arguments =
+        if arguments.IsTupleType then
+          listSignature arguments.GenericArguments
+        else
+          toSignature arguments |> Option.map List.singleton
+      let! returnType = toSignature returnType
+      return (arguments, returnType)
+    }
   | _ -> None
 
 let staticMethodSignature (t: FSharpType) =
-  memberSignature t |> Option.map (fun (args, ret) -> StaticMethod { Arguments = args; ReturnType = ret })
+  option {
+    let! args, ret = memberSignature t
+    return StaticMethod { Arguments = args; ReturnType = ret }
+  }
 
 let instanceMemberSignature (declaringType: FSharpEntity) (t: FSharpType) =
-  memberSignature t |> Option.map (fun (args, ret) -> InstanceMember { Source = Source.Target; Receiver = identity declaringType; Arguments = args; ReturnType = ret })
+  option {
+    let! args, ret = memberSignature t
+    return InstanceMember { Source = Source.Target; Receiver = identity declaringType; Arguments = args; ReturnType = ret }
+  }
 
 module CSharp =
   let constructorName = ".ctor"
   let isConstructor (x: FSharpMemberOrFunctionOrValue) = x.DisplayName = constructorName
   let constructorSignature (declaringType: FSharpEntity) (t: FSharpType) =
-    memberSignature t |> Option.map (fun (args, _) -> StaticMethod { Arguments = args; ReturnType = identity declaringType })
+    option {
+      let! args, _ = memberSignature t
+      return StaticMethod { Arguments = args; ReturnType = identity declaringType }
+    }
   
-let toFSharpApi (x: FSharpMemberOrFunctionOrValue) = { Name = x.FullName; Signature = toSignature x.FullType; }
+let toFSharpApi (x: FSharpMemberOrFunctionOrValue) =
+  option {
+    let! signature = toSignature x.FullType
+    return { Name = x.FullName; Signature = signature }
+  }
 
 let toTypeMemberApi (declaringType: FSharpEntity) (x: FSharpMemberOrFunctionOrValue) =
   if CSharp.isConstructor x then
@@ -137,8 +182,7 @@ and collectFromModule (e: FSharpEntity): Api seq =
   seq {
     yield! e.MembersFunctionsAndValues
             |> Seq.filter (fun x -> x.Accessibility.IsPublic)
-            |> Seq.map toFSharpApi
-            |> Seq.filter (fun x -> x.Signature <> Unknown)
+            |> Seq.choose toFSharpApi
     yield! collectFromNestedEntities e
   }
 and collectFromType (e: FSharpEntity): Api seq =
@@ -146,7 +190,6 @@ and collectFromType (e: FSharpEntity): Api seq =
     yield! e.MembersFunctionsAndValues
             |> Seq.filter (fun x -> x.Accessibility.IsPublic)
             |> Seq.choose (toTypeMemberApi e)
-            |> Seq.filter (fun x -> x.Signature <> Unknown)
     yield! collectFromNestedEntities e
   }
 and collectFromNestedEntities (e: FSharpEntity): Api seq = seq { for ne in e.NestedEntities do yield! collectApi' ne }

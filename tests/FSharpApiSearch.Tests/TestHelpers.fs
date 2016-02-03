@@ -23,15 +23,14 @@ let rec updateSource newSource = function
       Arguments = List.map (updateSource newSource) x.Arguments
       ReturnType = updateSource newSource x.ReturnType
     }
-  | Unknown as x -> x
 
 let toStaticMethod = function
   | Arrow xs ->
     match xs with
     | [ Tuple arguments; returnType ] -> StaticMethod { Arguments = arguments; ReturnType = returnType }
     | [ argument; returnType ] -> StaticMethod { Arguments = [ argument ]; ReturnType = returnType }
-    | _ -> Unknown
-  | _ -> Unknown
+    | _ -> failwith "failed to convert static method"
+  | _ -> failwith "failed to convert static method"
 
 module DSL =
   let private source = Source.Query
