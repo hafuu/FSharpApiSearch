@@ -88,49 +88,41 @@ and identity (e: FSharpEntity) = Identity e.DisplayName
 let isStaticMember (x: FSharpMemberOrFunctionOrValue) = not x.IsInstanceMember
 let isMethod (x: FSharpMemberOrFunctionOrValue) = x.FullType.IsFunctionType && not x.IsPropertyGetterMethod && not x.IsPropertySetterMethod
 
-let internal staticMethodSignature' returnTypeSignature (t: FSharpType) =
+let private memberSignature (t: FSharpType) =
   match List.ofSeq t.GenericArguments with
   | [ arguments; returnType ] ->
-    let arguments =
-      if arguments.IsTupleType then
-        arguments.GenericArguments |> Seq.map toSignature |> Seq.toList
-      else
-        [ toSignature arguments ]
-    let returnType = returnTypeSignature returnType
-    StaticMethod { Arguments = arguments; ReturnType = returnType }
-  | _ -> Unknown
-
-let staticMethodSignature = staticMethodSignature' toSignature
-
-let instanceMethodSIgnature (declaringType: FSharpEntity) (t: FSharpType) =
-  match List.ofSeq t.GenericArguments with
-  | [ arguments; returnType ] ->
-    let receiver = identity declaringType
     let arguments =
       if arguments.IsTupleType then
         arguments.GenericArguments |> Seq.map toSignature |> Seq.toList
       else
         [ toSignature arguments ]
     let returnType = toSignature returnType
-    InstanceMember { Source = Source.Target; Receiver = receiver; Arguments = arguments; ReturnType = returnType }
-  | _ -> Unknown
+    Some (arguments, returnType)
+  | _ -> None
+
+let staticMethodSignature (t: FSharpType) =
+  memberSignature t |> Option.map (fun (args, ret) -> StaticMethod { Arguments = args; ReturnType = ret })
+
+let instanceMemberSignature (declaringType: FSharpEntity) (t: FSharpType) =
+  memberSignature t |> Option.map (fun (args, ret) -> InstanceMember { Source = Source.Target; Receiver = identity declaringType; Arguments = args; ReturnType = ret })
 
 module CSharp =
   let constructorName = ".ctor"
   let isConstructor (x: FSharpMemberOrFunctionOrValue) = x.DisplayName = constructorName
-  let constructorSignature (declaringType: FSharpEntity) = staticMethodSignature' (fun _ -> identity declaringType)
+  let constructorSignature (declaringType: FSharpEntity) (t: FSharpType) =
+    memberSignature t |> Option.map (fun (args, _) -> StaticMethod { Arguments = args; ReturnType = identity declaringType })
   
 let toFSharpApi (x: FSharpMemberOrFunctionOrValue) = { Name = x.FullName; Signature = toSignature x.FullType; }
 
-let toClassMemberApi (declaringType: FSharpEntity) (x: FSharpMemberOrFunctionOrValue) =
+let toTypeMemberApi (declaringType: FSharpEntity) (x: FSharpMemberOrFunctionOrValue) =
   if CSharp.isConstructor x then
-    { Name = declaringType.FullName; Signature = CSharp.constructorSignature declaringType x.FullType }
+    CSharp.constructorSignature declaringType x.FullType |> Option.map (fun signature -> { Name = declaringType.FullName; Signature = signature })
   elif isStaticMember x && isMethod x then
-    { Name = x.FullName; Signature = staticMethodSignature x.FullType }
+    staticMethodSignature x.FullType |> Option.map (fun signature -> { Name = x.FullName; Signature = signature })
   elif x.IsInstanceMember && isMethod x then
-    { Name = x.FullName; Signature = instanceMethodSIgnature declaringType x.FullType }
+    instanceMemberSignature declaringType x.FullType |> Option.map (fun signature -> { Name = x.FullName; Signature = signature})
   else
-    { Name = x.FullName; Signature = Unknown }
+    None
 
 let rec collectApi' (e: FSharpEntity): Api seq =
   seq {
@@ -138,8 +130,8 @@ let rec collectApi' (e: FSharpEntity): Api seq =
       yield! collectFromNestedEntities e
     if e.IsFSharpModule then
       yield! collectFromModule e
-    if e.IsClass then
-      yield! collectFromClass e
+    if e.IsClass || e.IsValueType || e.IsFSharpRecord || e.IsFSharpUnion then
+      yield! collectFromType e
   }
 and collectFromModule (e: FSharpEntity): Api seq =
   seq {
@@ -149,11 +141,11 @@ and collectFromModule (e: FSharpEntity): Api seq =
             |> Seq.filter (fun x -> x.Signature <> Unknown)
     yield! collectFromNestedEntities e
   }
-and collectFromClass (e: FSharpEntity): Api seq =
+and collectFromType (e: FSharpEntity): Api seq =
   seq {
     yield! e.MembersFunctionsAndValues
             |> Seq.filter (fun x -> x.Accessibility.IsPublic)
-            |> Seq.map (toClassMemberApi e)
+            |> Seq.choose (toTypeMemberApi e)
             |> Seq.filter (fun x -> x.Signature <> Unknown)
     yield! collectFromNestedEntities e
   }
