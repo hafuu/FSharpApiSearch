@@ -170,7 +170,6 @@ let instanceMethodSignature (declaringType: FSharpEntity) (t: FSharpType) =
     let! args, ret = methodSignature t
     return InstanceMember { Source = Source.Target; Receiver = identity declaringType; Arguments = args; ReturnType = ret }
   }
-
 module CSharp =
   let constructorName = ".ctor"
   let isConstructor (x: FSharpMemberOrFunctionOrValue) = x.DisplayName = constructorName
@@ -215,13 +214,20 @@ let toTypeMemberApi (declaringType: FSharpEntity) (x: FSharpMemberOrFunctionOrVa
   else
     None
 
+let toFieldApi (declaringType: FSharpEntity) (field: FSharpField) =
+  option {
+    let! fieldSignature = toSignature field.FieldType
+    let signature = InstanceMember { Source = Source.Target; Receiver = identity declaringType; Arguments = []; ReturnType = fieldSignature }
+    return { Name = field.FullName; Signature = signature }
+  }
+
 let rec collectApi' (e: FSharpEntity): Api seq =
   seq {
     if e.IsNamespace then
       yield! collectFromNestedEntities e
     if e.IsFSharpModule then
       yield! collectFromModule e
-    if e.IsClass || e.IsValueType || e.IsFSharpRecord || e.IsFSharpUnion then
+    if e.IsClass || e.IsValueType || e.IsFSharpRecord || e.IsFSharpUnion || e.IsValueType then
       yield! collectFromType e
   }
 and collectFromModule (e: FSharpEntity): Api seq =
@@ -236,6 +242,9 @@ and collectFromType (e: FSharpEntity): Api seq =
     yield! e.MembersFunctionsAndValues
             |> Seq.filter (fun x -> x.Accessibility.IsPublic)
             |> Seq.choose (toTypeMemberApi e)
+    yield! e.FSharpFields
+            |> Seq.filter (fun x -> x.Accessibility.IsPublic)
+            |> Seq.choose (toFieldApi e)
     yield! collectFromNestedEntities e
   }
 and collectFromNestedEntities (e: FSharpEntity): Api seq = seq { for ne in e.NestedEntities do yield! collectApi' ne }
