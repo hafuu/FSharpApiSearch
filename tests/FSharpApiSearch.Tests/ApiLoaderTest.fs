@@ -30,7 +30,7 @@ module FSharpTest =
     return assemblies |> List.find (fun x -> x.FileName = Some fsharpAssemblyPath ) |> ApiLoader.collectApi
   }
 
-  let testInstanceMember (name, signatures) = test {
+  let testMember (name, signatures) = test {
     let! apis = fsharpAssemblyApi
     let actuals = Seq.filter (fun x -> x.Name = name) apis |> Seq.map (fun x -> x.Signature) |> Seq.toList |> List.sort
     let expecteds = signatures |> List.map (QueryParser.parseFSharpSignature >> TestHelpers.updateSource Source.Target) |> List.sort
@@ -58,7 +58,15 @@ module FSharpTest =
       "PublicModule.array2d", [ "int[,]" ]
       "PublicModule.nestedArray", [ "int[,][]" ]
     ]
-    run testInstanceMember
+    run testMember
+  }
+
+  let loadStaticPropertyTest = parameterize {
+    source [
+      "TopLevelNamespace.StaticMemberClass.Property", [ "string" ]
+      "TopLevelNamespace.StaticMemberClass.IndexedProperty", [ "string -> int" ]
+    ]
+    run testMember
   }
 
   let loadStaticMethodTest = parameterize {
@@ -80,8 +88,10 @@ module FSharpTest =
       "TopLevelNamespace.InstanceMemberClass.InstanceMethod2", [ "InstanceMemberClass => int -> string" ]
       "TopLevelNamespace.InstanceMemberClass.InstanceMethod3", [ "InstanceMemberClass => string -> float -> float" ]
       "TopLevelNamespace.InstanceMemberClass.OverloadMethod", [ "InstanceMemberClass => int -> int"; "InstanceMemberClass => string -> int" ]
+      "TopLevelNamespace.InstanceMemberClass.Property", [ "InstanceMemberClass => string" ]
+      "TopLevelNamespace.InstanceMemberClass.IndexedProperty", [ "InstanceMemberClass => string -> int" ]
     ]
-    run testInstanceMember
+    run testMember
   }
 
   let loadOtherTypeTest = parameterize {
@@ -92,7 +102,7 @@ module FSharpTest =
       "OtherTypes.Union.InstanceMethod", [ "Union => unit -> int" ]
       "OtherTypes.Struct.InstanceMethod", [ "Struct => unit -> int" ]
     ]
-    run testInstanceMember
+    run testMember
   }
 
   let loadOtherTypeStaticTest = parameterize {
@@ -109,7 +119,6 @@ module FSharpTest =
       "PublicModule.privateFunction"
       "InternalModule.publicFunction"
       "PrivateModule.publicFunction"
-      "TopLevelNamespace.StaticMemberClass.Property"
     ]
     run (fun name -> test {
       let! apis = fsharpAssemblyApi
@@ -143,9 +152,22 @@ module CSharpTest =
     })
   }
 
+  let loadStaticMemberTest = parameterize {
+    source [
+      "CSharpLoadTestAssembly.StaticMemberClass.StaticProperty", [ "int" ]
+    ]
+    run (fun (name, signatures) -> test {
+      let! apis = csharpAssemblyApi
+      let actuals = Seq.filter (fun x -> x.Name = name) apis |> Seq.map (fun x -> x.Signature) |> Seq.toList |> List.sort
+      let expecteds = signatures |> List.map (QueryParser.parseFSharpSignature >> TestHelpers.updateSource Source.Target) |> List.sort
+      do! actuals |> assertEquals expecteds
+    })
+  }
+
+
+
   let nonloadedApiTest = parameterize {
     source [
-      "CSharpLoadTestAssembly.StaticMemberClass.StaticProperty"
       "CSharpLoadTestAssembly.StaticMemberClass.StaticField"
     ]
     run (fun name -> test {

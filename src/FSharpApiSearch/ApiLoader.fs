@@ -65,8 +65,6 @@ let genericArguments (t: FSharpType) =
   else
     args
 
-let private cons xs x = x :: xs
-
 let rec toSignature (t: FSharpType) =
   if t.IsFunctionType then
     option {
@@ -118,7 +116,7 @@ and identity (e: FSharpEntity) = Identity e.DisplayName
 let isStaticMember (x: FSharpMemberOrFunctionOrValue) = not x.IsInstanceMember
 let isMethod (x: FSharpMemberOrFunctionOrValue) = x.FullType.IsFunctionType && not x.IsPropertyGetterMethod && not x.IsPropertySetterMethod
 
-let private memberSignature (t: FSharpType) =
+let private methodSignature (t: FSharpType) =
   match List.ofSeq t.GenericArguments with
   | [ arguments; returnType ] ->
     option {
@@ -134,13 +132,42 @@ let private memberSignature (t: FSharpType) =
 
 let staticMethodSignature (t: FSharpType) =
   option {
-    let! args, ret = memberSignature t
+    let! args, ret = methodSignature t
     return StaticMethod { Arguments = args; ReturnType = ret }
   }
 
-let instanceMemberSignature (declaringType: FSharpEntity) (t: FSharpType) =
+let propertySignature (x: FSharpMemberOrFunctionOrValue) =
   option {
-    let! args, ret = memberSignature t
+    let! args =
+      if Seq.length x.CurriedParameterGroups = 1 then
+        listSignature (x.CurriedParameterGroups |> Seq.head |> Seq.map (fun p -> p.Type))
+      else
+        None
+    let! propertyType = toSignature x.ReturnParameter.Type
+    match args with
+    | [] -> return (None, propertyType)
+    | [ x ] -> return (Some x, propertyType)
+    | _ -> return! None
+  }
+
+let staticPropertySignature (x: FSharpMemberOrFunctionOrValue) =
+  option {
+    let! arg, propertyType = propertySignature x
+    match arg with
+    | Some arg -> return Arrow [ arg; propertyType ]
+    | None -> return propertyType
+  }
+
+let instancePropertySignature (declaringType: FSharpEntity) (x: FSharpMemberOrFunctionOrValue) =
+  option {
+    let! arg, propertyType = propertySignature x
+    let arg = arg |> Option.toList
+    return InstanceMember { Source = Source.Target; Receiver = identity declaringType; Arguments = arg; ReturnType = propertyType }
+  }
+
+let instanceMethodSignature (declaringType: FSharpEntity) (t: FSharpType) =
+  option {
+    let! args, ret = methodSignature t
     return InstanceMember { Source = Source.Target; Receiver = identity declaringType; Arguments = args; ReturnType = ret }
   }
 
@@ -149,7 +176,7 @@ module CSharp =
   let isConstructor (x: FSharpMemberOrFunctionOrValue) = x.DisplayName = constructorName
   let constructorSignature (declaringType: FSharpEntity) (t: FSharpType) =
     option {
-      let! args, _ = memberSignature t
+      let! args, _ = methodSignature t
       return StaticMethod { Arguments = args; ReturnType = identity declaringType }
     }
   
@@ -161,11 +188,30 @@ let toFSharpApi (x: FSharpMemberOrFunctionOrValue) =
 
 let toTypeMemberApi (declaringType: FSharpEntity) (x: FSharpMemberOrFunctionOrValue) =
   if CSharp.isConstructor x then
-    CSharp.constructorSignature declaringType x.FullType |> Option.map (fun signature -> { Name = declaringType.FullName; Signature = signature })
+    option {
+      let! signature = CSharp.constructorSignature declaringType x.FullType
+      return { Name = declaringType.FullName; Signature = signature }
+    }
   elif isStaticMember x && isMethod x then
-    staticMethodSignature x.FullType |> Option.map (fun signature -> { Name = x.FullName; Signature = signature })
+    option {
+      let! signature = staticMethodSignature x.FullType
+      return { Name = x.FullName; Signature = signature }
+    }
   elif x.IsInstanceMember && isMethod x then
-    instanceMemberSignature declaringType x.FullType |> Option.map (fun signature -> { Name = x.FullName; Signature = signature})
+    option {
+      let! signature = instanceMethodSignature declaringType x.FullType
+      return { Name = x.FullName; Signature = signature}
+    }
+  elif isStaticMember x && x.IsProperty then
+    option {
+      let! signature = staticPropertySignature x
+      return { Name = x.FullName; Signature = signature }
+    }
+  elif x.IsInstanceMember && x.IsProperty then
+    option {
+      let! signature = instancePropertySignature declaringType x
+      return { Name = x.FullName; Signature = signature }
+    }
   else
     None
 
@@ -197,3 +243,4 @@ and collectFromNestedEntities (e: FSharpEntity): Api seq = seq { for ne in e.Nes
 let collectApi (assembly: FSharpAssembly): Api seq =
   assembly.Contents.Entities
   |> Seq.collect collectApi'
+  |> Seq.cache
