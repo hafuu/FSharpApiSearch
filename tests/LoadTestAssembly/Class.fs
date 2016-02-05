@@ -25,3 +25,6 @@ type InstanceMemberClass() =
 
   member val Property = "" with get, set
   member this.IndexedProperty with get(name: string) = 0 and set (name: string) (value: int) = ()
+
+type GenericClass<'a>() =
+  member this.Method(x: 'a) = 3

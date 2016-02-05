@@ -158,17 +158,24 @@ let staticPropertySignature (x: FSharpMemberOrFunctionOrValue) =
     | None -> return propertyType
   }
 
+let receiver (declaringType: FSharpEntity) =
+  let identity = identity declaringType
+  let args = declaringType.GenericParameters |> Seq.map (fun p -> Variable (Source.Target, p.DisplayName)) |> Seq.toList
+  match args with
+  | [] -> identity
+  | xs -> Generic (identity, xs)
+
 let instancePropertySignature (declaringType: FSharpEntity) (x: FSharpMemberOrFunctionOrValue) =
   option {
     let! arg, propertyType = propertySignature x
     let arg = arg |> Option.toList
-    return InstanceMember { Source = Source.Target; Receiver = identity declaringType; Arguments = arg; ReturnType = propertyType }
+    return InstanceMember { Source = Source.Target; Receiver = receiver declaringType; Arguments = arg; ReturnType = propertyType }
   }
 
 let instanceMethodSignature (declaringType: FSharpEntity) (t: FSharpType) =
   option {
     let! args, ret = methodSignature t
-    return InstanceMember { Source = Source.Target; Receiver = identity declaringType; Arguments = args; ReturnType = ret }
+    return InstanceMember { Source = Source.Target; Receiver = receiver declaringType; Arguments = args; ReturnType = ret }
   }
 module CSharp =
   let constructorName = ".ctor"
@@ -176,7 +183,7 @@ module CSharp =
   let constructorSignature (declaringType: FSharpEntity) (t: FSharpType) =
     option {
       let! args, _ = methodSignature t
-      return StaticMethod { Arguments = args; ReturnType = identity declaringType }
+      return StaticMethod { Arguments = args; ReturnType = receiver declaringType }
     }
   
 let toFSharpApi (x: FSharpMemberOrFunctionOrValue) =

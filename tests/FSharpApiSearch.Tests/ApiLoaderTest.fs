@@ -90,6 +90,7 @@ module FSharpTest =
       "TopLevelNamespace.InstanceMemberClass.OverloadMethod", [ "InstanceMemberClass => int -> int"; "InstanceMemberClass => string -> int" ]
       "TopLevelNamespace.InstanceMemberClass.Property", [ "InstanceMemberClass => string" ]
       "TopLevelNamespace.InstanceMemberClass.IndexedProperty", [ "InstanceMemberClass => string -> int" ]
+      "TopLevelNamespace.GenericClass.Method", [ "GenericClass<'a> => 'a -> int" ]
     ]
     run testMember
   }
