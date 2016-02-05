@@ -14,7 +14,6 @@ type Signature =
   | StrongIdentity of string
   | Arrow of Signature list
   | Generic of Signature * Signature list
-  | Tuple of Signature list
   | StaticMethod of StaticMethodInfo
   | InstanceMember of InstanceMemberInfo
 and InstanceMemberInfo = {
@@ -30,18 +29,29 @@ and StaticMethodInfo = {
 
 let internal arrayRegexPattern = @"\[,*\]"
 
-let (|Array|_|) = function
-  | Generic (Identity name, [ t ]) when Regex.IsMatch(name, arrayRegexPattern) ->
-    let dimension = name.Split(',').Length
-    Some (dimension, name, t)
-  | _ -> None
-
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Signature =
+  [<Literal>]
+  let TupleTypeName = "Tuple"
+  let tuple xs = Generic (Identity TupleTypeName, xs)
+
+  module Patterns =
+    let (|Array|_|) = function
+      | Generic (Identity name, [ t ]) when Regex.IsMatch(name, arrayRegexPattern) ->
+        let dimension = name.Split(',').Length
+        Some (dimension, name, t)
+      | _ -> None
+
+    let (|Tuple|_|) = function
+      | Generic ((Identity TupleTypeName | StrongIdentity TupleTypeName), xs) -> Some xs
+      | _ -> None
+
+  open Patterns
+
   let rec collectVariables = function
     | Variable _ as v -> [ v ]
     | StrongVariable _ as v -> [ v ]
-    | (Tuple xs | Arrow xs) -> List.collect collectVariables xs
+    | Arrow xs -> List.collect collectVariables xs
     | Identity _ -> []
     | StrongIdentity _ -> []
     | Wildcard -> []
@@ -53,7 +63,7 @@ module Signature =
   let rec collectWildcardGroup = function
     | Variable _ -> []
     | StrongVariable _ -> []
-    | (Tuple xs | Arrow xs) -> List.collect collectWildcardGroup xs
+    | Arrow xs -> List.collect collectWildcardGroup xs
     | Identity _ -> []
     | StrongIdentity _ -> []
     | Wildcard -> []
@@ -79,18 +89,18 @@ module Signature =
       )
       |> String.concat " -> "
     | Array (_, name, x) -> display' prefix x + name
-    | Generic (x, ys) -> sprintf "%s<%s>" (display' prefix x) (ys |> Seq.map (display' prefix) |> String.concat ", ")
     | Tuple xs ->
       xs
       |> Seq.map (function
         | Tuple _ as t -> sprintf "(%s)" (display' prefix t)
         | x -> display' prefix x)
       |> String.concat " * "
-    | StaticMethod x -> sprintf "%s -> %s" (display' prefix (Tuple x.Arguments)) (display' prefix x.ReturnType)
+    | Generic (x, ys) -> sprintf "%s<%s>" (display' prefix x) (ys |> Seq.map (display' prefix) |> String.concat ", ")
+    | StaticMethod x -> sprintf "%s -> %s" (display' prefix (tuple x.Arguments)) (display' prefix x.ReturnType)
     | InstanceMember x ->
       match x.Arguments with
       | [] -> sprintf "%s" (display' prefix x.ReturnType)
-      | _ -> sprintf "%s -> %s" (display' prefix (Tuple x.Arguments)) (display' prefix x.ReturnType)
+      | _ -> sprintf "%s -> %s" (display' prefix (tuple x.Arguments)) (display' prefix x.ReturnType)
 
   let display = display' (fun _ name -> "'" + name)
 

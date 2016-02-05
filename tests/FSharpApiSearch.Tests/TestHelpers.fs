@@ -1,5 +1,6 @@
 ﻿module TestHelpers
 open FSharpApiSearch
+open FSharpApiSearch.Types.Signature.Patterns
 
 let rec updateSource newSource = function
   | Variable (_, name) -> Variable (newSource, name)
@@ -9,8 +10,7 @@ let rec updateSource newSource = function
   | Wildcard as x -> x
   | WildcardGroup _ as x -> x
   | Arrow xs -> Arrow (List.map (updateSource newSource) xs)
-  | Generic (id, xs) -> Generic (id, List.map (updateSource newSource) xs)
-  | Tuple xs -> Tuple (List.map (updateSource newSource) xs)
+  | Generic (id, xs) -> Generic (updateSource newSource id, List.map (updateSource newSource) xs)
   | StaticMethod x ->
     StaticMethod {
       Arguments = List.map (updateSource newSource) x.Arguments
@@ -42,7 +42,7 @@ module DSL =
   let wildcardGroup name = WildcardGroup name
   let arrow xs = Arrow xs
   let generic id xs = Generic (id, xs)
-  let tuple xs = Tuple xs
+  let tuple xs = Signature.tuple xs
   let staticMethod args ret = StaticMethod { Arguments = args; ReturnType = ret }
   let instanceMember receiver args ret = InstanceMember { Source = source; Receiver = receiver; Arguments = args; ReturnType = ret }
   let array x = generic (identity "[]") [ x ]

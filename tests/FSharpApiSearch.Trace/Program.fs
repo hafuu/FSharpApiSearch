@@ -9,8 +9,7 @@ let rec updateSource newSource = function
   | Wildcard as x -> x
   | WildcardGroup _ as x -> x
   | Arrow xs -> Arrow (List.map (updateSource newSource) xs)
-  | Generic (id, xs) -> Generic (id, List.map (updateSource newSource) xs)
-  | Tuple xs -> Tuple (List.map (updateSource newSource) xs)
+  | Generic (id, xs) -> Generic (updateSource newSource id, List.map (updateSource newSource) xs)
   | StaticMethod x ->
     StaticMethod {
       Arguments = List.map (updateSource newSource) x.Arguments
@@ -23,7 +22,6 @@ let rec updateSource newSource = function
       Arguments = List.map (updateSource newSource) x.Arguments
       ReturnType = updateSource newSource x.ReturnType
     }
-  | Unknown as x -> x
 
 let matchAndShowResult (query: string) (target: string) =
   let query = QueryParser.parse query

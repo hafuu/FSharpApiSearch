@@ -74,7 +74,7 @@ let rec toSignature (t: FSharpType) =
   elif t.IsTupleType then
     option {
       let! xs = listSignature t.GenericArguments
-      return Tuple xs
+      return Signature.tuple xs
     }
   elif t.IsGenericParameter then
     Some (Variable (Target, t.GenericParameter.Name))

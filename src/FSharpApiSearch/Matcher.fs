@@ -291,7 +291,6 @@ module SignatureRules =
     | Variable _ -> 0
     | StrongVariable _ -> 0
     | Generic _ -> 1
-    | Tuple _ -> 1
     | Arrow xs -> seqDistance xs
     | StaticMethod x -> seqDistance (x.ReturnType :: x.Arguments)
     | InstanceMember x -> seqDistance (x.Receiver :: x.ReturnType :: x.Arguments)
@@ -319,13 +318,6 @@ module SignatureRules =
     | Generic (leftId, leftParams), Generic (rightId, rightParams) ->
       Debug.WriteLine("generic type")
       testAll test (leftId :: leftParams) (rightId :: rightParams) ctx
-    | _ -> Continue ctx
-
-  let tupleRule test left right ctx =
-    match left, right with
-    | Tuple leftTypes, Tuple rightTypes ->
-      Debug.WriteLine("tuple type")
-      testAll test leftTypes rightTypes ctx
     | _ -> Continue ctx
 
   let arrowRule test left right ctx =
@@ -404,7 +396,6 @@ let defaultRule =
     SignatureRules.identityRule
     SignatureRules.hardVariableRule
     SignatureRules.genericRule
-    SignatureRules.tupleRule
     SignatureRules.arrowRule
     SignatureRules.staticMethodRule
     SignatureRules.instanceMemberAndArrowRule
@@ -420,7 +411,6 @@ let similaritySearchingRule =
     SignatureRules.identityRule
     SignatureRules.similarityVariableRule
     SignatureRules.genericRule
-    SignatureRules.tupleRule
     SignatureRules.arrowRule
     SignatureRules.staticMethodRule
     SignatureRules.instanceMemberAndArrowRule

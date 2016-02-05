@@ -51,7 +51,7 @@ module FSharpSignatureParser =
 
   let term3 = choice [ attempt mlGeneric; term2 ]
 
-  let maybeTuple t = sepBy1 t (pstring "*") |>> function [ x ] -> x | xs -> Tuple xs
+  let maybeTuple t = sepBy1 t (pstring "*") |>> function [ x ] -> x | xs -> Signature.tuple xs
 
   let term4 = maybeTuple term3
 
