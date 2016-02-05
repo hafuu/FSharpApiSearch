@@ -31,13 +31,28 @@ module SearchOptions =
     | Enabled -> Matcher.similaritySearchingRule
     | Disabled -> Matcher.defaultRule
 
-type FSharpApiSearchClient (apis: Api seq) =
-  let apis = Seq.cache apis
-  do apis |> Seq.iter (fun _ -> ())
+type FSharpApiSearchClient (targets: string seq, dictionaries: ApiDictionary seq) =
+  let apis = dictionaries |> Seq.filter (fun x -> targets |> Seq.exists ((=)x.AssemblyName)) |> Seq.collect (fun x -> x.Api) |> Seq.cache
+  let abbreviationTable = dictionaries |> Seq.collect (fun x -> x.TypeAbbreviations) |> Seq.toList
 
-  new (assemblies: FSharpAssembly seq) = FSharpApiSearchClient(Seq.collect ApiLoader.collectApi assemblies)
-  new (references: string seq) = FSharpApiSearchClient(ApiLoader.loadAssembly references)
-  new () = FSharpApiSearchClient(Seq.empty<string>)
+  static member DefaultReferences = [
+    "mscorlib" 
+    "System"
+    "System.Core"
+    "System.Xml"
+    "System.Configuration"
+    "FSharp.Core"
+  ]
+  static member DefaultTargets = [
+    "mscorlib" 
+    "System"
+    "System.Core"
+    "FSharp.Core"
+  ]
+
+  new (targets, assemblies: FSharpAssembly seq) = FSharpApiSearchClient(targets, Seq.map ApiLoader.load assemblies)
+  new (targets: string seq, references: string seq) = FSharpApiSearchClient(targets, ApiLoader.loadAssembly references)
+  new () = FSharpApiSearchClient(FSharpApiSearchClient.DefaultTargets, FSharpApiSearchClient.DefaultReferences)
 
   member this.Search(query: Query, ?options) =
     let options = defaultArg options SearchOptions.defaultOptions
@@ -50,8 +65,11 @@ type FSharpApiSearchClient (apis: Api seq) =
     |> Seq.sort
     |> Seq.cache
 
+  member this.ParseQuery(query: string) =
+    QueryParser.parse query |> Query.replaceAbbreviation abbreviationTable
+
   member this.Search(query: string, ?options) =
-    let query = QueryParser.parse query
+    let query = this.ParseQuery(query)
     match options with
     | Some options -> this.Search(query, options)
     | None -> this.Search(query)

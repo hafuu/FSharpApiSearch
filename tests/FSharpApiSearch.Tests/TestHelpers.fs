@@ -23,6 +23,7 @@ let rec updateSource newSource = function
       Arguments = List.map (updateSource newSource) x.Arguments
       ReturnType = updateSource newSource x.ReturnType
     }
+  | TypeAbbreviation x -> TypeAbbreviation { Abbreviation = updateSource newSource x.Abbreviation; Original = updateSource newSource x.Original }
 
 let toStaticMethod = function
   | Arrow xs ->
@@ -48,3 +49,17 @@ module DSL =
   let array x = generic (identity "[]") [ x ]
   let array2d x = generic (identity "[,]") [ x ]
   let array3d x = generic (identity "[,,]") [ x ]
+  let abbreviation original abbreviation = TypeAbbreviation { Abbreviation = abbreviation; Original = original }
+
+open DSL
+
+let fsharpAbbreviationTable = [
+  { Abbreviation = identity "int"; Original = identity "Int32" }
+  { Abbreviation = identity "float"; Original = identity "Double" }
+  { Abbreviation = identity "single"; Original = identity "Single" }
+  { Abbreviation = identity "string"; Original = identity "String" }
+  { Abbreviation = identity "unit"; Original = identity "Unit" }
+  { Abbreviation = generic (identity "list") [ variable "a" ]; Original = generic (identity "List") [ variable "a" ] }
+]
+
+let replaceAbbreviation = Signature.replaceAbbreviation fsharpAbbreviationTable

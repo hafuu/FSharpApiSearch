@@ -2,23 +2,48 @@
 
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open System.IO
+open System.Reflection
 
-let toAssemblyName assemblyPath = Path.GetFileName(assemblyPath).Replace(".dll", "")
+let syslib name =
+  Path.Combine(
+    System.Environment.GetFolderPath(System.Environment.SpecialFolder.ProgramFilesX86)
+    , @"Reference Assemblies\Microsoft\Framework\.NETFramework\v4.5\"
+    , name)
+let fscore4400 =
+  Path.Combine(
+    System.Environment.GetFolderPath(System.Environment.SpecialFolder.ProgramFilesX86)
+    , @"Reference Assemblies\Microsoft\FSharp\.NETFramework\v4.0\4.4.0.0\FSharp.Core.dll")
+
+let resolvePath (assemblyName: string) =
+  let assemblyName = if assemblyName.EndsWith(".dll") = false then assemblyName + ".dll" else assemblyName
+
+  if File.Exists(syslib assemblyName) then
+    Some (syslib assemblyName)
+  elif assemblyName = "FSharp.Core.dll" then
+    Some fscore4400
+  elif File.Exists(assemblyName) then
+    Some (assemblyName)
+  else
+    None
+
+let ignoreFSharpCompilerServiceError() =
+  typeof<FSharpChecker>.Assembly.GetType("Microsoft.FSharp.Compiler.AbstractIL.Diagnostics")
+  |> Option.ofObj
+  |> Option.bind (fun diagMod -> diagMod.GetMember("diagnosticsLog", BindingFlags.NonPublic ||| BindingFlags.Static) |> Array.tryHead)
+  |> Option.bind (tryUnbox<PropertyInfo>)
+  |> Option.bind (fun x -> x.GetValue(null) |> Option.ofObj)
+  |> Option.bind (tryUnbox<ref<Option<System.IO.TextWriter>>>)
+  |> Option.iter (fun x -> x := None)
 
 let loadAssembly references =
+  ignoreFSharpCompilerServiceError()
+
   let checker = FSharpChecker.Create()
   let base1 = Path.GetTempFileName()
   let fileName1 = Path.ChangeExtension(base1, ".fs")
   let projFileName = Path.ChangeExtension(base1, ".fsproj")
   let dllName = Path.ChangeExtension(base1, ".dll")
   let options =
-    let syslib name =
-      System.Environment.GetFolderPath(System.Environment.SpecialFolder.ProgramFilesX86)
-      + @"\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.5\"
-      + (name + ".dll")
-    let fscore4400 =
-      System.Environment.GetFolderPath(System.Environment.SpecialFolder.ProgramFilesX86)
-      + @"\Reference Assemblies\Microsoft\FSharp\.NETFramework\v4.0\4.4.0.0\FSharp.Core.dll"
     checker.GetProjectOptionsFromCommandLineArgs
       (projFileName,
         [|  yield "--simpleresolution" 
@@ -32,41 +57,18 @@ let loadAssembly references =
             yield "--flaterrors" 
             yield "--target:library" 
             yield fileName1
-            let defaultReferences =
-              [ syslib "mscorlib" 
-                syslib "System"
-                syslib "System.Core"
-                syslib "System.Xml"
-                syslib "System.Configuration"
-                fscore4400 ]
-            for r in defaultReferences do 
-              yield "-r:" + r
-            for a in references do
-              yield "-r:" + a |]
+            for r in references |> Seq.choose resolvePath do
+              yield "-r:" + r |]
       )
-  let targetAssemblies = [
-    yield "mscorlib"
-    yield "System"
-    yield "System.Core"
-    yield "FSharp.Core"
-    yield! references |> Seq.map toAssemblyName
-  ]
-
   let refAssemblies =
     let x = checker.ParseAndCheckProject(options) |> Async.RunSynchronously
     x.ProjectContext.GetReferencedAssemblies()
   refAssemblies
-  |> List.filter (fun x -> List.exists ((=)x.SimpleName) targetAssemblies)
-
-let genericArguments (t: FSharpType) =
-  let args = t.GenericArguments |> Seq.toList
-  if t.HasTypeDefinition && t.TypeDefinition.DisplayName = "float" then
-    args |> List.filter (fun x -> not x.HasTypeDefinition || (x.HasTypeDefinition && x.TypeDefinition.DisplayName <> "MeasureOne"))
-  else
-    args
 
 let rec toSignature (t: FSharpType) =
-  if t.IsFunctionType then
+  if Hack.isMeasure t then
+    None
+  elif t.IsFunctionType then
     option {
       let! xs = toFlatArrow t
       return Arrow xs
@@ -79,15 +81,33 @@ let rec toSignature (t: FSharpType) =
   elif t.IsGenericParameter then
     Some (Variable (Target, t.GenericParameter.Name))
   elif t.HasTypeDefinition then
-    match genericArguments t with
-    | [] -> Some (identity t.TypeDefinition)
-    | xs -> 
-      option {
-        let! xs = listSignature xs
-        return Generic (identity t.TypeDefinition, xs)
-      }
+    let signature =
+      match Hack.genericArguments t with
+      | [] -> Some (identity t.TypeDefinition)
+      | xs -> 
+        option {
+          let! xs = listSignature xs
+          return Generic (identity t.TypeDefinition, xs)
+        }
+    option {
+      let! signature = signature
+      if Hack.isAbbreviation t then
+        let! original = abbreviationRoot t
+        return TypeAbbreviation { Abbreviation = signature; Original = original }
+      else
+        return signature
+    }
   else
     None
+and abbreviationRoot (t: FSharpType) =
+  if t.IsAbbreviation then
+    abbreviationRoot t.AbbreviatedType
+  elif Hack.isFloat t then
+    Some (Identity "Double")
+  elif t.IsFunctionType then
+    None
+  else
+    toSignature t
 and toFlatArrow (t: FSharpType): Signature list option =
   match Seq.toList t.GenericArguments with
   | [ x; y ] when y.IsFunctionType ->
@@ -112,6 +132,12 @@ and listSignature (ts: FSharpType seq) =
     }
   Seq.foldBack f ts (Some [])
 and identity (e: FSharpEntity) = Identity e.DisplayName
+and fsharpEntityToSignature (x: FSharpEntity) =
+  let identity = identity x
+  let args = x.GenericParameters |> Seq.map (fun p -> Variable (Source.Target, p.DisplayName)) |> Seq.toList
+  match args with
+  | [] -> identity
+  | xs -> Generic (identity, xs)
 
 let isStaticMember (x: FSharpMemberOrFunctionOrValue) = not x.IsInstanceMember
 let isMethod (x: FSharpMemberOrFunctionOrValue) = x.FullType.IsFunctionType && not x.IsPropertyGetterMethod && not x.IsPropertySetterMethod
@@ -158,24 +184,17 @@ let staticPropertySignature (x: FSharpMemberOrFunctionOrValue) =
     | None -> return propertyType
   }
 
-let receiver (declaringType: FSharpEntity) =
-  let identity = identity declaringType
-  let args = declaringType.GenericParameters |> Seq.map (fun p -> Variable (Source.Target, p.DisplayName)) |> Seq.toList
-  match args with
-  | [] -> identity
-  | xs -> Generic (identity, xs)
-
 let instancePropertySignature (declaringType: FSharpEntity) (x: FSharpMemberOrFunctionOrValue) =
   option {
     let! arg, propertyType = propertySignature x
     let arg = arg |> Option.toList
-    return InstanceMember { Source = Source.Target; Receiver = receiver declaringType; Arguments = arg; ReturnType = propertyType }
+    return InstanceMember { Source = Source.Target; Receiver = fsharpEntityToSignature declaringType; Arguments = arg; ReturnType = propertyType }
   }
 
 let instanceMethodSignature (declaringType: FSharpEntity) (t: FSharpType) =
   option {
     let! args, ret = methodSignature t
-    return InstanceMember { Source = Source.Target; Receiver = receiver declaringType; Arguments = args; ReturnType = ret }
+    return InstanceMember { Source = Source.Target; Receiver = fsharpEntityToSignature declaringType; Arguments = args; ReturnType = ret }
   }
 module CSharp =
   let constructorName = ".ctor"
@@ -183,7 +202,7 @@ module CSharp =
   let constructorSignature (declaringType: FSharpEntity) (t: FSharpType) =
     option {
       let! args, _ = methodSignature t
-      return StaticMethod { Arguments = args; ReturnType = receiver declaringType }
+      return StaticMethod { Arguments = args; ReturnType = fsharpEntityToSignature declaringType }
     }
   
 let toFSharpApi (x: FSharpMemberOrFunctionOrValue) =
@@ -256,7 +275,26 @@ and collectFromType (e: FSharpEntity): Api seq =
   }
 and collectFromNestedEntities (e: FSharpEntity): Api seq = seq { for ne in e.NestedEntities do yield! collectApi' ne }
   
-let collectApi (assembly: FSharpAssembly): Api seq =
-  assembly.Contents.Entities
-  |> Seq.collect collectApi'
-  |> Seq.cache
+let rec collectAbbreviations' (e: FSharpEntity) = seq {
+  if not e.IsMeasure && e.Accessibility.IsPublic && e.IsFSharpAbbreviation then
+    let abbreviation = option {
+      let a = fsharpEntityToSignature e
+      let! o = abbreviationRoot e.AbbreviatedType
+      return { Abbreviation = a; Original = o }
+    }
+    match abbreviation with
+    | Some a -> yield a
+    | None -> ()
+  yield! e.NestedEntities |> Seq.collect collectAbbreviations'
+}
+
+let load (assembly: FSharpAssembly): ApiDictionary =
+  let api =
+    assembly.Contents.Entities
+    |> Seq.collect collectApi'
+    |> Seq.toList
+  let typeAbbreviations =
+    assembly.Contents.Entities
+    |> Seq.collect collectAbbreviations'
+    |> Seq.toList
+  { AssemblyName = assembly.SimpleName; Api = api; TypeAbbreviations = typeAbbreviations }

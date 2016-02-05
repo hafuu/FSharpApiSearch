@@ -181,6 +181,8 @@ module Equations =
     | None -> x
 
 module SignatureRules =
+  open Signature.Patterns
+
   let tryAddEquality test left right (ctx: Context) =
     let left, right = Equations.sortTerm left right
     Debug.WriteLine(sprintf "Test equaliity of \"%s\" and \"%s\"." (Signature.debugDisplay left) (Signature.debugDisplay right))
@@ -220,45 +222,21 @@ module SignatureRules =
 
   let terminator (_: SignatureTestFunction) (_: Signature) (_: Signature) (_: Context) = Failure
 
-  [<RequireQualifiedAccess>]
-  module Patterns =
-    let (|Identity'|_|) = function
-      | Identity n -> Some n
-      | StrongIdentity n -> Some n
-      | _ -> None
-
-    let (|Variable'|_|) = function
-      | Variable (s, n) -> Some (s, n)
-      | StrongVariable (s, n) -> Some (s, n)
-      | _ -> None
-
-    let (|NonVariable|_|) = function
-      | Variable _ -> None
-      | StrongVariable _ -> None
-      | _ -> Some ()
-
-    let (|QueryInstanceMember|_|) = function
-      | InstanceMember ({ Source = Source.Query} as x) -> Some x
-      | _ -> None
-
-    let (|NoArguments|_|) (x: InstanceMemberInfo) =
-      match x with
-      | { Arguments = [] } -> Some ()
-      | _ -> None
-
-    let (|Unit'|_|) = function
-      | Identity' "unit" -> Some ()
-      | _ -> None
-
-    let (|OnlyUnitArgument|_|) (x: InstanceMemberInfo) =
-      match x with
-      | { Arguments = [ Unit' ] } -> Some ()
-      | _ -> None
-
+  let typeAbbreviationRule test left right ctx =
+    match left, right with
+    | TypeAbbreviation left, TypeAbbreviation right->
+      Debug.WriteLine(sprintf "type abbreviation. \"%s\" is abbreviation of \"%s\"." (Signature.debugDisplay left.Original) (Signature.debugDisplay left.Abbreviation))
+      Debug.WriteLine(sprintf "type abbreviation. \"%s\" is abbreviation of \"%s\"." (Signature.debugDisplay right.Original) (Signature.debugDisplay right.Abbreviation))
+      test left.Original right.Original ctx
+    | (TypeAbbreviation left), right
+    | right, (TypeAbbreviation left) ->
+      Debug.WriteLine(sprintf "type abbreviation. \"%s\" is abbreviation of \"%s\"." (Signature.debugDisplay left.Original) (Signature.debugDisplay left.Abbreviation))
+      test left.Original right ctx
+    | _ -> Continue ctx
 
   let identityRule _ left right ctx =
     match left, right with
-    | Patterns.Identity' leftName, Patterns.Identity' rightName ->
+    | AnyIdentity leftName, AnyIdentity rightName ->
       Debug.WriteLine("identity type")
       if leftName = rightName then
         Debug.WriteLine("There are same identities.")
@@ -274,7 +252,7 @@ module SignatureRules =
 
   let hardVariableRule test left right ctx =
     match left, right with
-    | Patterns.Variable' _, Patterns.Variable' _ ->
+    | AnyVariable _, AnyVariable _ ->
       Debug.WriteLine("both variable")
       if Equations.containsEquality left right ctx.Equations then
         Debug.WriteLine("The equality already exists.")
@@ -294,16 +272,17 @@ module SignatureRules =
     | Arrow xs -> seqDistance xs
     | StaticMethod x -> seqDistance (x.ReturnType :: x.Arguments)
     | InstanceMember x -> seqDistance (x.Receiver :: x.ReturnType :: x.Arguments)
+    | TypeAbbreviation x -> distanceFromVariable x.Original
   and seqDistance xs = xs |> Seq.sumBy (distanceFromVariable >> max 1)
 
   let similarityVariableRule test left right ctx =
     match left, right with
-    | StrongVariable _, Patterns.NonVariable
-    | Patterns.NonVariable, StrongVariable _ ->
+    | StrongVariable _, NonVariable
+    | NonVariable, StrongVariable _ ->
       Debug.WriteLine("Strong variable matches only with variable.")
       Failure
-    | (Patterns.Variable' _ as left), right
-    | right, (Patterns.Variable' _ as left) ->
+    | (AnyVariable _ as left), right
+    | right, (AnyVariable _ as left) ->
       Debug.WriteLine("variable")
       if Equations.containsEquality left right ctx.Equations then
         Debug.WriteLine("The equality already exists.")
@@ -340,8 +319,8 @@ module SignatureRules =
 
   let instanceFieldOrPropertyAndOnlyUnitArgumentMemberRule test left right ctx =
     match left, right with
-    | (Patterns.QueryInstanceMember (queryMember & Patterns.NoArguments)), (InstanceMember (otherMember & Patterns.OnlyUnitArgument))
-    | (InstanceMember (otherMember & Patterns.OnlyUnitArgument)), (Patterns.QueryInstanceMember (queryMember & Patterns.NoArguments)) ->
+    | (QueryInstanceMember (queryMember & NoArguments)), (InstanceMember (otherMember & OnlyUnitArgument))
+    | (InstanceMember (otherMember & OnlyUnitArgument)), (QueryInstanceMember (queryMember & NoArguments)) ->
       testAll test [ queryMember.Receiver; queryMember.ReturnType ] [ otherMember.Receiver; otherMember.ReturnType ] ctx
       |> Result.mapMatched (Context.addDistance 1)
       |> Result.continueFailure ctx
@@ -349,12 +328,12 @@ module SignatureRules =
 
   let instanceMemberAndArrowRule test left right ctx =
     match left, right with
-    | (Patterns.QueryInstanceMember queryMember), Arrow arrow
-    | Arrow arrow, (Patterns.QueryInstanceMember queryMember) ->
+    | (QueryInstanceMember queryMember), Arrow arrow
+    | Arrow arrow, (QueryInstanceMember queryMember) ->
       let xs = [
         match queryMember with
-        | Patterns.NoArguments -> ()
-        | Patterns.OnlyUnitArgument -> ()
+        | NoArguments -> ()
+        | OnlyUnitArgument -> ()
         | _ -> yield! queryMember.Arguments
         yield queryMember.Receiver
         yield queryMember.ReturnType
@@ -391,6 +370,7 @@ module SignatureRules =
 
 let defaultRule =
   SignatureRule.compose [
+    SignatureRules.typeAbbreviationRule
     SignatureRules.wildcardRule
     SignatureRules.wildcardGroupRule
     SignatureRules.identityRule
@@ -406,6 +386,7 @@ let defaultRule =
 
 let similaritySearchingRule =
   SignatureRule.compose [
+    SignatureRules.typeAbbreviationRule
     SignatureRules.wildcardRule
     SignatureRules.wildcardGroupRule
     SignatureRules.identityRule

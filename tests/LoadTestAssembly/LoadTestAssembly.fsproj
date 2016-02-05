@@ -49,6 +49,7 @@
     <Compile Include="PrivateModule.fs" />
     <Compile Include="Class.fs" />
     <Compile Include="OtherTypes.fs" />
+    <Compile Include="TypeAbbreviations.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

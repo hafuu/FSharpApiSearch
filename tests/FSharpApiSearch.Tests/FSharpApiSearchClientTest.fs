@@ -6,16 +6,14 @@ open System.IO
 open FSharpApiSearch
 open System.Reflection
 
-let assemblyName = @"SearchTestAssembly.dll"
+let assemblyName = @"SearchTestAssembly"
 let assemblyPath =
   Path.Combine(
     Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
-    , assemblyName)
+    , assemblyName + ".dll")
 
 let testClient = test {
-  let assemblies = ApiLoader.loadAssembly [ System.IO.Path.GetFullPath(assemblyPath) ]
-  let testAssembly = assemblies |> List.filter (fun x -> x.FileName = Some assemblyPath )
-  return FSharpApiSearchClient(testAssembly)
+  return FSharpApiSearchClient([ assemblyName ], assemblyPath :: FSharpApiSearchClient.DefaultReferences)
 }
 
 let searchTest = parameterize {

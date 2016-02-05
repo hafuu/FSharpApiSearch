@@ -8,39 +8,40 @@ open TestHelpers.DSL
 open System.Reflection
 open System.IO
 
-let fsharpAssemblyName = @"LoadTestAssembly.dll"
+let fsharpAssemblyName = @"LoadTestAssembly"
 let fsharpAssemblyPath =
   Path.Combine(
     Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
-    , fsharpAssemblyName)
+    , fsharpAssemblyName + ".dll")
 
-let csharpAssemblyName = @"CSharpLoadTestAssembly.dll";
+let csharpAssemblyName = @"CSharpLoadTestAssembly";
 let csharpAssemblyPath =
   Path.Combine(
     Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
-    , csharpAssemblyName)
+    , csharpAssemblyName + ".dll")
 
 let loadAssemblies = test {
-  return ApiLoader.loadAssembly [ Path.GetFullPath(fsharpAssemblyPath); Path.GetFullPath(csharpAssemblyPath) ]
+  return ApiLoader.loadAssembly (Path.GetFullPath(fsharpAssemblyPath) :: Path.GetFullPath(csharpAssemblyPath) :: FSharpApiSearchClient.DefaultReferences)
 }
 
 module FSharpTest =
   let fsharpAssemblyApi = test {
     let! assemblies = loadAssemblies
-    return assemblies |> List.find (fun x -> x.FileName = Some fsharpAssemblyPath ) |> ApiLoader.collectApi
+    let assemblyApi = assemblies |> List.find (fun x -> x.FileName = Some fsharpAssemblyPath ) |> ApiLoader.load
+    return assemblyApi
   }
 
   let testMember (name, signatures) = test {
-    let! apis = fsharpAssemblyApi
-    let actuals = Seq.filter (fun x -> x.Name = name) apis |> Seq.map (fun x -> x.Signature) |> Seq.toList |> List.sort
-    let expecteds = signatures |> List.map (QueryParser.parseFSharpSignature >> TestHelpers.updateSource Source.Target) |> List.sort
+    let! api = fsharpAssemblyApi
+    let actuals = Seq.filter (fun x -> x.Name = name) api.Api |> Seq.map (fun x -> x.Signature) |> Seq.toList |> List.sort
+    let expecteds = signatures |> List.map (QueryParser.parseFSharpSignature >> TestHelpers.replaceAbbreviation >> TestHelpers.updateSource Source.Target) |> List.sort
     do! actuals |> assertEquals expecteds
   }
 
   let testStaticMethod (name, signatures) = test {
-    let! apis = fsharpAssemblyApi
-    let actuals = Seq.filter (fun x -> x.Name = name) apis |> Seq.map (fun x -> x.Signature) |> Seq.toList |> List.sort
-    let expecteds = signatures |> List.map (QueryParser.parseFSharpSignature >> TestHelpers.updateSource Source.Target >> TestHelpers.toStaticMethod) |> List.sort
+    let! api = fsharpAssemblyApi
+    let actuals = Seq.filter (fun x -> x.Name = name) api.Api |> Seq.map (fun x -> x.Signature) |> Seq.toList |> List.sort
+    let expecteds = signatures |> List.map (QueryParser.parseFSharpSignature >> TestHelpers.toStaticMethod >> TestHelpers.replaceAbbreviation >> TestHelpers.updateSource Source.Target) |> List.sort
     do! actuals |> assertEquals expecteds
   }
 
@@ -77,7 +78,7 @@ module FSharpTest =
       "TopLevelNamespace.StaticMemberClass.SingleReturnType", [ "int -> single" ]
       "TopLevelNamespace.StaticMemberClass", [ "unit -> StaticMemberClass"; "int -> StaticMemberClass" ]
       "TopLevelNamespace.StaticMemberClass.OverloadMethod", [ "int -> int"; "string * int -> string" ]
-      "TopLevelNamespace.StaticMemberClass.InferencedFloatType", [ "float -> float" ]
+      "TopLevelNamespace.StaticMemberClass.InferredFloatType", [ "float -> float" ]
     ]
     run testStaticMethod
   }
@@ -124,16 +125,46 @@ module FSharpTest =
       "PrivateModule.publicFunction"
     ]
     run (fun name -> test {
-      let! apis = fsharpAssemblyApi
-      let actual = Seq.tryFind (fun x -> x.Name = name) apis
+      let! api = fsharpAssemblyApi
+      let actual = Seq.tryFind (fun x -> x.Name = name) api.Api
       do! actual |> assertEquals None
+    })
+  }
+
+  let typeAbbreviationTest = parameterize {
+    source[
+      { Abbreviation = generic (identity "GenericTypeAbbreviation") [ variable "b" ]; Original = generic (identity "Original") [ variable "b" ] }
+      { Abbreviation = identity "SpecializedTypeAbbreviation"; Original = generic (identity "Original") [ identity "A" ] }
+      { Abbreviation = identity "NestedTypeAbbreviation"; Original = generic (identity "Original") [ identity "A" ] }
+      { Abbreviation = generic (identity "TypeAbbreviationInModule") [ variable "a" ]; Original = generic (identity "Original") [ variable "a" ] }
+    ]
+
+    run (fun (ta) -> test {
+      let! api = fsharpAssemblyApi
+      let ta = { Abbreviation = TestHelpers.updateSource Source.Target ta.Abbreviation; Original = TestHelpers.updateSource Source.Target ta.Original }
+      let actual = api.TypeAbbreviations |> List.contains ta
+      do! actual |> assertEquals true
+    })
+  }
+
+  let functionTypeAbbreviationTest = parameterize {
+    source[
+      identity "FunctionAbbreviation"
+    ]
+
+    run (fun (key) -> test {
+      let! api = fsharpAssemblyApi
+      let key = key |> TestHelpers.updateSource Source.Target
+      let actual = api.TypeAbbreviations |> List.exists (fun x -> x.Abbreviation = key)
+      do! actual |> assertEquals false
     })
   }
 
 module CSharpTest =
   let csharpAssemblyApi = test {
     let! assemblies = loadAssemblies
-    return assemblies |> List.find (fun x -> x.FileName = Some csharpAssemblyPath ) |> ApiLoader.collectApi
+    let assemblyApi = assemblies |> List.find (fun x -> x.FileName = Some csharpAssemblyPath ) |> ApiLoader.load
+    return assemblyApi.Api
   }
   let loadStaticMethodTest = parameterize {
     source [
@@ -150,7 +181,7 @@ module CSharpTest =
     run (fun (name, signatures) -> test {
       let! apis = csharpAssemblyApi
       let actuals = Seq.filter (fun x -> x.Name = name) apis |> Seq.map (fun x -> x.Signature) |> Seq.toList |> List.sort
-      let expecteds = signatures |> List.map (QueryParser.parseFSharpSignature >> TestHelpers.updateSource Source.Target >> TestHelpers.toStaticMethod) |> List.sort
+      let expecteds = signatures |> List.map (QueryParser.parseFSharpSignature >> TestHelpers.toStaticMethod >> TestHelpers.replaceAbbreviation >> TestHelpers.updateSource Source.Target) |> List.sort
       do! actuals |> assertEquals expecteds
     })
   }
@@ -162,7 +193,7 @@ module CSharpTest =
     run (fun (name, signatures) -> test {
       let! apis = csharpAssemblyApi
       let actuals = Seq.filter (fun x -> x.Name = name) apis |> Seq.map (fun x -> x.Signature) |> Seq.toList |> List.sort
-      let expecteds = signatures |> List.map (QueryParser.parseFSharpSignature >> TestHelpers.updateSource Source.Target) |> List.sort
+      let expecteds = signatures |> List.map (QueryParser.parseFSharpSignature >> TestHelpers.replaceAbbreviation >> TestHelpers.updateSource Source.Target) |> List.sort
       do! actuals |> assertEquals expecteds
     })
   }

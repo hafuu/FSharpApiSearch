@@ -96,7 +96,7 @@ module DefaultMatcherTest =
 
   let runTest xs = matchTest id xs
 
-  let identity =
+  let identityTest =
     runTest [
       "int", "int", Always true
       "int", "string", Always false
@@ -108,7 +108,7 @@ module DefaultMatcherTest =
       "!int", "string", Always false
     ]
 
-  let variable =
+  let variableTest =
     runTest [
       "'a", "'b", Always true
       "'a", "int", Always false
@@ -128,7 +128,7 @@ module DefaultMatcherTest =
       "!'a -> 'a", "'a -> 'a", Always true
     ]
 
-  let arrow =
+  let arrowTest =
     runTest [
       "int -> string", "int -> string", Always true
       "int -> int", "int -> string", Always false
@@ -139,7 +139,7 @@ module DefaultMatcherTest =
       "int -> int -> int", "int -> int", Always false
     ]
 
-  let ``nested arrow`` =
+  let ``nested arrow test`` =
     runTest [
       "(int -> string) -> string", "(int -> string) -> string", Always true
       "(int -> string) -> string", "(int -> string) -> int", Always false
@@ -147,27 +147,27 @@ module DefaultMatcherTest =
       "(int -> string) -> string", "('a -> 'b) -> 'b", Always false
     ]
 
-  let generic =
+  let genericTest =
     runTest [
       "int option", "int option", Always true
       "int option", "string option", Always false
       "int option", "'a option", Always false
     ]
 
-  let ruple =
+  let tupleTest =
     runTest [
       "int * int * int", "int * int * int", Always true
       "int * int * int", "int * string * int", Always false
       "int * int", "int * int * int", Always false
     ]
 
-  let ``another types`` =
+  let ``another types test`` =
     runTest [
       "int * int", "int -> int", Always false
       "int option", "int", Always false
     ]
 
-  let wildcard =
+  let wildcardTest =
     runTest [
       "?", "int", Always true
       "?", "'a", Always true
@@ -185,7 +185,7 @@ module DefaultMatcherTest =
       "?a -> ?b", "int -> int", WhenStrict false
     ]
 
-  let ``higher order type`` =
+  let ``higher order type test`` =
     runTest [
       "'a -> 'a ?", "'a -> 'a list", Always true
     ]
@@ -219,6 +219,25 @@ module DefaultMatcherTest =
     ]
     matchTest id cases
 
+  let typeAbbreviationTest =
+    let p = QueryParser.parseFSharpSignature
+    parameterize {
+      source[
+        (identity "A"), (abbreviation (identity "A") (identity "a")), true
+        (identity "B"), (abbreviation (identity "A") (identity "a")), false
+        (abbreviation (identity "A") (identity "a")), (abbreviation (identity "A") (identity "a")), true
+        (abbreviation (identity "B") (identity "b")), (abbreviation (identity "A") (identity "a")), false
+        (abbreviation (p "List<'a, 'a>") (p "list<'a, 'a>")), (abbreviation (p "List<int, int>") (p "list<int, int>")), false
+      ]
+      run (fun (query, target, expected) -> test {
+        let query = { OriginalString = ""; Method = BySignature query }
+        let target = { Name = "test"; Signature = TestHelpers.updateSource Source.Target target }
+        let ctx = Matcher.Equations.initialize query |> Matcher.Context.initialize
+        let actual = Matcher.matches query target Matcher.defaultRule ctx |> Matcher.Result.toBool
+        do! actual |> assertEquals expected
+      })
+    }
+
 module SimilarityMatchTest =
   let matchTest updateSource cases = parameterize {
     source (seq {
@@ -238,7 +257,7 @@ module SimilarityMatchTest =
 
   let runTest xs = matchTest id xs
 
-  let identity =
+  let identityTest =
     runTest [
       "int", "int", Always true
       "int", "string", Always false
@@ -246,7 +265,7 @@ module SimilarityMatchTest =
       "!int", "'a", Always false
     ]
 
-  let variables = 
+  let variablesTest = 
     runTest [
       "'a", "'a", Always true
       "'a", "int", Always true
@@ -265,7 +284,7 @@ module SimilarityMatchTest =
       "!'a -> 'a", "int -> string", Always false
     ]
 
-  let arrow =
+  let arrowTest =
     runTest [
       "'a -> 'b", "'a -> 'b", Always true
       "int -> string", "int -> string", Always true
@@ -313,3 +332,24 @@ module SimilarityMatchTest =
         do! fail "not matched"
     })
   }
+
+  let typeAbbreviationTest =
+    let p = QueryParser.parseFSharpSignature
+    parameterize {
+      source[
+        (identity "A"), (abbreviation (identity "A") (identity "a")), true
+        (identity "B"), (abbreviation (identity "A") (identity "a")), false
+        (abbreviation (identity "A") (identity "a")), (abbreviation (identity "A") (identity "a")), true
+        (abbreviation (identity "B") (identity "b")), (abbreviation (identity "A") (identity "a")), false
+        (variable "a"), (abbreviation (identity "A") (identity "a")), true
+        (abbreviation (p "List<'a, 'a>") (p "list<'a, 'a>")), (abbreviation (p "List<int, int>") (p "list<int, int>")), true
+        (abbreviation (p "List<'a, 'a>") (p "list<'a, 'a>")), (abbreviation (p "List<int, string>") (p "list<int, string>")), false
+      ]
+      run (fun (query, target, expected) -> test {
+        let query = { OriginalString = ""; Method = BySignature query }
+        let target = { Name = "test"; Signature = TestHelpers.updateSource Source.Target target }
+        let ctx = Matcher.Equations.initialize query |> Matcher.Context.initialize
+        let actual = Matcher.matches query target Matcher.similaritySearchingRule ctx |> Matcher.Result.toBool
+        do! actual |> assertEquals expected
+      })
+    }
