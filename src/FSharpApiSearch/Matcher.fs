@@ -238,7 +238,7 @@ module SignatureRules =
     match left, right with
     | AnyIdentity leftName, AnyIdentity rightName ->
       Debug.WriteLine("identity type")
-      if leftName = rightName then
+      if Signature.testIdentity leftName rightName then
         Debug.WriteLine("There are same identities.")
         Matched ctx
       else

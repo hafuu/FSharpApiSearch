@@ -35,8 +35,9 @@ let toStaticMethod = function
 
 module DSL =
   let private source = Source.Query
-  let identity name = Identity name
-  let strongIdentity name = StrongIdentity name
+  let identity name = Identity (Signature.partialName name)
+  let fullIdentity name = Identity (Signature.fullName name)
+  let strongIdentity name = StrongIdentity (Signature.partialName name)
   let variable name = Variable (source, name)
   let strongVariable name = StrongVariable (source, name)
   let wildcard = Wildcard
@@ -54,12 +55,36 @@ module DSL =
 open DSL
 
 let fsharpAbbreviationTable = [
-  { Abbreviation = identity "int"; Original = identity "Int32" }
-  { Abbreviation = identity "float"; Original = identity "Double" }
-  { Abbreviation = identity "single"; Original = identity "Single" }
-  { Abbreviation = identity "string"; Original = identity "String" }
-  { Abbreviation = identity "unit"; Original = identity "Unit" }
-  { Abbreviation = generic (identity "list") [ variable "a" ]; Original = generic (identity "List") [ variable "a" ] }
+  { Abbreviation = fullIdentity "Microsoft.FSharp.Core.int"; Original = fullIdentity "System.Int32" }
+  { Abbreviation = fullIdentity "Microsoft.FSharp.Core.float"; Original = fullIdentity "System.Double" }
+  { Abbreviation = fullIdentity "Microsoft.FSharp.Core.single"; Original = fullIdentity "System.Single" }
+  { Abbreviation = fullIdentity "Microsoft.FSharp.Core.string"; Original = fullIdentity "System.String" }
+  { Abbreviation = fullIdentity "Microsoft.FSharp.Core.unit"; Original = fullIdentity "Microsoft.FSharp.Core.Unit" }
+  { Abbreviation = generic (fullIdentity "Microsoft.FSharp.Collections.list") [ variable "a" ]; Original = generic (fullIdentity "Microsoft.FSharp.Collections.List") [ variable "a" ] }
+  { Abbreviation = generic (fullIdentity "Microsoft.FSharp.Core.option") [ variable "a" ]; Original = generic (fullIdentity "Microsoft.FSharp.Core.Option") [ variable "a" ] }
 ]
 
 let replaceAbbreviation = Signature.replaceAbbreviation fsharpAbbreviationTable
+
+let rec toFullName = function
+  | Identity (PartialName xs) when xs.Length > 1 -> Identity (FullName xs)
+  | StrongIdentity (PartialName xs) when xs.Length > 1 -> Identity (FullName xs)
+  | Array (_, name, x) -> Generic (Identity (Signature.fullName name), [ toFullName x ])
+  | Generic (id, xs) -> Generic (toFullName id, List.map toFullName xs)
+  | Arrow xs -> Arrow (List.map toFullName xs)
+  | InstanceMember x -> InstanceMember { x with Receiver = toFullName x.Receiver; Arguments = List.map toFullName x.Arguments; ReturnType = toFullName x.ReturnType }
+  | StaticMethod x -> StaticMethod { x with Arguments = List.map toFullName x.Arguments; ReturnType = toFullName x.ReturnType }
+  | TypeAbbreviation x -> TypeAbbreviation { x with Abbreviation = toFullName x.Abbreviation; Original = toFullName x.Original }
+  | x -> x
+
+let replaceFSharpTypes (query: string) =
+  let replace (oldValue: string) (newValue: string) (str: string) = str.Replace(oldValue, newValue)
+  query
+  |> replace "int" "Microsoft.FSharp.Core.int"
+  |> replace "unit" "Microsoft.FSharp.Core.unit"
+  |> replace "float" "Microsoft.FSharp.Core.float"
+  |> replace "single" "Microsoft.FSharp.Core.single"
+  |> replace "string" "Microsoft.FSharp.Core.string"
+  |> replace "option" "Microsoft.FSharp.Core.option"
+  |> replace "Map" "Microsoft.FSharp.Collections.Map"
+  |> replace "list" "Microsoft.FSharp.Collections.list"

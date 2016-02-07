@@ -70,8 +70,12 @@ module SignatureTest =
         "intKeyMap<value>", (abbreviation (p "Map<int, value>") (p "intKeyMap<value>"))
         "reverseArg<front, end>", (abbreviation (p "ReverseArg<end, front>") (p "reverseArg<front, end>"))
         "samemap<int>", (abbreviation (p "Map<int, int>") (p "samemap<int>"))
-        "override", (abbreviation (p "Override") (p "override"))
-        "override<'a>", (abbreviation (p "Override<'a>") (p "override<'a>"))
+        "override", (abbreviation (p "B.Override") (p "override"))
+        "B.override", (abbreviation (p "B.Override") (p "B.override"))
+        "A.override", (abbreviation (p "A.Hidden") (p "A.override"))
+        "override<'a>", (abbreviation (p "B.Override<'a>") (p "override<'a>"))
+        "B.override<'a>", (abbreviation (p "B.Override<'a>") (p "B.override<'a>"))
+        "A.override<'a>", (abbreviation (p "A.Hidden<'a>") (p "A.override<'a>"))
       ]
       run (fun (query, expected) -> test {
         let table = [
@@ -82,10 +86,10 @@ module SignatureTest =
           { Abbreviation = p "map<'a, 'b>"; Original = p "Map<'a, 'b>" }
           { Abbreviation = p "intKeyMap<'v>"; Original = p "Map<int, 'v>" }
           { Abbreviation = p "samemap<'a>"; Original = p "Map<'a, 'a>" }
-          { Abbreviation = p "override"; Original = p "Hidden" }
-          { Abbreviation = p "override"; Original = p "Override" }
-          { Abbreviation = p "override<'a>"; Original = p "Hidden<'a>" }
-          { Abbreviation = p "override<'a>"; Original = p "Override<'a>" }
+          { Abbreviation = p "A.override"; Original = p "A.Hidden" }
+          { Abbreviation = p "B.override"; Original = p "B.Override" }
+          { Abbreviation = p "A.override<'a>"; Original = p "A.Hidden<'a>" }
+          { Abbreviation = p "B.override<'a>"; Original = p "B.Override<'a>" }
         ]
         let actual = Signature.replaceAbbreviation table (QueryParser.parseFSharpSignature query)
         do! actual |> assertEquals expected

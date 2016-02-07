@@ -100,6 +100,8 @@ module DefaultMatcherTest =
     runTest [
       "int", "int", Always true
       "int", "string", Always false
+      "B", "A.B", Always true
+      "B.C", "A.B.C", Always true
     ]
 
   let ``strong identity is the same behavior as identity`` =
@@ -261,6 +263,8 @@ module SimilarityMatchTest =
     runTest [
       "int", "int", Always true
       "int", "string", Always false
+      "B", "A.B", Always true
+      "B.C", "A.B.C", Always true
       "int", "'a", Always true
       "!int", "'a", Always false
     ]

@@ -9,11 +9,12 @@ let source = Source.Query
 
 module FSharpSignatureParser =
   let name = regex @"\w+" <?> "name"
+  let partialName = sepBy1 name (pchar '.') |>> fun xs -> PartialName (List.rev xs)
 
   let fsharpSignature, fsharpSignatureRef = createParserForwardedToRef()
 
   let strong = pchar '!'
-  let identity = opt strong .>>. name |>> (function (None, name) -> Identity name | (Some _, name) -> StrongIdentity name) |> trim <?> "identity"
+  let identity = opt strong .>>. partialName |>> (function (None, name) -> Identity name | (Some _, name) -> StrongIdentity name) |> trim <?> "identity"
   let variable = opt strong .>> pchar ''' .>>. name |>> (function (None, name) -> Variable (source, name) | (Some _, name) -> StrongVariable (source, name)) |> trim <?> "variable"
   let wildcard = pchar '?' >>. opt name |>> (function Some name -> WildcardGroup name | None -> Wildcard) |> trim <?> "wildcard"
 
@@ -41,7 +42,10 @@ module FSharpSignatureParser =
     .>>. many arraySymbol
     |>> (function
       | (t, []) -> t
-      | (t, x :: xs) -> List.fold (fun x array -> Generic (Identity array, [ x ])) (Generic (Identity x, [ t ])) xs)
+      | (t, x :: xs) ->
+        let x = Signature.partialName x
+        let xs = xs |> List.map Signature.partialName
+        List.fold (fun x array -> Generic (Identity array, [ x ])) (Generic (Identity x, [ t ])) xs)
   let term2 = maybeArray term1
 
   let mlMultiGenericParameter = between (pcharAndTrim '(') (pcharAndTrim ')') (sepBy1 fsharpSignature (pchar ','))

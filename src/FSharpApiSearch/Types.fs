@@ -5,13 +5,18 @@ open System.Text.RegularExpressions
 
 type Source = Query | Target
 
+type ReverseName = string list
+type Identity =
+  | PartialName of ReverseName
+  | FullName of ReverseName
+
 type Signature =
   | WildcardGroup of string
   | Wildcard
   | Variable of Source * string
   | StrongVariable of Source * string
-  | Identity of string
-  | StrongIdentity of string
+  | Identity of Identity
+  | StrongIdentity of Identity
   | Arrow of Signature list
   | Generic of Signature * Signature list
   | StaticMethod of StaticMethod
@@ -36,24 +41,44 @@ let internal arrayRegexPattern = @"\[,*\]"
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Signature =
+  let private splitName (name: string) = name.Split('.') |> List.ofArray |> List.rev
+  let partialName name = PartialName (splitName name)
+  let fullName name = FullName (splitName name)
+
   [<Literal>]
-  let TupleTypeName = "Tuple"
-  let tuple xs = Generic (Identity TupleTypeName, xs)
+  let TupleTypeName = "System.Tuple"
+  let TupleIdentity = fullName TupleTypeName
+  let tuple xs = Generic (Identity TupleIdentity, xs)
+
+  let UnitIdentity = fullName "Microsoft.FSharp.Core.Unit"
+  let UnitAbbreviationIdentity = fullName "Microsoft.FSharp.Core.unit"
+  
+  let testIdentity x y =
+    match x, y with
+    | FullName xs, FullName ys ->
+      xs = ys
+    | (PartialName xs | FullName xs), (PartialName ys | FullName ys) ->
+      let testLength = min xs.Length ys.Length
+      List.take testLength xs = List.take testLength ys
 
   module Patterns =
+    let (|TypeName|) = function
+      | PartialName xs -> List.head xs
+      | FullName xs -> List.head xs
+
+    let (|AnyIdentity|_|) = function
+      | Identity n -> Some n
+      | StrongIdentity n -> Some n
+      | _ -> None
+
     let (|Array|_|) = function
-      | Generic (Identity name, [ t ]) when Regex.IsMatch(name, arrayRegexPattern) ->
+      | Generic (AnyIdentity (TypeName name), [ t ]) when Regex.IsMatch(name, arrayRegexPattern) ->
         let dimension = name.Split(',').Length
         Some (dimension, name, t)
       | _ -> None
 
     let (|Tuple|_|) = function
-      | Generic ((Identity TupleTypeName | StrongIdentity TupleTypeName), xs) -> Some xs
-      | _ -> None
-
-    let (|AnyIdentity|_|) = function
-      | Identity n -> Some n
-      | StrongIdentity n -> Some n
+      | Generic ((AnyIdentity id), xs) when id = TupleIdentity -> Some xs
       | _ -> None
 
     let (|AnyVariable|_|) = function
@@ -75,13 +100,14 @@ module Signature =
       | { Arguments = [] } -> Some ()
       | _ -> None
 
-    let (|UnitIdentity|_|) = function
-      | AnyIdentity "unit" -> Some ()
+    let (|Unit|_|) = function
+      | AnyIdentity id when testIdentity id UnitIdentity || testIdentity id UnitAbbreviationIdentity -> Some ()
+      | TypeAbbreviation { Original = AnyIdentity id } when id = UnitIdentity -> Some ()
       | _ -> None
 
     let (|OnlyUnitArgument|_|) (x: InstanceMember) =
       match x with
-      | { Arguments = [ UnitIdentity ] } -> Some ()
+      | { Arguments = [ Unit ] } -> Some ()
       | _ -> None
 
   open Patterns
@@ -117,8 +143,8 @@ module Signature =
   let rec private display' prefix = function
     | Variable (source, name) -> prefix source name
     | StrongVariable (source, name) -> "!" + prefix source name
-    | Identity name -> name
-    | StrongIdentity name -> "!" + name
+    | Identity (TypeName name) -> name
+    | StrongIdentity (TypeName name) -> "!" + name
     | Wildcard -> "?"
     | WildcardGroup name -> "?" + name
     | Arrow xs ->
@@ -172,12 +198,12 @@ module Signature =
   let internal tryFindGenericAbbreviation table genericIdName genericArguments =
     table
     |> List.tryFindBack (function
-      | { Abbreviation = Generic (AnyIdentity abbIdName, abbArgs) } -> abbIdName = genericIdName && (List.length abbArgs) = (List.length genericArguments)
+      | { Abbreviation = Generic (AnyIdentity abbIdName, abbArgs) } -> testIdentity abbIdName genericIdName && (List.length abbArgs) = (List.length genericArguments)
       | _ -> false)
 
   let rec replaceAbbreviation table = function
     | AnyIdentity idName as i ->
-      let replacement = table |> List.tryFindBack (function { Abbreviation = AnyIdentity abbIdName } -> abbIdName = idName | _ -> false)
+      let replacement = table |> List.tryFindBack (function { Abbreviation = AnyIdentity abbIdName } -> testIdentity abbIdName idName | _ -> false)
       match replacement with
       | Some replace -> TypeAbbreviation { Abbreviation = i; Original = replace.Original }
       | None -> i

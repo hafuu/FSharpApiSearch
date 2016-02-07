@@ -103,7 +103,7 @@ and abbreviationRoot (t: FSharpType) =
   if t.IsAbbreviation then
     abbreviationRoot t.AbbreviatedType
   elif Hack.isFloat t then
-    Some (Identity "Double")
+    Some (Identity (Signature.fullName "System.Double"))
   elif t.IsFunctionType then
     None
   else
@@ -131,7 +131,11 @@ and listSignature (ts: FSharpType seq) =
       return signature :: acc
     }
   Seq.foldBack f ts (Some [])
-and identity (e: FSharpEntity) = Identity e.DisplayName
+and identity (e: FSharpEntity) =
+  if e.IsArrayType then
+    Identity (Signature.fullName e.DisplayName)
+  else
+    Identity (Signature.fullName (e.AccessPath + "." + e.DisplayName))
 and fsharpEntityToSignature (x: FSharpEntity) =
   let identity = identity x
   let args = x.GenericParameters |> Seq.map (fun p -> Variable (Source.Target, p.DisplayName)) |> Seq.toList

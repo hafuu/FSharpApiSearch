@@ -15,6 +15,8 @@ module BySignature =
   let parseTest = parameterize {
     source [
       "a", (identity "a")
+      "a.b", (identity "a.b")
+      "a.b.c", (identity "a.b.c")
       "!a", (strongIdentity "a")
       "'a", (variable "a")
       "!'a", (strongVariable "a")
