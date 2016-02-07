@@ -2,7 +2,7 @@ NUGET
   remote: https://www.nuget.org/api/v2
   specs:
     FParsec (1.0.2)
-    FSharp.Compiler.Service (2.0.0.2)
+    FSharp.Compiler.Service (2.0.0.4)
 
 GROUP Build
 NUGET
@@ -36,5 +36,5 @@ GROUP Test
 NUGET
   remote: https://www.nuget.org/api/v2
   specs:
-    Persimmon (1.0.1)
-    Persimmon.Console (1.0.1)
+    Persimmon (1.0.2)
+    Persimmon.Console (1.0.2)
