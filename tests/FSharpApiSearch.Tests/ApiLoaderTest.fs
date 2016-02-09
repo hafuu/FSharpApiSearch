@@ -105,6 +105,8 @@ module FSharpTest =
       "TopLevelNamespace.InstanceMemberClass.Property", [ "TopLevelNamespace.InstanceMemberClass => string" ]
       "TopLevelNamespace.InstanceMemberClass.IndexedProperty", [ "TopLevelNamespace.InstanceMemberClass => string -> int" ]
       "TopLevelNamespace.GenericClass.Method", [ "TopLevelNamespace.GenericClass<'a> => 'a -> int" ]
+      "TopLevelNamespace.Interface.Method", [ "TopLevelNamespace.Interface => int -> string -> int" ]
+      "TopLevelNamespace.Interface.Property", [ "TopLevelNamespace.Interface => string" ]
     ]
     run testMember
   }
@@ -225,7 +227,26 @@ module CSharpTest =
     })
   }
 
-
+  let loadInstanceMemterTest = parameterize {
+    source [
+      "CSharpLoadTestAssembly.Interface.Method", [ "CSharpLoadTestAssembly.Interface => int -> string -> int" ]
+      "CSharpLoadTestAssembly.Interface.Property", [ "CSharpLoadTestAssembly.Interface => int" ]
+      "CSharpLoadTestAssembly.GenericInterface.Method", [ "CSharpLoadTestAssembly.GenericInterface<'T> => 'T -> int" ]
+      "CSharpLoadTestAssembly.GenericInterface.Property", [ "CSharpLoadTestAssembly.GenericInterface<'T> => 'T -> 'T" ]
+    ]
+    run (fun (name, signatures) -> test {
+      let! apis = csharpAssemblyApi
+      let actuals = Seq.filter (fun x -> x.Name = name) apis |> Seq.map (fun x -> x.Signature) |> Seq.toList |> List.sort
+      let expecteds =
+        signatures
+        |> List.map (TestHelpers.replaceFSharpTypes
+          >> QueryParser.parseFSharpSignature
+          >> TestHelpers.toFullName
+          >> TestHelpers.replaceAbbreviation
+          >> TestHelpers.updateSource Source.Target) |> List.sort
+      do! actuals |> assertEquals expecteds
+    })
+  }
 
   let nonloadedApiTest = parameterize {
     source [

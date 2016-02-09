@@ -257,7 +257,7 @@ let rec collectApi' (e: FSharpEntity): Api seq =
       yield! collectFromNestedEntities e
     if e.IsFSharpModule then
       yield! collectFromModule e
-    if e.IsClass || e.IsValueType || e.IsFSharpRecord || e.IsFSharpUnion || e.IsValueType then
+    if e.IsClass || e.IsValueType || e.IsFSharpRecord || e.IsFSharpUnion || e.IsInterface then
       yield! collectFromType e
   }
 and collectFromModule (e: FSharpEntity): Api seq =

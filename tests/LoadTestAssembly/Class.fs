@@ -28,3 +28,8 @@ type InstanceMemberClass() =
 
 type GenericClass<'a>() =
   member this.Method(x: 'a) = 3
+
+type Interface = interface
+  abstract member Method: int * string -> int
+  abstract member Property: string with get, set
+end
