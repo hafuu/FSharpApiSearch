@@ -251,14 +251,43 @@ let toFieldApi (declaringType: FSharpEntity) (field: FSharpField) =
     return { Name = field.FullName; Signature = signature }
   }
 
+let resolveConflictGenericArgumnet replacementVariables (m: FSharpMemberOrFunctionOrValue) =
+  m.GenericParameters
+  |> Seq.choose (fun p ->
+    let name = p.Name.TrimStart(''')
+    let isConflict = replacementVariables |> List.exists (function Signature.Patterns.AnyVariable (_, n) -> n = name | _ -> false)
+    if isConflict then Some name else None
+  )
+  |> Seq.map (fun confrictName -> (confrictName, Variable (Source.Target, confrictName + "1")))
+  |> Seq.toList
+
+let genericParametersAndArguments (t: FSharpType) =
+  Seq.zip t.TypeDefinition.GenericParameters t.GenericArguments
+  |> Seq.choose (fun (parameter, arg) -> option {
+    let! s = toSignature arg
+    return parameter.Name.TrimStart('''), s
+  })
+  |> Seq.toList
+
+let updateReceiver receiverName receiver = function
+  | { Signature = InstanceMember m } as api ->
+    let newName =
+      let xs = api.Name.Split('.')
+      xs.[Array.length xs - 2] <- receiverName
+      String.concat "." xs
+    Some { api with Name = newName; Signature = InstanceMember { m with Receiver = receiver } }
+  | _ -> None
+
 let rec collectApi' (e: FSharpEntity): Api seq =
   seq {
     if e.IsNamespace then
       yield! collectFromNestedEntities e
     if e.IsFSharpModule then
       yield! collectFromModule e
-    if e.IsClass || e.IsValueType || e.IsFSharpRecord || e.IsFSharpUnion || e.IsInterface then
+    if e.IsClass || e.IsValueType || e.IsFSharpRecord || e.IsFSharpUnion then
       yield! collectFromType e
+    if e.IsInterface then
+      yield! collectFromInterface [] e
   }
 and collectFromModule (e: FSharpEntity): Api seq =
   seq {
@@ -276,6 +305,26 @@ and collectFromType (e: FSharpEntity): Api seq =
             |> Seq.filter (fun x -> x.Accessibility.IsPublic)
             |> Seq.choose (toFieldApi e)
     yield! collectFromNestedEntities e
+  }
+and collectFromInterface inheritArgs (e: FSharpEntity): Api seq =
+  seq {
+    let replacementVariables = inheritArgs |> List.map snd |> List.collect Signature.collectVariables |> List.distinct
+    yield! e.MembersFunctionsAndValues
+            |> Seq.filter (fun x -> x.Accessibility.IsPublic)
+            |> Seq.choose (fun m -> option {
+              let! api = toTypeMemberApi e m
+              let inheritArgs = List.append (resolveConflictGenericArgumnet replacementVariables m) inheritArgs
+              return (api, inheritArgs)
+            })
+            |> Seq.map (fun (api, variableReplacements) ->
+              List.fold (fun api (variableName, replacement) -> { api with Signature = Signature.replaceVariable variableName replacement api.Signature }) api variableReplacements
+            )
+
+    let receiver = fsharpEntityToSignature e
+    for parentInterface in e.DeclaredInterfaces do
+      let inheritArgs = genericParametersAndArguments parentInterface
+      yield! collectFromInterface inheritArgs parentInterface.TypeDefinition
+              |> Seq.choose (updateReceiver e.DisplayName receiver)
   }
 and collectFromNestedEntities (e: FSharpEntity): Api seq = seq { for ne in e.NestedEntities do yield! collectApi' ne }
   

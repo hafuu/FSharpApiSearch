@@ -50,6 +50,7 @@
     <Compile Include="Class.fs" />
     <Compile Include="OtherTypes.fs" />
     <Compile Include="TypeAbbreviations.fs" />
+    <Compile Include="InterfaceInheritance.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

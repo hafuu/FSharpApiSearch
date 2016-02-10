@@ -111,6 +111,19 @@ module FSharpTest =
     run testMember
   }
 
+  let interfaceInheritanceTest = parameterize {
+    source [
+      "InterfaceInheritance.ChildInterface.ChildMethod", [ "InterfaceInheritance.ChildInterface => unit -> float" ]
+      "InterfaceInheritance.ChildInterface.ParentMethod", [ "InterfaceInheritance.ChildInterface => unit -> string" ]
+      "InterfaceInheritance.ChildInterface.GrandParentMethod", [ "InterfaceInheritance.ChildInterface => unit -> int" ]
+      "InterfaceInheritance.GenericChildInterface.ParentMethod", [ "InterfaceInheritance.GenericChildInterface<'a> => 'a -> 'b" ]
+      "InterfaceInheritance.GenericChildInterface.GrandParentMethod", [ "InterfaceInheritance.GenericChildInterface<'a> => 'a -> 'u" ]
+      "InterfaceInheritance.ConflictParameterInterface.ParentMethod", [ "InterfaceInheritance.ConflictParameterInterface<'b> => 'b -> 'b1" ]
+      "InterfaceInheritance.IntChildInterface.ParentMethod", [ "InterfaceInheritance.IntChildInterface => int -> 'b" ]
+    ]
+    run testMember
+  }
+
   let loadOtherTypeTest = parameterize {
     source [
       "OtherTypes.Record.InstanceMethod1", [ "OtherTypes.Record => unit -> int" ]

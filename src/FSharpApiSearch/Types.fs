@@ -226,6 +226,21 @@ module Signature =
       InstanceMember x
     | x -> x
 
+  let rec replaceVariable variableName replacement x =
+    let inline replace x = replaceVariable variableName replacement x
+    match x with
+    | AnyVariable (_, name) when name = variableName -> replacement
+    | Generic(id, args) -> Generic (replace id, List.map replace args)
+    | Arrow xs -> Arrow (List.map replace xs)
+    | StaticMethod x -> StaticMethod { x with Arguments = List.map replace x.Arguments; ReturnType = replace x.ReturnType }
+    | InstanceMember x ->
+      let x = { x with
+                    Receiver = replace x.Receiver
+                    Arguments = List.map replace x.Arguments
+                    ReturnType = replace x.ReturnType }
+      InstanceMember x
+    | x -> x
+
 type SignaturePart =
   | SignatureQuery of Signature
   | AnySignature
