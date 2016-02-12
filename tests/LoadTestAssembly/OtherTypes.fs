@@ -14,6 +14,10 @@ with
   static member StaticMethod2(x: int, y: string) = 0.0
   static member StaticProperty with get() = "" and set(_: string) = ()
 
+type GenericRecord<'a> = {
+  Field: 'a
+}
+
 type Union = A | B of int * string
 with
   member this.InstanceMethod() = 0

@@ -130,6 +130,7 @@ module FSharpTest =
       "OtherTypes.Record.InstanceMethod2", [ "OtherTypes.Record => int -> string" ]
       "OtherTypes.Record.OverloadMethod", [ "OtherTypes.Record => unit -> string"; "OtherTypes.Record => int -> float" ]
       "OtherTypes.Record.FieldA", [ "OtherTypes.Record => int" ]
+      "OtherTypes.GenericRecord.Field", [ "OtherTypes.GenericRecord<'a> => 'a" ]
       "OtherTypes.Union.InstanceMethod", [ "OtherTypes.Union => unit -> int" ]
       "OtherTypes.Struct.InstanceMethod", [ "OtherTypes.Struct => unit -> int" ]
       "OtherTypes.Struct.A", [ "OtherTypes.Struct => int" ]
