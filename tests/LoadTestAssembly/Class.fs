@@ -23,7 +23,7 @@ type InstanceMemberClass() =
   member this.OverloadMethod (x: int) = 0
   member this.OverloadMethod (x: string) = 0
 
-  member val Property = "" with get, set
+  member val Property = "" with get
   member this.IndexedProperty with get(name: string) = 0 and set (name: string) (value: int) = ()
 
 type GenericClass<'a>() =

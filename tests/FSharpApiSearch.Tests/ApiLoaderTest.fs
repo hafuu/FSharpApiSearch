@@ -25,10 +25,15 @@ let loadAssemblies = test {
 }
 
 module FSharpTest =
+  let mutable _fsharpAssemblyApi = None
   let fsharpAssemblyApi = test {
     let! assemblies = loadAssemblies
-    let assemblyApi = assemblies |> List.find (fun x -> x.FileName = Some fsharpAssemblyPath ) |> ApiLoader.load
-    return assemblyApi
+    match _fsharpAssemblyApi with
+    | Some x -> return x
+    | None ->
+      let assemblyApi = assemblies |> List.find (fun x -> x.FileName = Some fsharpAssemblyPath ) |> ApiLoader.load
+      do _fsharpAssemblyApi <- Some assemblyApi
+      return assemblyApi
   }
 
   let testMember (name, signatures) = test {
@@ -92,6 +97,7 @@ module FSharpTest =
       "TopLevelNamespace.StaticMemberClass", [ "unit -> TopLevelNamespace.StaticMemberClass"; "int -> TopLevelNamespace.StaticMemberClass" ]
       "TopLevelNamespace.StaticMemberClass.OverloadMethod", [ "int -> int"; "string * int -> string" ]
       "TopLevelNamespace.StaticMemberClass.InferredFloatType", [ "float -> float" ]
+      "TopLevelNamespace.InstanceMemberClass", [ "unit -> TopLevelNamespace.InstanceMemberClass" ]
     ]
     run testStaticMethod
   }
@@ -191,11 +197,34 @@ module FSharpTest =
     })
   }
 
+  let apiKindTest = parameterize {
+    source [
+      "PublicModule.nonGenericFunction", ApiKind.ModuleValue
+      "PublicModule.value", ApiKind.ModuleValue
+      "TopLevelNamespace.StaticMemberClass.Property", ApiKind.StaticProperty PropertyKind.GetSet
+      "TopLevelNamespace.StaticMemberClass.StaticMethod1", ApiKind.StaticMethod
+      "TopLevelNamespace.InstanceMemberClass", ApiKind.Constructor
+      "TopLevelNamespace.InstanceMemberClass.InstanceMethod1", ApiKind.InstanceMethod
+      "TopLevelNamespace.InstanceMemberClass.Property", ApiKind.InstanceProperty PropertyKind.Get
+      "OtherTypes.Record.FieldA", ApiKind.Field
+    ]
+    run (fun (name, expected) -> test {
+      let! api = fsharpAssemblyApi
+      let actual = api.Api |> Seq.filter (fun x -> x.Name = name) |> Seq.map (fun x -> x.Kind) |> Seq.distinct |> Seq.toList
+      do! actual |> assertEquals [ expected ]
+    })
+  }
+
 module CSharpTest =
+  let mutable _csharpAssemblyApi = None
   let csharpAssemblyApi = test {
     let! assemblies = loadAssemblies
-    let assemblyApi = assemblies |> List.find (fun x -> x.FileName = Some csharpAssemblyPath ) |> ApiLoader.load
-    return assemblyApi.Api
+    match _csharpAssemblyApi with
+    | Some x -> return x.Api
+    | None ->
+      let assemblyApi = assemblies |> List.find (fun x -> x.FileName = Some csharpAssemblyPath ) |> ApiLoader.load
+      do _csharpAssemblyApi <- Some assemblyApi
+      return assemblyApi.Api
   }
 
   let loadStaticMethodTest = parameterize {
@@ -272,5 +301,16 @@ module CSharpTest =
       let! apis = csharpAssemblyApi
       let actual = Seq.tryFind (fun x -> x.Name = name) apis
       do! actual |> assertEquals None
+    })
+  }
+
+  let apiKindTest = parameterize {
+    source [
+      "CSharpLoadTestAssembly.StaticMemberClass", ApiKind.Constructor
+    ]
+    run (fun (name, expected) -> test {
+      let! api = csharpAssemblyApi
+      let actual = api |> Seq.filter (fun x -> x.Name = name) |> Seq.map (fun x -> x.Kind) |> Seq.distinct |> Seq.toList
+      do! actual |> assertEquals [ expected ]
     })
   }

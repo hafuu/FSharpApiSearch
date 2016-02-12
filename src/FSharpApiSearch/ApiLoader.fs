@@ -200,46 +200,56 @@ let instanceMethodSignature (declaringType: FSharpEntity) (t: FSharpType) =
     let! args, ret = methodSignature t
     return InstanceMember { Source = Source.Target; Receiver = fsharpEntityToSignature declaringType; Arguments = args; ReturnType = ret }
   }
-module CSharp =
-  let constructorName = ".ctor"
-  let isConstructor (x: FSharpMemberOrFunctionOrValue) = x.DisplayName = constructorName
-  let constructorSignature (declaringType: FSharpEntity) (t: FSharpType) =
-    option {
-      let! args, _ = methodSignature t
-      return StaticMethod { Arguments = args; ReturnType = fsharpEntityToSignature declaringType }
-    }
+
+let constructorName = ".ctor"
+let isConstructor (x: FSharpMemberOrFunctionOrValue) = x.CompiledName = constructorName
+let constructorSignature (declaringType: FSharpEntity) (t: FSharpType) =
+  option {
+    let! args, _ = methodSignature t
+    return StaticMethod { Arguments = args; ReturnType = fsharpEntityToSignature declaringType }
+  }
   
 let toFSharpApi (x: FSharpMemberOrFunctionOrValue) =
   option {
     let! signature = toSignature x.FullType
-    return { Name = x.FullName; Signature = signature }
+    return { Name = x.FullName; Kind = ApiKind.ModuleValue ;Signature = signature }
   }
 
+let propertyKind (x: FSharpMemberOrFunctionOrValue) =
+  if x.HasGetterMethod && x.HasSetterMethod then
+    PropertyKind.GetSet
+  elif x.HasGetterMethod then
+    PropertyKind.Get
+  else
+    PropertyKind.Set
+
 let toTypeMemberApi (declaringType: FSharpEntity) (x: FSharpMemberOrFunctionOrValue) =
-  if CSharp.isConstructor x then
+  if isConstructor x then
     option {
-      let! signature = CSharp.constructorSignature declaringType x.FullType
-      return { Name = declaringType.FullName; Signature = signature }
+      let! signature = constructorSignature declaringType x.FullType
+      return { Name = declaringType.FullName; Kind = ApiKind.Constructor;Signature = signature }
     }
   elif isStaticMember x && isMethod x then
     option {
       let! signature = staticMethodSignature x.FullType
-      return { Name = x.FullName; Signature = signature }
+      return { Name = x.FullName; Kind = ApiKind.StaticMethod; Signature = signature }
     }
   elif x.IsInstanceMember && isMethod x then
     option {
       let! signature = instanceMethodSignature declaringType x.FullType
-      return { Name = x.FullName; Signature = signature}
+      return { Name = x.FullName; Kind = ApiKind.InstanceMethod; Signature = signature}
     }
   elif isStaticMember x && x.IsProperty then
     option {
       let! signature = staticPropertySignature x
-      return { Name = x.FullName; Signature = signature }
+      let kind = ApiKind.StaticProperty (propertyKind x)    
+      return { Name = x.FullName; Kind = kind; Signature = signature }
     }
   elif x.IsInstanceMember && x.IsProperty then
     option {
       let! signature = instancePropertySignature declaringType x
-      return { Name = x.FullName; Signature = signature }
+      let kind = ApiKind.InstanceProperty (propertyKind x)
+      return { Name = x.FullName; Kind = kind; Signature = signature }
     }
   else
     None
@@ -252,7 +262,7 @@ let toFieldApi (declaringType: FSharpEntity) (field: FSharpField) =
       let! fieldSignature = toSignature field.FieldType
       let signature = InstanceMember { Source = Source.Target; Receiver = fsharpEntityToSignature declaringType; Arguments = []; ReturnType = fieldSignature }
       let name = sprintf "%s.%s.%s" declaringType.AccessPath declaringType.DisplayName field.Name
-      return { Name = name; Signature = signature }
+      return { Name = name; Kind = ApiKind.Field; Signature = signature }
   }
 
 let resolveConflictGenericArgumnet replacementVariables (m: FSharpMemberOrFunctionOrValue) =

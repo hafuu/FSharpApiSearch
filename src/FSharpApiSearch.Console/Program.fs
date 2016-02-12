@@ -36,6 +36,20 @@ module Args =
       parse { opt with Query = q } rest
     | [] -> opt
 
+let propertyKindText = function
+  | PropertyKind.GetSet -> "get set"
+  | PropertyKind.Set -> "set"
+  | PropertyKind.Get -> "get"
+
+let apiKindText = function
+  | ApiKind.Constructor -> "constructor"
+  | ApiKind.ModuleValue -> "module value"
+  | ApiKind.StaticMethod -> "static method"
+  | ApiKind.StaticProperty prop -> sprintf "static property with %s" (propertyKindText prop)
+  | ApiKind.InstanceMethod -> "instance method"
+  | ApiKind.InstanceProperty prop -> sprintf "instance property with %s" (propertyKindText prop)
+  | ApiKind.Field -> "field"
+
 let searchAndShowResult (client: FSharpApiSearchClient) (query: string) opt =
   let results = client.Search(query, opt)
   results
@@ -43,7 +57,7 @@ let searchAndShowResult (client: FSharpApiSearchClient) (query: string) opt =
   |> Seq.iter (fun x ->
     Console.Write(sprintf "%s: %s" x.Api.Name (Signature.display x.Api.Signature))
     Console.ForegroundColor <- ConsoleColor.DarkGray
-    Console.WriteLine(sprintf ", distance: %d" x.Distance)
+    Console.WriteLine(sprintf ", %s, distance: %d" (apiKindText x.Api.Kind) x.Distance)
     Console.ResetColor()
   )
   Console.WriteLine()

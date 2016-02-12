@@ -261,8 +261,25 @@ module Query =
     | { Method = ByName (n, SignatureQuery s) } as x -> { x with Method = ByName (n, SignatureQuery (Signature.replaceAbbreviation table s)) }
     | x -> x
 
+[<RequireQualifiedAccess>]
+type PropertyKind =
+  | Get
+  | Set
+  | GetSet
+
+[<RequireQualifiedAccess>]
+type ApiKind =
+  | Constructor
+  | ModuleValue
+  | InstanceMethod
+  | InstanceProperty of PropertyKind
+  | StaticMethod
+  | StaticProperty of PropertyKind
+  | Field
+
 type Api = {
   Name: string
+  Kind: ApiKind
   Signature: Signature
 }
 

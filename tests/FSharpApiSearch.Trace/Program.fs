@@ -31,7 +31,8 @@ let matchAndShowResult (query: string) (target: string) abbTable =
     | { Method = BySignature s } as x -> { x with Method = BySignature (update s) }
     | { Method = ByName (n, SignatureQuery s) } as x -> { x with Method = ByName (n, SignatureQuery (update s)) }
     | x -> x
-  let target = { Name = "test"; Signature = QueryParser.parseFSharpSignature target |> Signature.replaceAbbreviation abbTable |> updateSource Source.Target }
+  let signature = QueryParser.parseFSharpSignature target |> Signature.replaceAbbreviation abbTable |> updateSource Source.Target
+  let target = { Name = "test"; Kind = ApiKind.ModuleValue; Signature = signature }
   let eqs = Matcher.Equations.initialize query |> Matcher.Equations.strictVariables query
   let ctx = Matcher.Context.initialize eqs
   let result = Matcher.matches query target Matcher.defaultRule ctx |> Matcher.Result.toBool

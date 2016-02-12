@@ -39,7 +39,7 @@ let nameMatchTest = parameterize {
   run (fun (query, targetName, targetSig, expected) -> test {
     let query = QueryParser.parse query
     let targetSig = QueryParser.parseFSharpSignature targetSig |> TestHelpers.updateSource Source.Target
-    let target = { Name = targetName; Signature = targetSig }
+    let target = { Name = targetName; Kind = ApiKind.ModuleValue;Signature = targetSig }
     let ctx = initialContext NoOption query
     let actual = Matcher.matches query target Matcher.defaultRule ctx |> Matcher.Result.toBool
     do! actual |> assertEquals expected
@@ -87,7 +87,7 @@ module DefaultMatcherTest =
     run (fun (matchOpt, query, target, expected) -> test {
       let query = QueryParser.parse query
       let targetSig = targetSugnature target |> updateTargetSignature
-      let target = { Name = "test"; Signature = targetSig }
+      let target = { Name = "test"; Kind = ApiKind.ModuleValue; Signature = targetSig }
       let ctx = initialContext matchOpt query
       let actual = Matcher.matches query target Matcher.defaultRule ctx |> Matcher.Result.toBool
       do! actual |> assertEquals expected
@@ -233,7 +233,7 @@ module DefaultMatcherTest =
       ]
       run (fun (query, target, expected) -> test {
         let query = { OriginalString = ""; Method = BySignature query }
-        let target = { Name = "test"; Signature = TestHelpers.updateSource Source.Target target }
+        let target = { Name = "test"; Kind = ApiKind.ModuleValue; Signature = TestHelpers.updateSource Source.Target target }
         let ctx = Matcher.Equations.initialize query |> Matcher.Context.initialize
         let actual = Matcher.matches query target Matcher.defaultRule ctx |> Matcher.Result.toBool
         do! actual |> assertEquals expected
@@ -250,7 +250,7 @@ module SimilarityMatchTest =
     run (fun (matchOpt, query, target, expected) -> test {
       let query = QueryParser.parse query
       let targetSig = targetSugnature target |> updateSource
-      let target = { Name = "test"; Signature = targetSig }
+      let target = { Name = "test"; Kind = ApiKind.ModuleValue; Signature = targetSig }
       let ctx = initialContext matchOpt query
       let actual = Matcher.matches query target Matcher.similaritySearchingRule ctx |> Matcher.Result.toBool
       do! actual |> assertEquals expected
@@ -326,7 +326,7 @@ module SimilarityMatchTest =
     run (fun (query, target, expected) -> test {
       let query = QueryParser.parse query
       let targetSig = targetSugnature target |> TestHelpers.updateSource Source.Target
-      let target = { Name = "test"; Signature = targetSig }
+      let target = { Name = "test"; Kind = ApiKind.ModuleValue; Signature = targetSig }
       let ctx = initialContext NoOption query
       let result = Matcher.matches query target Matcher.similaritySearchingRule ctx
       match result with
@@ -351,7 +351,7 @@ module SimilarityMatchTest =
       ]
       run (fun (query, target, expected) -> test {
         let query = { OriginalString = ""; Method = BySignature query }
-        let target = { Name = "test"; Signature = TestHelpers.updateSource Source.Target target }
+        let target = { Name = "test"; Kind = ApiKind.ModuleValue; Signature = TestHelpers.updateSource Source.Target target }
         let ctx = Matcher.Equations.initialize query |> Matcher.Context.initialize
         let actual = Matcher.matches query target Matcher.similaritySearchingRule ctx |> Matcher.Result.toBool
         do! actual |> assertEquals expected
