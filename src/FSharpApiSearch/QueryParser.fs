@@ -50,8 +50,13 @@ module FSharpSignatureParser =
 
   let mlMultiGenericParameter = between (pcharAndTrim '(') (pcharAndTrim ')') (sepBy1 fsharpSignature (pchar ','))
   let mlSingleGenericParameter = term2 |>> List.singleton
-  let mlGenericParameter = attempt mlMultiGenericParameter <|> mlSingleGenericParameter
-  let mlGeneric = mlGenericParameter .>>. genericId |>> (fun (parameter, id) -> Generic (id, parameter))
+  let mlLeftGenericParameter = attempt mlMultiGenericParameter <|> mlSingleGenericParameter
+  let foldGeneric parameter ids =
+    let rec foldGeneric' acc = function
+      | id :: rest -> foldGeneric' (Generic (id, [ acc ])) rest
+      | [] -> acc
+    foldGeneric' (Generic (List.head ids, parameter)) (List.tail ids)
+  let mlGeneric = mlLeftGenericParameter .>>. many1 genericId |>> (fun (parameter, ids) -> foldGeneric parameter ids)
 
   let term3 = choice [ attempt mlGeneric; term2 ]
 

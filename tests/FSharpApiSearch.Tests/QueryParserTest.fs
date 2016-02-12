@@ -63,6 +63,8 @@ module BySignature =
       "a<b> c", (generic (identity "c") [ generic (identity "a") [ identity "b" ] ])
       "a ?", (generic (wildcard) [ identity "a" ])
       "b ?a", (generic (wildcardGroup "a") [ identity "b" ])
+      "a b c", (generic (identity "c") [ generic (identity "b") [ identity "a" ] ])
+      "b<a> c d", (generic (identity "d") [ generic (identity "c") [ generic (identity "b") [ identity "a" ] ] ])
     ]
     run runParseTest
   }
