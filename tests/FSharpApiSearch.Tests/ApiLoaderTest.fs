@@ -134,6 +134,7 @@ module FSharpTest =
       "OtherTypes.Union.InstanceMethod", [ "OtherTypes.Union => unit -> int" ]
       "OtherTypes.Struct.InstanceMethod", [ "OtherTypes.Struct => unit -> int" ]
       "OtherTypes.Struct.A", [ "OtherTypes.Struct => int" ]
+      "OtherTypes.Enum.A", [ "OtherTypes.Enum => OtherTypes.Enum" ]
     ]
     run testMember
   }
@@ -152,6 +153,7 @@ module FSharpTest =
       "PublicModule.privateFunction"
       "InternalModule.publicFunction"
       "PrivateModule.publicFunction"
+      "OtherTypes.Enum.value__"
     ]
     run (fun name -> test {
       let! api = fsharpAssemblyApi

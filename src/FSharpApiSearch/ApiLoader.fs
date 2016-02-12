@@ -246,10 +246,13 @@ let toTypeMemberApi (declaringType: FSharpEntity) (x: FSharpMemberOrFunctionOrVa
 
 let toFieldApi (declaringType: FSharpEntity) (field: FSharpField) =
   option {
-    let! fieldSignature = toSignature field.FieldType
-    let signature = InstanceMember { Source = Source.Target; Receiver = fsharpEntityToSignature declaringType; Arguments = []; ReturnType = fieldSignature }
-    let name = sprintf "%s.%s.%s" declaringType.AccessPath declaringType.DisplayName field.Name
-    return { Name = name; Signature = signature }
+    if field.Name = Hack.enumValue then
+      return! None
+    else
+      let! fieldSignature = toSignature field.FieldType
+      let signature = InstanceMember { Source = Source.Target; Receiver = fsharpEntityToSignature declaringType; Arguments = []; ReturnType = fieldSignature }
+      let name = sprintf "%s.%s.%s" declaringType.AccessPath declaringType.DisplayName field.Name
+      return { Name = name; Signature = signature }
   }
 
 let resolveConflictGenericArgumnet replacementVariables (m: FSharpMemberOrFunctionOrValue) =

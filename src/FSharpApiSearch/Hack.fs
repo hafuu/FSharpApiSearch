@@ -15,3 +15,5 @@ let isFloat (t: FSharpType) = t.HasTypeDefinition && t.TypeDefinition.TryFullNam
 let isAbbreviation (t: FSharpType) = t.IsAbbreviation || isFloat t // HACK: IsAbbreviation of Inferred float is false.
 
 let isMeasure (t: FSharpType) = t.HasTypeDefinition && t.TypeDefinition.IsMeasure // HACK: The herz measure is infinit loop of type abbreviation. 
+
+let enumValue = "value__" // HACK: F# enum contains implicit member `value__`.
