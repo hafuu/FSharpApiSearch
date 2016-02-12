@@ -285,6 +285,6 @@ type Api = {
 
 type ApiDictionary = {
   AssemblyName: string
-  Api: Api list
-  TypeAbbreviations: TypeAbbreviation list
+  Api: Api seq
+  TypeAbbreviations: TypeAbbreviation seq
 }

@@ -359,9 +359,9 @@ let load (assembly: FSharpAssembly): ApiDictionary =
   let api =
     assembly.Contents.Entities
     |> Seq.collect collectApi'
-    |> Seq.toList
+    |> Seq.cache
   let typeAbbreviations =
     assembly.Contents.Entities
     |> Seq.collect collectAbbreviations'
-    |> Seq.toList
+    |> Seq.cache
   { AssemblyName = assembly.SimpleName; Api = api; TypeAbbreviations = typeAbbreviations }

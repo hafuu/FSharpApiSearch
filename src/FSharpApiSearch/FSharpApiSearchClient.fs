@@ -32,7 +32,8 @@ module SearchOptions =
     | Disabled -> Matcher.defaultRule
 
 type FSharpApiSearchClient (targets: string seq, dictionaries: ApiDictionary seq) =
-  let apis = dictionaries |> Seq.filter (fun x -> targets |> Seq.exists ((=)x.AssemblyName)) |> Seq.collect (fun x -> x.Api) |> Seq.cache
+  let targetAssemblies = dictionaries |> Seq.filter (fun x -> targets |> Seq.exists ((=)x.AssemblyName)) |> Seq.toList
+  let apis = targetAssemblies |> Seq.collect (fun x -> x.Api) |> Seq.cache
   do apis |> Seq.iter (fun _ -> ())
   let abbreviationTable = dictionaries |> Seq.collect (fun x -> x.TypeAbbreviations) |> Seq.toList
 
@@ -74,3 +75,5 @@ type FSharpApiSearchClient (targets: string seq, dictionaries: ApiDictionary seq
     match options with
     | Some options -> this.Search(query, options)
     | None -> this.Search(query)
+
+  member this.TargetAssemblies with get() = targetAssemblies |> List.map (fun x -> x.AssemblyName)

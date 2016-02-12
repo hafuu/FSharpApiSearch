@@ -179,7 +179,7 @@ module FSharpTest =
     run (fun (ta) -> test {
       let! api = fsharpAssemblyApi
       let ta = { Abbreviation = TestHelpers.updateSource Source.Target ta.Abbreviation; Original = TestHelpers.updateSource Source.Target ta.Original }
-      let actual = api.TypeAbbreviations |> List.contains ta
+      let actual = api.TypeAbbreviations |> Seq.contains ta
       do! actual |> assertEquals true
     })
   }
@@ -192,7 +192,7 @@ module FSharpTest =
     run (fun (key) -> test {
       let! api = fsharpAssemblyApi
       let key = key |> TestHelpers.updateSource Source.Target
-      let actual = api.TypeAbbreviations |> List.exists (fun x -> x.Abbreviation = key)
+      let actual = api.TypeAbbreviations |> Seq.exists (fun x -> x.Abbreviation = key)
       do! actual |> assertEquals false
     })
   }
