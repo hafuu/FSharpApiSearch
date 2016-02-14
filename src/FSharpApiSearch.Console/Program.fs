@@ -122,9 +122,11 @@ let helpMessage = """usage: FSharpApiSearch.Console.exe <query> <options>
 query: Optional. If omitted, it will start in interactive mode.
 options:
   --strict[+|-]
-      Enables or disables to strictly match the variables in the query.
+      Enables or disables to strictly deal with variables of different name in the query.
+      The default is enabled.
   --similarity[+|-]
       Enables or disables the similarity searching.
+      The default is disabled.
   --target:<assembly>, -t:<assembly>
       Specifies the assembly name or the assembly path of the searching target.
       If omitted, it will target 'FSharp.Core', 'mscorlib', 'System' and 'System.Core'.

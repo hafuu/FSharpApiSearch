@@ -1,56 +1,91 @@
 # FSharpApiSearch
-F# API search engine 名前はテキトーなので何か思いついたら変えたい。
+F# API search engine
+
+ベータ版なので仕様が不安定です。
 
 ## 使い方
-コマンドラインの引数にクエリを渡して検索します。
-```
-> FSharpApiSearch.Console.exe "int -> int"
-```
+FSharpApiSearchはコンソールアプリケーションです。クエリを与えずに実行するとインタラクティブモードで起動します。
+`#q`を入力してインタラクティブモードを終了します。
 
-引数を省略した場合はプログラムを終了するまで何度でも検索できます。`#q`を入力すると終了します。
+    FSharpApiSearch.Console.exe
 
-## Query Specification
-基本的にはF# のシグネチャと同じ形式で検索できます。
+引数にクエリを渡すと一度だけ検索を行います。起動が遅いのでおすすめしません。
 
-### Type Name
-一致する型名を検索します。
-#### 例
-```fsharp
-string -> int
-int -> int
-```
-### Type Variable
-型変数により任意の型を検索します。
-型変数は強力で、`'a`と検索した場合はジェネリック型(例: `list<string>`)、関数(例: `(int -> int)`)等のすべての型にもマッチします。
+    FSharpApiSearch.Console.exe "int -> int"
 
-クエリ中で違う型変数を使用した場合、検索対象には別の型を期待します。
-`'a -> 'b`という検索をした場合は、`int -> string`にはマッチしますが、`int -> int`にはマッチしません。
-#### 例
-```fsharp
-'a -> int
-'a -> 'b -> 'b
-```
-### Generic
-.Net形式、ML形式のクエリでジェネリック型を検索します。ジェネリック型には型名、型変数のみ使用できます。型パラメータの記述には制限はありません。
+デフォルトで検索できるアセンブリは`FSharp.Core`、`mscorlib`、`System`、`System.Core`です。
+`--target`オプションを指定すると検索対象を追加できます。
 
-高階型での検索もできます。
-#### 例
-```fsharp
-list<'a> -> 'a
-'a list -> 'a list
-'a<string, 'b> -> string -> 'b
-```
-### Function
-引数の数が同じで、引数、戻り値の型がマッチする関数を検索します。ネストした関数は括弧で表現します。
-#### 例
-```fsharp
-int -> int -> int
-('a -> 'b) -> 'a 'c -> 'b 'c
-```
-### Tuple
-タプル型を検索します。ネストしたタプルは括弧で表現します。
-#### 例
-```fsharp
-'a * 'b -> 'a
-('a * 'b) * 'c
-```
+    FSharpApiSearch.Console.exe --target:TargetAssembly
+
+検索対象のアセンブリに依存するアセンブリをすべて指定して下さい。
+依存するが検索対象にしたくないアセンブリは、`--reference`オプションを使って追加します。
+
+    FSharpApiSearch.Console.exe --target:TargetAssembly --reference:DependenceAssembly
+
+## クエリ仕様
+基本的にはF# のシグネチャと同じです。FSharpApiSearchの拡張のみ説明します。
+
+### 名前検索
+`name : signature`と書きます。シグネチャを指定しない場合は、シグネチャ部分に`_`を指定します。
+
+### ワイルドカード
+通常の検索では型変数と型名はマッチしませんが、どちらでも良い場合があります。
+`?`を使うと何にでもマッチするようになります。
+
+また、`?`の後に名前（`?a`）を付けると、同じ名前のワイルドカードが同じ型にマッチするように指示します。
+例えば`?a -> ?a`というクエリは`int -> int`にマッチしますが、`int -> string`にはマッチしません。
+
+### メンバ検索
+#### インスタンスメンバ
+`receiver => signature`と書きます。
+
+メソッドを検索する場合は`receiver => arg -> returnType`と書きます。
+多引数メソッドの場合は`signature`部分を多引数関数と同じ形式（`receiver => arg1 -> arg2 -> returnType`）で記述します。
+もし引数部分をタプル形式（`receiver => arg1 * arg2 -> returnType`）で書いた場合は、引数がタプルのメソッドを検索します。
+
+プロパティを検索する場合は`receiver => propertyType`と書きます。
+インデックス付きプロパティは`receiver => index -> propertyType`と書きます。
+
+インスタンスメンバの検索は次の特別扱いがあります。
+1. `arg -> receiver -> returnType` という形式の関数にマッチします。
+2. 引数なしの検索（`receiver => propertyType`）は、`receiver => unit -> propertyType`という形式のインスタンスメンバともマッチします。
+
+#### 静的メンバ
+モジュール内の値と同じクエリで検索できます。インスタンスメソッドと同じ様に多引数とタプル引数の区別に注意して下さい。
+
+### 型変数、型名の固定
+類似検索を有効にしていると型変数と型名がマッチしてしまいます。
+型変数や型名の前に`!`を付けると（`!int`、`!'a`等）その部分を固定して検索できます。
+
+## 検索可能なAPI
+| API    | 例 |
+|--------|----|
+| モジュールの関数と値 | `int -> string` |
+| レコード、構造体のフィールド | `Ref<'a> => 'a` |
+| 型（クラス、レコード等）のメソッド、プロパティ | `'a list => int` |
+| クラスのコンストラクタ | `string -> Uri` |
+| 型略称 | `string` means `System.String` |
+| 名前（関数名、メソッド名等）| `head : 'a list -> 'a` |
+
+## 対応予定のAPI
+* 型名
+* 判別共用体
+* アクティブパターン
+* 関数の型略称
+* 拡張メソッド
+* 測定単位
+* 型制約
+* 可視性
+
+## FSharp.Compiler.Service の制限により対応できないAPI
+* C# で定義されたクラス、構造体のフィールド
+
+## 動作環境
+* Windows
+* .Net Framework 4.5
+* F# 4.0
+
+## 使用ライブラリ
+* FSharp.Compiler.Service
+* FParsec
