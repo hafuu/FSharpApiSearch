@@ -48,6 +48,7 @@ FSharpApiSearchはコンソールアプリケーションです。クエリを�
 インデックス付きプロパティは`receiver => index -> propertyType`と書きます。
 
 インスタンスメンバの検索は次の特別扱いがあります。
+
 1. `arg -> receiver -> returnType` という形式の関数にマッチします。
 2. 引数なしの検索（`receiver => propertyType`）は、`receiver => unit -> propertyType`という形式のインスタンスメンバともマッチします。
 
