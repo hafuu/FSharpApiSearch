@@ -40,7 +40,7 @@ let summary = "F# API search engine"
 let description = "Project has no description; update build.fsx"
 
 // List of author names (for NuGet package)
-let authors = [ "MIYAZAKI Shohei" ]
+let authors = [ "hafuu" ]
 
 // Tags for your project (for NuGet package)
 let tags = ""

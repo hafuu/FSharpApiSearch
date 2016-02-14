@@ -1,23 +1,19 @@
 type project
 owners
-    MIYAZAKI Shohei
+    hafuu
 authors 
-    MIYAZAKI Shohei
+    hafuu
 projectUrl
     http://github.com/hafuu/FSharpApiSearch
-iconUrl
-    https://raw.githubusercontent.com/hafuu/FSharpApiSearch/master/docs/files/img/logo.png
 licenseUrl
     http://github.com/hafuu/FSharpApiSearch/blob/master/LICENSE.txt
 requireLicenseAcceptance
     false
-copyright
-    Copyright 2015
 tags
-    
+    F# fsharp api search
 summary
     F# API search engine
 description
-    Description not set
+    F# API search engine
 
 
