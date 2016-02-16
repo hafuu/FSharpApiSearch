@@ -34,7 +34,7 @@ module SearchOptions =
 type FSharpApiSearchClient (targets: string seq, dictionaries: ApiDictionary seq) =
   let targetAssemblies = dictionaries |> Seq.filter (fun x -> targets |> Seq.exists ((=)x.AssemblyName)) |> Seq.toList
   let apis = targetAssemblies |> Seq.collect (fun x -> x.Api) |> Seq.cache
-  do apis |> Seq.iter (fun _ -> ())
+  do Async.Start <| async { do apis |> Seq.iter (fun _ -> ()) }
   let abbreviationTable = dictionaries |> Seq.collect (fun x -> x.TypeAbbreviations) |> Seq.toList
 
   static member DefaultReferences = [
