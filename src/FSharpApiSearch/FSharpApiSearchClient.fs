@@ -7,8 +7,6 @@ type SearchResult = {
   Api: Api
 }
 
-type OptionStatus = Enabled | Disabled
-
 type SearchOptions = {
   SimilaritySearching: OptionStatus
   StrictQueryVariable: OptionStatus
