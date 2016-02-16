@@ -62,6 +62,7 @@
     <None Include="paket.references" />
     <None Include="paket.template" />
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="Misc.fs" />
     <Compile Include="Hack.fs" />
     <Compile Include="OptionModule.fs" />
     <Compile Include="Types.fs" />
