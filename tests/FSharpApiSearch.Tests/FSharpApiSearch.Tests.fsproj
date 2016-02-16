@@ -64,7 +64,9 @@
   <Import Project="..\..\.paket\paket.targets" />
   <ItemGroup>
     <None Include="paket.references" />
-    <Compile Include="TestHelpers.fs" />
+    <Compile Include="TestAssemblies.fs" />
+    <Compile Include="FSharpCompilerServiceTest.fs" />
+    <Compile Include="TestHelper.fs" />
     <Compile Include="TypesTest.fs" />
     <Compile Include="QueryParserTest.fs" />
     <Compile Include="MatcherTest.fs" />

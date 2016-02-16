@@ -2,21 +2,20 @@
 
 open FParsec
 
+open FSharpApiSearch.SpecialTypes
+
 let inline trim p = spaces >>. p .>> spaces
 let inline pcharAndTrim c = pchar c |> trim
 
-let source = Source.Query
-
 module FSharpSignatureParser =
   let name = regex @"\w+" <?> "name"
-  let partialName = sepBy1 name (pchar '.') |>> fun xs -> PartialName (List.rev xs)
+  let partialName = sepBy1 name (pchar '.') |>> List.rev
 
   let fsharpSignature, fsharpSignatureRef = createParserForwardedToRef()
 
-  let strong = pchar '!'
-  let identity = opt strong .>>. partialName |>> (function (None, name) -> Identity name | (Some _, name) -> StrongIdentity name) |> trim <?> "identity"
-  let variable = opt strong .>> pchar ''' .>>. name |>> (function (None, name) -> Variable (source, name) | (Some _, name) -> StrongVariable (source, name)) |> trim <?> "variable"
-  let wildcard = pchar '?' >>. opt name |>> (function Some name -> WildcardGroup name | None -> Wildcard) |> trim <?> "wildcard"
+  let identity = partialName |>> (function name -> Identity (PartialIdentity { Name = name; GenericParameterCount = 0 })) |> trim <?> "identity"
+  let variable = pchar ''' >>. name |>> (function name -> Variable (VariableSource.Query, name)) |> trim <?> "variable"
+  let wildcard = pchar '?' >>. opt name |>> Wildcard |> trim <?> "wildcard"
 
   let genericId =
     choice [
@@ -25,7 +24,14 @@ module FSharpSignatureParser =
       wildcard
     ]
 
-  let dotNetGeneric = genericId .>>. between (pcharAndTrim '<') (pcharAndTrim '>') (sepBy1 fsharpSignature (pchar ',')) |>> (fun (id, parameter) -> Generic (id, parameter))
+  let createGeneric id parameters =
+    let id =
+      match id with
+      | Identity (PartialIdentity p) -> Identity (PartialIdentity { p with GenericParameterCount = List.length parameters })
+      | other -> other
+    Generic (id, parameters)
+
+  let dotNetGeneric = genericId .>>. between (pcharAndTrim '<') (pcharAndTrim '>') (sepBy1 fsharpSignature (pchar ',')) |>> (fun (id, parameter) -> createGeneric id parameter)
 
   let term1 =
     choice [
@@ -36,16 +42,14 @@ module FSharpSignatureParser =
       wildcard
     ]
   
-  let arraySymbol = regex arrayRegexPattern |> trim
+  let arraySymbol = regex arrayRegexPattern |> trim |>> (fun array -> Identity (PartialIdentity { Name = [ array ]; GenericParameterCount = 1 }))
   let maybeArray t =
     t
     .>>. many arraySymbol
     |>> (function
       | (t, []) -> t
       | (t, x :: xs) ->
-        let x = Signature.partialName x
-        let xs = xs |> List.map Signature.partialName
-        List.fold (fun x array -> Generic (Identity array, [ x ])) (Generic (Identity x, [ t ])) xs)
+        List.fold (fun x array -> createGeneric array [ x ]) (createGeneric x [ t ]) xs)
   let term2 = maybeArray term1
 
   let mlMultiGenericParameter = between (pcharAndTrim '(') (pcharAndTrim ')') (sepBy1 fsharpSignature (pchar ','))
@@ -53,14 +57,14 @@ module FSharpSignatureParser =
   let mlLeftGenericParameter = attempt mlMultiGenericParameter <|> mlSingleGenericParameter
   let foldGeneric parameter ids =
     let rec foldGeneric' acc = function
-      | id :: rest -> foldGeneric' (Generic (id, [ acc ])) rest
+      | id :: rest -> foldGeneric' (createGeneric id [ acc ]) rest
       | [] -> acc
-    foldGeneric' (Generic (List.head ids, parameter)) (List.tail ids)
+    foldGeneric' (createGeneric (List.head ids) parameter) (List.tail ids)
   let mlGeneric = mlLeftGenericParameter .>>. many1 genericId |>> (fun (parameter, ids) -> foldGeneric parameter ids)
 
   let term3 = choice [ attempt mlGeneric; term2 ]
 
-  let maybeTuple t = sepBy1 t (pstring "*") |>> function [ x ] -> x | xs -> Signature.tuple xs
+  let maybeTuple t = sepBy1 t (pstring "*") |>> function [ x ] -> x | xs -> Tuple xs
 
   let term4 = maybeTuple term3
 
@@ -77,18 +81,18 @@ module FSharpSignatureParser =
         match argsAndRet with
         | Arrow xs -> (List.take (xs.Length - 1) xs), (List.last xs)
         | ret -> [], ret
-      InstanceMember { Source = source; Receiver = receiver; Arguments = args; ReturnType = ret }
+      SignatureQuery.InstanceMember (Receiver = receiver, Arguments = args, ReturnType = ret)
     )
 
-  let extendedFsharpSignature = choice [ attempt instanceMember <|> fsharpSignature ]
+  let extendedFsharpSignature = choice [ attempt instanceMember <|> (fsharpSignature |>> SignatureQuery.Signature) ]
 
 let memberName = many1 (letter <|> anyOf "_'") |> trim |>> (fun xs -> System.String(Array.ofList xs))
-let wildcard = pstring "_" |> trim >>% AnySignature
+let wildcard = pstring "_" |> trim >>% SignatureQuery.Wildcard
 
-let anyOrSignature = attempt wildcard <|> (FSharpSignatureParser.extendedFsharpSignature |>> SignatureQuery)
-let nameQuery = memberName .>> pstring ":" .>>. anyOrSignature |>> (fun (name, sigPart) -> ByName (name, sigPart))
+let anyOrSignature = attempt wildcard <|> (FSharpSignatureParser.extendedFsharpSignature)
+let nameQuery = memberName .>> pstring ":" .>>. anyOrSignature |>> (fun (name, sigPart) -> QueryMethod.ByName (name, sigPart))
 
-let signatureQuery = FSharpSignatureParser.extendedFsharpSignature |>> BySignature
+let signatureQuery = FSharpSignatureParser.extendedFsharpSignature |>> QueryMethod.BySignature
 let query = attempt nameQuery <|> signatureQuery
 
 let parseFSharpSignature (sigStr: string) =
@@ -98,5 +102,5 @@ let parseFSharpSignature (sigStr: string) =
 
 let parse (queryStr: string) =
   match runParserOnString (query .>> eof) () "" queryStr with
-  | Success (query, _, _) -> { OriginalString = queryStr; Method = query }
+  | Success (queryMethod, _, _) -> { OriginalString = queryStr; Method = queryMethod }: Query
   | Failure (msg, _, _) -> failwithf "%s" msg

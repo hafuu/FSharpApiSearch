@@ -50,6 +50,9 @@
     <None Include="paket.references" />
     <None Include="App.config" />
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="..\..\src\FSharpApiSearch.Console\Args.fs">
+      <Link>Args.fs</Link>
+    </Compile>
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

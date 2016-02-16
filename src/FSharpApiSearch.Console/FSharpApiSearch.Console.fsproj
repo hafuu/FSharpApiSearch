@@ -52,6 +52,7 @@
     <None Include="paket.references" />
     <None Include="App.config" />
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="Args.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

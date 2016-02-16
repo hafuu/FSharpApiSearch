@@ -3,95 +3,104 @@
 open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
 open FSharpApiSearch
-open TestHelpers.DSL
 
-module SignatureTest =
-  let displayTest = parameterize {
+open TestHelper.DSL
+
+module PrintTest =
+  let typeA = createType "a" []
+  let typeB = createType "b" []
+  let typeC = createType "c" []
+
+  let genericA = createType "A" [ variable "a" ]
+  let genericB = createType "B" [ variable "a"; variable "b" ]
+
+  let variableA = variable "a"
+  let variableB = variable "b"
+
+  let memberMethod = method' "test" [ variableA; typeB ] typeC
+  let memberCurriedMethod = curriedMethod "test" [ variableA; typeB ] typeC
+  let memberProperty = member' "test" (MemberKind.Property PropertyKind.Get) [] typeA
+
+  let printApiSignatureTest = parameterize {
     source [
-      identity "a", "a"
-      variable "a", "'a"
-      generic (identity "a") [ identity "b"; identity "c" ], "a<b, c>"
-      arrow [ identity "a"; identity "b"; identity "c" ], "a -> b -> c"
-      arrow [ identity "a"; arrow [ identity "a"; identity "b" ]; identity "b" ], "a -> (a -> b) -> b"
-      tuple [ identity "a"; identity "b" ], "a * b"
-      tuple [ identity "a"; tuple [ identity "a"; identity "b" ] ], "a * (a * b)"
-      staticMethod [ identity "a" ] (identity "b"), "a -> b"
-      staticMethod [ identity "a"; identity "b" ] (identity "b"), "a * b -> b"
-      instanceMember (identity "a") [] (identity "b"), "b"
-      instanceMember (identity "a") [ identity "a" ] (identity "b"), "a -> b"
-      instanceMember (identity "a") [ identity "a"; identity "b" ] (identity "b"), "a * b -> b"
-      array (identity "a"), "a[]"
-      array2d (identity "a"), "a[,]"
-      array (array2d (identity "a")), "a[,][]"
+      moduleValue typeA, "a"
+      moduleFunction [ typeA; typeB ], "a -> b"
+      moduleFunction [ arrow [ typeA; typeB ]; typeC], "(a -> b) -> c"
+      moduleValue variableA, "'a"
+      moduleValue (array typeA), "a[]"
+      moduleValue (array (array2D typeA)), "a[,][]"
+      moduleValue (createType "A" [ typeC]), "A<c>"
+      moduleValue (genericB), "B<'a, 'b>"
+      moduleValue (tuple [ typeA; variableB; typeC ]), "a * 'b * c"
+      moduleValue (tuple [ typeA; (tuple [ typeB; typeC ]) ]), "a * (b * c)"
+      instanceMember typeA memberMethod, "'a * b -> c"
+      instanceMember typeA memberCurriedMethod, "'a -> b -> c"
+      instanceMember typeA memberProperty, "a"
+      staticMember typeA memberMethod, "'a * b -> c"
+      staticMember typeA memberProperty, "a"
     ]
     run (fun (input, expected) -> test {
-      let actual = Signature.display input
+      let actual = ApiSignature.print input
       do! actual |> assertEquals expected
     })
   }
 
-  let debugDisplayTest = parameterize {
+  let debugPrintTest = parameterize {
     source [
-      identity "a", "a"
-      variable "a", "'qa"
-      generic (identity "a") [ identity "b"; identity "c" ], "a<b, c>"
-      arrow [ identity "a"; identity "b"; identity "c" ], "a -> b -> c"
-      arrow [ identity "a"; arrow [ identity "a"; identity "b" ]; identity "b" ], "a -> (a -> b) -> b"
-      tuple [ identity "a"; identity "b" ], "a * b"
-      tuple [ identity "a"; tuple [ identity "a"; identity "b" ] ], "a * (a * b)"
-      staticMethod [ identity "a" ] (identity "b"), "a -> b"
-      staticMethod [ identity "a"; identity "b" ] (identity "b"), "a * b -> b"
-      instanceMember (identity "a") [] (identity "b"), "a => b"
-      instanceMember (identity "a") [ identity "a" ] (identity "b"), "a => a -> b"
-      instanceMember (identity "a") [ identity "a"; identity "b" ] (identity "b"), "a => a * b -> b"
-      array (identity "a"), "a[]"
-      array2d (identity "a"), "a[,]"
-      array (array2d (identity "a")), "a[,][]"
+      moduleValue typeA, "a"
+      moduleValue variableA, "'t_a"
+      instanceMember typeA memberMethod, "a => 't_a * b -> c"
+      instanceMember typeA memberProperty, "a => a"
+      instanceMember genericA memberMethod, "A<'t_a> => 't_a * b -> c"
+      staticMember typeA memberMethod, "'t_a * b -> c"
+      staticMember typeA memberProperty, "a"
     ]
     run (fun (input, expected) -> test {
-      let actual = Signature.debugDisplay input
+      let actual = ApiSignature.debug input
       do! actual |> assertEquals expected
     })
   }
 
-  let replaceAbbreviationTest =
-    let p = QueryParser.parseFSharpSignature
-    parameterize {
-      source [
-        "a", (p "a")
-        "string", (abbreviation (p "String") (p "string"))
-        "Option<string>", (generic (identity "Option") [ abbreviation (identity "String") (identity "string") ])
-        "'a list", (abbreviation (p "List<'a>") (p "list<'a>"))
-        "map<'a, 'b, 'c>", (p "map<'a, 'b, 'c>")
-        "'b list", (abbreviation (p "List<'b>") (p "list<'b>"))
-        "int list", (abbreviation (p "List<int>") (p "list<int>"))
-        "list", (identity "list")
-        "intList", (abbreviation (p "List<int>") (p "intList"))
-        "intKeyMap<value>", (abbreviation (p "Map<int, value>") (p "intKeyMap<value>"))
-        "reverseArg<front, end>", (abbreviation (p "ReverseArg<end, front>") (p "reverseArg<front, end>"))
-        "samemap<int>", (abbreviation (p "Map<int, int>") (p "samemap<int>"))
-        "override", (abbreviation (p "B.Override") (p "override"))
-        "B.override", (abbreviation (p "B.Override") (p "B.override"))
-        "A.override", (abbreviation (p "A.Hidden") (p "A.override"))
-        "override<'a>", (abbreviation (p "B.Override<'a>") (p "override<'a>"))
-        "B.override<'a>", (abbreviation (p "B.Override<'a>") (p "B.override<'a>"))
-        "A.override<'a>", (abbreviation (p "A.Hidden<'a>") (p "A.override<'a>"))
-      ]
-      run (fun (query, expected) -> test {
-        let table = [
-          { Abbreviation = p "string"; Original = p "String" }
-          { Abbreviation = p "'a list"; Original = p "List<'a>" }
-          { Abbreviation = p "intList"; Original = p "List<int>" }
-          { Abbreviation = p "reverseArg<'b, 'a>" ; Original = p "ReverseArg<'a, 'b>" }
-          { Abbreviation = p "map<'a, 'b>"; Original = p "Map<'a, 'b>" }
-          { Abbreviation = p "intKeyMap<'v>"; Original = p "Map<int, 'v>" }
-          { Abbreviation = p "samemap<'a>"; Original = p "Map<'a, 'a>" }
-          { Abbreviation = p "A.override"; Original = p "A.Hidden" }
-          { Abbreviation = p "B.override"; Original = p "B.Override" }
-          { Abbreviation = p "A.override<'a>"; Original = p "A.Hidden<'a>" }
-          { Abbreviation = p "B.override<'a>"; Original = p "B.Override<'a>" }
-        ]
-        let actual = Signature.replaceAbbreviation table (QueryParser.parseFSharpSignature query)
-        do! actual |> assertEquals expected
-      })
-    }
+module QueryTest = // TODO: Matcherのテストに移動
+  let replaceAbbreviationTest =  parameterize {
+    source [
+      "a", (identity "a")
+      "string", (typeAbbreviation (identity "String") (identity "string"))
+      "Option<string>", (generic (identity "Option") [ typeAbbreviation (identity "String") (identity "string") ])
+      "'a list", (typeAbbreviation (generic (identity "List") [ queryVariable "a" ]) (generic (identity "list") [ queryVariable "a" ]))
+      "'b list", (typeAbbreviation (generic (identity "List") [ queryVariable "b" ]) (generic (identity "list") [ queryVariable "b" ]))
+      "int list", (typeAbbreviation (generic (identity "List") [ identity "int" ]) (generic (identity "list") [ identity "int" ]))
+      "string list", (typeAbbreviation (generic (identity "List") [ (typeAbbreviation (identity "String") (identity "string")) ]) (generic (identity "list") [ identity "string" ]))
+      "map<'a, 'b, 'c>", (generic (identity "map") [ queryVariable "a"; queryVariable "b"; queryVariable "c" ])
+      "list", (identity "list")
+      "intList", (typeAbbreviation (generic (identity "List") [ identity "int" ]) (identity "intList"))
+      "intKeyMap<'value>", (typeAbbreviation (generic (identity "Map") [ identity "int"; queryVariable "value" ]) (generic (identity "intKeyMap") [ queryVariable "value" ]))
+      "reverseArg<'front, 'end>", (typeAbbreviation (generic (identity "ReverseArg") [ queryVariable "end"; queryVariable "front" ]) (generic (identity "reverseArg") [ queryVariable "front"; queryVariable "end" ]))
+      "samemap<int>", (typeAbbreviation (generic (identity "Map") [ identity "int"; identity "int" ]) (generic (identity "samemap") [ identity "int" ]))
+      "override", (typeAbbreviation (identity "B.Override") (identity "override"))
+      "B.override", (typeAbbreviation (identity "B.Override") (identity "B.override"))
+      "A.override", (typeAbbreviation (identity "A.Hidden") (identity "A.override"))
+      "override<'a>", (typeAbbreviation (generic (identity "B.Override") [ queryVariable "a" ]) (generic (identity "override") [ queryVariable "a" ]))
+      "B.override<'a>", (typeAbbreviation (generic (identity "B.Override") [ queryVariable "a" ]) (generic (identity "B.override") [ queryVariable "a" ]))
+      "A.override<'a>", (typeAbbreviation (generic (identity "A.Hidden") [ queryVariable "a" ]) (generic (identity "A.override") [ queryVariable "a" ]))
+    ]
+    run (fun (query, expected) -> test {
+      let abbreviations = [|
+          { Abbreviation = identity "string"; Original = identity "String" }
+          { Abbreviation = generic (identity "list") [ variable "a" ]; Original = generic (identity "List") [ variable "a" ] }
+          { Abbreviation = identity "intList"; Original = generic (identity "List") [ identity "int" ] }
+          { Abbreviation = generic (identity "reverseArg") [ variable "b"; variable "a" ]; Original = generic (identity "ReverseArg") [ variable "a"; variable "b" ] }
+          { Abbreviation = generic (identity "map") [ variable "a"; variable "b" ]; Original = generic (identity "Map") [ variable "a"; variable "b" ] }
+          { Abbreviation = generic (identity "intKeyMap") [ variable "v" ]; Original = generic (identity "Map") [ identity "int"; variable "v" ] }
+          { Abbreviation = generic (identity "samemap") [ variable "a" ]; Original = generic (identity "Map") [ variable "a"; variable "a" ] }
+          { Abbreviation = identity "A.override"; Original = identity "A.Hidden" }
+          { Abbreviation = identity "B.override"; Original = identity "B.Override" }
+          { Abbreviation = generic (identity "A.override") [ variable "a" ]; Original = generic (identity "A.Hidden") [ variable "a" ] }
+          { Abbreviation = generic (identity "B.override") [ variable "a" ]; Original = generic (identity "B.Override") [ variable "a" ] }
+        |]
+      let dictionaries = Seq.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = Array.empty; TypeAbbreviations = abbreviations }
+      let actual = Matcher.Initializer.initializeQuery dictionaries (QueryParser.parse query)
+      let expected: Query = { OriginalString = query; Method = QueryMethod.BySignature (SignatureQuery.Signature expected) }
+      do! actual |> assertEquals expected
+    })
+  }
