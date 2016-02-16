@@ -8,12 +8,13 @@ type Args = {
   Targets: string list
   References: string list
   SearchOptions: SearchOptions
+  StackTrace: bool
   Help: bool
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Args =
-  let empty = { Query = None; Targets = []; References = []; SearchOptions = SearchOptions.defaultOptions; Help = false }
+  let empty = { Query = None; Targets = []; References = []; SearchOptions = SearchOptions.defaultOptions; StackTrace = false; Help = false }
 
   let (|Status|_|) (name: string) (str: string) =
     if str.StartsWith(name) then
@@ -36,6 +37,7 @@ module Args =
     | Status "--similarity" v :: rest -> parse { arg with SearchOptions = { arg.SearchOptions with SimilaritySearching = boolToOptionStatus v } } rest
     | (KeyValue "--target" t | KeyValue "-t" t) :: rest -> parse { arg with Targets = t :: arg.Targets } rest
     | (KeyValue "--reference" r | KeyValue "-r" r) :: rest -> parse { arg with References = r :: arg.References } rest
+    | Status "--stacktrace" v :: rest -> parse { arg with StackTrace = v } rest
     | ("--help" | "-h") :: rest -> parse { arg with Help = true } rest
     | query :: rest ->
       let q =
@@ -107,15 +109,21 @@ module Interactive =
   let StrictQueryVariable = { Get = (fun x -> x.StrictQueryVariable ); Set = (fun value x -> { x with StrictQueryVariable = value }) }
   let SimilaritySearching = { Get = (fun x -> x.SimilaritySearching ); Set = (fun value x -> { x with SimilaritySearching = value }) }
 
-  let rec loop (client: FSharpApiSearchClient) opt =
+  let rec loop (client: FSharpApiSearchClient) arg =
     printf "> "
     match Console.ReadLine().TrimEnd(';') with
-    | "#q" -> opt
-    | OptionSetting "#strict" StrictQueryVariable opt newOpt -> loop client newOpt
-    | OptionSetting "#similarity" SimilaritySearching opt newOpt -> loop client newOpt
+    | "#q" -> arg
+    | OptionSetting "#strict" StrictQueryVariable arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
+    | OptionSetting "#similarity" SimilaritySearching arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | query ->
-      try searchAndShowResult client query opt with ex -> printfn "%A" ex
-      loop client opt
+      try
+        searchAndShowResult client query arg.SearchOptions
+      with ex ->
+        if arg.StackTrace then
+          printfn "%A" ex
+        else
+          printfn "%s" ex.Message
+      loop client arg
 
 let helpMessage = """usage: FSharpApiSearch.Console.exe <query> <options>
 
@@ -133,6 +141,9 @@ options:
   --reference:<assembly>, -r:<assembly>
       Specifies the assembly name or the assembly path that the targets are dependent.
       By default, 'mscorlib', 'System', 'System.Core', 'System.Xml', 'System.Configuration' and 'FSharp.Core' are specified.
+  --stacktrace[+|-]
+      Enables or disables stacktrace output if an exception occurs.
+      The default is disabled.
   --help, -h
       Print this message."""
 
@@ -152,5 +163,5 @@ let main argv =
     printfn "Targets the following assemblies."
     client.TargetAssemblies |> List.iter (printfn "  %s")
     printfn "Input query or #q to quit."
-    Interactive.loop client args.SearchOptions |> ignore
+    Interactive.loop client args |> ignore
   0
