@@ -1,6 +1,5 @@
 # FSharpApiSearch
 F# API Search Engineはシグネチャや名前でF#のAPIを検索できる検索エンジンです。
-Haskellの[Hoogle](https://www.haskell.org/hoogle/)、OCamlの[OCaml◎Scope](http://ocamloscope.herokuapp.com/)に影響を受けています。
 
 **ベータ版なので仕様が不安定です。**
 
@@ -80,7 +79,8 @@ FSharpApiSearch.Console.exeにクエリを与えずに実行するとインタ�
 
 メソッドを検索する場合は`receiver => arg -> returnType`と書きます。
 
-** 多引数メソッドの検索方法は議論中です **
+**多引数メソッドの検索方法は議論中です**
+
 多引数メソッドを検索するには`receiver => arg1 -> arg2 -> returnType`と書きます。
 .NET形式のように引数部分をタプルのクエリ`receiver -> argA * argB -> returnType`は、多引数ではなくタプルが引数のメソッドを検索してしまうので注意して下さい。
 
