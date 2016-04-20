@@ -569,6 +569,18 @@ module FSharp =
       testFullTypeDefMember fsharpAssemblyApi (fun x -> x.Comparison) (name :: ReverseName.ofString "FullTypeDefinition.ComparisonConstraints", expected))
   }
 
+  let compilerInternalTest = test {
+    let! fscoreDict = fscoreApi
+    let actual =
+      fscoreDict.Api
+      |> Seq.filter (fun x ->
+        let name = ReverseName.toString x.Name
+        name.StartsWith("Microsoft.FSharp.Core.LanguagePrimitives.") || name.StartsWith("Microsoft.FSharp.Core.Operators.OperatorIntrinsics.")
+      )
+      |> Seq.length
+    do! actual |> assertEquals 0
+  }
+
 module SpecialType =
   let tupleName = ReverseName.ofString "System.Tuple"
   let tupleNullnessTest =
