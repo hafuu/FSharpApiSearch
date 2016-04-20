@@ -3,357 +3,1105 @@
 open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
 open FSharpApiSearch
-open TestHelpers.DSL
+open TestHelper.DSL
 
-let targetSugnature x = x |> QueryParser.parseFSharpSignature |> TestHelpers.updateSource Source.Target
+let typeA = createType "Test.A" []
 
-type MatchOption =
-  | Strict
-  | NoOption
+let typeB = createType "Test.B" []
+
+let typeC arg = createType "Test.C" [ arg ]
+
+let typeD1 arg  = createType "Test.D" [ arg ]
+
+let typeD2 arg1 arg2  = createType "Test.D" [ arg1; arg2 ]
+
+let variableA = variable "A"
+let variableB = variable "B"
+
+let unit = typeAbbreviation SpecialTypes.LowType.Unit (createType "Microsoft.FSharp.Core.unit" [])
+let int = typeAbbreviation (createType "System.Int32" []) (createType "Microsoft.FSharp.Core.int" [])
+let Int32 = createType "System.Int32" []
+let list t = typeAbbreviation (createType "Microsoft.FSharp.Collections.List" [ t ]) (createType "Microsoft.FSharp.Collections.list" [ t ])
+
+let curriedMethod = curriedMethod "method" [ typeA; typeB ] typeA
+let nonCurriedMethod = method' "method" [ typeA; typeB ] typeA
+let tupleMethod = method' "method" [ tuple [ typeA; typeB ] ] typeA
+let unitArgmentMethod = method' "method" [ unit ] typeA
+
+let typeA_constructor = method' "A" [ typeB ] typeA
+
+let property = member' "property" (MemberKind.Property PropertyKind.GetSet) [] typeA
+let indexedProperty = member' "property" (MemberKind.Property PropertyKind.GetSet) [ typeB ] typeA
 
 type Expected =
   | Always of bool
   | WhenStrict of bool
 
-let expectedValue matchOpt expected =
-  match expected, matchOpt with
+let expectedValue strictOpt expected =
+  match expected, strictOpt with
   | Always b, _ -> b
-  | WhenStrict b, Strict -> b
-  | WhenStrict b, NoOption -> not b
+  | WhenStrict b, Enabled -> b
+  | WhenStrict b, Disabled -> not b
 
-let initialContext matchOpt query =
-  let eqs =
-    let eqs = Matcher.Equations.initialize query
-    match matchOpt with
-    | Strict -> Matcher.Equations.strictVariables query eqs
-    | NoOption -> eqs
-  Matcher.Context.initialize eqs
+let strictInequalitiesTest =
+  test {
+    let query = QueryParser.parse "?a -> ?b -> 'a -> 'b"
+    let opt = { SimilaritySearching = Disabled; StrictQueryVariable = Enabled }
+    let eqs = Matcher.Equations.empty |> Matcher.Initializer.initialEquations opt query
+    do! eqs.Inequalities |> assertEquals [ (queryVariable "a", queryVariable "b"); (Wildcard (Some "a"), Wildcard (Some "b")) ]
+  }
 
-let nameMatchTest = parameterize {
-  source [
-    "map : _", "Microsoft.FSharp.Collections.List.map", "('a -> 'b) -> 'a list -> 'b list", true
-    "bind : _", "Microsoft.FSharp.Collections.List.map", "('a -> 'b) -> 'a list -> 'b list", false
-    "map : ('a -> 'b) -> 'a option -> 'b option", "Microsoft.FSharp.Core.Option.map", "('a -> 'b) -> 'a option -> 'b option", true
-    "map : ('a -> 'b) -> 'a option -> 'b option", "Microsoft.FSharp.Collections.List.map", "('a -> 'b) -> 'a list -> 'b list", false
-  ]
-  run (fun (query, targetName, targetSig, expected) -> test {
-    let query = QueryParser.parse query
-    let targetSig = QueryParser.parseFSharpSignature targetSig |> TestHelpers.updateSource Source.Target
-    let target = { Name = targetName; Kind = ApiKind.ModuleValue;Signature = targetSig }
-    let ctx = initialContext NoOption query
-    let actual = Matcher.matches query target Matcher.defaultRule ctx |> Matcher.Result.toBool
+let nameMatchTest =
+  let createMap m = moduleFunction [ (arrow [ variableA; variableB ]); (m variableA); (m variableB) ]
+  let listMap = createMap list
+  let cMap = createMap typeC
+  
+  parameterize {
+    source [
+      "map : _", "Microsoft.FSharp.Collections.List.map", listMap, true
+      "bind : _", "Microsoft.FSharp.Collections.List.map", listMap, false
+      "map : ('a -> 'b) -> 'a list -> 'b list", "Test.C.map", cMap, false
+    ]
+    run (fun (query, targetName, targetSig, expected) -> test {
+      let target: Api = { Name = ReverseName.ofString targetName; Signature = targetSig; TypeConstraints = [] }
+      let actual = Matcher.search Array.empty { SimilaritySearching = Disabled; StrictQueryVariable = Enabled } [ target ] query |> Seq.length = 1
+      do! actual |> assertEquals expected
+    })
+  }
+
+let matchTest' trace similarity cases = parameterize {
+  source (seq {
+    for strictOpt in [ Enabled; Disabled ] do
+      for (query, target, expected) in cases do
+        yield (strictOpt, query, target, expectedValue strictOpt expected)
+  })
+  run (fun (strictOpt, query, target, expected) -> test {
+    use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
+    do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
+    let targetApi: Api = { Name = ReverseName.ofString "test"; Signature = target; TypeConstraints = [] }
+    let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
+    let options = { SimilaritySearching = similarity; StrictQueryVariable = strictOpt }
+    let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.length = 1
+    do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
     do! actual |> assertEquals expected
   })
 }
 
-module EquationsTest =
-  let initializeTest = parameterize {
-    source [
-      "'a -> 'b", []
-      "'a -> 'a", []
-      "'a -> !'a", [ (variable "a", strongVariable "a") ]
-    ]
-    run (fun (query, expected) -> test {
-      let query = QueryParser.parse query
-      let equations = Matcher.Equations.initialize query
-      do! equations.Equalities |> assertEquals expected
-    })
-  }
-
-  let strictVariableTest = parameterize {
-    source [
-      "'a -> 'a", []
-      "'a -> !'a", []
-      "'a -> 'b", [ (variable "a", variable "b") ]
-      "!'a -> 'b", [ (variable "b", strongVariable "a") ]
-      "'a -> !'a -> 'b -> !'b", [ (variable "a", variable "b"); (variable "a", strongVariable "b"); (variable "b", strongVariable "a"); (strongVariable "a", strongVariable "b") ]
-      "?a -> ?a", []
-      "?a -> ?b", [ (wildcardGroup "a", wildcardGroup "b") ]
-    ]
-    run (fun (query, expected) -> test {
-      let query = QueryParser.parse query
-      let equations = Matcher.Equations.initialize query |> Matcher.Equations.strictVariables query
-      do! List.sort equations.Inequalities |> assertEquals (List.sort expected)
-    })
-  }
-
-module DefaultMatcherTest =
-  let matchTest updateTargetSignature cases = parameterize {
-    source (seq {
-      for matchOpt in [ Strict; NoOption ] do
-        for (q, t, expected) in cases do
-          yield (matchOpt, q, t, expectedValue matchOpt expected)
-    })
-    run (fun (matchOpt, query, target, expected) -> test {
-      let query = QueryParser.parse query
-      let targetSig = targetSugnature target |> updateTargetSignature
-      let target = { Name = "test"; Kind = ApiKind.ModuleValue; Signature = targetSig }
-      let ctx = initialContext matchOpt query
-      let actual = Matcher.matches query target Matcher.defaultRule ctx |> Matcher.Result.toBool
-      do! actual |> assertEquals expected
-    })
-  }
-
-  let runTest xs = matchTest id xs
+module NonsimilarityTest =
+  let matchTest cases = matchTest' false Disabled cases
+  let trace cases = matchTest' true Disabled cases
 
   let identityTest =
-    runTest [
-      "int", "int", Always true
-      "int", "string", Always false
-      "B", "A.B", Always true
-      "B.C", "A.B.C", Always true
-    ]
-
-  let ``strong identity is the same behavior as identity`` =
-    runTest [
-      "!int", "int", Always true
-      "!int", "string", Always false
+    matchTest [
+      "A", moduleValue typeA, Always true
+      "Test.A", moduleValue typeA, Always true
+      "AnotherPath.A", moduleValue typeA, Always false
+      "A", moduleValue typeB, Always false
+      "Test.A", moduleValue typeB, Always false
     ]
 
   let variableTest =
-    runTest [
-      "'a", "'b", Always true
-      "'a", "int", Always false
-      "int", "'a", Always false
-      "'a -> 'b", "'a -> 'a", WhenStrict false
-    ]
-
-  let ``strong variable is the same behavior as variable`` =
-    runTest [
-      "!'a", "'b", Always true
-      "!'a", "int", Always false
-      "!'a -> !'b", "'a -> 'a", WhenStrict false
-    ]
-
-  let ``variable and strong variable share the name space`` =
-    runTest [
-      "!'a -> 'a", "'a -> 'a", Always true
-    ]
-
-  let arrowTest =
-    runTest [
-      "int -> string", "int -> string", Always true
-      "int -> int", "int -> string", Always false
-      "int -> 'a", "int -> 'b", Always true
-      "int -> 'a", "'a -> 'b", Always false
-
-      "int -> int", "int -> int -> int", Always false
-      "int -> int -> int", "int -> int", Always false
-    ]
-
-  let ``nested arrow test`` =
-    runTest [
-      "(int -> string) -> string", "(int -> string) -> string", Always true
-      "(int -> string) -> string", "(int -> string) -> int", Always false
-      "('a -> 'b) -> 'b", "(int -> string) -> string", Always false
-      "(int -> string) -> string", "('a -> 'b) -> 'b", Always false
-    ]
-
-  let genericTest =
-    runTest [
-      "int option", "int option", Always true
-      "int option", "string option", Always false
-      "int option", "'a option", Always false
+    matchTest [
+      "A", moduleValue variableA, Always false
+      "'A", moduleValue typeA, Always false
+      "'A", moduleValue variableA, Always true
+      "'A", moduleValue variableB, Always true
+      "'A", moduleValue (tuple [ typeA; typeB ]), Always false
+      "A * B", moduleValue variableA, Always false
+      "'A", moduleFunction [ typeA; typeA ], Always false
+      "'A -> 'B", moduleFunction [ variableA; variableA ], WhenStrict false
     ]
 
   let tupleTest =
-    runTest [
-      "int * int * int", "int * int * int", Always true
-      "int * int * int", "int * string * int", Always false
-      "int * int", "int * int * int", Always false
-    ]
-
-  let ``another types test`` =
-    runTest [
-      "int * int", "int -> int", Always false
-      "int option", "int", Always false
-    ]
-
-  let wildcardTest =
-    runTest [
-      "?", "int", Always true
-      "?", "'a", Always true
-      "?", "int list", Always true
-      "?", "int -> int", Always true
-      "? -> ?", "int", Always false
-      "? -> ?", "int -> string", Always true
-      "? -> ?", "int -> int", Always true
-
-      "?a", "int", Always true
-      "?a -> ?a", "int -> int", Always true
-      "?a -> ?a", "int -> string", Always false
-      "?a -> ?a", "int -> 'a", Always false
-      "?a -> ?b", "int -> string", Always true
-      "?a -> ?b", "int -> int", WhenStrict false
-    ]
-
-  let ``higher order type test`` =
-    runTest [
-      "'a -> 'a ?", "'a -> 'a list", Always true
-    ]
-
-  let staticMethodMatchTest =
-    let cases = [
-      "int -> string", "int -> string", Always true
-      "'a -> 'b -> 'c", "'a * 'b -> 'c", Always true
-      "'a -> 'b -> 'c", "'a * 'b * 'c -> 'd", Always false
-    ]
-    matchTest TestHelpers.toStaticMethod cases
-
-  let instanceMemberMatchTest =
-    let cases = [
-      "receiver => returnType", "receiver => returnType", Always true
-      "a => returnType", "a => anotherReturnType", Always false
-      "receiver => b", "anotherReceiver => b", Always false
-      "a => b -> c", "a => b -> c", Always true
-
-      // property or field
-      "a => b", "a => unit -> b", Always true
-      "receiver => b", "anotherReceiver => unit -> b", Always false
-      "a => returnType", "a => unit -> anotherReturnType", Always false
-      "a => unit -> b", "a => b", Always false
-
-      // instance member and arrow
-      "a => unit -> b", "a -> b", Always true
-      "a => b", "a -> b", Always true
-      "a => b -> c", "b -> a -> c", Always true
-      "a => b -> c", "a -> b -> c", Always false
-    ]
-    matchTest id cases
-
-  let typeAbbreviationTest =
-    let p = QueryParser.parseFSharpSignature
-    parameterize {
-      source[
-        (identity "A"), (abbreviation (identity "A") (identity "a")), true
-        (identity "B"), (abbreviation (identity "A") (identity "a")), false
-        (abbreviation (identity "A") (identity "a")), (abbreviation (identity "A") (identity "a")), true
-        (abbreviation (identity "B") (identity "b")), (abbreviation (identity "A") (identity "a")), false
-        (abbreviation (p "List<'a, 'a>") (p "list<'a, 'a>")), (abbreviation (p "List<int, int>") (p "list<int, int>")), false
-      ]
-      run (fun (query, target, expected) -> test {
-        let query = { OriginalString = ""; Method = BySignature query }
-        let target = { Name = "test"; Kind = ApiKind.ModuleValue; Signature = TestHelpers.updateSource Source.Target target }
-        let ctx = Matcher.Equations.initialize query |> Matcher.Context.initialize
-        let actual = Matcher.matches query target Matcher.defaultRule ctx |> Matcher.Result.toBool
-        do! actual |> assertEquals expected
-      })
-    }
-
-module SimilarityMatchTest =
-  let matchTest updateSource cases = parameterize {
-    source (seq {
-      for matchOpt in [ Strict; NoOption ] do
-        for (q, t, expected) in cases do
-          yield (matchOpt, q, t, expectedValue matchOpt expected)
-    })
-    run (fun (matchOpt, query, target, expected) -> test {
-      let query = QueryParser.parse query
-      let targetSig = targetSugnature target |> updateSource
-      let target = { Name = "test"; Kind = ApiKind.ModuleValue; Signature = targetSig }
-      let ctx = initialContext matchOpt query
-      let actual = Matcher.matches query target Matcher.similaritySearchingRule ctx |> Matcher.Result.toBool
-      do! actual |> assertEquals expected
-    })
-  }
-
-  let runTest xs = matchTest id xs
-
-  let identityTest =
-    runTest [
-      "int", "int", Always true
-      "int", "string", Always false
-      "B", "A.B", Always true
-      "B.C", "A.B.C", Always true
-      "int", "'a", Always true
-      "!int", "'a", Always false
-    ]
-
-  let variablesTest = 
-    runTest [
-      "'a", "'a", Always true
-      "'a", "int", Always true
-      "!'a", "'a", Always true
-      "!'a", "int", Always false
-
-      // bug #12 recursive and circular generic type
-      "'a -> 'a", "nativeptr<'T> -> 'T", Always false
-      "('a -> 'b) -> 'a option -> 'b option", "('a -> 'b option) -> 'a option -> 'b option", Always false
-      "('a -> 'b) -> 'a 'm -> 'b 'm", "('T -> option<'U>) -> seq<'T> -> 'U", Always false
-    ]
-
-  let ``variable and strong variable share the name space`` =
-    runTest [
-      "!'a -> 'a", "'a -> 'a", Always true
-      "!'a -> 'a", "int -> string", Always false
+    matchTest [
+      "A * A", moduleValue (tuple [ typeA; typeA ]), Always true
+      "A * A", moduleValue (tuple [ typeA; typeA; typeA ]), Always false
+      "A * A", moduleValue (tuple [ typeA; typeB ]), Always false
     ]
 
   let arrowTest =
-    runTest [
-      "'a -> 'b", "'a -> 'b", Always true
-      "int -> string", "int -> string", Always true
+    matchTest [
+      "A -> A", moduleFunction [ typeA; typeA ], Always true
+      "A -> B", moduleFunction [ typeA; typeA ], Always false
+      "A -> A -> A", moduleFunction [ typeA; typeA ], Always false
+      "(A -> A) -> A", moduleFunction [ arrow [ typeA; typeA ]; typeA ], Always true
+      "A -> A -> A", moduleFunction [ arrow [ typeA; typeA ]; typeA ], Always false
+    ]
 
-      "'a -> 'b", "int -> string", Always true
-      "'a -> 'b", "int -> int", WhenStrict false
+  let genericTest =
+    matchTest [
+      "C<A>", moduleValue (typeC typeA), Always true
+      "C<B>", moduleValue (typeC typeA), Always false
+      "C", moduleValue (typeC typeA), Always false
+      "C<A>", moduleValue (typeD1 typeA), Always false
+      "D<A>", moduleValue (typeD1 typeA), Always true
+      "D<A>", moduleValue (typeD2 typeA typeA), Always false
 
-      "int -> string", "'a -> 'b", Always true
-      "int -> int", "'a -> 'b", Always true
+      "C<'a>", moduleValue (typeC variableA), Always true
+      "C<'a>", moduleValue (typeC variableB), Always true
+      "C<'a>", moduleValue (typeC typeA), Always false
+    ]
+
+  let arrayTest =
+    matchTest [
+      "A[]", moduleValue (array typeA), Always true
+      "A[,][]", moduleValue (array (array2D typeA)), Always true
+      "A[]", moduleValue (array2D typeA), Always false
+      "C<A>[]", moduleValue (array (typeD1 typeA)), Always false
+    ]
+
+  let wildcardTest =
+    matchTest [
+      "?", moduleValue typeA, Always true
+      "?", moduleFunction [ typeA; typeA ], Always false
+      "?", moduleValue variableA, Always true
+      "? -> ?", moduleFunction [ typeA; typeB ], Always true
+      "? -> ?", moduleValue typeA, Always false
+      "? -> ?", moduleFunction [ arrow [ typeA; typeB ]; typeB ], Always true
+
+      "?<A>", moduleValue typeA, Always false
+      "?<A>", moduleValue (typeC typeA), Always true
+      "?<?>", moduleValue (typeC typeA), Always true
+    ]
+
+  let wildcardGroupTest =
+    matchTest [
+      "?a", moduleValue typeA, Always true
+      "?a -> ?a", moduleFunction [ typeA; typeA ], Always true
+      "?a -> ?a", moduleFunction [ typeA; typeB ], Always false
+      "?a -> ?a", moduleFunction [ typeA; variableA ], Always false
+      "?a -> ?b", moduleFunction [ typeA; typeB ], Always true
+      "?a -> ?b", moduleFunction [ typeA; typeA ], WhenStrict false
+    ]
+
+  let typeAbbreviationTest =
+    matchTest [
+      "int", moduleValue int, Always true
+      "int", moduleValue Int32, Always true
+      "Int32", moduleValue int, Always true
+      "Int32", moduleValue Int32, Always true
+
+      "list<'a>", moduleValue (list (variable "t")), Always true
+      "list<int>", moduleValue (list int), Always true
+      "list<int>", moduleValue (list (variable "t")), Always false
+
+      "float", moduleValue int, Always false
+      "float", moduleValue Int32, Always false
+    ]
+
+  let staticMemberTest =
+    matchTest [
+      "A -> B -> A", staticMember typeA curriedMethod, Always true
+      "A -> A -> A", staticMember typeA curriedMethod, Always false
+      "A * B -> A", staticMember typeA curriedMethod, Always false
+
+      "A -> B -> A", staticMember typeA nonCurriedMethod, Always true
+      "A -> A -> A", staticMember typeA nonCurriedMethod, Always false
+      "A * B -> A", staticMember typeA nonCurriedMethod, Always false
+
+      "A -> B -> A", staticMember typeA tupleMethod, Always false
+      "A * B -> A", staticMember typeA tupleMethod, Always true
+
+      "?", staticMember typeA tupleMethod, Always false
+      "? -> A", staticMember typeA tupleMethod, Always true
+
+      "A", staticMember typeA property, Always true
+      "B", staticMember typeA property, Always false
+      "?", staticMember typeA property, Always true
+
+      "B -> A", staticMember typeA indexedProperty, Always true
+      "B -> B", staticMember typeA indexedProperty, Always false
+      "A", staticMember typeA indexedProperty, Always false
+      "?", staticMember typeA indexedProperty, Always false
+
+      "B -> A", constructor' typeA typeA_constructor, Always true
+      "B -> B -> A", constructor' typeA typeA_constructor, Always false
+    ]
+
+  let instanceMemberTest =
+    matchTest [
+      "A => A -> B -> A", instanceMember typeA curriedMethod, Always true
+      "A => A * B -> A", instanceMember typeA curriedMethod, Always false
+      "A => A -> A -> A", instanceMember typeA curriedMethod, Always false
+      "B => A -> B -> A", instanceMember typeA curriedMethod, Always false
+
+      "A => A -> B -> A", instanceMember typeA nonCurriedMethod, Always true
+      "A => A * B -> A", instanceMember typeA nonCurriedMethod, Always false
+      "A => A -> A -> A", instanceMember typeA nonCurriedMethod, Always false
+
+      "? => A -> B -> A", instanceMember typeA curriedMethod, Always true
+      "? => ?", instanceMember typeA curriedMethod, Always false
+      "?", instanceMember typeA curriedMethod, Always false
+
+      "A => A * B -> A", instanceMember typeA tupleMethod, Always true
+      "A => A -> B -> A", instanceMember typeA tupleMethod, Always false
+
+      "A => A", instanceMember typeA property, Always true
+      "A => B", instanceMember typeA property, Always false
+      "A => ?", instanceMember typeA property, Always true
+      "?", instanceMember typeA property, Always false
+
+      "A => B -> A", instanceMember typeA indexedProperty, Always true
+      "A => B -> B", instanceMember typeA indexedProperty, Always false
+      "A => A", instanceMember typeA indexedProperty, Always false
+      "A => ?", instanceMember typeA indexedProperty, Always false
+
+      "C<'a> => A -> B -> A", instanceMember (typeC variableA) curriedMethod, Always true
+      "C<A> => A -> B -> A", instanceMember (typeC variableA) curriedMethod, Always false
+    ]
+
+  let instanceMemberSperialRuleTest =
+    matchTest [
+      "A => A", instanceMember typeA unitArgmentMethod, Always true
+      "A => B -> C<A>", moduleFunction [ typeB; typeA; typeC typeA ], Always true
+    ]
+
+module SimilarityTest =
+  let matchTest cases = matchTest' false Enabled cases
+  let trace cases = matchTest' true Enabled cases
+
+  let variableTest =
+    matchTest [
+      "'a", moduleValue variableA, Always true
+      "'a", moduleValue typeA, Always true
+      "A", moduleValue variableA, Always true
+
+      "'a<'b>", moduleValue (typeC typeA), Always true
+    ]
+
+  // bug #12 recursive and circular generic type
+  let recursiveAndCircularTest =
+    matchTest [
+      "'a -> 'a", moduleFunction [ typeC variableA; variableA ], Always false // nativeptr<'T> -> 'T
+      "('a -> 'b) -> C<'a>", moduleFunction [ (arrow [ variableA; typeC variableB ]); typeC variableA; typeC variableB ], Always false // ('a -> 'b option) -> 'a option -> 'b option
+      "('a -> 'b) -> 'a 'm -> 'b 'm", moduleFunction [ (arrow [ variableA; typeC variableB ]); typeD1 variableA; variableB ], Always false // ('T -> option<'U>) -> seq<'T> -> 'U
+    ]
+
+  let arrowTest =
+    matchTest [
+      "'a -> 'b", moduleFunction [ variableA; variableB ], Always true
+      "A -> B", moduleFunction [ typeA; typeB ], Always true
+
+      "'a -> 'b", moduleFunction [ typeA; typeB ], Always true
+      "'a -> 'b", moduleFunction [ typeA; typeA ], WhenStrict false
+
+      "A -> B", moduleFunction [ variableA; variableB ], Always true
+      "A -> A", moduleFunction [ variableA; variableB ], Always true
+    ]
+
+  let typeAbbreviationTest =
+    matchTest [
+      "int", moduleValue int, Always true
+      "'a", moduleValue int, Always true
+      "list<'a>", moduleValue (list variableA), Always true
+      "list<'a>", moduleValue (list typeA), Always true
+      "list<A>", moduleValue (list typeB), Always false
     ]
 
   let distanceTest = parameterize {
     source [
-      "int", "int", 0
-      "'a", "int", 1
-      "int -> string", "'a -> 'b", 2
-      "'a", "'b", 0
-      "'a", "list<int>", 1
-      "'a", "int -> string", 2
-      "'a", "int -> int -> int", 3
-      "'a", "(int -> int) -> int -> int", 4
-      "('a -> 'b) -> 'a list -> 'b list", "('T -> 'U) -> 'T list -> 'U list", 0
-      "('a -> 'b) -> 'a list -> 'b list", "('T -> 'U) -> 'T list -> 'T", 1
+      "A", moduleValue typeA, 0
+      "'a", moduleValue typeA, 1
+      "A -> B", moduleFunction [ variableA; variableB ], 2
+      "? -> 'a", moduleFunction [ typeA; variableA ], 0
+      "? -> 'a", moduleFunction [ typeA; typeC typeA ], 1
+      "? -> 'a", moduleFunction [ typeA; arrow [ typeA; typeB] ], 2
+      "? -> 'a", moduleFunction [ typeA; arrow [ typeA; typeA; typeA ] ], 3
+      "? -> 'a", moduleFunction [ typeA; arrow [ (arrow [ typeA; typeA ]); typeA; typeA ] ], 4
+      "('a -> 'b) -> C<'a> -> C<'b>", moduleFunction [ arrow [ variableA; variableB ]; typeC variableA; typeC variableB ], 0
+      "('a -> 'b) -> C<'a> -> C<'b>", moduleFunction [ arrow [ variableA; variableB ]; typeC variableA; variableA ], 1
 
-      "? -> ?", "'a -> 'b", 0
-      "? -> int", "'a -> 'b", 1
+      "? -> ?", moduleFunction [ variableA; variableB ], 0
+      "? -> A", moduleFunction [ variableA; variableB ], 1
 
-      "a => b", "a => unit -> b", 1
-      "a => unit -> b", "a -> b", 1
+      "A => A", instanceMember typeA unitArgmentMethod, 1
+      "A => B -> C<A>", moduleFunction [ typeB; typeA; typeC typeA ], 1
 
       // bug #16
-      "('a * string) -> string", "('a * 'b) -> 'b", 1
-      "('a * string) -> string", "('a * 'b) -> 'a", 2
+      "('a * A) -> A", moduleFunction [ tuple [ variableA; variableB ]; variableB ], 1
+      "('a * A) -> A", moduleFunction [ tuple [ variableA; variableB ]; variableA ], 2
     ]
+
     run (fun (query, target, expected) -> test {
-      let query = QueryParser.parse query
-      let targetSig = targetSugnature target |> TestHelpers.updateSource Source.Target
-      let target = { Name = "test"; Kind = ApiKind.ModuleValue; Signature = targetSig }
-      let ctx = initialContext NoOption query
-      let result = Matcher.matches query target Matcher.similaritySearchingRule ctx
-      match result with
-      | Matcher.Matched { Distance = actual } ->
-        do! actual |> assertEquals expected
-      | _ ->
-        do! fail "not matched"
+      let targetApi: Api = { Name = ReverseName.ofString "test"; Signature = target; TypeConstraints = [] }
+      let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
+      let options = { SimilaritySearching = Enabled; StrictQueryVariable = Enabled }
+      let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.head
+      do! actual.Distance |> assertEquals expected
     })
   }
 
-  let typeAbbreviationTest =
-    let p = QueryParser.parseFSharpSignature
-    parameterize {
-      source[
-        (identity "A"), (abbreviation (identity "A") (identity "a")), true
-        (identity "B"), (abbreviation (identity "A") (identity "a")), false
-        (abbreviation (identity "A") (identity "a")), (abbreviation (identity "A") (identity "a")), true
-        (abbreviation (identity "B") (identity "b")), (abbreviation (identity "A") (identity "a")), false
-        (variable "a"), (abbreviation (identity "A") (identity "a")), true
-        (abbreviation (p "List<'a, 'a>") (p "list<'a, 'a>")), (abbreviation (p "List<int, int>") (p "list<int, int>")), true
-        (abbreviation (p "List<'a, 'a>") (p "list<'a, 'a>")), (abbreviation (p "List<int, string>") (p "list<int, string>")), false
-      ]
-      run (fun (query, target, expected) -> test {
-        let query = { OriginalString = ""; Method = BySignature query }
-        let target = { Name = "test"; Kind = ApiKind.ModuleValue; Signature = TestHelpers.updateSource Source.Target target }
-        let ctx = Matcher.Equations.initialize query |> Matcher.Context.initialize
-        let actual = Matcher.matches query target Matcher.similaritySearchingRule ctx |> Matcher.Result.toBool
-        do! actual |> assertEquals expected
-      })
-    }
+module TypeConstraintTest =
+  type FullTypeDefinition with
+    member this.LowType = Identity (FullIdentity this.FullIdentity)
+  
+  type TypeAbbreviationDefinition with
+    member this.TypeAbbreviation = { Abbreviation = this.Abbreviation; Original = this.Original }
+    member this.LowType = TypeAbbreviation this.TypeAbbreviation
+
+  let instantiate (def: FullTypeDefinition) args =
+    match args with
+    | [] -> def.LowType
+    | _ -> Generic (def.LowType, args)
+
+  let subtypeCon v (parent: FullTypeDefinition) =
+    { Variables = [ v ]; Constraint = SubtypeConstraints parent.LowType }
+  let subtypeCon_abbreviation v (parent: TypeAbbreviationDefinition) =
+    { Variables = [ v ]; Constraint = SubtypeConstraints (TypeAbbreviation { Abbreviation = parent.Abbreviation; Original = parent.Original }) }
+  let genericSubtypeCon v (parent: FullTypeDefinition) args =
+    { Variables = [ v ]; Constraint = SubtypeConstraints (Generic (parent.LowType, args)) }
+  let subtypeCon_variable v parent =
+    { Variables = [ v ]; Constraint = SubtypeConstraints (variable parent) }
+  let nullnessCon v =
+    { Variables = [ v ]; Constraint = NullnessConstraints }
+  let memberCon vs modifier member' =
+    { Variables = vs; Constraint = MemberConstraints (modifier, member') }
+  let valueTypeCon v =
+    { Variables = [ v ]; Constraint = ValueTypeConstraints }
+  let refTypeCon v =
+    { Variables = [ v ]; Constraint = ReferenceTypeConstraints }
+  let defaultConstructorCon v =
+    { Variables = [ v ]; Constraint = DefaultConstructorConstraints }
+  let equalityCon v =
+    { Variables = [ v ]; Constraint = EqualityConstraints }
+  let comparisonCon v =
+    { Variables = [ v ]; Constraint = ComparisonConstraints }
+
+  let empty: FullTypeDefinition = {
+    Name = []
+    AssemblyName = "test"
+    BaseType = None
+    AllInterfaces = []
+    GenericParameters = []
+    TypeConstraints = []
+    InstanceMembers = []
+    StaticMembers = []
+    
+    SupportNull = NotSatisfy
+    ReferenceType = Satisfy
+    ValueType = NotSatisfy
+    DefaultConstructor = NotSatisfy
+    Equality = Satisfy
+    Comparison = NotSatisfy
+  }
+
+  let Object = {
+    empty with
+      AssemblyName = "mscorlib"
+      Name = ReverseName.ofString "System.Object"
+      SupportNull = Satisfy
+  }
+
+  let Tuple2 = {
+    empty with
+      Name = ReverseName.ofString "System.Tuple"
+      AssemblyName = "mscorlib"
+      BaseType = Some (instantiate Object [])
+      GenericParameters = [ "T1"; "T2" ]
+      InstanceMembers =
+        [
+          member' "Item1" (MemberKind.Property PropertyKind.Get) [] (variable "T1")
+          member' "Item2" (MemberKind.Property PropertyKind.Get) [] (variable "T2")
+        ]
+      Equality = Dependence [ "T1"; "T2" ]
+      Comparison = Dependence [ "T1"; "T2" ]
+  }
+
+  let Tuple3 = {
+    empty with
+      Name = ReverseName.ofString "System.Tuple"
+      AssemblyName = "mscorlib"
+      BaseType = Some (instantiate Object [])
+      GenericParameters = [ "T1"; "T2"; "T3" ]
+      InstanceMembers =
+        [
+          member' "Item1" (MemberKind.Property PropertyKind.Get) [] (variable "T1")
+          member' "Item2" (MemberKind.Property PropertyKind.Get) [] (variable "T2")
+          member' "Item3" (MemberKind.Property PropertyKind.Get) [] (variable "T3")
+        ]
+      Equality = Dependence [ "T1"; "T2"; "T3" ]
+      Comparison = Dependence [ "T1"; "T2"; "T3" ]
+  }
+
+  let Array' = {
+    empty with
+      Name = ReverseName.ofString "System.Array"
+      AssemblyName = "mscorlib"
+      BaseType = Some (instantiate Object [])
+  }
+
+  let mscorlibDict = {
+    AssemblyName = "mscorlib"
+    Api = [||]
+    TypeDefinitions =
+      [|
+        Object;
+        Array';
+        Tuple2; Tuple3;
+      |]
+    TypeAbbreviations = [||]
+  }
+
+  let Array1D = {
+    empty with
+      Name = ReverseName.ofString "Microsoft.FSharp.Core.[]"
+      AssemblyName = "FSharp.Core"
+      BaseType = Some (instantiate Array' [])
+      GenericParameters = [ "a" ]
+      Equality = Dependence [ "a" ]
+      Comparison = Dependence [ "a" ]
+  }
+
+  let fscoreLib = {
+    AssemblyName = "FSharp.Core"
+    Api = [||]
+    TypeDefinitions =
+      [|
+        Array1D
+      |]
+    TypeAbbreviations = [||]
+  }
+
+  let Parent = {
+    empty with
+      Name = ReverseName.ofString "Test.Parent"
+      BaseType = Some (instantiate Object [])
+  }
+
+  let Child = {
+    empty with
+      Name = ReverseName.ofString "Test.Child"
+      BaseType = Some (instantiate Parent [])
+  }
+
+  let GenericParent = {
+    empty with
+      Name = ReverseName.ofString "Test.GenericParent"
+      GenericParameters = [ "a"; "b" ]
+      BaseType = Some (instantiate Object [])
+  }
+
+  let GenericChild = {
+    empty with
+      Name = ReverseName.ofString "Test.GenericChild"
+      GenericParameters = [ "a"; "b" ]
+      BaseType = Some (instantiate GenericParent [ variable "a"; variable "b" ])
+  }
+
+  let AnotherGeneric = {
+    empty with
+      Name = ReverseName.ofString "Test.AnotherGeneric"
+      GenericParameters = [ "a"; "b" ]
+      BaseType = Some (instantiate Object [])
+  }
+
+  let IA = {
+    empty with
+      Name = ReverseName.ofString "Test.IA"
+      GenericParameters = []
+  }
+
+  let IB = {
+    empty with
+      Name = ReverseName.ofString "Test.IB"
+      GenericParameters = []
+  }
+
+  let ImplA = {
+    empty with
+      Name = ReverseName.ofString "Test.ImplA"
+      GenericParameters = []
+      BaseType = Some (instantiate Object [])
+      AllInterfaces = [ instantiate IA [] ]
+  }
+
+  let ImplAB = {
+    empty with
+      Name = ReverseName.ofString "Test.ImplAB"
+      GenericParameters = []
+      BaseType = Some (instantiate Object [])
+      AllInterfaces = [ instantiate IA []; instantiate IB [] ]
+  }
+
+  let Foo_X = {
+    empty with
+      Name = ReverseName.ofString "Foo.X"
+      GenericParameters = []
+      BaseType = Some (instantiate Object [])
+      AllInterfaces = [ instantiate IA [] ]
+  }
+
+  let Bar_X = {
+    empty with
+      Name = ReverseName.ofString "Bar.X"
+      GenericParameters = []
+      BaseType = Some (instantiate Object [])
+      AllInterfaces = [ instantiate IB [] ]
+  }
+
+  let GenericInterface = {
+    empty with
+      Name = ReverseName.ofString "Test.GenericInterface"
+      GenericParameters = [ "a" ]
+  }
+
+  let GenericInterfaceImplement = {
+    empty with
+      Name = ReverseName.ofString "Test.GenericInterfaceImplement"
+      BaseType = Some (instantiate Object [])
+      AllInterfaces = [ instantiate GenericInterface [ ImplA.LowType ] ]
+  }
+
+  let OriginalTypeAbbreviatedInterface = {
+    empty with
+      Name = ReverseName.ofString "Test.OriginalTypeAbbreviatedInterface"
+  }
+
+  let TypeAbbreviationInterface = {
+    Abbreviation = createType "Test.TypeAbbreviationInterface" [] |> updateAssembly "test"
+    Abbreviated = OriginalTypeAbbreviatedInterface.LowType
+    Original = OriginalTypeAbbreviatedInterface.LowType
+  }
+
+  let AbbreviationImplement = {
+    empty with
+      Name = ReverseName.ofString "Test.AbbreviationImplement"
+      BaseType = Some (instantiate Object [])
+      AllInterfaces = [ TypeAbbreviationInterface.LowType ]
+  }
+
+  let NullableType = {
+    empty with
+      Name = ReverseName.ofString "Test.NullableType"
+      BaseType = Some (instantiate Object [])
+      SupportNull = Satisfy
+  }
+
+  let NonNullableType = {
+    empty with
+      Name = ReverseName.ofString "Test.NonNullableType"
+      BaseType = Some (instantiate Object [])
+      SupportNull = NotSatisfy
+  }
+
+  let MemberTestType = {
+    empty with
+      Name = ReverseName.ofString "Test.MemberTestType"
+      BaseType = Some (instantiate Object [])
+      StaticMembers =
+        [
+          method' "StaticMethod" [ int ] int
+          property' "Property" PropertyKind.GetSet [] int
+          method' "Overload" [ unit ] typeA
+          method' "Overload" [ int ] typeA
+        ]
+      InstanceMembers =
+        [
+          method' "InstanceMethod" [ unit ] unit
+        ]
+  }
+
+  let GenericMemberTestType = {
+    empty with
+      Name = ReverseName.ofString "Test.GenericMemberTestType"
+      BaseType = Some (instantiate Object [])
+      GenericParameters = [ "T" ]
+      StaticMembers =
+        [
+          { method' "Method1" [ variable "a" ] int with GenericParameters = [ "a" ] }
+          method' "Method2" [ variable "T" ] int
+        ]
+  }
+
+  let ValueType = {
+    empty with
+      Name = ReverseName.ofString "Test.ValueType"
+      BaseType = Some (instantiate Object [])
+      ValueType = Satisfy
+      ReferenceType = NotSatisfy
+  }
+
+  let ReferenceType = {
+    empty with
+      Name = ReverseName.ofString "Test.ReferenceType"
+      BaseType = Some (instantiate Object [])
+      ValueType = NotSatisfy
+      ReferenceType = Satisfy
+  }
+
+  let WithDefaultConstructor = {
+    empty with
+      Name = ReverseName.ofString "Test.WithDefaultConstructor"
+      BaseType = Some (instantiate Object [])
+      DefaultConstructor = Satisfy
+  }
+
+  let WithoutDefaultConstructor = {
+    empty with
+      Name = ReverseName.ofString "Test.WithoutDefaultConstructor"
+      BaseType = Some (instantiate Object [])
+      DefaultConstructor = NotSatisfy
+  }
+
+  let EqualityType = {
+    empty with
+      Name = ReverseName.ofString "Test.EqualityType"
+      BaseType = Some (instantiate Object [])
+      Equality = Satisfy
+  }
+
+  let NoEqualityType = {
+    empty with
+      Name = ReverseName.ofString "Test.NoEqualityType"
+      BaseType = Some (instantiate Object [])
+      Equality = NotSatisfy
+  }
+
+  let DependenceEqualityType1 = {
+    empty with
+      Name = ReverseName.ofString "Test.DependenceEqualityType1"
+      BaseType = Some (instantiate Object [])
+      GenericParameters = [ "a" ]
+      Equality = Dependence [ "a" ]
+  }
+
+  let DependenceEqualityType2 = {
+    empty with
+      Name = ReverseName.ofString "Test.DependenceEqualityType2"
+      BaseType = Some (instantiate Object [])
+      GenericParameters = [ "a"; "b" ]
+      Equality = Dependence [ "a"; "b" ]
+  }
+
+  let DependenceEqualityType3 = {
+    empty with
+      Name = ReverseName.ofString "Test.DependenceEqualityType3"
+      BaseType = Some (instantiate Object [])
+      GenericParameters = [ "a"; "b" ]
+      Equality = Dependence [ "b" ]
+  }
+
+  let ComparisonType = {
+    empty with
+      Name = ReverseName.ofString "Test.ComparisonType"
+      BaseType = Some (instantiate Object [])
+      Comparison = Satisfy
+  }
+
+  let NoComparisonType = {
+    empty with
+      Name = ReverseName.ofString "Test.NoComparisonType"
+      BaseType = Some (instantiate Object [])
+      Comparison = NotSatisfy
+  }
+
+  let DependenceComparisonType = {
+    empty with
+      Name = ReverseName.ofString "Test.DependenceComparisonType"
+      BaseType = Some (instantiate Object [])
+      GenericParameters = [ "a" ]
+      Comparison = Dependence [ "a" ]
+  }
+
+  let dictionary = {
+    AssemblyName = "test"
+    Api = [||]
+    TypeDefinitions =
+      [|
+        Parent; Child; GenericParent; GenericChild; AnotherGeneric; IA; IB; ImplA; ImplAB; Foo_X; Bar_X;
+        GenericInterface; GenericInterfaceImplement; OriginalTypeAbbreviatedInterface; AbbreviationImplement;
+        NullableType; NonNullableType;
+        MemberTestType; GenericMemberTestType;
+        ValueType; ReferenceType;
+        WithDefaultConstructor; WithoutDefaultConstructor;
+        EqualityType; NoEqualityType; DependenceEqualityType1; DependenceEqualityType2; DependenceEqualityType3;
+        ComparisonType; NoComparisonType; DependenceComparisonType;
+      |]
+    TypeAbbreviations =
+      [| TypeAbbreviationInterface |]
+      |> Array.map (fun x -> x.TypeAbbreviation)
+  }
+
+  let testConstraint trace (query, target, constraints, expected) = test {
+    use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
+    do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
+    let targetApi: Api = { Name = ReverseName.ofString "test"; Signature = target; TypeConstraints = constraints }
+
+    let dictionaries = [|
+      mscorlibDict
+      fscoreLib
+      dictionary
+    |]
+
+    let options = { SimilaritySearching = Enabled; StrictQueryVariable = Enabled }
+    let actual = Matcher.search dictionaries options [ targetApi ] query |> Seq.length = 1
+    do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
+    do! actual |> assertEquals expected
+  }
+
+  let subtypeConstraintsTest = parameterize {
+    source [
+      ("Child",
+        moduleValue (variable "a"),
+        [ subtypeCon "a" Parent ],
+        true)
+      ("Parent",
+        moduleValue (variable "a"),
+        [ subtypeCon "a" Parent ],
+        true)
+      ("Object",
+        moduleValue (variable "a"),
+        [ subtypeCon "a" Parent ],
+        false)
+      ("GenericChild<'a, 'b>",
+        moduleValue (variable "t"), // #GenericParent<'a, 'b>
+        [ genericSubtypeCon "t" GenericParent [ variable "a"; variable "b" ] ],
+        true)
+      ("GenericChild<'a, 'b>",
+        moduleValue (variable "t"), // #AnotherGeneric<'a, 'b>
+        [ genericSubtypeCon "t" AnotherGeneric [ variable "a"; variable "b" ] ],
+        false)
+      ("GenericChild<A, B>",
+        moduleValue (variable "t"), // #GenericParent<B, B>
+        [ genericSubtypeCon "t" GenericParent [ typeB; typeB ] ],
+        false)
+      ("GenericInterfaceImplement", // #GenericInterface<ImplA>
+        moduleValue (variable "a"),
+        [ genericSubtypeCon "a" GenericInterface [ ImplA.LowType ] ],
+        true)
+      ("GenericInterfaceImplement", // #GenericInterface<#IA>
+        moduleValue (variable "a"),
+        [ genericSubtypeCon "a" GenericInterface [ variable "b" ]; subtypeCon "b" IA ],
+        true)
+      ("GenericInterfaceImplement", // #GenericInterface<'b>
+        moduleValue (variable "a"),
+        [ genericSubtypeCon "a" GenericInterface [ variable "b" ] ],
+        true)
+      ("GenericInterfaceImplement", // #GenericInterface<Child>
+        moduleValue (variable "a"),
+        [ genericSubtypeCon "a" GenericInterface [ Child.LowType] ],
+        false)
+      // Foo.X implements only IA, and Bar.X implements only IB. These have same name 'X'.
+      ("X -> X",
+        moduleFunction [ variable "t"; variable "u" ], // #IA -> #IA
+        [ subtypeCon "t" IA; subtypeCon "u" IA ],
+        true)
+      ("X -> X",
+        moduleFunction [ variable "t"; variable "u" ], // #IA -> #IB
+        [ subtypeCon "t" IA; subtypeCon "u" IB ],
+        false)
+      ("X -> X",
+        moduleFunction [ variable "t"; variable "u" ], // #IB -> #IA
+        [ subtypeCon "t" IB; subtypeCon "u" IA ],
+        false)
+      // Type abbreviation base type
+      ("AbbreviationImplement",
+        moduleValue (variable "a"),
+        [ subtypeCon "a" OriginalTypeAbbreviatedInterface ],
+        true)
+      ("AbbreviationImplement",
+        moduleValue (variable "a"),
+        [ subtypeCon_abbreviation "a" TypeAbbreviationInterface ],
+        true)
+      ("TypeAbbreviationInterface",
+        moduleValue (variable "a"),
+        [ subtypeCon "a" OriginalTypeAbbreviatedInterface ],
+        true)
+      ("TypeAbbreviationInterface",
+        moduleValue (variable "a"),
+        [ subtypeCon_abbreviation "a" TypeAbbreviationInterface ],
+        true)
+      // indirect
+      ("'t -> 't",
+        moduleFunction [ variable "a"; Identity (FullIdentity Object.FullIdentity) ],
+        [ subtypeCon "a" Parent ],
+        false)
+      ("'t -> 't",
+        moduleFunction [ variable "a"; Identity (FullIdentity Parent.FullIdentity) ],
+        [ subtypeCon "a" Parent ],
+        true)
+      ("'t -> 't",
+        moduleFunction [ variable "a"; Identity (FullIdentity Child.FullIdentity) ],
+        [ subtypeCon "a" Parent ],
+        true)
+      // variable
+      ("Foo.X -> Bar.X",
+        moduleFunction [ variable "a"; variable "b" ],
+        [ subtypeCon_variable "a" "b" ],
+        false)
+      ("Foo.X -> System.Object",
+        moduleFunction [ variable "a"; variable "b" ],
+        [ subtypeCon_variable "a" "b" ],
+        false)
+      ("Foo.X -> Foo.X",
+        moduleFunction [ variable "a"; variable "b" ],
+        [ subtypeCon_variable "a" "b" ],
+        true)
+    ]
+    run (testConstraint false)
+  }
+
+  let nullnessConstraintTest = parameterize {
+    source [
+      ("NullableType",
+        moduleValue (variable "a"),
+        [ nullnessCon "a" ],
+        true)
+      ("NonNullableType",
+        moduleValue (variable "a"),
+        [ nullnessCon "a" ],
+        false)
+      ("'a * 'b",
+        moduleValue (variable "a"),
+        [ nullnessCon "a" ],
+        false)
+    ]
+    run (testConstraint false)
+  }
+
+  let memberConstraintTest = parameterize {
+    source [
+      ("MemberTestType",
+        moduleValue (variable "a"),
+        [ memberCon [ "a" ] MemberModifier.Static (method' "StaticMethod" [ int ] int) ],
+        true)
+      ("MemberTestType",
+        moduleValue (variable "a"),
+        [ memberCon [ "a" ] MemberModifier.Static (method' "Nonexistence" [ int ] int) ],
+        false)
+      ("MemberTestType",
+        moduleValue (variable "a"),
+        [ memberCon [ "a" ] MemberModifier.Static (method' "StaticMethod" [ int ] unit) ], // signature not matched.
+        false)
+      ("MemberTestType",
+        moduleValue (variable "a"),
+        [ memberCon [ "a" ] MemberModifier.Static (method' "get_Property" [ unit ] int) ],
+        true)
+      ("MemberTestType",
+        moduleValue (variable "a"),
+        [ memberCon [ "a" ] MemberModifier.Static (method' "set_Property" [ int ] unit) ],
+        true)
+      ("MemberTestType",
+        moduleValue (variable "a"),
+        [ memberCon [ "a" ] MemberModifier.Static (method' "Overload" [ unit ] typeA) ],
+        true)
+      ("MemberTestType",
+        moduleValue (variable "a"),
+        [ memberCon [ "a" ] MemberModifier.Static (method' "Overload" [ int ] typeA) ],
+        true)
+      ("MemberTestType",
+        moduleValue (variable "a"),
+        [ memberCon [ "a" ] MemberModifier.Static (method' "Overload" [ typeB ] typeA) ],
+        false)
+      ("MemberTestType",
+        moduleValue (variable "a"),
+        [ memberCon [ "a" ] MemberModifier.Instance (method' "InstanceMethod" [ unit ] unit) ],
+        true)
+      ("MemberTestType",
+        moduleValue (variable "a"),
+        [ memberCon [ "a" ] MemberModifier.Instance (method' "StaticMethod" [ int ] int) ],
+        false)
+
+      // Generic
+      ("GenericMemberTestType<'X>",
+        moduleValue (variable "a"),
+        [ memberCon [ "a" ] MemberModifier.Static (method' "Method1" [ variable "b" ] int) ],
+        true)
+      ("GenericMemberTestType<'X>",
+        moduleValue (variable "a"),
+        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ variable "b" ] int) ],
+        true)
+      ("GenericMemberTestType<'X>",
+        moduleValue (variable "a"),
+        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ int ] int) ],
+        true)
+      ("GenericMemberTestType<'X> -> 'X",
+        moduleFunction [ variable "a"; typeA ],
+        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ int ] int) ],
+        false)
+      ("GenericMemberTestType<A>",
+        moduleValue (variable "a"),
+        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ variable "b" ] int) ],
+        true)
+      ("GenericMemberTestType<A>",
+        moduleValue (variable "a"),
+        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ typeA ] int) ],
+        true)
+      ("GenericMemberTestType<A>",
+        moduleValue (variable "a"),
+        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ unit ] int) ],
+        false)
+
+      // or
+      ("MemberTestType -> Object",
+        moduleFunction [ variable "a"; variable "b" ],
+        [ memberCon [ "a"; "b" ] MemberModifier.Instance (method' "InstanceMethod" [ unit ] unit) ],
+        true)
+      ("Object -> MemberTestType",
+        moduleFunction [ variable "a"; variable "b" ],
+        [ memberCon [ "a"; "b" ] MemberModifier.Instance (method' "InstanceMethod" [ unit ] unit) ],
+        true)
+      ("MemberTestType -> MemberTestType",
+        moduleFunction [ variable "a"; variable "b" ],
+        [ memberCon [ "a"; "b" ] MemberModifier.Instance (method' "InstanceMethod" [ unit ] unit) ],
+        true)
+      ("Object -> Object",
+        moduleFunction [ variable "a"; variable "b" ],
+        [ memberCon [ "a"; "b" ] MemberModifier.Instance (method' "InstanceMethod" [ unit ] unit) ],
+        false)
+    ]
+
+    run (testConstraint false)
+  }
+
+  let valueAndReferenceTypeConstraintTest = parameterize {
+    source [
+      ("ValueType",
+        moduleValue (variable "a"),
+        [ valueTypeCon "a" ],
+        true)
+      ("ValueType",
+        moduleValue (variable "a"),
+        [ refTypeCon "a" ],
+        false)
+      ("ReferenceType",
+        moduleValue (variable "a"),
+        [ valueTypeCon "a" ],
+        false)
+      ("ReferenceType",
+        moduleValue (variable "a"),
+        [ refTypeCon "a" ],
+        true)
+    ]
+    run (testConstraint false)
+  }
+
+  let defaultConstructorConstraintTest = parameterize {
+    source [
+      ("WithDefaultConstructor",
+        moduleValue (variable "a"),
+        [ defaultConstructorCon "a" ],
+        true)
+      ("WithoutDefaultConstructor",
+        moduleValue (variable "a"),
+        [ defaultConstructorCon "a" ],
+        false)
+    ]
+    run (testConstraint false)
+  }
+
+  let equalityConstraintTest = parameterize {
+    source [
+      ("EqualityType",
+        moduleValue (variable "a"),
+        [ equalityCon "a" ],
+        true)
+      ("NoEqualityType",
+        moduleValue (variable "a"),
+        [ equalityCon "a" ],
+        false)
+      ("(EqualityType -> EqualityType) -> 'x",
+        moduleFunction [ variable "a"; variable "b" ],
+        [ equalityCon "a" ],
+        false)
+      ("DependenceEqualityType1<EqualityType>",
+        moduleValue (variable "a"),
+        [ equalityCon "a" ],
+        true)
+      ("DependenceEqualityType1<NoEqualityType>",
+        moduleValue (variable "a"),
+        [ equalityCon "a" ],
+        false)
+      ("DependenceEqualityType1<EqualityType -> EqualityType>",
+        moduleValue (variable "a"),
+        [ equalityCon "a" ],
+        false)
+      ("DependenceEqualityType2<EqualityType, EqualityType>",
+        moduleValue (variable "a"),
+        [ equalityCon "a" ],
+        true)
+      ("DependenceEqualityType2<NoEqualityType, EqualityType>",
+        moduleValue (variable "a"),
+        [ equalityCon "a" ],
+        false)
+      ("DependenceEqualityType3<EqualityType, EqualityType>",
+        moduleValue (variable "a"),
+        [ equalityCon "a" ],
+        true)
+      ("DependenceEqualityType3<NoEqualityType, EqualityType>",
+        moduleValue (variable "a"),
+        [ equalityCon "a" ],
+        true)
+      ("DependenceEqualityType3<EqualityType, NoEqualityType>",
+        moduleValue (variable "a"),
+        [ equalityCon "a" ],
+        false)
+      ("EqualityType * EqualityType",
+        moduleValue (variable "a"),
+        [ equalityCon "a" ],
+        true)
+      ("'a * 'b",
+        moduleValue (variable "a"),
+        [ equalityCon "a" ],
+        true)
+      ("EqualityType * NoEqualityType",
+        moduleValue (variable "a"),
+        [ equalityCon "a" ],
+        false)
+      ("EqualityType[]",
+        moduleValue (variable "a"),
+        [ equalityCon "a" ],
+        true)
+      ("NoEqualityType[]",
+        moduleValue (variable "a"),
+        [ equalityCon "a" ],
+        false)
+    ]
+    run (testConstraint false)
+  }
+
+  let comparisonConstraintTest = parameterize {
+    source [
+      ("ComparisonType",
+        moduleValue (variable "a"),
+        [ comparisonCon "a" ],
+        true)
+      ("NoComparisonType",
+        moduleValue (variable "a"),
+        [ comparisonCon "a" ],
+        false)
+      ("(ComparisonType -> ComparisonType) -> 'x",
+        moduleFunction [ variable "a"; variable "b" ],
+        [ comparisonCon "a" ],
+        false)
+      ("DependenceComparisonType<ComparisonType>",
+        moduleValue (variable "a"),
+        [ comparisonCon "a" ],
+        true)
+      ("DependenceComparisonType<NoComparisonType>",
+        moduleValue (variable "a"),
+        [ comparisonCon "a" ],
+        false)
+      ("ComparisonType * ComparisonType",
+        moduleValue (variable "a"),
+        [ comparisonCon "a" ],
+        true)
+      ("'a * 'b",
+        moduleValue (variable "a"),
+        [ comparisonCon "a" ],
+        true)
+      ("ComparisonType * NoComparisonType",
+        moduleValue (variable "a"),
+        [ comparisonCon "a" ],
+        false)
+      ("ComparisonType[]",
+        moduleValue (variable "a"),
+        [ comparisonCon "a" ],
+        true)
+      ("NoComparisonType[]",
+        moduleValue (variable "a"),
+        [ comparisonCon "a" ],
+        false)
+    ]
+    run (testConstraint false)
+  }

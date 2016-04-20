@@ -1,290 +1,439 @@
-﻿[<AutoOpen>]
-module FSharpApiSearch.Types
-
-open System.Text.RegularExpressions
-
-type Source = Query | Target
+﻿namespace FSharpApiSearch
 
 type ReverseName = string list
-type Identity =
-  | PartialName of ReverseName
-  | FullName of ReverseName
-
-type Signature =
-  | WildcardGroup of string
-  | Wildcard
-  | Variable of Source * string
-  | StrongVariable of Source * string
-  | Identity of Identity
-  | StrongIdentity of Identity
-  | Arrow of Signature list
-  | Generic of Signature * Signature list
-  | StaticMethod of StaticMethod
-  | InstanceMember of InstanceMember
-  | TypeAbbreviation of TypeAbbreviation
-and InstanceMember = {
-  Source: Source
-  Receiver: Signature
-  Arguments: Signature list
-  ReturnType: Signature
-}
-and StaticMethod = {
-  Arguments: Signature list
-  ReturnType: Signature
-}
-and TypeAbbreviation = {
-  Abbreviation: Signature
-  Original: Signature
-}
-
-let internal arrayRegexPattern = @"\[,*\]"
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module Signature =
-  let private splitName (name: string) = name.Split('.') |> List.ofArray |> List.rev
-  let partialName name = PartialName (splitName name)
-  let fullName name = FullName (splitName name)
+module ReverseName =
+  let toString (name: ReverseName) = name |> List.rev |> String.concat "."
+  let ofString (name: string) = name.Split('.') |> Array.toList |> List.rev
 
-  [<Literal>]
-  let TupleTypeName = "System.Tuple"
-  let TupleIdentity = fullName TupleTypeName
-  let tuple xs = Generic (Identity TupleIdentity, xs)
+type TypeVariable = string
 
-  let UnitIdentity = fullName "Microsoft.FSharp.Core.Unit"
-  let UnitAbbreviationIdentity = fullName "Microsoft.FSharp.Core.unit"
-  
-  let testIdentity x y =
-    match x, y with
-    | FullName xs, FullName ys ->
-      xs = ys
-    | (PartialName xs | FullName xs), (PartialName ys | FullName ys) ->
-      let testLength = min xs.Length ys.Length
-      List.take testLength xs = List.take testLength ys
+type PartialIdentity = {
+  Name: ReverseName
+  GenericParameterCount: int
+}
 
-  module Patterns =
-    let (|TypeName|) = function
-      | PartialName xs -> List.head xs
-      | FullName xs -> List.head xs
+type FullIdentity = {
+  AssemblyName: string
+  Name: ReverseName
+  GenericParameterCount: int
+}
 
-    let (|AnyIdentity|_|) = function
-      | Identity n -> Some n
-      | StrongIdentity n -> Some n
-      | _ -> None
+type Identity =
+  | PartialIdentity of PartialIdentity
+  | FullIdentity of FullIdentity
 
-    let (|Array|_|) = function
-      | Generic (AnyIdentity (TypeName name), [ t ]) when Regex.IsMatch(name, arrayRegexPattern) ->
-        let dimension = name.Split(',').Length
-        Some (dimension, name, t)
-      | _ -> None
+[<RequireQualifiedAccess>]
+type VariableSource = Query | Target
 
-    let (|Tuple|_|) = function
-      | Generic ((AnyIdentity id), xs) when id = TupleIdentity -> Some xs
-      | _ -> None
+type LowType =
+  | Wildcard of string option
+  | Variable of VariableSource * TypeVariable
+  | Identity of Identity
+  | Arrow of LowType list
+  | Tuple of LowType list
+  | Generic of LowType * LowType list
+  | TypeAbbreviation of TypeAbbreviation
+and TypeAbbreviation = {
+  Abbreviation: LowType
+  Original: LowType
+}
 
-    let (|AnyVariable|_|) = function
-      | Variable (s, n) -> Some (s, n)
-      | StrongVariable (s, n) -> Some (s, n)
-      | _ -> None
+[<RequireQualifiedAccess>]
+type PropertyKind = Get | Set | GetSet
 
-    let (|NonVariable|_|) = function
-      | Variable _ -> None
-      | StrongVariable _ -> None
-      | _ -> Some ()
+[<RequireQualifiedAccess>]
+type MemberKind =
+  | Method
+  | Property of PropertyKind
+  | Field
 
-    let (|QueryInstanceMember|_|) = function
-      | InstanceMember ({ Source = Source.Query} as x) -> Some x
-      | _ -> None
+[<RequireQualifiedAccess>]
+type MemberModifier = Instance | Static
 
-    let (|NoArguments|_|) (x: InstanceMember) =
-      match x with
-      | { Arguments = [] } -> Some ()
-      | _ -> None
+type Member = {
+  Name: string
+  Kind: MemberKind
+  GenericParameters: TypeVariable list
+  Arguments: LowType list
+  IsCurried: bool
+  ReturnType: LowType
+}
 
-    let (|Unit|_|) = function
-      | AnyIdentity id when testIdentity id UnitIdentity || testIdentity id UnitAbbreviationIdentity -> Some ()
-      | TypeAbbreviation { Original = AnyIdentity id } when id = UnitIdentity -> Some ()
-      | _ -> None
+type Constraint =
+  | SubtypeConstraints of LowType
+  | NullnessConstraints
+  | MemberConstraints of MemberModifier * Member
+  | DefaultConstructorConstraints
+  | ValueTypeConstraints
+  | ReferenceTypeConstraints
+  | EnumerationConstraints
+  | DelegateConstraints
+  | UnmanagedConstraints
+  | EqualityConstraints
+  | ComparisonConstraints
 
-    let (|OnlyUnitArgument|_|) (x: InstanceMember) =
-      match x with
-      | { Arguments = [ Unit ] } -> Some ()
-      | _ -> None
+type TypeConstraint = {
+  Variables: TypeVariable list
+  Constraint: Constraint
+}
 
-  open Patterns
+type ConstraintStatus =
+  | Satisfy
+  | NotSatisfy
+  | Dependence of TypeVariable list
 
-  let rec collectVariables = function
-    | Variable _ as v -> [ v ]
-    | StrongVariable _ as v -> [ v ]
-    | Arrow xs -> List.collect collectVariables xs
-    | Identity _ -> []
-    | StrongIdentity _ -> []
-    | Wildcard -> []
-    | WildcardGroup _ -> []
-    | Generic (x, ys) -> List.collect collectVariables (x :: ys)
-    | StaticMethod x -> List.collect collectVariables (x.ReturnType :: x.Arguments)
-    | InstanceMember x -> List.collect collectVariables (x.Receiver :: x.ReturnType :: x.Arguments)
-    | TypeAbbreviation x -> List.concat [ collectVariables x.Abbreviation; collectVariables x.Original ]
+type FullTypeDefinition = {
+  Name: ReverseName
+  AssemblyName: string
+  BaseType: LowType option
+  AllInterfaces: LowType list
+  GenericParameters: TypeVariable list
+  TypeConstraints: TypeConstraint list
+  InstanceMembers: Member list
+  StaticMembers: Member list
+    
+  // pre-compute for type constraints
+  SupportNull: ConstraintStatus
+  ReferenceType: ConstraintStatus
+  ValueType: ConstraintStatus
+  DefaultConstructor: ConstraintStatus
+  Equality: ConstraintStatus
+  Comparison: ConstraintStatus
+}
+with
+  member this.FullIdentity = { AssemblyName = this.AssemblyName; Name = this.Name; GenericParameterCount = this.GenericParameters.Length }
 
-  let rec collectWildcardGroup = function
-    | Variable _ -> []
-    | StrongVariable _ -> []
-    | Arrow xs -> List.collect collectWildcardGroup xs
-    | Identity _ -> []
-    | StrongIdentity _ -> []
-    | Wildcard -> []
-    | WildcardGroup _ as w -> [ w ]
-    | Generic (x, ys) -> List.collect collectWildcardGroup (x :: ys)
-    | StaticMethod x -> List.collect collectWildcardGroup (x.ReturnType :: x.Arguments)
-    | InstanceMember x -> List.collect collectWildcardGroup (x.Receiver :: x.ReturnType :: x.Arguments)
-    | TypeAbbreviation x -> List.concat [ collectWildcardGroup x.Abbreviation; collectWildcardGroup x.Original ]
+type TypeAbbreviationDefinition = {
+  Abbreviation: LowType
+  Abbreviated: LowType
+  Original: LowType
+}
 
-  let collectVariableOrWildcardGroup x = List.concat [ collectVariables x; collectWildcardGroup x ]
+[<RequireQualifiedAccess>]
+type ApiKind =
+  | ModuleValue
+  | Constructor
+  | Member of MemberModifier * MemberKind
 
-  let rec private display' prefix = function
-    | Variable (source, name) -> prefix source name
-    | StrongVariable (source, name) -> "!" + prefix source name
-    | Identity (TypeName name) -> name
-    | StrongIdentity (TypeName name) -> "!" + name
-    | Wildcard -> "?"
-    | WildcardGroup name -> "?" + name
-    | Arrow xs ->
-      xs
-      |> Seq.map (function
-        | Arrow _ as a -> sprintf "(%s)" (display' prefix a)
-        | x -> display' prefix x
-      )
-      |> String.concat " -> "
-    | Array (_, name, x) -> display' prefix x + name
-    | Tuple xs ->
-      xs
-      |> Seq.map (function
-        | Tuple _ as t -> sprintf "(%s)" (display' prefix t)
-        | x -> display' prefix x)
-      |> String.concat " * "
-    | Generic (x, ys) -> sprintf "%s<%s>" (display' prefix x) (ys |> Seq.map (display' prefix) |> String.concat ", ")
-    | StaticMethod x -> sprintf "%s -> %s" (display' prefix (tuple x.Arguments)) (display' prefix x.ReturnType)
-    | InstanceMember x ->
-      match x.Arguments with
-      | [] -> sprintf "%s" (display' prefix x.ReturnType)
-      | _ -> sprintf "%s -> %s" (display' prefix (tuple x.Arguments)) (display' prefix x.ReturnType)
-    | TypeAbbreviation x -> display' prefix x.Abbreviation
+[<RequireQualifiedAccess>]
+type ApiSignature =
+  | ModuleValue of LowType
+  | ModuleFunction of LowType list
+  | InstanceMember of LowType * Member
+  | StaticMember of LowType * Member
+  | Constructor of LowType * Member
+  | FullTypeDefinition of FullTypeDefinition
+  | TypeAbbreviation of TypeAbbreviationDefinition
 
-  let display = display' (fun _ name -> "'" + name)
+type Api = {
+  Name: ReverseName
+  Signature: ApiSignature
+  TypeConstraints: TypeConstraint list
+}
+with
+  member this.Kind =
+    match this.Signature with
+    | ApiSignature.ModuleValue _ -> ApiKind.ModuleValue
+    | ApiSignature.ModuleFunction _ -> ApiKind.ModuleValue
+    | ApiSignature.Constructor _ -> ApiKind.Constructor
+    | ApiSignature.InstanceMember (_, m) -> ApiKind.Member (MemberModifier.Instance, m.Kind)
+    | ApiSignature.StaticMember (_, m) -> ApiKind.Member (MemberModifier.Static, m.Kind)
+    | ApiSignature.FullTypeDefinition _ -> failwith "not implemented"
+    | ApiSignature.TypeAbbreviation _ -> failwith "not implemeneted"
 
-  let debugDisplay signature =
-    let display = display' (fun source name -> match source with Query -> "'q" + name | Target -> "'t" + name)
-    match signature with
-    | InstanceMember x -> sprintf "%s => %s" (display x.Receiver) (display signature)
-    | _ -> display signature
+type ApiDictionary = {
+  AssemblyName: string
+  Api: Api[]
+  TypeDefinitions: FullTypeDefinition[]
+  TypeAbbreviations: TypeAbbreviation[]
+}
 
-  let internal transferGenericArgument sourceArgs abbreviationArgs destArgs =
-    let newArgs = Array.ofList destArgs
-    List.zip sourceArgs abbreviationArgs
-    |> List.choose (function
-      | arg, (AnyVariable abbArgVariableName) ->
-        let indexes =
-          destArgs
-          |> List.mapi (fun i o ->
-            match o with
-            | AnyVariable originalArgVariableName when abbArgVariableName = originalArgVariableName -> Some i
-            | _ -> None)
-          |> List.choose (fun x -> x)
-        Some (arg, indexes)
-      | _ -> None
-    )
-    |> List.iter (fun (arg, indexes) -> indexes |> List.iter (fun i -> newArgs.[i] <- arg))
-    List.ofArray newArgs
-
-  let internal tryFindGenericAbbreviation table genericIdName genericArguments =
-    table
-    |> List.tryFindBack (function
-      | { Abbreviation = Generic (AnyIdentity abbIdName, abbArgs) } -> testIdentity abbIdName genericIdName && (List.length abbArgs) = (List.length genericArguments)
-      | _ -> false)
-
-  let rec replaceAbbreviation table = function
-    | AnyIdentity idName as i ->
-      let replacement = table |> List.tryFindBack (function { Abbreviation = AnyIdentity abbIdName } -> testIdentity abbIdName idName | _ -> false)
-      match replacement with
-      | Some replace -> TypeAbbreviation { Abbreviation = i; Original = replace.Original }
-      | None -> i
-    | Generic (AnyIdentity idName as id, args) as generic ->
-      let replacedArgs = args |> List.map (replaceAbbreviation table)
-      let abb = tryFindGenericAbbreviation table idName replacedArgs
-      match abb with
-      | Some ({ Abbreviation = Generic (_, abbArgs); Original = Generic (originalId, originalArgs) }) ->
-        let newArgs = transferGenericArgument replacedArgs abbArgs originalArgs
-        TypeAbbreviation { Abbreviation = generic; Original = Generic (originalId, newArgs) }
-      | Some _ -> Generic (id, replacedArgs)
-      | None -> Generic (id, replacedArgs)
-    | Arrow xs -> Arrow (List.map (replaceAbbreviation table) xs)
-    | StaticMethod x -> StaticMethod { Arguments = List.map (replaceAbbreviation table) x.Arguments; ReturnType = replaceAbbreviation table x.ReturnType }
-    | InstanceMember x ->
-      let x = { x with
-                    Receiver = replaceAbbreviation table x.Receiver
-                    Arguments = List.map (replaceAbbreviation table) x.Arguments
-                    ReturnType = replaceAbbreviation table x.ReturnType }
-      InstanceMember x
-    | x -> x
-
-  let rec replaceVariable variableName replacement x =
-    let inline replace x = replaceVariable variableName replacement x
-    match x with
-    | AnyVariable (_, name) when name = variableName -> replacement
-    | Generic(id, args) -> Generic (replace id, List.map replace args)
-    | Arrow xs -> Arrow (List.map replace xs)
-    | StaticMethod x -> StaticMethod { x with Arguments = List.map replace x.Arguments; ReturnType = replace x.ReturnType }
-    | InstanceMember x ->
-      let x = { x with
-                    Receiver = replace x.Receiver
-                    Arguments = List.map replace x.Arguments
-                    ReturnType = replace x.ReturnType }
-      InstanceMember x
-    | x -> x
-
-type SignaturePart =
-  | SignatureQuery of Signature
-  | AnySignature
-
-type QueryMethod =
-  | ByName of string * SignaturePart
-  | BySignature of Signature
-
+[<RequireQualifiedAccess>]
 type Query = {
   OriginalString: string
   Method: QueryMethod
 }
+and [<RequireQualifiedAccess>] QueryMethod =
+  | ByName of string * SignatureQuery
+  | BySignature of SignatureQuery
+and [<RequireQualifiedAccess>] SignatureQuery =
+  | Wildcard
+  | Signature of LowType
+  | InstanceMember of Receiver: LowType * Arguments: LowType list * ReturnType: LowType
+
+type OptionStatus = Enabled | Disabled
+
+type SearchOptions = {
+  SimilaritySearching: OptionStatus
+  StrictQueryVariable: OptionStatus
+}
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module Query =
-  let replaceAbbreviation table = function
-    | { Method = BySignature s } as x -> { x with Method = BySignature (Signature.replaceAbbreviation table s) }
-    | { Method = ByName (n, SignatureQuery s) } as x -> { x with Method = ByName (n, SignatureQuery (Signature.replaceAbbreviation table s)) }
-    | x -> x
+module SearchOptions =
+  let defaultOptions = { SimilaritySearching = Disabled; StrictQueryVariable = Enabled }
 
-[<RequireQualifiedAccess>]
-type PropertyKind =
-  | Get
-  | Set
-  | GetSet
-
-[<RequireQualifiedAccess>]
-type ApiKind =
-  | Constructor
-  | ModuleValue
-  | InstanceMethod
-  | InstanceProperty of PropertyKind
-  | StaticMethod
-  | StaticProperty of PropertyKind
-  | Field
-
-type Api = {
-  Name: string
-  Kind: ApiKind
-  Signature: Signature
+type Result = {
+  Api: Api
+  Distance: int
 }
 
-type ApiDictionary = {
-  AssemblyName: string
-  Api: Api seq
-  TypeAbbreviations: TypeAbbreviation seq
-}
+module SpecialTypes =
+  open System
+  open System.Text.RegularExpressions
+
+  let arrayRegexPattern = @"\[,*\]"
+
+  let mscorlib = "mscorlib"
+  let sfcore = "FSharp.Core"
+
+  module FullIdentity =
+    open System.Collections
+
+    let ofDotNetType (t: Type) =
+      let assemblyName = t.Assembly.GetName().Name
+      let argCount = t.GetGenericArguments().Length
+      let fullName = Regex.Replace(t.FullName, @"`\d+$", "")
+      let name = ReverseName.ofString fullName
+      { AssemblyName = assemblyName; Name = name; GenericParameterCount = argCount }
+
+    let tupleName = ReverseName.ofString "System.Tuple"
+
+    let isTuple (x: FullIdentity) =
+      x.AssemblyName = mscorlib && x.Name = tupleName
+
+    let IntPtr = ofDotNetType typeof<IntPtr>
+    let UIntPtr = ofDotNetType typeof<UIntPtr>
+
+    let IComparable = ofDotNetType typeof<IComparable>
+    let IStructuralComparable = ofDotNetType typeof<IStructuralComparable>
+
+  module Identity =
+    let ofDotNetType (t: Type) = FullIdentity (FullIdentity.ofDotNetType t)
+
+    let tupleN n = FullIdentity { AssemblyName = mscorlib; Name = FullIdentity.tupleName; GenericParameterCount = n }
+
+  module LowType =
+    let Unit = LowType.Identity (Identity.ofDotNetType typeof<Unit>)
+    let unit =
+      let unit = LowType.Identity (FullIdentity { AssemblyName = sfcore; Name = ReverseName.ofString "Microsoft.FSharp.Core.unit"; GenericParameterCount = 0 })
+      TypeAbbreviation { Abbreviation = unit; Original = Unit }
+
+    let rec isUnit (x: LowType) =
+      match x with
+      | Identity _ as i -> i = Unit
+      | TypeAbbreviation { Original = o } -> isUnit o
+      | _ -> false
+
+    module Patterns =
+      let (|Unit|_|) x = if isUnit x then Some () else None
+      let (|Array|_|) x =
+        match x with
+        | Generic (Identity id, [ elem ]) ->
+          match id with
+          | FullIdentity { Name = name }
+          | PartialIdentity { Name = name } ->
+            let name = name.Head
+            if Regex.IsMatch(name, arrayRegexPattern) then
+              Some (name, elem)
+            else
+              None
+        | _ -> None
+
+module internal Print =
+  open SpecialTypes
+
+  let printPropertyKind = function
+    | PropertyKind.Get -> "get"
+    | PropertyKind.Set -> "set"
+    | PropertyKind.GetSet -> "get set"
+  let printMemberKind = function
+    | MemberKind.Method -> "method"
+    | MemberKind.Property p -> "property with " + printPropertyKind p
+    | MemberKind.Field -> "field"
+  let printMemberModifier = function
+    | MemberModifier.Instance -> "instance"
+    | MemberModifier.Static -> "static"
+  let printApiKind = function
+    | ApiKind.ModuleValue -> "module value"
+    | ApiKind.Constructor -> "constructor"
+    | ApiKind.Member (modifier, memberKind) -> sprintf "%s %s" (printMemberModifier modifier) (printMemberKind memberKind)
+
+  let printIdentity = function
+    | FullIdentity i -> i.Name.Head
+    | PartialIdentity i -> i.Name.Head
+
+  let printVariableSource = function
+    | VariableSource.Query -> "q"
+    | VariableSource.Target -> "t"
+
+  let printVariable isDebug source v =
+    if isDebug then
+      sprintf "'%s_%s" (printVariableSource source) v
+    else
+      sprintf "'%s" v
+
+  let rec printLowType isDebug = function
+    | Wildcard name ->
+      match name with
+      | Some n -> sprintf "?%s" n
+      | None -> "?"
+    | Variable (source, v) -> printVariable isDebug source v
+    | Identity i -> printIdentity i
+    | Arrow xs -> printArrow isDebug xs
+    | Tuple xs -> printTuple isDebug xs
+    | LowType.Patterns.Array (name, elem) -> printLowType isDebug elem + name
+    | Generic (id, args) ->
+      let args = args |> Seq.map (printLowType isDebug) |> String.concat ", "
+      sprintf "%s<%s>" (printLowType isDebug id) args
+    | TypeAbbreviation t -> printLowType isDebug t.Abbreviation
+  and printArrow isDebug xs =
+    xs
+    |> Seq.map (function
+      | Arrow _ as a -> sprintf "(%s)" (printLowType isDebug a)
+      | x -> printLowType isDebug x)
+    |> String.concat " -> "
+  and printTuple isDebug xs =
+    xs
+    |> Seq.map (function
+      | Tuple _ as t -> sprintf "(%s)" (printLowType isDebug t)
+      | x -> printLowType isDebug x)
+    |> String.concat " * "
+
+  let printMember isDebug (m: Member) =
+    let argPart =
+      match m.Arguments with
+      | [ Tuple _ as t ] -> Some (sprintf "(%s)" (printLowType isDebug t))
+      | [] -> None
+      | args ->
+        if m.IsCurried then
+          Some (printLowType isDebug (Arrow args))
+        else
+          Some (printLowType isDebug (Tuple args))
+    match argPart with
+    | Some argPart -> sprintf "%s -> %s" argPart (printLowType isDebug m.ReturnType)
+    | None -> printLowType isDebug m.ReturnType
+
+  let printConstraint isDebug (c: TypeConstraint) =
+    let variableSource = VariableSource.Target
+    let variablePart =
+      match c.Variables with
+      | [ v ] -> printVariable isDebug variableSource v
+      | vs -> sprintf "(%s)" (List.map (printVariable isDebug variableSource) vs |> String.concat " or ")
+    let constraintPart =
+      match c.Constraint with
+      | Constraint.SubtypeConstraints s -> sprintf ":> %s" (printLowType isDebug s)
+      | Constraint.NullnessConstraints -> ": null"
+      | Constraint.MemberConstraints (modifier, member') ->
+        let modifierPart =
+          match modifier with
+          | MemberModifier.Static -> "static member"
+          | MemberModifier.Instance -> "member"
+        sprintf ": (%s %s : %s)" modifierPart member'.Name (printMember isDebug member')
+      | Constraint.DefaultConstructorConstraints -> let v = printVariable isDebug variableSource (c.Variables.Head) in sprintf ": (new : unit -> %s)" v
+      | Constraint.ValueTypeConstraints -> ": struct"
+      | Constraint.ReferenceTypeConstraints -> ": not struct"
+      | Constraint.EnumerationConstraints -> ": enum"
+      | Constraint.DelegateConstraints -> ": delegate"
+      | Constraint.UnmanagedConstraints -> ": unmanaged"
+      | Constraint.EqualityConstraints -> ": equality"
+      | Constraint.ComparisonConstraints -> ": comparison"
+    sprintf "%s %s" variablePart constraintPart
+    
+  let printFullTypeDefinition isDebug (x: FullTypeDefinition) =
+    match x.GenericParameters with
+    | [] -> sprintf "%s.%s" x.AssemblyName (ReverseName.toString x.Name)
+    | args -> sprintf "%s.%s<%s>" x.AssemblyName (ReverseName.toString x.Name) (args |> Seq.map (printVariable isDebug VariableSource.Target) |> String.concat ", ")
+
+  let printApiSignature isDebug = function
+    | ApiSignature.ModuleValue t -> printLowType isDebug t
+    | ApiSignature.ModuleFunction xs -> printLowType isDebug (Arrow xs)
+    | ApiSignature.InstanceMember (declaringType, m) ->
+      if isDebug then
+        sprintf "%s => %s" (printLowType isDebug declaringType) (printMember isDebug m)
+      else
+        printMember isDebug m
+    | ApiSignature.StaticMember (_, m) -> printMember isDebug m
+    | ApiSignature.Constructor (_, m) -> printMember isDebug m
+    | ApiSignature.FullTypeDefinition x -> printFullTypeDefinition isDebug x
+    | ApiSignature.TypeAbbreviation t -> printLowType isDebug t.Abbreviation
+
+type LowType with
+  member this.Print() = Print.printLowType false this
+  member this.Debug() = Print.printLowType true this
+
+type ApiSignature with
+  member this.Print() = Print.printApiSignature false this
+  member this.Debug() = Print.printApiSignature true this
+
+type TypeConstraint with
+  member this.Print() = Print.printConstraint false this
+  member this.Debug() = Print.printConstraint true this
+  
+type FullTypeDefinition with
+  member this.Print() = Print.printFullTypeDefinition false this
+  member this.Debug() = Print.printFullTypeDefinition true this
+
+type ApiKind with
+  member this.Print() = Print.printApiKind this
+
+type Api with
+  member this.PrintTypeConstraints() =
+    sprintf "when %s" (this.TypeConstraints |> List.map (fun c -> c.Print()) |> String.concat " and ")
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module Identity =
+  let sameName x y =
+    match x, y with
+    | FullIdentity left, FullIdentity right -> left = right
+    | FullIdentity full, PartialIdentity partial
+    | PartialIdentity partial, FullIdentity full ->
+      full.GenericParameterCount = partial.GenericParameterCount
+      && full.Name.Length >= partial.Name.Length
+      && Seq.zip full.Name partial.Name |> Seq.forall (fun (x, y) -> x = y)
+    | PartialIdentity left, PartialIdentity right ->
+      left.GenericParameterCount = right.GenericParameterCount
+      && Seq.zip left.Name right.Name |> Seq.forall (fun (x, y) -> x = y)
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module LowType =
+  let debug (x: LowType) = x.Debug()
+
+  let rec applyVariable source (replacements: Map<TypeVariable, LowType>) = function
+    | Variable (s, name) as oldValue when s = source ->
+      match Map.tryFind name replacements with
+      | Some newValue -> newValue
+      | None -> oldValue
+    | Generic (baseType, args) ->
+      let baseType = applyVariable source replacements baseType
+      let args = replaceTargetVariablesList source replacements args
+      Generic (baseType, args)
+    | Tuple xs -> Tuple (replaceTargetVariablesList source replacements xs)
+    | Arrow xs -> Arrow (replaceTargetVariablesList source replacements xs)
+    | TypeAbbreviation t -> TypeAbbreviation { Abbreviation = applyVariable source replacements t.Abbreviation; Original = applyVariable source replacements t.Original }
+    | other -> other
+  and private replaceTargetVariablesList source replacements xs = xs |> List.map (applyVariable source replacements)
+
+  let collectVariables x =
+    let rec f = function
+      | Variable _ as v -> [ v ]
+      | Arrow xs -> List.collect f xs
+      | Tuple xs -> List.collect f xs
+      | Generic (id, args) -> List.concat [ f id; List.collect f args ]
+      | TypeAbbreviation t -> List.append (f t.Abbreviation) (f t.Original)
+      | _ -> []
+    f x |> List.distinct
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module ApiSignature =
+  let debug (x: ApiSignature) = x.Debug()
+  let print (x: ApiSignature) = x.Print()
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module TypeConstraint =
+  let debug (x: TypeConstraint) = x.Debug()
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module FullTypeDefinition =
+  let debug (x: FullTypeDefinition) = x.Debug()

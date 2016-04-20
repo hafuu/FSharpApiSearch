@@ -24,7 +24,9 @@ let searchTest = parameterize {
   ]
   run (fun (query, expecteds) -> test {
     let! client = testClient
-    let actual = client.Search(query) |> Seq.map (fun x -> x.Api.Name) |> Seq.toList |> List.sort
+    let actual =
+      client.Search(query, SearchOptions.defaultOptions)
+      |> Seq.map (fun x -> ReverseName.toString x.Api.Name) |> Seq.toList |> List.sort
     do! actual |> assertEquals (List.sort expecteds)
   })
 }

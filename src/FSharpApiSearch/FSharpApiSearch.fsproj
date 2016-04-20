@@ -64,10 +64,10 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Misc.fs" />
     <Compile Include="Hack.fs" />
-    <Compile Include="OptionModule.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="QueryParser.fs" />
     <Compile Include="Matcher.fs" />
+    <Compile Include="AssemblyLoader.fs" />
     <Compile Include="ApiLoader.fs" />
     <Compile Include="FSharpApiSearchClient.fs" />
   </ItemGroup>

@@ -15,6 +15,6 @@ namespace CSharpLoadTestAssembly
     public interface GenericInterface<T>
     {
         int Method(T x);
-        T Property(T x);
+        T Property { set; }
     }
 }

@@ -5,14 +5,9 @@ type Record = {
   FieldB: string
 }
 with
-  member this.InstanceMethod1() = 0
-  member this.InstanceMethod2(x: int) = ""
+  member this.InstanceMethod() = 0
   member this.InstanceProperty with get() = 0 and set(_: int) = ()
-  member this.OverloadMethod() = ""
-  member this.OverloadMethod(x: int) = 0.0
-  static member StaticMethod1() = ""
-  static member StaticMethod2(x: int, y: string) = 0.0
-  static member StaticProperty with get() = "" and set(_: string) = ()
+  static member StaticMethod() = ""
 
 type GenericRecord<'a> = {
   Field: 'a

@@ -1,69 +1,61 @@
 ﻿module FSharpApiSearch.ApiLoader
 
 open Microsoft.FSharp.Compiler.SourceCodeServices
-open System.IO
-open System.Reflection
+open FSharpApiSearch.OptionModule
+open FSharpApiSearch.SpecialTypes
+open System.Text.RegularExpressions
 
-let syslib name =
-  Path.Combine(
-    System.Environment.GetFolderPath(System.Environment.SpecialFolder.ProgramFilesX86)
-    , @"Reference Assemblies\Microsoft\Framework\.NETFramework\v4.5\"
-    , name)
-let fscore4400 =
-  Path.Combine(
-    System.Environment.GetFolderPath(System.Environment.SpecialFolder.ProgramFilesX86)
-    , @"Reference Assemblies\Microsoft\FSharp\.NETFramework\v4.0\4.4.0.0\FSharp.Core.dll")
+module Hack = FSharpApiSearch.Hack
 
-let resolvePath (assemblyName: string) =
-  let assemblyName = if assemblyName.EndsWith(".dll") = false then assemblyName + ".dll" else assemblyName
+type FSharpEntity with
+  member this.FullIdentity =
+    let assemblyName = this.Assembly.SimpleName
+    let name = this.DisplayName :: ReverseName.ofString this.AccessPath
+    { AssemblyName = assemblyName; Name = name; GenericParameterCount = this.GenericParameters.Count }
+  member this.Identity = Identity (FullIdentity this.FullIdentity)
+  member this.IsTuple = FullIdentity.isTuple this.FullIdentity
 
-  if File.Exists(syslib assemblyName) then
-    Some (syslib assemblyName)
-  elif assemblyName = "FSharp.Core.dll" then
-    Some fscore4400
-  elif File.Exists(assemblyName) then
-    Some (assemblyName)
-  else
-    None
+type FSharpType with
+  member this.TryIdentity = this.TryFullIdentity |> Option.map (fun x -> Identity (FullIdentity x))
+  member this.TryFullIdentity =
+    if Hack.isFloat this then
+      Some { this.TypeDefinition.FullIdentity with GenericParameterCount = 0 }
+    elif this.HasTypeDefinition then
+      Some this.TypeDefinition.FullIdentity
+    else
+      None
 
-let ignoreFSharpCompilerServiceError() =
-  typeof<FSharpChecker>.Assembly.GetType("Microsoft.FSharp.Compiler.AbstractIL.Diagnostics")
-  |> Option.ofObj
-  |> Option.bind (fun diagMod -> diagMod.GetMember("diagnosticsLog", BindingFlags.NonPublic ||| BindingFlags.Static) |> Array.tryHead)
-  |> Option.bind (tryUnbox<PropertyInfo>)
-  |> Option.bind (fun x -> x.GetValue(null) |> Option.ofObj)
-  |> Option.bind (tryUnbox<ref<Option<System.IO.TextWriter>>>)
-  |> Option.iter (fun x -> x := None)
+type FSharpMemberOrFunctionOrValue with
+  member this.IsStaticMember = not this.IsInstanceMember
+  member this.IsMethod = this.FullType.IsFunctionType && not this.IsPropertyGetterMethod && not this.IsPropertySetterMethod
+  member this.IsConstructor = this.CompiledName = ".ctor"
+  member this.MemberModifier = if this.IsStaticMember then MemberModifier.Static else MemberModifier.Instance
+  member this.PropertyKind =
+    if not this.IsProperty then
+      failwith "It is not property."
+    elif this.HasGetterMethod && this.HasSetterMethod then
+      PropertyKind.GetSet
+    elif this.HasGetterMethod then
+      PropertyKind.Get
+    else
+      PropertyKind.Set
+  member this.TargetSignatureConstructor = fun declaringType member' ->
+    if this.IsStaticMember then
+      ApiSignature.StaticMember (declaringType, member')
+    else
+      ApiSignature.InstanceMember (declaringType, member')
+  member this.GenericParametersAsTypeVariable =
+    this.GenericParameters |> Seq.map (fun x -> x.DisplayName : TypeVariable) |> Seq.toList
+      
+type FSharpField with
+  member this.TargetSignatureConstructor = fun declaringType member' ->
+    if this.IsStatic then
+      ApiSignature.StaticMember (declaringType, member')
+    else
+      ApiSignature.InstanceMember (declaringType, member')
 
-let loadAssembly references =
-  ignoreFSharpCompilerServiceError()
-
-  let checker = FSharpChecker.Create()
-  let base1 = Path.GetTempFileName()
-  let fileName1 = Path.ChangeExtension(base1, ".fs")
-  let projFileName = Path.ChangeExtension(base1, ".fsproj")
-  let dllName = Path.ChangeExtension(base1, ".dll")
-  let options =
-    checker.GetProjectOptionsFromCommandLineArgs
-      (projFileName,
-        [|  yield "--simpleresolution" 
-            yield "--noframework" 
-            yield "--debug:full" 
-            yield "--define:DEBUG" 
-            yield "--optimize-" 
-            yield "--out:" + dllName
-            yield "--warn:3" 
-            yield "--fullpaths" 
-            yield "--flaterrors" 
-            yield "--target:library" 
-            yield fileName1
-            for r in references |> Seq.choose resolvePath do
-              yield "-r:" + r |]
-      )
-  let refAssemblies =
-    let x = checker.ParseAndCheckProject(options) |> Async.RunSynchronously
-    x.ProjectContext.GetReferencedAssemblies()
-  refAssemblies
+let genericParameters (e: FSharpEntity) =
+  e.GenericParameters |> Seq.map (fun p -> p.DisplayName : TypeVariable) |> Seq.toList
 
 let rec toSignature (t: FSharpType) =
   if Hack.isMeasure t then
@@ -73,21 +65,26 @@ let rec toSignature (t: FSharpType) =
       let! xs = toFlatArrow t
       return Arrow xs
     }
+  elif t.IsGenericParameter then
+    Some (Variable (VariableSource.Target, t.GenericParameter.Name))
   elif t.IsTupleType then
     option {
-      let! xs = listSignature t.GenericArguments
-      return Signature.tuple xs
+      let! args = listSignature t.GenericArguments
+      return Tuple args
     }
-  elif t.IsGenericParameter then
-    Some (Variable (Target, t.GenericParameter.Name))
   elif t.HasTypeDefinition then
     let signature =
       match Hack.genericArguments t with
-      | [] -> Some (identity t.TypeDefinition)
+      | [] ->
+        option {
+          let! id = t.TryIdentity
+          return id
+        }
       | xs -> 
         option {
           let! xs = listSignature xs
-          return Generic (identity t.TypeDefinition, xs)
+          let! id = t.TryIdentity
+          return Generic (id, xs)
         }
     option {
       let! signature = signature
@@ -103,12 +100,12 @@ and abbreviationRoot (t: FSharpType) =
   if t.IsAbbreviation then
     abbreviationRoot t.AbbreviatedType
   elif Hack.isFloat t then
-    Some (Identity (Signature.fullName "System.Double"))
+    Some (Identity (Identity.ofDotNetType typeof<System.Double>))
   elif t.IsFunctionType then
     None
   else
     toSignature t
-and toFlatArrow (t: FSharpType): Signature list option =
+and toFlatArrow (t: FSharpType): LowType list option =
   match Seq.toList t.GenericArguments with
   | [ x; y ] when y.IsFunctionType ->
     option {
@@ -124,185 +121,486 @@ and toFlatArrow (t: FSharpType): Signature list option =
     }
   | _ -> None
 and listSignature (ts: FSharpType seq) =
-  let f (t: FSharpType) (acc: Signature list option) =
+  let f (t: FSharpType) (acc: LowType list option) =
     option {
       let! acc = acc
       let! signature = toSignature t
       return signature :: acc
     }
   Seq.foldBack f ts (Some [])
-and identity (e: FSharpEntity) =
-  if e.IsArrayType then
-    Identity (Signature.fullName e.DisplayName)
-  else
-    Identity (Signature.fullName (e.AccessPath + "." + e.DisplayName))
 and fsharpEntityToSignature (x: FSharpEntity) =
-  let identity = identity x
-  let args = x.GenericParameters |> Seq.map (fun p -> Variable (Source.Target, p.DisplayName)) |> Seq.toList
+  let identity = x.Identity
+  let args = x |> genericParameters |> List.map (fun v -> Variable (VariableSource.Target, v))
   match args with
   | [] -> identity
   | xs -> Generic (identity, xs)
 
-let isStaticMember (x: FSharpMemberOrFunctionOrValue) = not x.IsInstanceMember
-let isMethod (x: FSharpMemberOrFunctionOrValue) = x.FullType.IsFunctionType && not x.IsPropertyGetterMethod && not x.IsPropertySetterMethod
-
-let private methodSignature (t: FSharpType) =
-  match List.ofSeq t.GenericArguments with
-  | [ arguments; returnType ] ->
-    option {
-      let! arguments =
-        if arguments.IsTupleType then
-          listSignature arguments.GenericArguments
-        else
-          toSignature arguments |> Option.map List.singleton
-      let! returnType = toSignature returnType
-      return (arguments, returnType)
-    }
-  | _ -> None
-
-let staticMethodSignature (t: FSharpType) =
-  option {
-    let! args, ret = methodSignature t
-    return StaticMethod { Arguments = args; ReturnType = ret }
-  }
-
-let propertySignature (x: FSharpMemberOrFunctionOrValue) =
-  option {
-    let! args =
-      if Seq.length x.CurriedParameterGroups = 1 then
-        listSignature (x.CurriedParameterGroups |> Seq.head |> Seq.map (fun p -> p.Type))
+let collectTypeConstraints (genericParamters: seq<FSharpGenericParameter>): TypeConstraint list =
+  genericParamters
+  |> Seq.collect (fun p ->
+    let variable = p.Name
+    p.Constraints
+    |> Seq.choose (fun c -> 
+      if c.IsCoercesToConstraint then
+        option {
+          let! parent = toSignature c.CoercesToTarget
+          return { Variables = [ variable ]; Constraint = SubtypeConstraints parent }
+        }
+      elif c.IsSupportsNullConstraint then
+        Some { Variables = [ variable ]; Constraint = NullnessConstraints }
+      elif c.IsMemberConstraint then
+        option {
+          let data = c.MemberConstraintData
+          let modifier = if data.MemberIsStatic then MemberModifier.Static else MemberModifier.Instance
+          let! returnType = toSignature data.MemberReturnType
+          let! args = listSignature data.MemberArgumentTypes
+          let args =
+            if data.MemberIsStatic then
+              if args.Length = 0 then
+                [ LowType.unit ] // Core.Unit is removed if the argument is only Core.Unit.
+              else
+                args
+            else
+              if args.Length = 1 then
+                [ LowType.unit ] // Core.Unit is removed if the argument is only Core.Unit.
+              else
+                List.tail args // instance member contains receiver
+          let variables = data.MemberSources |> Seq.map (fun x -> x.GenericParameter.Name) |> Seq.toList
+          let name = data.MemberName
+          let member' = { Name = name; Kind = MemberKind.Method; Arguments = args; ReturnType = returnType; IsCurried = false; GenericParameters = [] }
+          return { Variables = variables; Constraint = MemberConstraints (modifier, member') }
+        }
+      elif c.IsNonNullableValueTypeConstraint then
+        Some { Variables = [ variable ]; Constraint = ValueTypeConstraints }
+      elif c.IsReferenceTypeConstraint then
+        Some { Variables = [ variable ]; Constraint = ReferenceTypeConstraints }
+      elif c.IsRequiresDefaultConstructorConstraint then
+        Some { Variables = [ variable ]; Constraint = DefaultConstructorConstraints }
+      elif c.IsEqualityConstraint then
+        Some { Variables = [ variable ]; Constraint = EqualityConstraints }
+      elif c.IsComparisonConstraint then
+        Some { Variables = [ variable ]; Constraint = ComparisonConstraints }
+      elif c.IsEnumConstraint then
+        Some { Variables = [ variable ]; Constraint = EnumerationConstraints }
+      elif c.IsDelegateConstraint then
+        Some { Variables = [ variable ]; Constraint = DelegateConstraints }
+      elif c.IsUnmanagedConstraint then
+        Some { Variables = [ variable ]; Constraint = UnmanagedConstraints }
       else
         None
-    let! propertyType = toSignature x.ReturnParameter.Type
-    match args with
-    | [] -> return (None, propertyType)
-    | [ x ] -> return (Some x, propertyType)
-    | _ -> return! None
-  }
+    )
+  )
+  |> Seq.toList
+  |> List.distinct
 
-let staticPropertySignature (x: FSharpMemberOrFunctionOrValue) =
-  option {
-    let! arg, propertyType = propertySignature x
-    match arg with
-    | Some arg -> return Arrow [ arg; propertyType ]
-    | None -> return propertyType
-  }
-
-let instancePropertySignature (declaringType: FSharpEntity) (x: FSharpMemberOrFunctionOrValue) =
-  option {
-    let! arg, propertyType = propertySignature x
-    let arg = arg |> Option.toList
-    return InstanceMember { Source = Source.Target; Receiver = fsharpEntityToSignature declaringType; Arguments = arg; ReturnType = propertyType }
-  }
-
-let instanceMethodSignature (declaringType: FSharpEntity) (t: FSharpType) =
-  option {
-    let! args, ret = methodSignature t
-    return InstanceMember { Source = Source.Target; Receiver = fsharpEntityToSignature declaringType; Arguments = args; ReturnType = ret }
-  }
-
-let constructorName = ".ctor"
-let isConstructor (x: FSharpMemberOrFunctionOrValue) = x.CompiledName = constructorName
-let constructorSignature (declaringType: FSharpEntity) (t: FSharpType) =
-  option {
-    let! args, _ = methodSignature t
-    return StaticMethod { Arguments = args; ReturnType = fsharpEntityToSignature declaringType }
-  }
-  
 let toFSharpApi (x: FSharpMemberOrFunctionOrValue) =
   option {
-    let! signature = toSignature x.FullType
-    return { Name = x.FullName; Kind = ApiKind.ModuleValue ;Signature = signature }
+    let! signature = (toSignature x.FullType)
+    let target =
+      match signature with
+      | Arrow xs -> ApiSignature.ModuleFunction xs
+      | x -> ApiSignature.ModuleValue x
+    return { Name = ReverseName.ofString x.FullName; Signature = target; TypeConstraints = collectTypeConstraints x.GenericParameters }
   }
 
-let propertyKind (x: FSharpMemberOrFunctionOrValue) =
-  if x.HasGetterMethod && x.HasSetterMethod then
-    PropertyKind.GetSet
-  elif x.HasGetterMethod then
-    PropertyKind.Get
-  else
-    PropertyKind.Set
+let parameterSignature (t: FSharpMemberOrFunctionOrValue) =
+  let xs = [
+    for group in t.CurriedParameterGroups do
+      for parameter in group do
+        yield parameter.Type
+  ]
+  listSignature xs
 
-let toTypeMemberApi (declaringType: FSharpEntity) (x: FSharpMemberOrFunctionOrValue) =
-  if isConstructor x then
-    option {
-      let! signature = constructorSignature declaringType x.FullType
-      return { Name = declaringType.FullName; Kind = ApiKind.Constructor;Signature = signature }
-    }
-  elif isStaticMember x && isMethod x then
-    option {
-      let! signature = staticMethodSignature x.FullType
-      return { Name = x.FullName; Kind = ApiKind.StaticMethod; Signature = signature }
-    }
-  elif x.IsInstanceMember && isMethod x then
-    option {
-      let! signature = instanceMethodSignature declaringType x.FullType
-      return { Name = x.FullName; Kind = ApiKind.InstanceMethod; Signature = signature}
-    }
-  elif isStaticMember x && x.IsProperty then
-    option {
-      let! signature = staticPropertySignature x
-      let kind = ApiKind.StaticProperty (propertyKind x)    
-      return { Name = x.FullName; Kind = kind; Signature = signature }
-    }
-  elif x.IsInstanceMember && x.IsProperty then
-    option {
-      let! signature = instancePropertySignature declaringType x
-      let kind = ApiKind.InstanceProperty (propertyKind x)
-      return { Name = x.FullName; Kind = kind; Signature = signature }
-    }
+let methodMember (x: FSharpMemberOrFunctionOrValue) =
+  option {
+    let name =
+      let n = x.DisplayName
+      if Regex.IsMatch(n, @"^\( .* \)$") then
+        x.CompiledName
+      else
+        n
+    let! args =
+      if x.CurriedParameterGroups.Count = 1 && x.CurriedParameterGroups.[0].Count = 0 then
+        toSignature x.FullType.GenericArguments.[0] |> Option.map List.singleton
+      else
+        parameterSignature x
+
+    let! returnType = toSignature x.ReturnParameter.Type
+    let isCurried = x.CurriedParameterGroups.Count >= 2
+    let genericParams = x.GenericParametersAsTypeVariable
+    return { Name = name; Kind = MemberKind.Method; GenericParameters = genericParams; Arguments = args; IsCurried = isCurried; ReturnType = returnType }
+  }
+
+let constructorSignature (declaringEntity: FSharpEntity) declaringSignature (x: FSharpMemberOrFunctionOrValue) =
+  option {
+    let identity = declaringEntity.FullIdentity
+    let! target = methodMember x
+    let target = { target with Name = identity.Name.Head; ReturnType = declaringSignature }
+    return { Name = identity.Name; Signature = ApiSignature.Constructor (declaringSignature, target); TypeConstraints = collectTypeConstraints x.GenericParameters }
+  }
+
+let propertyMember (x: FSharpMemberOrFunctionOrValue) =
+  option {
+    let name = ReverseName.ofString x.FullName
+    let memberKind = MemberKind.Property x.PropertyKind
+    let! args = parameterSignature x
+    let! returnType = toSignature x.ReturnParameter.Type
+    let genericParams = x.GenericParametersAsTypeVariable
+    return { Name = name.Head; Kind = memberKind; GenericParameters = genericParams; Arguments = args; IsCurried = false; ReturnType = returnType }
+  }
+
+let memberSignature loadMember (declaringEntity: FSharpEntity) declaringSignature (x: FSharpMemberOrFunctionOrValue) =
+  option {
+    let! member' = loadMember x
+    let typeConstraints = Seq.append declaringEntity.GenericParameters x.GenericParameters |> collectTypeConstraints
+    return { Name = ReverseName.ofString x.FullName; Signature = x.TargetSignatureConstructor declaringSignature member'; TypeConstraints = typeConstraints }
+  }
+
+let toTypeMemberApi (declaringEntity: FSharpEntity) (declaringSignature: LowType) (x: FSharpMemberOrFunctionOrValue) =
+  if x.IsConstructor then
+    constructorSignature declaringEntity declaringSignature x
+  elif x.IsMethod then
+    memberSignature methodMember declaringEntity declaringSignature x
+  elif x.IsProperty then
+    memberSignature propertyMember declaringEntity declaringSignature x
   else
     None
 
-let toFieldApi (declaringType: FSharpEntity) (field: FSharpField) =
+let toFieldApi (declaringEntity: FSharpEntity) (declaringSignature: LowType) (field: FSharpField) =
   option {
-    if field.Name = Hack.enumValue then
-      return! None
-    else
-      let! fieldSignature = toSignature field.FieldType
-      let signature = InstanceMember { Source = Source.Target; Receiver = fsharpEntityToSignature declaringType; Arguments = []; ReturnType = fieldSignature }
-      let name = sprintf "%s.%s.%s" declaringType.AccessPath declaringType.DisplayName field.Name
-      return { Name = name; Kind = ApiKind.Field; Signature = signature }
+    let! returnType = toSignature field.FieldType
+    let member' = { Name = field.Name; Kind = MemberKind.Field; GenericParameters = []; Arguments = []; IsCurried = false; ReturnType = returnType }
+    let apiName = field.Name :: declaringEntity.DisplayName :: ReverseName.ofString declaringEntity.AccessPath
+    return { Name = apiName; Signature = field.TargetSignatureConstructor declaringSignature member'; TypeConstraints = collectTypeConstraints declaringEntity.GenericParameters }
   }
 
-let resolveConflictGenericArgumnet replacementVariables (m: FSharpMemberOrFunctionOrValue) =
+let resolveConflictGenericArgumnet (replacementVariables: LowType list) (m: FSharpMemberOrFunctionOrValue) =
   m.GenericParameters
   |> Seq.choose (fun p ->
     let name = p.Name.TrimStart(''')
-    let isConflict = replacementVariables |> List.exists (function Signature.Patterns.AnyVariable (_, n) -> n = name | _ -> false)
-    if isConflict then Some name else None
+    let isConflict = replacementVariables |> List.exists (function Variable (VariableSource.Target, n) -> n = name | _ -> false)
+    if isConflict then
+      let confrictVariable = name
+      let newVariable = Variable (VariableSource.Target, name + "1")
+      Some (confrictVariable, newVariable)
+    else None
   )
-  |> Seq.map (fun confrictName -> (confrictName, Variable (Source.Target, confrictName + "1")))
   |> Seq.toList
 
 let genericParametersAndArguments (t: FSharpType) =
   Seq.zip t.TypeDefinition.GenericParameters t.GenericArguments
   |> Seq.choose (fun (parameter, arg) -> option {
     let! s = toSignature arg
-    return parameter.Name.TrimStart('''), s
+    let v = parameter.Name.TrimStart(''')
+    return v, s
   })
   |> Seq.toList
 
-let updateReceiver receiverName receiver = function
-  | { Signature = InstanceMember m } as api ->
-    let newName =
-      let xs = api.Name.Split('.')
-      xs.[Array.length xs - 2] <- receiverName
-      String.concat "." xs
-    Some { api with Name = newName; Signature = InstanceMember { m with Receiver = receiver } }
-  | _ -> None
+let updateInterfaceDeclaringType (declaringSignatureName: ReverseName) declaringSignature api =
+  let target =
+    match api.Signature with
+    | ApiSignature.InstanceMember (_, m) -> ApiSignature.InstanceMember (declaringSignature, m)
+    | ApiSignature.StaticMember (_, m) -> ApiSignature.StaticMember (declaringSignature, m)
+    | _ -> failwithf "%s is not a member of interface." (ReverseName.toString api.Name)
+  let name = api.Name.Head :: declaringSignatureName
+  { api with Name = name; Signature = target }
 
-let rec collectApi' (e: FSharpEntity): Api seq =
+let collectTypeAbbreviationDefinition (e: FSharpEntity): Api seq =
+  option {
+    let abbreviation = fsharpEntityToSignature e
+    let! abbreviatedAndOriginal = toSignature e.AbbreviatedType
+    let abbreviated, original =
+      match abbreviatedAndOriginal with
+      | TypeAbbreviation t -> t.Abbreviation, t.Original
+      | original -> original, original
+    let t: TypeAbbreviationDefinition = { Abbreviation = abbreviation; Abbreviated = abbreviated; Original = original }
+    let target = ApiSignature.TypeAbbreviation t
+    let name = e.DisplayName :: ReverseName.ofString e.AccessPath
+    return { Name = name; Signature = target; TypeConstraints = collectTypeConstraints e.GenericParameters }
+  }
+  |> Option.toList
+  |> List.toSeq
+
+let boolToConstraintStatus = function
+  | true -> Satisfy
+  | false -> NotSatisfy
+
+let supportNull (e: FSharpEntity) =
+  let hasAllowLiteralAttribute (x: FSharpEntity) = x.Attributes |> Seq.exists (fun attr -> attr.AttributeType.TryFullName = Some "Microsoft.FSharp.Core.AllowNullLiteralAttribute")
+  if e.IsArrayType then
+    true
+  elif e.IsFSharp then
+    if e.IsInterface || e.IsClass then
+      hasAllowLiteralAttribute e
+    else
+      false
+  elif e.IsTuple then
+    false
+  else
+    not (e.IsEnum || e.IsValueType)
+
+let isStruct (e: FSharpEntity) = e.IsValueType
+
+let hasDefaultConstructor (xs: Member seq) =
+  xs
+  |> Seq.exists (function
+    | { Arguments = [ LowType.Patterns.Unit ] } -> true
+    | _ -> false)
+
+let conditionalEquality (e:FSharpEntity) =
+  let vs =
+    e.GenericParameters
+    |> Seq.filter (fun x ->
+      x.Attributes
+      |> Seq.exists (fun attr -> attr.AttributeType.FullName = "Microsoft.FSharp.Core.EqualityConditionalOnAttribute")
+    )
+    |> Seq.map (fun p -> p.DisplayName)
+    |> Seq.toList
+  match vs with
+  | [] -> Satisfy
+  | _ -> Dependence vs
+
+let rec equality (cache: Map<FullIdentity, ConstraintStatus>) (e: FSharpEntity) =
+  let identity = e.FullIdentity
+  let updateCache cache result =
+    let cache = Map.add identity result cache
+    (cache, result)
+  match Map.tryFind identity cache with
+  | Some x -> (cache, x)
+  | None ->
+    if e.Attributes |> Seq.exists (fun attr -> attr.AttributeType.FullName = "Microsoft.FSharp.Core.CustomEqualityAttribute") then
+      updateCache cache (conditionalEquality e)
+    elif e.Attributes |> Seq.exists (fun attr -> attr.AttributeType.FullName = "Microsoft.FSharp.Core.NoEqualityAttribute") then
+      updateCache cache NotSatisfy
+    elif e.IsTuple then
+      let vs = e.GenericParameters |> Seq.map (fun p -> p.DisplayName) |> Seq.toList
+      let eq =
+        match vs with
+        | [] -> Satisfy
+        | _ -> Dependence vs
+      updateCache cache eq
+    elif e.IsArrayType then
+      let v = e.GenericParameters |> Seq.map (fun p -> p.DisplayName) |> Seq.toList
+      updateCache cache (Dependence v)
+    else
+      match updateCache cache (basicEquality e) with
+      | cache, NotSatisfy -> (cache, NotSatisfy)
+      | cache, basicResult ->
+        match foldDependentTypeEquality cache e with
+        | cache, Satisfy -> updateCache cache basicResult
+        | cache, _ -> updateCache cache NotSatisfy
+and basicEquality (e: FSharpEntity) =
+  if e.IsFSharp && (e.IsFSharpRecord || e.IsFSharpUnion || e.IsValueType) then
+    let vs = e.GenericParameters |> Seq.map (fun p -> p.DisplayName) |> Seq.toList
+    match vs with
+    | [] -> Satisfy
+    | _ -> Dependence vs
+  else
+    conditionalEquality e
+and foldDependentTypeEquality cache (e: FSharpEntity) =
+  let fields =
+    seq {
+      if e.IsFSharp && (e.IsFSharpRecord || e.IsValueType) then
+        yield! e.FSharpFields
+      elif e.IsFSharpUnion then
+        for unionCase in e.UnionCases do
+          yield! unionCase.UnionCaseFields
+    }
+    |> Seq.map (fun field -> field.FieldType)
+  foldFsharpTypeEquality cache fields
+and foldFsharpTypeEquality cache (ts: FSharpType seq) =
+  let cache, results =
+    ts
+    |> Seq.fold (fun (cache, results) t ->
+      let newCache, result = fsharpTypeEquality cache t
+      (newCache, result :: results)
+    ) (cache, [])
+  let result = if results |> Seq.forall ((=)Satisfy) then Satisfy else NotSatisfy
+  (cache, result)
+and fsharpTypeEquality cache (t: FSharpType) =
+  if t.IsGenericParameter then
+    cache, Satisfy
+  elif t.IsFunctionType then
+    cache, NotSatisfy
+  else
+    let rec getRoot (t: FSharpType) = if t.IsAbbreviation then getRoot t.AbbreviatedType else t
+    let root = getRoot t
+    if Seq.isEmpty root.GenericArguments then
+      equality cache root.TypeDefinition
+    else
+      let cache, rootEquality = equality cache root.TypeDefinition
+      match rootEquality with
+      | Satisfy -> cache, Satisfy
+      | NotSatisfy -> cache, NotSatisfy
+      | Dependence dependenceVariables ->
+        let testArgs =
+          root.TypeDefinition.GenericParameters
+          |> Seq.map (fun x -> x.DisplayName)
+          |> Seq.zip root.GenericArguments
+          |> Seq.choose (fun (t, v) -> if Seq.exists ((=)v) dependenceVariables then Some t else None)
+        foldFsharpTypeEquality cache testArgs
+
+let conditionalComparison (e:FSharpEntity) =
+  let vs =
+    e.GenericParameters
+    |> Seq.filter (fun x ->
+      x.Attributes
+      |> Seq.exists (fun attr -> attr.AttributeType.FullName = "Microsoft.FSharp.Core.ComparisonConditionalOnAttribute")
+    )
+    |> Seq.map (fun p -> p.DisplayName)
+    |> Seq.toList
+  match vs with
+  | [] -> Satisfy
+  | _ -> Dependence vs
+
+let rec existsInterface identity (e: FSharpEntity) =
+  e.DeclaredInterfaces
+  |> Seq.exists (fun i -> i.TypeDefinition.FullIdentity = identity || existsInterface identity i.TypeDefinition)
+
+let rec comparison (cache: Map<FullIdentity, ConstraintStatus>) (e: FSharpEntity) =
+  let identity = e.FullIdentity
+  let updateCache cache result =
+    let cache = Map.add identity result cache
+    (cache, result)
+  match Map.tryFind identity cache with
+  | Some x -> (cache, x)
+  | None ->
+    if e.Attributes |> Seq.exists (fun attr -> attr.AttributeType.FullName = "Microsoft.FSharp.Core.CustomComparisonAttribute") then
+      updateCache cache (conditionalComparison e)
+    elif e.Attributes |> Seq.exists (fun attr -> attr.AttributeType.FullName = "Microsoft.FSharp.Core.NoComparisonAttribute") then
+      updateCache cache NotSatisfy
+    elif identity = FullIdentity.IntPtr || identity = FullIdentity.UIntPtr then
+      updateCache cache Satisfy
+    elif e.IsTuple then
+      let vs = e.GenericParameters |> Seq.map (fun p -> p.DisplayName) |> Seq.toList
+      let eq =
+        match vs with
+        | [] -> Satisfy
+        | _ -> Dependence vs
+      updateCache cache eq
+    elif e.IsArrayType then
+      let v = e.GenericParameters |> Seq.map (fun p -> p.DisplayName) |> Seq.toList
+      updateCache cache (Dependence v)
+    else
+      match updateCache cache (basicComparison e) with
+      | cache, NotSatisfy -> (cache, NotSatisfy)
+      | cache, basicResult ->
+        match foldDependentTypeComparison cache e with
+        | cache, Satisfy -> updateCache cache basicResult
+        | cache, _ -> updateCache cache NotSatisfy
+and basicComparison (e: FSharpEntity) =
+  if e.IsFSharp && (e.IsFSharpRecord || e.IsFSharpUnion || e.IsValueType) then
+    let vs = e.GenericParameters |> Seq.map (fun p -> p.DisplayName) |> Seq.toList
+    match vs with
+    | [] -> Satisfy
+    | _ -> Dependence vs
+  elif existsInterface FullIdentity.IComparable e || existsInterface FullIdentity.IStructuralComparable e then
+    conditionalComparison e
+  else
+    NotSatisfy
+and foldDependentTypeComparison cache (e: FSharpEntity) =
+  let fields =
+    seq {
+      if e.IsFSharp && (e.IsFSharpRecord || e.IsValueType) then
+        yield! e.FSharpFields
+      elif e.IsFSharpUnion then
+        for unionCase in e.UnionCases do
+          yield! unionCase.UnionCaseFields
+    }
+    |> Seq.map (fun field -> field.FieldType)
+  foldFsharpTypeComparison cache fields
+and foldFsharpTypeComparison cache (ts: FSharpType seq) =
+  let cache, results =
+    ts
+    |> Seq.fold (fun (cache, results) t ->
+      let newCache, result = fsharpTypeComparison cache t
+      (newCache, result :: results)
+    ) (cache, [])
+  let result = if results |> Seq.forall ((=)Satisfy) then Satisfy else NotSatisfy
+  (cache, result)
+and fsharpTypeComparison cache (t: FSharpType) =
+  if t.IsGenericParameter then
+    cache, Satisfy
+  elif t.IsFunctionType then
+    cache, NotSatisfy
+  else
+    let rec getRoot (t: FSharpType) = if t.IsAbbreviation then getRoot t.AbbreviatedType else t
+    let root = getRoot t
+    if Seq.isEmpty root.GenericArguments then
+      comparison cache root.TypeDefinition
+    else
+      let cache, rootComparison = comparison cache root.TypeDefinition
+      match rootComparison with
+      | Satisfy -> cache, Satisfy
+      | NotSatisfy -> cache, NotSatisfy
+      | Dependence dependenceVariables ->
+        let testArgs =
+          root.TypeDefinition.GenericParameters
+          |> Seq.map (fun x -> x.DisplayName)
+          |> Seq.zip root.GenericArguments
+          |> Seq.choose (fun (t, v) -> if Seq.exists ((=)v) dependenceVariables then Some t else None)
+        foldFsharpTypeComparison cache testArgs
+
+let fullTypeDef (e: FSharpEntity) members =
+  option {
+    let identity = e.FullIdentity
+    let baseType =
+      if not e.IsInterface then
+        e.BaseType |> Option.bind toSignature
+      else
+        None
+    let instanceMembers =
+      members
+      |> Seq.choose (function
+        | { Signature = ApiSignature.InstanceMember (_, m) } -> Some m
+        | _ -> None)
+      |> Seq.toList
+    let staticMembers =
+      members
+      |> Seq.choose (function
+        | { Signature = ApiSignature.StaticMember (_, m) } -> Some m
+        | _ -> None)
+      |> Seq.toList
+    let typeDef = {
+      Name = identity.Name
+      AssemblyName = identity.AssemblyName
+      BaseType = baseType
+      AllInterfaces = e.DeclaredInterfaces |> Seq.choose toSignature |> Seq.toList
+      GenericParameters = genericParameters e
+      TypeConstraints = e.GenericParameters |> collectTypeConstraints
+      InstanceMembers = instanceMembers
+      StaticMembers = staticMembers
+
+      SupportNull = supportNull e |> boolToConstraintStatus
+      ReferenceType = isStruct e |> not |> boolToConstraintStatus
+      ValueType = isStruct e |> boolToConstraintStatus
+      DefaultConstructor = 
+        let constructors = members |> Seq.choose (function { Signature = ApiSignature.Constructor (_, m)} -> Some m | _ -> None)
+        hasDefaultConstructor constructors
+        |> boolToConstraintStatus
+      Equality = equality Map.empty e |> snd
+      Comparison = comparison Map.empty e |> snd
+    }
+    return { Name = identity.Name; Signature = ApiSignature.FullTypeDefinition typeDef; TypeConstraints = typeDef.TypeConstraints }
+  }
+
+let rec collectApi (e: FSharpEntity): Api seq =
   seq {
     if e.IsNamespace then
       yield! collectFromNestedEntities e
-    if e.IsFSharpModule then
+    elif e.IsFSharpModule then
       yield! collectFromModule e
-    if e.IsClass || e.IsValueType || e.IsFSharpRecord || e.IsFSharpUnion then
+    elif e.IsFSharpAbbreviation && not e.IsMeasure then
+      yield! collectTypeAbbreviationDefinition e
+    elif e.IsClass || e.IsValueType || e.IsFSharpRecord || e.IsFSharpUnion || e.IsArrayType then
       yield! collectFromType e
-    if e.IsInterface then
-      yield! collectFromInterface [] e
+    elif e.IsInterface then
+      yield! collectFromInterface e
   }
+and collectFromNestedEntities (e: FSharpEntity): Api seq =
+  e.NestedEntities
+  |> Seq.filter (fun n -> n.Accessibility.IsPublic)
+  |> Seq.collect collectApi
 and collectFromModule (e: FSharpEntity): Api seq =
   seq {
     yield! e.MembersFunctionsAndValues
@@ -312,56 +610,101 @@ and collectFromModule (e: FSharpEntity): Api seq =
   }
 and collectFromType (e: FSharpEntity): Api seq =
   seq {
-    yield! e.MembersFunctionsAndValues
-            |> Seq.filter (fun x -> x.Accessibility.IsPublic)
-            |> Seq.choose (toTypeMemberApi e)
-    yield! e.FSharpFields
-            |> Seq.filter (fun x -> x.Accessibility.IsPublic)
-            |> Seq.choose (toFieldApi e)
+    let declaringSignature = fsharpEntityToSignature e
+
+    let members =
+      e.MembersFunctionsAndValues
+      |> Seq.filter (fun x -> x.Accessibility.IsPublic && not x.IsCompilerGenerated)
+      |> Seq.choose (toTypeMemberApi e declaringSignature)
+      |> Seq.cache
+
+    let fields =
+      e.FSharpFields
+      |> Seq.filter (fun x -> x.Accessibility.IsPublic && not x.IsCompilerGenerated)
+      |> Seq.choose (toFieldApi e declaringSignature)
+      |> Seq.cache
+
+    match fullTypeDef e (Seq.append members fields) with
+    | Some d ->
+      yield d
+      yield! members
+      yield! fields
+    | None -> ()
     yield! collectFromNestedEntities e
   }
-and collectFromInterface inheritArgs (e: FSharpEntity): Api seq =
+and collectInterfaceMembers (inheritArgs: (TypeVariable * LowType) list) (e: FSharpEntity): Api seq =
+  let replaceVariable replacements = function
+    | ApiSignature.InstanceMember (declaringType, member') ->
+      let apply = LowType.applyVariable VariableSource.Target replacements
+      let declaringType = apply declaringType
+      let genericParameters =
+        member'.GenericParameters
+        |> List.map (fun p ->
+          match replacements |> Map.tryFind p with
+          | Some (Variable (_, replacement)) -> replacement
+          | Some _ -> failwith "Generic parameter replacement should be variable."
+          | None -> p)
+      let member' =
+        { member' with
+            GenericParameters = genericParameters
+            Arguments = member'.Arguments |> List.map apply
+            ReturnType = member'.ReturnType |> apply
+        }
+      ApiSignature.InstanceMember (declaringType, member')
+    | _ -> failwith "It is not interface member."
+  
   seq {
-    let replacementVariables = inheritArgs |> List.map snd |> List.collect Signature.collectVariables |> List.distinct
+    let declaringSignature = fsharpEntityToSignature e
+    let declaringSignatureName = e.DisplayName :: ReverseName.ofString e.AccessPath
+    let replacementVariables = inheritArgs |> List.map snd |> List.collect LowType.collectVariables
     yield! e.MembersFunctionsAndValues
-            |> Seq.filter (fun x -> x.Accessibility.IsPublic)
-            |> Seq.choose (fun m -> option {
-              let! api = toTypeMemberApi e m
-              let inheritArgs = List.append (resolveConflictGenericArgumnet replacementVariables m) inheritArgs
-              return (api, inheritArgs)
+            |> Seq.filter (fun x -> x.Accessibility.IsPublic && not x.IsCompilerGenerated)
+            |> Seq.choose (fun member' -> option {
+              let! api = toTypeMemberApi e declaringSignature member'
+              let variableReplacements =
+                List.append (resolveConflictGenericArgumnet replacementVariables member') inheritArgs
+                |> Map.ofList
+              let api = { api with Signature = replaceVariable variableReplacements api.Signature }
+              return api
             })
-            |> Seq.map (fun (api, variableReplacements) ->
-              List.fold (fun api (variableName, replacement) -> { api with Signature = Signature.replaceVariable variableName replacement api.Signature }) api variableReplacements
-            )
 
-    let receiver = fsharpEntityToSignature e
     for parentInterface in e.DeclaredInterfaces do
       let inheritArgs = genericParametersAndArguments parentInterface
-      yield! collectFromInterface inheritArgs parentInterface.TypeDefinition
-              |> Seq.choose (updateReceiver e.DisplayName receiver)
+      yield! collectInterfaceMembers inheritArgs parentInterface.TypeDefinition
+              |> Seq.map (updateInterfaceDeclaringType declaringSignatureName declaringSignature)
   }
-and collectFromNestedEntities (e: FSharpEntity): Api seq = seq { for ne in e.NestedEntities do yield! collectApi' ne }
-  
-let rec collectAbbreviations' (e: FSharpEntity) = seq {
-  if not e.IsMeasure && e.Accessibility.IsPublic && e.IsFSharpAbbreviation then
-    let abbreviation = option {
-      let a = fsharpEntityToSignature e
-      let! o = abbreviationRoot e.AbbreviatedType
-      return { Abbreviation = a; Original = o }
-    }
-    match abbreviation with
-    | Some a -> yield a
+and collectFromInterface (e: FSharpEntity): Api seq =
+  seq {
+    let members = collectInterfaceMembers [] e |> Seq.cache
+
+    match fullTypeDef e members with
+    | Some d ->
+      yield d
+      yield! members
     | None -> ()
-  yield! e.NestedEntities |> Seq.collect collectAbbreviations'
-}
+  }
+
+let collectTypeAbbreviations (xs: Api seq) =
+  xs
+  |> Seq.choose (function { Signature = ApiSignature.TypeAbbreviation t } -> Some t | _ -> None)
+  |> Seq.map (fun t ->
+    {
+      Abbreviation = t.Abbreviation
+      Original = t.Original
+    }: TypeAbbreviation
+  )
 
 let load (assembly: FSharpAssembly): ApiDictionary =
   let api =
     assembly.Contents.Entities
-    |> Seq.collect collectApi'
-    |> Seq.cache
+    |> Seq.filter (fun e -> e.Accessibility.IsPublic)
+    |> Seq.collect collectApi
+    |> Seq.toArray
+  let types =
+    api
+    |> Seq.choose (function { Signature = ApiSignature.FullTypeDefinition full } -> Some full | _ -> None)
+    |> Seq.toArray
   let typeAbbreviations =
-    assembly.Contents.Entities
-    |> Seq.collect collectAbbreviations'
-    |> Seq.cache
-  { AssemblyName = assembly.SimpleName; Api = api; TypeAbbreviations = typeAbbreviations }
+    collectTypeAbbreviations api
+    |> Seq.toArray
+  { AssemblyName = assembly.SimpleName; Api = api; TypeDefinitions = types; TypeAbbreviations = typeAbbreviations }

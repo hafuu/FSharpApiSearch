@@ -1,84 +1,20 @@
-﻿open FSharpApiSearch
+﻿module FSharpApiSearch.Console.Program
+
+open FSharpApiSearch
 open System.Diagnostics
 open System
 open Microsoft.FSharp.Compiler.SourceCodeServices
-
-type Args = {
-  Query: string option
-  Targets: string list
-  References: string list
-  SearchOptions: SearchOptions
-  StackTrace: OptionStatus
-  Help: bool
-}
-
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module Args =
-  let empty = { Query = None; Targets = []; References = []; SearchOptions = SearchOptions.defaultOptions; StackTrace = Disabled; Help = false }
-
-  let (|Status|_|) (name: string) (str: string) =
-    if str.StartsWith(name) then
-      match str.Substring(name.Length) with
-      | "+" -> Some true
-      | "-" -> Some false
-      | _ -> None
-    else
-      None
-
-  let (|KeyValue|_|) key (str: string) =
-    match str.Split([| ':' |], 2) |> Array.toList with
-    | [ k; v ] when key = k -> Some v
-    | _ -> None
-
-  let boolToOptionStatus = function true -> Enabled | false -> Disabled
-
-  let rec parse arg = function
-    | Status "--strict" v :: rest -> parse { arg with SearchOptions = { arg.SearchOptions with StrictQueryVariable = boolToOptionStatus v } } rest
-    | Status "--similarity" v :: rest -> parse { arg with SearchOptions = { arg.SearchOptions with SimilaritySearching = boolToOptionStatus v } } rest
-    | (KeyValue "--target" t | KeyValue "-t" t) :: rest -> parse { arg with Targets = t :: arg.Targets } rest
-    | (KeyValue "--reference" r | KeyValue "-r" r) :: rest -> parse { arg with References = r :: arg.References } rest
-    | Status "--stacktrace" v :: rest -> parse { arg with StackTrace = boolToOptionStatus v } rest
-    | ("--help" | "-h") :: rest -> parse { arg with Help = true } rest
-    | query :: rest ->
-      let q =
-        match arg.Query with
-        | None -> Some query
-        | Some _ as q -> q
-      parse { arg with Query = q } rest
-    | [] -> arg
-
-  let targetAndReference arg =
-    if List.isEmpty arg.Targets then
-      FSharpApiSearchClient.DefaultTargets, FSharpApiSearchClient.DefaultReferences
-    else
-      let targets =
-        List.rev arg.Targets
-        |> List.map (fun x -> let name = System.IO.Path.GetFileName(x) in if name.EndsWith(".dll") then name.Substring(0, name.Length - 4) else name)
-      let references = List.concat [ (List.rev arg.Targets); (List.rev arg.References); FSharpApiSearchClient.DefaultReferences ] |> List.distinct
-      targets, references
-
-let propertyKindText = function
-  | PropertyKind.GetSet -> "get set"
-  | PropertyKind.Set -> "set"
-  | PropertyKind.Get -> "get"
-
-let apiKindText = function
-  | ApiKind.Constructor -> "constructor"
-  | ApiKind.ModuleValue -> "module value"
-  | ApiKind.StaticMethod -> "static method"
-  | ApiKind.StaticProperty prop -> sprintf "static property with %s" (propertyKindText prop)
-  | ApiKind.InstanceMethod -> "instance method"
-  | ApiKind.InstanceProperty prop -> sprintf "instance property with %s" (propertyKindText prop)
-  | ApiKind.Field -> "field"
 
 let searchAndShowResult (client: FSharpApiSearchClient) (query: string) opt =
   let results = client.Search(query, opt)
   results
   |> Seq.filter (fun x -> x.Distance < 3)
   |> Seq.iter (fun x ->
-    Console.Write(sprintf "%s: %s" x.Api.Name (Signature.display x.Api.Signature))
+    Console.Write(sprintf "%s: %s" (ReverseName.toString x.Api.Name) (x.Api.Signature.Print()))
     Console.ForegroundColor <- ConsoleColor.DarkGray
-    Console.WriteLine(sprintf ", %s, distance: %d" (apiKindText x.Api.Kind) x.Distance)
+    Console.WriteLine(sprintf ", %s, distance: %d" (x.Api.Kind.Print()) x.Distance)
+    if x.Api.TypeConstraints.IsEmpty = false then
+      Console.WriteLine(sprintf "  %s" (x.Api.PrintTypeConstraints()))
     Console.ResetColor()
   )
   Console.WriteLine()
