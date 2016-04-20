@@ -264,6 +264,14 @@ module FSharp =
       run testApi
     }
 
+  // bug #60
+  let internalInterfaceTest = test {
+    let! mscorDict = mscorlibApi
+    let tuple = mscorDict.TypeDefinitions |> Array.find (fun x -> x.Name = ReverseName.ofString "System.Tuple" && x.GenericParameters.Length = 2)
+    let existsITuple = tuple.AllInterfaces |> Seq.exists (function Identity (FullIdentity i) -> i.Name = ReverseName.ofString "System.ITuple" | _ -> false)
+    do! existsITuple |> assertEquals false
+  }
+
   let nonloadedTest =
     parameterize {
       source[

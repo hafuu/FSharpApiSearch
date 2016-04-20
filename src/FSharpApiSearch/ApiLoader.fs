@@ -567,7 +567,7 @@ let fullTypeDef (e: FSharpEntity) members =
       Name = identity.Name
       AssemblyName = identity.AssemblyName
       BaseType = baseType
-      AllInterfaces = e.DeclaredInterfaces |> Seq.choose toSignature |> Seq.toList
+      AllInterfaces = e.DeclaredInterfaces |> Seq.filter (fun x -> x.TypeDefinition.Accessibility.IsPublic) |> Seq.choose toSignature |> Seq.toList
       GenericParameters = genericParameters e
       TypeConstraints = e.GenericParameters |> collectTypeConstraints
       InstanceMembers = instanceMembers
@@ -670,7 +670,7 @@ and collectInterfaceMembers (inheritArgs: (TypeVariable * LowType) list) (e: FSh
               return api
             })
 
-    for parentInterface in e.DeclaredInterfaces do
+    for parentInterface in e.DeclaredInterfaces |> Seq.filter (fun x -> x.TypeDefinition.Accessibility.IsPublic) do
       let inheritArgs = genericParametersAndArguments parentInterface
       yield! collectInterfaceMembers inheritArgs parentInterface.TypeDefinition
               |> Seq.map (updateInterfaceDeclaringType declaringSignatureName declaringSignature)
