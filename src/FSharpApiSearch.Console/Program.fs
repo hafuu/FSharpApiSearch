@@ -75,9 +75,6 @@ options:
   --target:<assembly>, -t:<assembly>
       Specifies the assembly name or the assembly path of the searching target.
       If omitted, it will target 'FSharp.Core', 'mscorlib', 'System' and 'System.Core'.
-  --reference:<assembly>, -r:<assembly>
-      Specifies the assembly name or the assembly path that the targets are dependent.
-      By default, 'mscorlib', 'System', 'System.Core', 'System.Xml', 'System.Configuration' and 'FSharp.Core' are specified.
   --stacktrace[+|-]
       Enables or disables stacktrace output if an exception occurs.
       The default is disabled.
@@ -87,16 +84,15 @@ options:
 [<EntryPoint>]
 let main argv =
   let args = Args.parse Args.empty (List.ofArray argv)
-  let targets, references = Args.targetAndReference args
+  let targets = Args.targetsOrDefault args
   match args with
   | { Help = true } ->
     printfn "%s" helpMessage
   | { Query = Some query } ->
-    let client = FSharpApiSearchClient(targets, references)
+    let client = FSharpApiSearchClient(targets, ApiLoader.databaseName)
     searchAndShowResult client query args.SearchOptions
   | { Query = None } ->
-    printfn "Initializing."
-    let client = FSharpApiSearchClient(targets, references)
+    let client = FSharpApiSearchClient(targets, ApiLoader.databaseName)
     printfn "Targets the following assemblies."
     client.TargetAssemblies |> List.iter (printfn "  %s")
     printfn "Input query or #q to quit."

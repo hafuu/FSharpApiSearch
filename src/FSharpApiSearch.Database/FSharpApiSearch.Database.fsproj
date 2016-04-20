@@ -5,14 +5,14 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>9b49ea5b-ef46-44d5-abde-58e092f72fa9</ProjectGuid>
+    <ProjectGuid>161b5314-cbe0-4df5-a627-72dc0015401d</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>FSharpApiSearch.Trace</RootNamespace>
-    <AssemblyName>FSharpApiSearch.Trace</AssemblyName>
+    <RootNamespace>FSharpApiSearch.Database</RootNamespace>
+    <AssemblyName>FSharpApiSearch.Database</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
-    <Name>FSharpApiSearch.Trace</Name>
+    <Name>FSharpApiSearch.Database</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -23,7 +23,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>bin\Debug\FSharpApiSearch.Trace.XML</DocumentationFile>
+    <DocumentationFile>bin\Debug\FSharpApiSearch.Database.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
@@ -34,7 +34,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>bin\Release\FSharpApiSearch.Trace.XML</DocumentationFile>
+    <DocumentationFile>bin\Release\FSharpApiSearch.Database.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
@@ -43,6 +43,7 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="System" />
+    <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
   </ItemGroup>
@@ -50,16 +51,13 @@
     <None Include="paket.references" />
     <None Include="App.config" />
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="..\..\src\FSharpApiSearch.Console\CommandLine.fs">
+    <Compile Include="..\FSharpApiSearch.Console\CommandLine.fs">
       <Link>CommandLine.fs</Link>
-    </Compile>
-    <Compile Include="..\..\src\FSharpApiSearch.Console\Args.fs">
-      <Link>Args.fs</Link>
     </Compile>
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\FSharpApiSearch\FSharpApiSearch.fsproj">
+    <ProjectReference Include="..\FSharpApiSearch\FSharpApiSearch.fsproj">
       <Name>FSharpApiSearch</Name>
       <Project>{ddc5e009-4efa-49eb-b4aa-46216d00992e}</Project>
       <Private>True</Private>

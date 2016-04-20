@@ -4,6 +4,8 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open FSharpApiSearch.OptionModule
 open FSharpApiSearch.SpecialTypes
 open System.Text.RegularExpressions
+open System.IO
+open Nessos.FsPickler
 
 module Hack = FSharpApiSearch.Hack
 
@@ -708,3 +710,15 @@ let load (assembly: FSharpAssembly): ApiDictionary =
     collectTypeAbbreviations api
     |> Seq.toArray
   { AssemblyName = assembly.SimpleName; Api = api; TypeDefinitions = types; TypeAbbreviations = typeAbbreviations }
+
+let databaseName = "database"
+
+let save path (dictionaries: ApiDictionary[]) =
+  use file = File.OpenWrite(path)
+  let serializer = FsPickler.CreateBinarySerializer()
+  serializer.Serialize(file, dictionaries)
+
+let loadFromFile path =
+  use file = File.OpenRead(path)
+  let serializer = FsPickler.CreateBinarySerializer()
+  serializer.Deserialize<ApiDictionary[]>(file)

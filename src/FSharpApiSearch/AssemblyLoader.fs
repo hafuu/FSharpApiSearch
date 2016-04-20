@@ -4,27 +4,20 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open System.IO
 open System.Reflection
 
-let syslib name =
-  Path.Combine(
-    System.Environment.GetFolderPath(System.Environment.SpecialFolder.ProgramFilesX86)
-    , @"Reference Assemblies\Microsoft\Framework\.NETFramework\v4.5\"
-    , name)
-let fscore4400 =
-  Path.Combine(
-    System.Environment.GetFolderPath(System.Environment.SpecialFolder.ProgramFilesX86)
-    , @"Reference Assemblies\Microsoft\FSharp\.NETFramework\v4.0\4.4.0.0\FSharp.Core.dll")
-
-let resolvePath (assemblyName: string) =
-  let assemblyName = if assemblyName.EndsWith(".dll") = false then assemblyName + ".dll" else assemblyName
-
-  if File.Exists(syslib assemblyName) then
-    Some (syslib assemblyName)
-  elif assemblyName = "FSharp.Core.dll" then
-    Some fscore4400
-  elif File.Exists(assemblyName) then
-    Some (assemblyName)
-  else
-    None
+type AssemblyResolver = {
+  FSharpCore: string
+  Framework: string
+  Directories: string list
+}
+with
+  member this.Resolve(assemblyName: string) =
+    let assemblyName = if assemblyName.EndsWith(".dll") = false then assemblyName + ".dll" else assemblyName
+    if assemblyName = "FSharp.Core.dll" then
+      Some (Path.Combine(this.FSharpCore, assemblyName))
+    else
+      seq { yield! this.Directories; yield this.Framework }
+      |> Seq.map (fun dir -> Path.Combine(dir, assemblyName))
+      |> Seq.tryFindBack File.Exists
 
 let ignoreFSharpCompilerServiceError() =
   typeof<FSharpChecker>.Assembly.GetType("Microsoft.FSharp.Compiler.AbstractIL.Diagnostics")
@@ -35,7 +28,7 @@ let ignoreFSharpCompilerServiceError() =
   |> Option.bind (tryUnbox<ref<Option<System.IO.TextWriter>>>)
   |> Option.iter (fun x -> x := None)
 
-let load references =
+let load (assemblyResolver: AssemblyResolver) references =
   ignoreFSharpCompilerServiceError()
 
   let checker = FSharpChecker.Create()
@@ -57,7 +50,7 @@ let load references =
             yield "--flaterrors" 
             yield "--target:library" 
             yield fileName1
-            for r in references |> Seq.choose resolvePath do
+            for r in references |> Seq.choose assemblyResolver.Resolve do
               yield "-r:" + r |]
       )
   let refAssemblies =

@@ -2,6 +2,7 @@ source https://nuget.org/api/v2
 
 nuget FParsec
 nuget FSharp.Compiler.Service
+nuget FsPickler
 
 group Build
   source https://nuget.org/api/v2

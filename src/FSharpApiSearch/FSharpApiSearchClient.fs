@@ -1,6 +1,7 @@
 ﻿namespace FSharpApiSearch
 
 open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharpApiSearch.AssemblyLoader
 
 type FSharpApiSearchClient(targets: string seq, dictionaries: ApiDictionary seq) =
   let dictionaries = dictionaries |> Seq.toArray
@@ -22,9 +23,7 @@ type FSharpApiSearchClient(targets: string seq, dictionaries: ApiDictionary seq)
     "FSharp.Core"
   ]
 
-  new (targets, assemblies: FSharpAssembly seq) = FSharpApiSearchClient(targets, Seq.map ApiLoader.load assemblies)
-  new (targets: string seq, references: string seq) = FSharpApiSearchClient(targets, FSharpApiSearch.AssemblyLoader.load references)
-  new () = FSharpApiSearchClient(FSharpApiSearchClient.DefaultTargets, FSharpApiSearchClient.DefaultReferences)
+  new (targets, databasePath) = FSharpApiSearchClient(targets, ApiLoader.loadFromFile databasePath)
 
   member this.Search(query: string, options: SearchOptions) = Matcher.search dictionaries options apis query
 

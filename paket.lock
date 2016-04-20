@@ -3,6 +3,7 @@ NUGET
   specs:
     FParsec (1.0.2)
     FSharp.Compiler.Service (2.0.0.4)
+    FsPickler (2.1)
 
 GROUP Build
 NUGET
@@ -11,22 +12,22 @@ NUGET
     FAKE (4.16.1)
     FAKE.Lib (4.16.1)
     FAKE.Persimmon (1.0.2)
-      FAKE.Lib (>= 4.1.0)
+      FAKE.Lib (>= 4.1)
     FSharp.Compiler.Service (1.4.2.3)
     FSharp.Formatting (2.13.4)
-      FSharp.Compiler.Service (>= 1.4.2 < 1.5.0)
-      FSharpVSPowerTools.Core (>= 2.2.0 < 2.3.0)
-    FSharpVSPowerTools.Core (2.2.0)
-      FSharp.Compiler.Service (>= 1.4.2.0)
+      FSharp.Compiler.Service (>= 1.4.2 < 1.5)
+      FSharpVSPowerTools.Core (>= 2.2 < 2.3)
+    FSharpVSPowerTools.Core (2.2)
+      FSharp.Compiler.Service (>= 1.4.2)
     Microsoft.Bcl (1.1.10)
       Microsoft.Bcl.Build (>= 1.0.14)
     Microsoft.Bcl.Build (1.0.21) - import_targets: false
     Microsoft.Net.Http (2.2.29)
       Microsoft.Bcl (>= 1.1.10)
       Microsoft.Bcl.Build (>= 1.0.14)
-    Octokit (0.17.0)
+    Octokit (0.17)
       Microsoft.Net.Http
-    SourceLink.Fake (1.1.0)
+    SourceLink.Fake (1.1)
 GITHUB
   remote: fsharp/FAKE
   specs:

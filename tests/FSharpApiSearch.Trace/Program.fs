@@ -4,16 +4,21 @@ open FSharpApiSearch
 open FSharpApiSearch.Console
 open System
 open System.Diagnostics
+open System.IO
 
+let assemblyResolver: AssemblyLoader.AssemblyResolver = {
+  FSharpCore = Path.Combine(System.Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Reference Assemblies\Microsoft\FSharp\.NETFramework\v4.0\4.4.0.0\")
+  Framework = Path.Combine(System.Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Reference Assemblies\Microsoft\Framework\.NETFramework\v4.5\")
+  Directories = []
+}
 
 [<EntryPoint>]
 let main argv =
   let args = Args.parse Args.empty (List.ofArray argv)
   let options = args.SearchOptions
-  let targets, references = Args.targetAndReference args
 
-  let assemblies = AssemblyLoader.load references
-  let dictionaries = Seq.map ApiLoader.load assemblies |> Seq.toArray
+  let dictionaries = ApiLoader.loadFromFile ApiLoader.databaseName
+  let targets = Args.targetsOrDefault args
   let targetAssemblies = dictionaries |> Seq.filter (fun x -> targets |> Seq.exists ((=)x.AssemblyName)) |> Seq.toArray
 
   let apis = targetAssemblies |> Seq.collect (fun x -> x.Api) |> Seq.toArray

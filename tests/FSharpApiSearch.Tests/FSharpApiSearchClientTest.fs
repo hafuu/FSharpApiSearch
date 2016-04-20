@@ -13,7 +13,9 @@ let assemblyPath =
     , assemblyName + ".dll")
 
 let testClient = test {
-  return FSharpApiSearchClient([ assemblyName ], assemblyPath :: FSharpApiSearchClient.DefaultReferences)
+  let assemblies = AssemblyLoader.load TestAssemblies.assemblyResolver (assemblyPath :: FSharpApiSearchClient.DefaultReferences)
+  let dictionaries = assemblies |> Seq.map ApiLoader.load
+  return FSharpApiSearchClient([ assemblyName ], dictionaries)
 }
 
 let searchTest = parameterize {

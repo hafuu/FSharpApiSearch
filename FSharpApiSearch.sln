@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.24720.0
+VisualStudioVersion = 14.0.25123.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{63297B98-5CED-492C-A5B7-A5B4F73CF142}"
 	ProjectSection(SolutionItems) = preProject
@@ -45,6 +45,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharpApiSearch.Trace", "te
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CSharpLoadTestAssembly", "tests\CSharpLoadTestAssembly\CSharpLoadTestAssembly.csproj", "{6273542C-01F5-4EBF-8AAB-9FCAA96BEA62}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharpApiSearch.Database", "src\FSharpApiSearch.Database\FSharpApiSearch.Database.fsproj", "{161B5314-CBE0-4DF5-A627-72DC0015401D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -79,6 +81,10 @@ Global
 		{6273542C-01F5-4EBF-8AAB-9FCAA96BEA62}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6273542C-01F5-4EBF-8AAB-9FCAA96BEA62}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6273542C-01F5-4EBF-8AAB-9FCAA96BEA62}.Release|Any CPU.Build.0 = Release|Any CPU
+		{161B5314-CBE0-4DF5-A627-72DC0015401D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{161B5314-CBE0-4DF5-A627-72DC0015401D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{161B5314-CBE0-4DF5-A627-72DC0015401D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{161B5314-CBE0-4DF5-A627-72DC0015401D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
