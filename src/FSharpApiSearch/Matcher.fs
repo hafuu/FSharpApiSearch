@@ -499,6 +499,7 @@ module ConstraintSolver =
         )
         yield! results
     | Variable _ -> yield ctx
+    | Wildcard _ -> yield ctx
     | _ -> ()
   }
 

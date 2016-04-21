@@ -1056,6 +1056,11 @@ module TypeConstraintTest =
         moduleValue (variable "a"),
         [ equalityCon "a" ],
         false)
+      // bug #59
+      ("?[]",
+        moduleValue (variable "a"),
+        [ equalityCon "a" ],
+        true)
     ]
     run (testConstraint false)
   }
