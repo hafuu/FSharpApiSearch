@@ -168,11 +168,12 @@ type OptionStatus = Enabled | Disabled
 type SearchOptions = {
   SimilaritySearching: OptionStatus
   StrictQueryVariable: OptionStatus
+  IgnoreArgumentStyle: OptionStatus
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module SearchOptions =
-  let defaultOptions = { SimilaritySearching = Disabled; StrictQueryVariable = Enabled }
+  let defaultOptions = { SimilaritySearching = Disabled; StrictQueryVariable = Enabled; IgnoreArgumentStyle = Enabled }
 
 type Result = {
   Api: Api
@@ -240,6 +241,10 @@ module SpecialTypes =
             else
               None
         | _ -> None
+      let (|NonTuple|_|) x =
+        match x with
+        | Tuple _ -> None
+        | _ -> Some x 
 
 module internal Print =
   open SpecialTypes

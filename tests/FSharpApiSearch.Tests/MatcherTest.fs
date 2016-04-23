@@ -29,24 +29,26 @@ let tupleMethod = method' "method" [ tuple [ typeA; typeB ] ] typeA
 let unitArgmentMethod = method' "method" [ unit ] typeA
 
 let typeA_constructor = method' "A" [ typeB ] typeA
+let typeA_tuple_constructor = method' "A" [ tuple [ typeB; typeB ] ] typeA
+let typeA_2arg_constructor = method' "A" [ typeB; typeB ] typeA
 
 let property = member' "property" (MemberKind.Property PropertyKind.GetSet) [] typeA
 let indexedProperty = member' "property" (MemberKind.Property PropertyKind.GetSet) [ typeB ] typeA
 
 type Expected =
   | Always of bool
-  | WhenStrict of bool
+  | WhenEnabled of bool
 
 let expectedValue strictOpt expected =
   match expected, strictOpt with
   | Always b, _ -> b
-  | WhenStrict b, Enabled -> b
-  | WhenStrict b, Disabled -> not b
+  | WhenEnabled b, Enabled -> b
+  | WhenEnabled b, Disabled -> not b
 
 let strictInequalitiesTest =
   test {
     let query = QueryParser.parse "?a -> ?b -> 'a -> 'b"
-    let opt = { SimilaritySearching = Disabled; StrictQueryVariable = Enabled }
+    let opt = SearchOptions.defaultOptions
     let eqs = Matcher.Equations.empty |> Matcher.Initializer.initialEquations opt query
     do! eqs.Inequalities |> assertEquals [ (queryVariable "a", queryVariable "b"); (Wildcard (Some "a"), Wildcard (Some "b")) ]
   }
@@ -64,12 +66,12 @@ let nameMatchTest =
     ]
     run (fun (query, targetName, targetSig, expected) -> test {
       let target: Api = { Name = ReverseName.ofString targetName; Signature = targetSig; TypeConstraints = [] }
-      let actual = Matcher.search Array.empty { SimilaritySearching = Disabled; StrictQueryVariable = Enabled } [ target ] query |> Seq.length = 1
+      let actual = Matcher.search Array.empty SearchOptions.defaultOptions [ target ] query |> Seq.length = 1
       do! actual |> assertEquals expected
     })
   }
 
-let matchTest' trace similarity cases = parameterize {
+let matchStrictTest' trace similarity cases = parameterize {
   source (seq {
     for strictOpt in [ Enabled; Disabled ] do
       for (query, target, expected) in cases do
@@ -80,7 +82,25 @@ let matchTest' trace similarity cases = parameterize {
     do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
     let targetApi: Api = { Name = ReverseName.ofString "test"; Signature = target; TypeConstraints = [] }
     let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
-    let options = { SimilaritySearching = similarity; StrictQueryVariable = strictOpt }
+    let options = { SearchOptions.defaultOptions with SimilaritySearching = similarity; StrictQueryVariable = strictOpt }
+    let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.length = 1
+    do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
+    do! actual |> assertEquals expected
+  })
+}
+
+let functionArgStyleTest trace cases = parameterize {
+  source (seq {
+      for opt in [ Enabled; Disabled ] do
+      for (query, target, expected) in cases do
+        yield (opt, query, target, expectedValue opt expected)
+  })
+  run (fun (ignoreArgStyleOpt, query, target, expected) -> test {
+    use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
+    do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
+    let targetApi: Api = { Name = ReverseName.ofString "test"; Signature = target; TypeConstraints = [] }
+    let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
+    let options = { SearchOptions.defaultOptions with IgnoreArgumentStyle = ignoreArgStyleOpt }
     let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.length = 1
     do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
     do! actual |> assertEquals expected
@@ -88,8 +108,8 @@ let matchTest' trace similarity cases = parameterize {
 }
 
 module NonsimilarityTest =
-  let matchTest cases = matchTest' false Disabled cases
-  let trace cases = matchTest' true Disabled cases
+  let matchTest cases = matchStrictTest' false Disabled cases
+  let trace cases = matchStrictTest' true Disabled cases
 
   let identityTest =
     matchTest [
@@ -109,7 +129,7 @@ module NonsimilarityTest =
       "'A", moduleValue (tuple [ typeA; typeB ]), Always false
       "A * B", moduleValue variableA, Always false
       "'A", moduleFunction [ typeA; typeA ], Always false
-      "'A -> 'B", moduleFunction [ variableA; variableA ], WhenStrict false
+      "'A -> 'B", moduleFunction [ variableA; variableA ], WhenEnabled false
     ]
 
   let tupleTest =
@@ -126,6 +146,9 @@ module NonsimilarityTest =
       "A -> A -> A", moduleFunction [ typeA; typeA ], Always false
       "(A -> A) -> A", moduleFunction [ arrow [ typeA; typeA ]; typeA ], Always true
       "A -> A -> A", moduleFunction [ arrow [ typeA; typeA ]; typeA ], Always false
+
+      "A -> A -> A", moduleFunction [ typeA; typeA; typeA ], Always true
+      "A * A -> A", moduleFunction [ tuple [ typeA; typeA ]; typeA ], Always true
     ]
 
   let genericTest =
@@ -171,7 +194,7 @@ module NonsimilarityTest =
       "?a -> ?a", moduleFunction [ typeA; typeB ], Always false
       "?a -> ?a", moduleFunction [ typeA; variableA ], Always false
       "?a -> ?b", moduleFunction [ typeA; typeB ], Always true
-      "?a -> ?b", moduleFunction [ typeA; typeA ], WhenStrict false
+      "?a -> ?b", moduleFunction [ typeA; typeA ], WhenEnabled false
     ]
 
   let typeAbbreviationTest =
@@ -189,76 +212,9 @@ module NonsimilarityTest =
       "float", moduleValue Int32, Always false
     ]
 
-  let staticMemberTest =
-    matchTest [
-      "A -> B -> A", staticMember typeA curriedMethod, Always true
-      "A -> A -> A", staticMember typeA curriedMethod, Always false
-      "A * B -> A", staticMember typeA curriedMethod, Always false
-
-      "A -> B -> A", staticMember typeA nonCurriedMethod, Always true
-      "A -> A -> A", staticMember typeA nonCurriedMethod, Always false
-      "A * B -> A", staticMember typeA nonCurriedMethod, Always false
-
-      "A -> B -> A", staticMember typeA tupleMethod, Always false
-      "A * B -> A", staticMember typeA tupleMethod, Always true
-
-      "?", staticMember typeA tupleMethod, Always false
-      "? -> A", staticMember typeA tupleMethod, Always true
-
-      "A", staticMember typeA property, Always true
-      "B", staticMember typeA property, Always false
-      "?", staticMember typeA property, Always true
-
-      "B -> A", staticMember typeA indexedProperty, Always true
-      "B -> B", staticMember typeA indexedProperty, Always false
-      "A", staticMember typeA indexedProperty, Always false
-      "?", staticMember typeA indexedProperty, Always false
-
-      "B -> A", constructor' typeA typeA_constructor, Always true
-      "B -> B -> A", constructor' typeA typeA_constructor, Always false
-    ]
-
-  let instanceMemberTest =
-    matchTest [
-      "A => A -> B -> A", instanceMember typeA curriedMethod, Always true
-      "A => A * B -> A", instanceMember typeA curriedMethod, Always false
-      "A => A -> A -> A", instanceMember typeA curriedMethod, Always false
-      "B => A -> B -> A", instanceMember typeA curriedMethod, Always false
-
-      "A => A -> B -> A", instanceMember typeA nonCurriedMethod, Always true
-      "A => A * B -> A", instanceMember typeA nonCurriedMethod, Always false
-      "A => A -> A -> A", instanceMember typeA nonCurriedMethod, Always false
-
-      "? => A -> B -> A", instanceMember typeA curriedMethod, Always true
-      "? => ?", instanceMember typeA curriedMethod, Always false
-      "?", instanceMember typeA curriedMethod, Always false
-
-      "A => A * B -> A", instanceMember typeA tupleMethod, Always true
-      "A => A -> B -> A", instanceMember typeA tupleMethod, Always false
-
-      "A => A", instanceMember typeA property, Always true
-      "A => B", instanceMember typeA property, Always false
-      "A => ?", instanceMember typeA property, Always true
-      "?", instanceMember typeA property, Always false
-
-      "A => B -> A", instanceMember typeA indexedProperty, Always true
-      "A => B -> B", instanceMember typeA indexedProperty, Always false
-      "A => A", instanceMember typeA indexedProperty, Always false
-      "A => ?", instanceMember typeA indexedProperty, Always false
-
-      "C<'a> => A -> B -> A", instanceMember (typeC variableA) curriedMethod, Always true
-      "C<A> => A -> B -> A", instanceMember (typeC variableA) curriedMethod, Always false
-    ]
-
-  let instanceMemberSperialRuleTest =
-    matchTest [
-      "A => A", instanceMember typeA unitArgmentMethod, Always true
-      "A => B -> C<A>", moduleFunction [ typeB; typeA; typeC typeA ], Always true
-    ]
-
 module SimilarityTest =
-  let matchTest cases = matchTest' false Enabled cases
-  let trace cases = matchTest' true Enabled cases
+  let matchTest cases = matchStrictTest' false Enabled cases
+  let trace cases = matchStrictTest' true Enabled cases
 
   let variableTest =
     matchTest [
@@ -283,7 +239,7 @@ module SimilarityTest =
       "A -> B", moduleFunction [ typeA; typeB ], Always true
 
       "'a -> 'b", moduleFunction [ typeA; typeB ], Always true
-      "'a -> 'b", moduleFunction [ typeA; typeA ], WhenStrict false
+      "'a -> 'b", moduleFunction [ typeA; typeA ], WhenEnabled false
 
       "A -> B", moduleFunction [ variableA; variableB ], Always true
       "A -> A", moduleFunction [ variableA; variableB ], Always true
@@ -314,9 +270,6 @@ module SimilarityTest =
       "? -> ?", moduleFunction [ variableA; variableB ], 0
       "? -> A", moduleFunction [ variableA; variableB ], 1
 
-      "A => A", instanceMember typeA unitArgmentMethod, 1
-      "A => B -> C<A>", moduleFunction [ typeB; typeA; typeC typeA ], 1
-
       // bug #16
       "('a * A) -> A", moduleFunction [ tuple [ variableA; variableB ]; variableB ], 1
       "('a * A) -> A", moduleFunction [ tuple [ variableA; variableB ]; variableA ], 2
@@ -325,7 +278,116 @@ module SimilarityTest =
     run (fun (query, target, expected) -> test {
       let targetApi: Api = { Name = ReverseName.ofString "test"; Signature = target; TypeConstraints = [] }
       let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
-      let options = { SimilaritySearching = Enabled; StrictQueryVariable = Enabled }
+      let options = { SimilaritySearching = Enabled; StrictQueryVariable = Enabled; IgnoreArgumentStyle = Enabled }
+      let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.head
+      do! actual.Distance |> assertEquals expected
+    })
+  }
+
+module IgnoreArgumentStyleTest =
+  let matchTest = functionArgStyleTest false
+
+  let arrowTest =
+    matchTest [
+      "A -> A -> A", moduleFunction [ typeA; typeA; typeA ], Always true
+      "A -> A -> A", moduleFunction [ tuple [ typeA; typeA ]; typeA ], WhenEnabled true
+      "A * A -> A", moduleFunction [ tuple [ typeA; typeA ]; typeA ], Always true
+      "A * A -> A", moduleFunction [ typeA; typeA; typeA ], WhenEnabled true
+
+      "? -> A", moduleFunction [ typeA; typeA; typeA ], Always false
+      "? -> A", moduleFunction [ tuple [ typeA; typeA ]; typeA ], Always true
+    ]
+
+  let staticMemberTest =
+    matchTest [
+      "A -> B -> A", staticMember typeA curriedMethod, Always true
+      "A * B -> A", staticMember typeA curriedMethod, WhenEnabled true
+
+      "A -> B -> A", staticMember typeA nonCurriedMethod, WhenEnabled true
+      "A * B -> A", staticMember typeA nonCurriedMethod, Always true
+
+      "A -> B -> A", staticMember typeA tupleMethod, WhenEnabled true
+      "A * B -> A", staticMember typeA tupleMethod, Always true
+
+      "?", staticMember typeA tupleMethod, Always false
+      "? -> A", staticMember typeA tupleMethod, Always true
+
+      "A", staticMember typeA property, Always true
+      "B", staticMember typeA property, Always false
+      "?", staticMember typeA property, Always true
+
+      "B -> A", staticMember typeA indexedProperty, Always true
+      "B -> B", staticMember typeA indexedProperty, Always false
+      "A", staticMember typeA indexedProperty, Always false
+      "?", staticMember typeA indexedProperty, Always false
+    ]
+
+  let constructorRule =
+    matchTest [
+      "B -> A", constructor' typeA typeA_constructor, Always true
+      "B -> B -> A", constructor' typeA typeA_constructor, Always false
+
+      "B * B -> A", constructor' typeA typeA_2arg_constructor, Always true
+      "B -> B -> A", constructor' typeA typeA_2arg_constructor, WhenEnabled true
+
+      "B * B -> A", constructor' typeA typeA_tuple_constructor, Always true
+      "B -> B -> A", constructor' typeA typeA_tuple_constructor, WhenEnabled true
+    ]
+
+  let instanceMemberTest =
+    matchTest [
+      "A => A -> B -> A", instanceMember typeA curriedMethod, Always true
+      "A => A * B -> A", instanceMember typeA curriedMethod, WhenEnabled true
+      "A => A -> A -> A", instanceMember typeA curriedMethod, Always false
+      "B => A -> B -> A", instanceMember typeA curriedMethod, Always false
+
+      "A => A -> B -> A", instanceMember typeA nonCurriedMethod, WhenEnabled true
+      "A => A * B -> A", instanceMember typeA nonCurriedMethod, Always true
+      "A => A * A -> A", instanceMember typeA nonCurriedMethod, Always false
+
+      "? => A -> B -> A", instanceMember typeA curriedMethod, Always true
+      "? => ?", instanceMember typeA curriedMethod, Always false
+      "?", instanceMember typeA curriedMethod, Always false
+
+      "A => A * B -> A", instanceMember typeA tupleMethod, Always true
+      "A => A -> B -> A", instanceMember typeA tupleMethod, WhenEnabled true
+
+      "A => A", instanceMember typeA property, Always true
+      "A => B", instanceMember typeA property, Always false
+      "A => ?", instanceMember typeA property, Always true
+      "?", instanceMember typeA property, Always false
+
+      "A => B -> A", instanceMember typeA indexedProperty, Always true
+      "A => B -> B", instanceMember typeA indexedProperty, Always false
+      "A => A", instanceMember typeA indexedProperty, Always false
+      "A => ?", instanceMember typeA indexedProperty, Always false
+
+      "C<'a> => A -> B -> A", instanceMember (typeC variableA) curriedMethod, Always true
+      "C<A> => A -> B -> A", instanceMember (typeC variableA) curriedMethod, Always false
+    ]
+
+  let instanceMemberSperialRuleTest =
+    matchTest [
+      "A => A", instanceMember typeA unitArgmentMethod, Always true
+      "A => B -> C<A>", moduleFunction [ typeB; typeA; typeC typeA ], Always true
+      "A => B -> C<A>", moduleFunction [ tuple [ typeB; typeA ]; typeC typeA ], Always false
+    ]
+
+  let distanceTest = parameterize {
+    source [
+      "A -> B -> A", staticMember typeA curriedMethod, 0
+      "A * B -> A", staticMember typeA curriedMethod, 1
+      "A -> B -> A", staticMember typeA nonCurriedMethod, 1
+      "A -> B -> A", staticMember typeA tupleMethod, 1
+
+      "A => A", instanceMember typeA unitArgmentMethod, 1
+      "A => B -> C<A>", moduleFunction [ typeB; typeA; typeC typeA ], 1
+    ]
+
+    run (fun (query, target, expected) -> test {
+      let targetApi: Api = { Name = ReverseName.ofString "test"; Signature = target; TypeConstraints = [] }
+      let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
+      let options = { SimilaritySearching = Disabled; StrictQueryVariable = Enabled; IgnoreArgumentStyle = Enabled }
       let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.head
       do! actual.Distance |> assertEquals expected
     })
@@ -733,7 +795,7 @@ module TypeConstraintTest =
       dictionary
     |]
 
-    let options = { SimilaritySearching = Enabled; StrictQueryVariable = Enabled }
+    let options = { SimilaritySearching = Enabled; StrictQueryVariable = Enabled; IgnoreArgumentStyle = Enabled }
     let actual = Matcher.search dictionaries options [ targetApi ] query |> Seq.length = 1
     do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
     do! actual |> assertEquals expected

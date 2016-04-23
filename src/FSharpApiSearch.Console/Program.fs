@@ -44,6 +44,7 @@ module Interactive =
 
   let StrictQueryVariable = { Get = (fun x -> x.StrictQueryVariable ); Set = (fun value x -> { x with StrictQueryVariable = value }) }
   let SimilaritySearching = { Get = (fun x -> x.SimilaritySearching ); Set = (fun value x -> { x with SimilaritySearching = value }) }
+  let IgnoreArgumentStyle = { Get = (fun x -> x.IgnoreArgumentStyle); Set = (fun value x -> { x with IgnoreArgumentStyle = value }) }
   let StackTrace = { Get = (fun x -> x.StackTrace); Set = (fun value x -> { x with StackTrace = value }) }
 
   let rec loop (client: FSharpApiSearchClient) arg =
@@ -52,6 +53,7 @@ module Interactive =
     | "#q" -> arg
     | OptionSetting "#strict" StrictQueryVariable arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#similarity" SimilaritySearching arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
+    | OptionSetting "#ignore-argstyle" IgnoreArgumentStyle arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#stacktrace" StackTrace arg newArg -> loop client newArg
     | query ->
       try
@@ -72,6 +74,10 @@ options:
   --similarity[+|-]
       Enables or disables the similarity searching.
       The default is disabled.
+  --ignore-argstyle[+|-]
+      Enables of disables to ignore the difference of the argument style.
+      The argument style refers to curried argument, multi argument and tuple argument.
+      The default is enabled.
   --target:<assembly>, -t:<assembly>
       Specifies the assembly name or the assembly path of the searching target.
       If omitted, it will target 'FSharp.Core', 'mscorlib', 'System' and 'System.Core'.

@@ -263,6 +263,26 @@ module LowTypeMatcher =
         testAll lowTypeMatcher leftElems rightElems ctx
       | _ -> Continue ctx
 
+    let arrowRule_IgnoreArgumentStyle lowTypeMatcher left right ctx =
+      match left, right with
+      | Arrow leftElems, Arrow rightElems ->
+        Debug.WriteLine("arrow rule (ignore argument style).")
+        match leftElems, rightElems with
+        | [ Tuple _; _ ], [ Tuple _; _ ]
+        | [ Wildcard _; _ ], _
+        | _, [ Wildcard _; _ ] ->
+          testAll lowTypeMatcher leftElems rightElems ctx
+        | [ Tuple leftArgs; leftRet ], _ ->
+          let leftElems = seq { yield! leftArgs; yield leftRet }
+          testAll lowTypeMatcher leftElems rightElems ctx
+          |> MatchingResult.mapMatched (Context.addDistance 1)
+        | _, [ Tuple rightArgs; rightRet ] ->
+          let rightElems = seq { yield! rightArgs; yield rightRet }
+          testAll lowTypeMatcher leftElems rightElems ctx
+          |> MatchingResult.mapMatched (Context.addDistance 1)
+        | _, _ -> testAll lowTypeMatcher leftElems rightElems ctx 
+      | _ -> Continue ctx
+
     let genericRule lowTypeMatcher left right ctx =
       match left, right with
       | Generic (leftId, leftArgs), Generic (rightId, rightArgs) ->
@@ -290,21 +310,25 @@ module LowTypeMatcher =
           testVariableEquality lowTypeMatcher left right ctx
       | _ -> Continue ctx
 
-  let instance searchOption =
+  let instance options =
     let rule =
       Rule.compose [
         yield Rules.typeAbbreviationRule
         yield Rules.wildcardGroupRule
         yield Rules.wildcardRule
     
-        match searchOption with
+        match options with
         | { SimilaritySearching = Enabled } -> yield Rules.similarityVariableRule
         | { SimilaritySearching = Disabled } -> yield Rules.variableRule
 
         yield Rules.identityRule
         yield Rules.tupleRule
         yield Rules.genericRule
-        yield Rules.arrowRule
+
+        match options with
+        | { IgnoreArgumentStyle = Enabled } -> yield Rules.arrowRule_IgnoreArgumentStyle
+        | { IgnoreArgumentStyle = Disabled } -> yield Rules.arrowRule
+        
         yield Rule.terminator
       ]
     { new ILowTypeMatcher with member this.Test left right ctx = Rule.run rule this left right ctx }
@@ -316,7 +340,7 @@ module PublishedApi =
     | ApiSignature.TypeAbbreviation _ -> Failure
     | _ -> Matched ctx
 
-  let instance options =
+  let instance (_: SearchOptions) =
     { new IApiMatcher with
         member this.Name = "Published Api Matcher"
         member this.Test lowTypeMatcher query api ctx = test api ctx }
@@ -330,7 +354,7 @@ module NameMatcher =
       else
         Failure
     | _ -> Matched ctx
-  let instance options =
+  let instance (_: SearchOptions) =
     { new IApiMatcher with
         member this.Name = "Name Matcher"
         member this.Test lowTypeMatcher query api ctx = test query api ctx }
@@ -366,39 +390,87 @@ module SignatureMatcher =
       | Arrow xs -> xs
       | other -> [ other ]
 
+    let normalizeMember member' = seq {
+      match member'.IsCurried, member'.Arguments with
+      | _, [] -> ()
+      | true, args -> yield! args
+      | false, [ one ] -> yield one
+      | false, many -> yield Tuple many
+      yield member'.ReturnType
+    }
+
+    let testMemberArgAndReturn (lowTypeMatcher: ILowTypeMatcher) (left: LowType) (member': Member) ctx =
+      let leftElems = breakArrow left
+      let rightElems = normalizeMember member'
+      testAll lowTypeMatcher leftElems rightElems ctx
+
+    let testMemberArgAndReturn_IgnoreArgumentStyle (lowTypeMatcher: ILowTypeMatcher) (left: LowType) (member': Member) ctx =
+      match left, member' with
+      | Arrow [ Tuple leftArgs; leftRet ], { IsCurried = true } ->
+        let leftElems = seq { yield! leftArgs; yield leftRet }
+        let rightElems = seq { yield! member'.Arguments; yield member'.ReturnType }
+        testAll lowTypeMatcher leftElems rightElems ctx
+        |> MatchingResult.mapMatched (Context.addDistance 1)
+      | Arrow [ _; _ ], { IsCurried = false } ->
+        testMemberArgAndReturn lowTypeMatcher left member' ctx
+      | Arrow leftElems, { IsCurried = false; Arguments = [ Tuple rightArgs ] } ->
+        let rightElems = seq { yield! rightArgs; yield member'.ReturnType }
+        testAll lowTypeMatcher leftElems rightElems ctx
+        |> MatchingResult.mapMatched (Context.addDistance 1)
+      | Arrow leftElems, { IsCurried = false } ->
+        let rightElems = seq { yield! member'.Arguments; yield member'.ReturnType }
+        testAll lowTypeMatcher leftElems rightElems ctx
+        |> MatchingResult.mapMatched (Context.addDistance 1)
+      | _ -> testMemberArgAndReturn lowTypeMatcher left member' ctx
+
     let staticMemberRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
       match left, right with
       | SignatureQuery.Signature left, ApiSignature.StaticMember (_, member') ->
         Debug.WriteLine("static member rule.")
-        let leftElems = breakArrow left
-        let rightElems = seq { yield! member'.Arguments; yield member'.ReturnType }
-        testAll lowTypeMatcher leftElems rightElems ctx
+        testMemberArgAndReturn lowTypeMatcher left member' ctx
+      | _ -> Continue ctx
+
+    let staticMemberRule_IgnoreArgumentStyle (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
+      match left, right with
+      | SignatureQuery.Signature left, ApiSignature.StaticMember (_, member') ->
+        Debug.WriteLine("static member rule (ignore argument style).")
+        testMemberArgAndReturn_IgnoreArgumentStyle lowTypeMatcher left member' ctx
       | _ -> Continue ctx
 
     let constructorRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
       match left, right with
       | SignatureQuery.Signature left, ApiSignature.Constructor (_, member') ->
         Debug.WriteLine("constructor rule.")
-        let leftElems = breakArrow left
-        let rightElems = seq { yield! member'.Arguments; yield member'.ReturnType }
-        testAll lowTypeMatcher leftElems rightElems ctx
+        testMemberArgAndReturn lowTypeMatcher left member' ctx
+      | _ -> Continue ctx
+
+    let constructorRule_IgnoreArgumentStyle (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
+      match left, right with
+      | SignatureQuery.Signature left, ApiSignature.Constructor (_, member') ->
+        Debug.WriteLine("constructor rule (ignore argument style).")
+        testMemberArgAndReturn_IgnoreArgumentStyle lowTypeMatcher left member' ctx
       | _ -> Continue ctx
 
     let instanceMemberRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
       match left, right with
       | SignatureQuery.InstanceMember (Receiver = queryReceiver; Arguments = queryArguments; ReturnType = queryReturnType), ApiSignature.InstanceMember (declaringType, member') ->
         Debug.WriteLine("instance member rule.")
-        let leftElems = [
-          yield queryReceiver
-          yield! queryArguments
-          yield queryReturnType
-        ]
-        let rightElems = [
-          yield declaringType
-          yield! member'.Arguments
-          yield member'.ReturnType
-        ]
-        testAll lowTypeMatcher leftElems rightElems ctx
+        lowTypeMatcher.Test queryReceiver declaringType ctx
+        |> MatchingResult.bindMatched (fun ctx ->
+          let left = Arrow [ yield! queryArguments; yield queryReturnType ]
+          testMemberArgAndReturn lowTypeMatcher left member' ctx
+        )
+      | _ -> Continue ctx
+
+    let instanceMemberRule_IgnoreArgumentStyle (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
+      match left, right with
+      | SignatureQuery.InstanceMember (Receiver = queryReceiver; Arguments = queryArguments; ReturnType = queryReturnType), ApiSignature.InstanceMember (declaringType, member') ->
+        Debug.WriteLine("instance member rule (ignore argument style).")
+        lowTypeMatcher.Test queryReceiver declaringType ctx
+        |> MatchingResult.bindMatched (fun ctx ->
+          let left = Arrow [ yield! queryArguments; yield queryReturnType ]
+          testMemberArgAndReturn_IgnoreArgumentStyle lowTypeMatcher left member' ctx
+        )
       | _ -> Continue ctx
 
     let instanceMemberUnitArgumentRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
@@ -433,16 +505,28 @@ module SignatureMatcher =
     | QueryMethod.BySignature s -> Some s
     | QueryMethod.ByName (_, s) -> Some s
 
-  let instance (_: SearchOptions) =
+  let instance (options: SearchOptions) =
     let rule =
       Rule.compose [
         yield Rules.moduleValueRule
         yield Rules.moduleFunctionRule
-        yield Rules.staticMemberRule
-        yield Rules.constructorRule
+
+        match options with
+        | { IgnoreArgumentStyle = Enabled } ->
+          yield Rules.staticMemberRule_IgnoreArgumentStyle
+          yield Rules.constructorRule_IgnoreArgumentStyle
+        | { IgnoreArgumentStyle = Disabled } ->
+          yield Rules.staticMemberRule
+          yield Rules.constructorRule
+        
         yield Rules.instanceMemberUnitArgumentRule
         yield Rules.instanceMemberAndFunctionRule
-        yield Rules.instanceMemberRule
+        match options with
+        | { IgnoreArgumentStyle = Enabled } ->
+          yield Rules.instanceMemberRule_IgnoreArgumentStyle
+        | { IgnoreArgumentStyle = Disabled } ->
+          yield Rules.instanceMemberRule
+        
         yield Rule.terminator
       ]
     { new IApiMatcher with

@@ -24,6 +24,7 @@ module Args =
   let rec parse arg = function
     | Status "--strict" v :: rest -> parse { arg with SearchOptions = { arg.SearchOptions with StrictQueryVariable = boolToOptionStatus v } } rest
     | Status "--similarity" v :: rest -> parse { arg with SearchOptions = { arg.SearchOptions with SimilaritySearching = boolToOptionStatus v } } rest
+    | Status "--ignore-argstyle" v :: rest -> parse { arg with SearchOptions = { arg.SearchOptions with IgnoreArgumentStyle = boolToOptionStatus v } } rest
     | (KeyValue "--target" t | KeyValue "-t" t) :: rest -> parse { arg with Targets = t :: arg.Targets } rest
     | Status "--stacktrace" v :: rest -> parse { arg with StackTrace = boolToOptionStatus v } rest
     | ("--help" | "-h") :: rest -> parse { arg with Help = true } rest
