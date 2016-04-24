@@ -380,6 +380,9 @@ module IgnoreArgumentStyleTest =
       "A -> B -> A", staticMember typeA nonCurriedMethod, 1
       "A -> B -> A", staticMember typeA tupleMethod, 1
 
+      "A => A", instanceMember typeA property, 0
+      "A", staticMember typeA property, 0
+
       "A => A", instanceMember typeA unitArgmentMethod, 1
       "A => B -> C<A>", moduleFunction [ typeB; typeA; typeC typeA ], 1
     ]

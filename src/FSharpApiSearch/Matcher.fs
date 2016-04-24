@@ -451,13 +451,18 @@ module SignatureMatcher =
         testMemberArgAndReturn_IgnoreArgumentStyle lowTypeMatcher left member' ctx
       | _ -> Continue ctx
 
+    let methodPart queryArguments queryReturnType = // receiver => {methodPart}
+      match queryArguments with
+      | [] -> queryReturnType
+      | _ -> Arrow [ yield! queryArguments; yield queryReturnType ]
+
     let instanceMemberRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
       match left, right with
       | SignatureQuery.InstanceMember (Receiver = queryReceiver; Arguments = queryArguments; ReturnType = queryReturnType), ApiSignature.InstanceMember (declaringType, member') ->
         Debug.WriteLine("instance member rule.")
         lowTypeMatcher.Test queryReceiver declaringType ctx
         |> MatchingResult.bindMatched (fun ctx ->
-          let left = Arrow [ yield! queryArguments; yield queryReturnType ]
+          let left = methodPart queryArguments queryReturnType
           testMemberArgAndReturn lowTypeMatcher left member' ctx
         )
       | _ -> Continue ctx
@@ -468,7 +473,7 @@ module SignatureMatcher =
         Debug.WriteLine("instance member rule (ignore argument style).")
         lowTypeMatcher.Test queryReceiver declaringType ctx
         |> MatchingResult.bindMatched (fun ctx ->
-          let left = Arrow [ yield! queryArguments; yield queryReturnType ]
+          let left = methodPart queryArguments queryReturnType
           testMemberArgAndReturn_IgnoreArgumentStyle lowTypeMatcher left member' ctx
         )
       | _ -> Continue ctx
