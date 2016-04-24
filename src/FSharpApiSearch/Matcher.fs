@@ -684,8 +684,8 @@ module ConstraintSolver =
         Debug.WriteLine("Member normalize to arrow or function.")
         let members =
           match modifier with
-          | MemberModifier.Static -> testeeTypeDef.StaticMembers
-          | MemberModifier.Instance -> testeeTypeDef.InstanceMembers
+          | MemberModifier.Static -> Seq.append testeeTypeDef.StaticMembers testeeTypeDef.ImplicitStaticMembers
+          | MemberModifier.Instance -> Seq.append testeeTypeDef.InstanceMembers testeeTypeDef.ImplicitInstanceMembers
         let genericTypeReplacements = List.zip testeeTypeDef.GenericParameters testeeArgs |> Map.ofList
         members
         |> Seq.choose (fun member' ->

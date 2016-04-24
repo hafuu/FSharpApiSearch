@@ -439,6 +439,9 @@ module TypeConstraintTest =
     InstanceMembers = []
     StaticMembers = []
     
+    ImplicitInstanceMembers = []
+    ImplicitStaticMembers = []
+
     SupportNull = NotSatisfy
     ReferenceType = Satisfy
     ValueType = NotSatisfy
@@ -675,6 +678,20 @@ module TypeConstraintTest =
         ]
   }
 
+  let ImplicitMemberType = {
+    empty with
+      Name = ReverseName.ofString "Test.ImplicitMemberType"
+      BaseType = Some (instantiate Object [])
+      ImplicitInstanceMembers =
+        [
+          method' "InstanceMethod" [ unit ] unit
+        ]
+      ImplicitStaticMembers =
+        [
+          method' "StaticMethod" [ unit ] unit
+        ]
+  }
+
   let ValueType = {
     empty with
       Name = ReverseName.ofString "Test.ValueType"
@@ -773,7 +790,7 @@ module TypeConstraintTest =
         Parent; Child; GenericParent; GenericChild; AnotherGeneric; IA; IB; ImplA; ImplAB; Foo_X; Bar_X;
         GenericInterface; GenericInterfaceImplement; OriginalTypeAbbreviatedInterface; AbbreviationImplement;
         NullableType; NonNullableType;
-        MemberTestType; GenericMemberTestType;
+        MemberTestType; GenericMemberTestType; ImplicitMemberType;
         ValueType; ReferenceType;
         WithDefaultConstructor; WithoutDefaultConstructor;
         EqualityType; NoEqualityType; DependenceEqualityType1; DependenceEqualityType2; DependenceEqualityType3;
@@ -1010,6 +1027,20 @@ module TypeConstraintTest =
       ("Object -> Object",
         moduleFunction [ variable "a"; variable "b" ],
         [ memberCon [ "a"; "b" ] MemberModifier.Instance (method' "InstanceMethod" [ unit ] unit) ],
+        false)
+
+      // implicit
+      ("ImplicitMemberType",
+        moduleValue (variable "a"),
+        [ memberCon [ "a" ] MemberModifier.Instance (method' "InstanceMethod" [ unit ] unit) ],
+        true)
+      ("ImplicitMemberType",
+        moduleValue (variable "a"),
+        [ memberCon [ "a" ] MemberModifier.Static (method' "StaticMethod" [ unit ] unit) ],
+        true)
+      ("ImplicitMemberType",
+        moduleValue (variable "a"),
+        [ memberCon [ "a" ] MemberModifier.Static (method' "MissingMethod" [ unit ] unit) ],
         false)
     ]
 

@@ -565,6 +565,9 @@ let fullTypeDef (e: FSharpEntity) members =
         | { Signature = ApiSignature.StaticMember (_, m) } -> Some m
         | _ -> None)
       |> Seq.toList
+
+    let implicitInstanceMembers, implicitStaticMembers = CompilerOptimization.implicitMembers identity
+
     let typeDef = {
       Name = identity.Name
       AssemblyName = identity.AssemblyName
@@ -574,6 +577,9 @@ let fullTypeDef (e: FSharpEntity) members =
       TypeConstraints = e.GenericParameters |> collectTypeConstraints
       InstanceMembers = instanceMembers
       StaticMembers = staticMembers
+
+      ImplicitInstanceMembers = implicitInstanceMembers
+      ImplicitStaticMembers = implicitStaticMembers
 
       SupportNull = supportNull e |> boolToConstraintStatus
       ReferenceType = isStruct e |> not |> boolToConstraintStatus

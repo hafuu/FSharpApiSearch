@@ -93,7 +93,10 @@ type FullTypeDefinition = {
   TypeConstraints: TypeConstraint list
   InstanceMembers: Member list
   StaticMembers: Member list
-    
+  
+  ImplicitInstanceMembers: Member list  
+  ImplicitStaticMembers: Member list
+
   // pre-compute for type constraints
   SupportNull: ConstraintStatus
   ReferenceType: ConstraintStatus
@@ -204,7 +207,21 @@ module SpecialTypes =
     let isTuple (x: FullIdentity) =
       x.AssemblyName = mscorlib && x.Name = tupleName
 
+    let Boolean = ofDotNetType typeof<Boolean>
+    let Byte = ofDotNetType typeof<Byte>
+    let Char = ofDotNetType typeof<Char>
+    let Decimal = ofDotNetType typeof<Decimal>
+    let Double = ofDotNetType typeof<Double>
+    let Single = ofDotNetType typeof<Single>
+    let Int32 = ofDotNetType typeof<Int32>
+    let Int16 = ofDotNetType typeof<Int16>
+    let Int64 = ofDotNetType typeof<Int64>
     let IntPtr = ofDotNetType typeof<IntPtr>
+    let SByte = ofDotNetType typeof<SByte>
+    let String = ofDotNetType typeof<String>
+    let UInt16 = ofDotNetType typeof<UInt16>
+    let UInt32 = ofDotNetType typeof<UInt32>
+    let UInt64 = ofDotNetType typeof<UInt64>
     let UIntPtr = ofDotNetType typeof<UIntPtr>
 
     let IComparable = ofDotNetType typeof<IComparable>
@@ -216,10 +233,28 @@ module SpecialTypes =
     let tupleN n = FullIdentity { AssemblyName = mscorlib; Name = FullIdentity.tupleName; GenericParameterCount = n }
 
   module LowType =
-    let Unit = LowType.Identity (Identity.ofDotNetType typeof<Unit>)
+    let ofDotNetType (t: Type) = LowType.Identity (Identity.ofDotNetType t)
+    let Unit = ofDotNetType typeof<Unit>
     let unit =
       let unit = LowType.Identity (FullIdentity { AssemblyName = sfcore; Name = ReverseName.ofString "Microsoft.FSharp.Core.unit"; GenericParameterCount = 0 })
       TypeAbbreviation { Abbreviation = unit; Original = Unit }
+
+    let Boolean = ofDotNetType typeof<Boolean>
+    let Byte = ofDotNetType typeof<Byte>
+    let Char = ofDotNetType typeof<Char>
+    let Decimal = ofDotNetType typeof<Decimal>
+    let Double = ofDotNetType typeof<Double>
+    let Single = ofDotNetType typeof<Single>
+    let Int32 = ofDotNetType typeof<Int32>
+    let Int16 = ofDotNetType typeof<Int16>
+    let Int64 = ofDotNetType typeof<Int64>
+    let IntPtr = ofDotNetType typeof<IntPtr>
+    let SByte = ofDotNetType typeof<SByte>
+    let String = ofDotNetType typeof<String>
+    let UInt16 = ofDotNetType typeof<UInt16>
+    let UInt32 = ofDotNetType typeof<UInt32>
+    let UInt64 = ofDotNetType typeof<UInt64>
+    let UIntPtr = ofDotNetType typeof<UIntPtr>
 
     let rec isUnit (x: LowType) =
       match x with

@@ -8,7 +8,6 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 let searchAndShowResult (client: FSharpApiSearchClient) (query: string) opt =
   let results = client.Search(query, opt)
   results
-  |> Seq.filter (fun x -> x.Distance < 3)
   |> Seq.iter (fun x ->
     Console.Write(sprintf "%s: %s" (ReverseName.toString x.Api.Name) (x.Api.Signature.Print()))
     Console.ForegroundColor <- ConsoleColor.DarkGray

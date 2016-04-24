@@ -18,6 +18,9 @@ let emptyDef: FullTypeDefinition = {
   InstanceMembers = []
   StaticMembers = []
 
+  ImplicitInstanceMembers = []
+  ImplicitStaticMembers = []
+
   SupportNull = NotSatisfy
   ReferenceType = Satisfy
   ValueType = NotSatisfy
@@ -90,7 +93,7 @@ let testApi (assembly: TestCase<ApiDictionary>) (name, expected) = test {
   do! actual |> assertEquals expected
 }
 
-let testFullTypeDefMember (assembly: TestCase<ApiDictionary>) filter (name, expected) = test {
+let testFullTypeDef' (assembly: TestCase<ApiDictionary>) filter (name, expected) = test {
   let! apiDict = assembly
   let actual =
     Seq.filter (fun x -> x.Name = name) apiDict.Api
@@ -100,7 +103,7 @@ let testFullTypeDefMember (assembly: TestCase<ApiDictionary>) filter (name, expe
   do! (filter actual) |> assertEquals expected
 }
 
-let testFullTypeDef (assembly: TestCase<ApiDictionary>) (expected: FullTypeDefinition) = testFullTypeDefMember assembly id (expected.Name, expected)
+let testFullTypeDef (assembly: TestCase<ApiDictionary>) (expected: FullTypeDefinition) = testFullTypeDef' assembly id (expected.Name, expected)
 
 let testConstraints (assembly: TestCase<ApiDictionary>) (name, expectedTarget, expectedConstraints) = test {
   let! apiDict = assembly
@@ -541,7 +544,7 @@ module FSharp =
       "RecursiveType", Dependence [ "a" ]
     ]
     run (fun (name, expected) ->
-      testFullTypeDefMember fsharpAssemblyApi (fun x -> x.Equality) (name :: ReverseName.ofString "FullTypeDefinition.EqualityConstraints", expected))
+      testFullTypeDef' fsharpAssemblyApi (fun x -> x.Equality) (name :: ReverseName.ofString "FullTypeDefinition.EqualityConstraints", expected))
   }
 
   let testComparison = parameterize {
@@ -566,7 +569,7 @@ module FSharp =
       "RecursiveType", Dependence [ "a" ]
     ]
     run (fun (name, expected) ->
-      testFullTypeDefMember fsharpAssemblyApi (fun x -> x.Comparison) (name :: ReverseName.ofString "FullTypeDefinition.ComparisonConstraints", expected))
+      testFullTypeDef' fsharpAssemblyApi (fun x -> x.Comparison) (name :: ReverseName.ofString "FullTypeDefinition.ComparisonConstraints", expected))
   }
 
   let compilerInternalTest = test {
@@ -584,25 +587,28 @@ module FSharp =
 module SpecialType =
   let tupleName = ReverseName.ofString "System.Tuple"
   let tupleNullnessTest =
-    testFullTypeDefMember mscorlibApi (fun x -> x.SupportNull) (tupleName, NotSatisfy)
+    testFullTypeDef' mscorlibApi (fun x -> x.SupportNull) (tupleName, NotSatisfy)
   let tupleEqualityTest =
-    testFullTypeDefMember mscorlibApi (fun x -> x.Equality) (tupleName, Dependence [ "T1"; "T2"; "T3"; "T4"; "T5"; "T6"; "T7"; "TRest"])
+    testFullTypeDef' mscorlibApi (fun x -> x.Equality) (tupleName, Dependence [ "T1"; "T2"; "T3"; "T4"; "T5"; "T6"; "T7"; "TRest"])
   let tupleComparisonTest =
-    testFullTypeDefMember mscorlibApi (fun x -> x.Comparison) (tupleName, Dependence [ "T1"; "T2"; "T3"; "T4"; "T5"; "T6"; "T7"; "TRest"])
+    testFullTypeDef' mscorlibApi (fun x -> x.Comparison) (tupleName, Dependence [ "T1"; "T2"; "T3"; "T4"; "T5"; "T6"; "T7"; "TRest"])
 
   let arrayName = ReverseName.ofString "Microsoft.FSharp.Core.[]"
 
   let arrayNullnessTest =
-    testFullTypeDefMember fscoreApi (fun x -> x.SupportNull) (arrayName, Satisfy)
+    testFullTypeDef' fscoreApi (fun x -> x.SupportNull) (arrayName, Satisfy)
   let arrayEquality =
-    testFullTypeDefMember fscoreApi (fun x -> x.Equality) (arrayName, Dependence [ "T" ])
+    testFullTypeDef' fscoreApi (fun x -> x.Equality) (arrayName, Dependence [ "T" ])
   let arrayComparison =
-    testFullTypeDefMember fscoreApi (fun x -> x.Comparison) (arrayName, Dependence [ "T" ])
+    testFullTypeDef' fscoreApi (fun x -> x.Comparison) (arrayName, Dependence [ "T" ])
 
   let intptrComparison =
-    testFullTypeDefMember mscorlibApi (fun x -> x.Comparison) (ReverseName.ofString "System.IntPtr", Satisfy)
+    testFullTypeDef' mscorlibApi (fun x -> x.Comparison) (ReverseName.ofString "System.IntPtr", Satisfy)
   let uintptrComparison =
-    testFullTypeDefMember mscorlibApi (fun x -> x.Comparison) (ReverseName.ofString "System.UIntPtr", Satisfy)
+    testFullTypeDef' mscorlibApi (fun x -> x.Comparison) (ReverseName.ofString "System.UIntPtr", Satisfy)
+
+  let int32ImplicitStaticMembers =
+    testFullTypeDef' mscorlibApi (fun x -> x.ImplicitStaticMembers |> List.exists (fun x -> x.Name = "op_Addition")) (ReverseName.ofString "System.Int32", true)
 
 module TypeAbbreviation =
   let A = createType "TypeAbbreviations.A" [] |> updateAssembly fsharpAssemblyName
