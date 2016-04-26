@@ -23,8 +23,6 @@ type FSharpApiSearchClient(targets: string seq, dictionaries: ApiDictionary seq)
     "FSharp.Core"
   ]
 
-  new (targets, databasePath) = FSharpApiSearchClient(targets, ApiLoader.loadFromFile databasePath)
-
   member this.Search(query: string, options: SearchOptions) = Matcher.search dictionaries options apis query
 
   member this.TargetAssemblies: string list = targetDictionaries |> Array.map (fun x -> x.AssemblyName) |> Array.toList

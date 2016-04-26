@@ -3,6 +3,7 @@
 open FSharpApiSearch
 open System.Diagnostics
 open System
+open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
 let searchAndShowResult (client: FSharpApiSearchClient) (query: string) opt =
@@ -17,6 +18,22 @@ let searchAndShowResult (client: FSharpApiSearchClient) (query: string) opt =
     Console.ResetColor()
   )
   Console.WriteLine()
+
+let showException (arg: Args) (ex: exn) =
+  match arg.StackTrace with
+  | Enabled -> printfn "%A" ex
+  | Disabled -> printfn "%s" ex.Message
+
+let createClient (targets: string list) (databasePath: string) =
+  if File.Exists(databasePath) = false then
+    failwith @"The database is not found. Create the database by executing ""FSharpApiSearch.Database.exe""."
+  else
+    try
+      FSharpApiSearchClient(targets, ApiLoader.loadFromFile databasePath)
+    with
+      ex ->
+        let loadFailure = Exception(@"It failed to load the database. Create the database by executing ""FSharpApiSearch.Database.exe"".", ex)
+        raise loadFailure
 
 module Interactive =
   type Lens<'a, 'b> = {
@@ -58,9 +75,7 @@ module Interactive =
       try
         searchAndShowResult client query arg.SearchOptions
       with ex ->
-        match arg.StackTrace with
-        | Enabled -> printfn "%A" ex
-        | Disabled -> printfn "%s" ex.Message
+        showException arg ex
       loop client arg
 
 let helpMessage = """usage: FSharpApiSearch.Console.exe <query> <options>
@@ -94,12 +109,18 @@ let main argv =
   | { Help = true } ->
     printfn "%s" helpMessage
   | { Query = Some query } ->
-    let client = FSharpApiSearchClient(targets, ApiLoader.databaseName)
-    searchAndShowResult client query args.SearchOptions
+    try
+      let client = createClient targets ApiLoader.databaseName
+      searchAndShowResult client query args.SearchOptions
+    with
+      ex -> showException args ex
   | { Query = None } ->
-    let client = FSharpApiSearchClient(targets, ApiLoader.databaseName)
-    printfn "Targets the following assemblies."
-    client.TargetAssemblies |> List.iter (printfn "  %s")
-    printfn "Input query or #q to quit."
-    Interactive.loop client args |> ignore
+    try
+      let client = createClient targets ApiLoader.databaseName
+      printfn "Targets the following assemblies."
+      client.TargetAssemblies |> List.iter (printfn "  %s")
+      printfn "Input query or #q to quit."
+      Interactive.loop client args |> ignore
+    with
+      ex -> showException args ex
   0
