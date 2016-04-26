@@ -78,7 +78,7 @@ options:
       The argument style refers to curried argument, multi argument and tuple argument.
       The default is enabled.
   --target:<assembly>, -t:<assembly>
-      Specifies the assembly name or the assembly path of the searching target.
+      Specifies the assembly name of the searching target.
       If omitted, it will target 'FSharp.Core', 'mscorlib', 'System' and 'System.Core'.
   --stacktrace[+|-]
       Enables or disables stacktrace output if an exception occurs.
