@@ -1,0 +1,25 @@
+type file
+id FSharpApiSearch.Console
+owners
+    hafuu
+authors 
+    hafuu
+projectUrl
+    http://github.com/hafuu/FSharpApiSearch
+licenseUrl
+    http://github.com/hafuu/FSharpApiSearch/blob/master/LICENSE.txt
+requireLicenseAcceptance
+    false
+tags
+    F# fsharp api search
+summary
+    The console of FSharpApiSearch.
+description
+    The console of FSharpApiSearch.
+files
+	../../bin/FSharpApiSearch.Database/*.dll ==> tools
+	../../bin/FSharpApiSearch.Database/*.exe ==> tools
+	../../bin/FSharpApiSearch.Database/*.config ==> tools
+	../../bin/FSharpApiSearch.Console/*.dll ==> tools
+	../../bin/FSharpApiSearch.Console/*.exe ==> tools
+	../../bin/FSharpApiSearch.Console/*.config ==> tools
