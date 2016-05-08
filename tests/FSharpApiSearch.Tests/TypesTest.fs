@@ -38,6 +38,9 @@ module PrintTest =
       instanceMember typeA memberProperty, "a"
       staticMember typeA memberMethod, "'a * b -> c"
       staticMember typeA memberProperty, "a"
+
+      moduleValue (array (tuple [ typeA; typeB ])), "(a * b)[]"
+      moduleValue (array (arrow [ typeA; typeB ])), "(a -> b)[]"
     ]
     run (fun (input, expected) -> test {
       let actual = ApiSignature.print input

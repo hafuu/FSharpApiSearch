@@ -345,7 +345,13 @@ module internal Print =
     | Identity i -> printIdentity i
     | Arrow xs -> printArrow isDebug xs
     | Tuple xs -> printTuple isDebug xs
-    | LowType.Patterns.Array (name, elem) -> printLowType isDebug elem + name
+    | LowType.Patterns.Array (name, elem) ->
+      let paramPart =
+        match elem with
+        | Tuple _ | Arrow _ ->
+          sprintf "(%s)" (printLowType isDebug elem)
+        | _ -> printLowType isDebug elem
+      paramPart + name
     | Generic (id, args) ->
       let args = args |> Seq.map (printLowType isDebug) |> String.concat ", "
       sprintf "%s<%s>" (printLowType isDebug id) args
