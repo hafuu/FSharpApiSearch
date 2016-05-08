@@ -386,6 +386,13 @@ module SignatureMatcher =
         lowTypeMatcher.Test left right ctx
       | _ -> Continue ctx
 
+    let activePatternRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
+      match left, right with
+      | SignatureQuery.Signature (Arrow _ as left), ApiSignature.ActivePatten (_, right) ->
+        Debug.WriteLine("active pattern rule.")
+        lowTypeMatcher.Test left right ctx
+      | _ -> Continue ctx
+
     let breakArrow = function
       | Arrow xs -> xs
       | other -> [ other ]
@@ -509,12 +516,14 @@ module SignatureMatcher =
   let tryGetSignatureQuery = function
     | QueryMethod.BySignature s -> Some s
     | QueryMethod.ByName (_, s) -> Some s
+    | QueryMethod.ByActivePattern _ -> None
 
   let instance (options: SearchOptions) =
     let rule =
       Rule.compose [
         yield Rules.moduleValueRule
         yield Rules.moduleFunctionRule
+        yield Rules.activePatternRule
 
         match options with
         | { IgnoreArgumentStyle = Enabled } ->
@@ -541,6 +550,33 @@ module SignatureMatcher =
           | Some (SignatureQuery.Wildcard) -> Matched ctx
           | Some s -> Rule.run rule lowTypeMatcher s api.Signature ctx
           | None -> Matched ctx }
+
+module ActivePatternMatcher =
+  let testAllParameter (lowTypeMatcher: ILowTypeMatcher) activePatternType returnType (right: LowType) ctx =
+    let leftElems = [ activePatternType; returnType ]
+    let rightElems =
+      match right with
+      | Arrow args when args.Length >= 2 -> args.[(args.Length - 2)..(args.Length - 1)]
+      | _ -> failwith "invalid active pattern arguments."
+    LowTypeMatcher.Rules.testAll lowTypeMatcher leftElems rightElems ctx
+
+  let testSpecifiedParameter (lowTypeMatcher: ILowTypeMatcher) left right ctx = lowTypeMatcher.Test left right ctx
+
+  let test (lowTypeMatcher: ILowTypeMatcher) (query: ActivePatternQuery) (api: Api) ctx =
+    match api.Signature with
+    | ApiSignature.ActivePatten (kind, targetSig) when query.Kind = kind ->
+      match query.Signature with
+      | ActivePatternSignature.AnyParameter (activePatternType, returnType) -> testAllParameter lowTypeMatcher activePatternType returnType targetSig ctx
+      | ActivePatternSignature.Specified querySig' -> testSpecifiedParameter lowTypeMatcher querySig' targetSig ctx
+    | _ -> Failure
+
+  let instance (_: SearchOptions) =
+    { new IApiMatcher with
+        member this.Name = "Active Pattern Matcher"
+        member this.Test lowTypeMatcher query api ctx =
+          match query with
+          | QueryMethod.ByActivePattern activePatternQuery -> test lowTypeMatcher activePatternQuery api ctx
+          | _ -> Matched ctx }
 
 module ConstraintSolver =
   let getFullTypeDefinition (ctx: Context) (baseType: LowType) =
@@ -832,6 +868,7 @@ module Initializer =
         PublishedApi.instance
         NameMatcher.instance
         SignatureMatcher.instance
+        ActivePatternMatcher.instance
         ConstraintSolver.instance
       ]
       |> List.map (fun f -> f options)
@@ -863,6 +900,11 @@ module Initializer =
             Seq.collect f arguments
             f returnType
           ]
+      | { Query.Method = QueryMethod.ByActivePattern apQuery } ->
+        match apQuery with
+        | { ActivePatternQuery.Signature = ActivePatternSignature.AnyParameter (x, y) } -> Seq.collect f [ x; y ]
+        | { ActivePatternQuery.Signature = ActivePatternSignature.Specified x } -> f x
+
     results |> Seq.distinct |> Seq.toList
     
   let collectVariables = collectFromSignatureQuery (function Variable _ as v -> Some v | _ -> None)
@@ -931,9 +973,13 @@ module Initializer =
       | SignatureQuery.Wildcard -> SignatureQuery.Wildcard
       | SignatureQuery.Signature lt -> SignatureQuery.Signature (replace lt)
       | SignatureQuery.InstanceMember (receiver, args, returnType) -> SignatureQuery.InstanceMember (replace receiver, List.map replace args, replace returnType)
+    let replaceActivePatternSignature = function
+      | ActivePatternSignature.AnyParameter (x, y) -> ActivePatternSignature.AnyParameter (replace x, replace y)
+      | ActivePatternSignature.Specified x -> ActivePatternSignature.Specified (replace x)
     match query with
     | { Method = QueryMethod.ByName (name, sigQuery) } -> { query with Method = QueryMethod.ByName (name, replaceSignatureQuery sigQuery) }
     | { Method = QueryMethod.BySignature sigQuery } -> { query with Method = QueryMethod.BySignature (replaceSignatureQuery sigQuery) }
+    | { Method = QueryMethod.ByActivePattern apQuery } -> { query with Method = QueryMethod.ByActivePattern { apQuery with Signature = replaceActivePatternSignature apQuery.Signature } }
           
 
   let initializeQuery (dictionaries: ApiDictionary seq) (query: Query) =

@@ -1206,3 +1206,42 @@ module TypeConstraintTest =
     ]
     run (testConstraint false)
   }
+
+module ActivePatternTest =
+  let testActivePattern trace (query, target, expected) = test {
+    use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
+    do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
+    try
+      let targetApi: Api = { Name = ReverseName.ofString "test"; Signature = target; TypeConstraints = [] }
+      let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
+      let options = SearchOptions.defaultOptions
+      let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.length = 1
+      do! actual |> assertEquals expected
+    finally
+      do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
+  }
+
+  let activePatternTest = parameterize {
+    source [
+      "(||) : ... -> A -> ?", activePattern [ typeA; typeB ], true
+      "(||) : ... -> A -> ?", activePattern [ typeB; typeA; typeB ], true
+      "(||) : ... -> A -> ?", activePattern [ typeB; typeA ], false
+
+      "(||) : A -> ?", activePattern [ typeA; typeB ], true
+      "(||) : A -> ?", activePattern [ typeB; typeA; typeB ], false
+
+      "(||) : ? -> A -> ?", activePattern [ typeA; typeA; typeB ], true
+      "(||) : ? -> A -> ?", activePattern [ typeA; typeB ], false
+
+      "(|_|) : ... -> A -> ?", partialActivePattern [ typeA; typeB ], true
+      "(|_|) : ... -> A -> ?", activePattern [ typeA; typeB ], false
+    ]
+    run (testActivePattern false)
+  }
+
+  let arrowAndActivePatternTest = parameterize {
+    source [
+      "A -> B", activePattern [ typeA; typeB ], true
+    ]
+    run (testActivePattern false)
+  }

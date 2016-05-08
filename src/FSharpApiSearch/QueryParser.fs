@@ -86,6 +86,15 @@ module FSharpSignatureParser =
 
   let extendedFsharpSignature = choice [ attempt instanceMember <|> (fsharpSignature |>> SignatureQuery.Signature) ]
 
+  let singleTerm = term4
+
+let activePatternKind =
+  (skipString "(||)" >>% ActivePatternKind.ActivePattern)
+  <|> (skipString "(|_|)" >>% ActivePatternKind.PartialActivePattern)
+let allPatterns = trim (skipString "...") >>. skipString "->" >>. FSharpSignatureParser.singleTerm .>> skipString "->" .>>. FSharpSignatureParser.singleTerm |>> ActivePatternSignature.AnyParameter
+let activePattern = FSharpSignatureParser.fsharpSignature |>> ActivePatternSignature.Specified
+let activePatternQuery = trim activePatternKind .>> skipString ":" .>>. (attempt allPatterns <|> activePattern) |>> (fun (kind, sig') -> QueryMethod.ByActivePattern { Kind = kind; Signature = sig' })
+
 let memberName = many1 (letter <|> anyOf "_'") |> trim |>> (fun xs -> System.String(Array.ofList xs))
 let wildcard = pstring "_" |> trim >>% SignatureQuery.Wildcard
 
@@ -93,7 +102,8 @@ let anyOrSignature = attempt wildcard <|> (FSharpSignatureParser.extendedFsharpS
 let nameQuery = memberName .>> pstring ":" .>>. anyOrSignature |>> (fun (name, sigPart) -> QueryMethod.ByName (name, sigPart))
 
 let signatureQuery = FSharpSignatureParser.extendedFsharpSignature |>> QueryMethod.BySignature
-let query = attempt nameQuery <|> signatureQuery
+
+let query = choice [ attempt activePatternQuery; attempt nameQuery; signatureQuery ]
 
 let parseFSharpSignature (sigStr: string) =
   match runParserOnString (FSharpSignatureParser.extendedFsharpSignature .>> eof) () "" sigStr with

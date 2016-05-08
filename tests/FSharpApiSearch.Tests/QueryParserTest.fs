@@ -122,3 +122,20 @@ module ByName =
         do! actual |> assertEquals expected
       })
     }
+
+module ByActivePattern =
+  let parseTest =
+    parameterize {
+      source [
+        "(||) : ... -> 'a -> ?", QueryMethod.ByActivePattern { Kind = ActivePatternKind.ActivePattern; Signature = ActivePatternSignature.AnyParameter (queryVariable "a", wildcard) }
+        "(||) : 'a -> ?", QueryMethod.ByActivePattern { Kind = ActivePatternKind.ActivePattern; Signature = ActivePatternSignature.Specified (arrow [ queryVariable "a"; wildcard ]) }
+        "(||) : 'a -> 'b -> ?", QueryMethod.ByActivePattern { Kind = ActivePatternKind.ActivePattern; Signature = ActivePatternSignature.Specified (arrow [ queryVariable "a"; queryVariable "b"; wildcard ]) }
+
+        "(|_|) : ... -> 'a -> ?", QueryMethod.ByActivePattern { Kind = ActivePatternKind.PartialActivePattern; Signature = ActivePatternSignature.AnyParameter (queryVariable "a", wildcard) }
+      ]
+      run (fun (input, expected) -> test {
+        let actual = QueryParser.parse input
+        let expected: Query = { OriginalString = input; Method = expected }
+        do! actual |> assertEquals expected
+      })
+    }

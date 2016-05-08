@@ -22,5 +22,8 @@ let array: int[] = Array.zeroCreate<int> 0
 let array2d: int[,] = Array2D.zeroCreate<int> 0 0
 let nestedArray: int[,][] = Array.zeroCreate<int[,]> 0
 
+let (|ActivePattern|) x = if x = 1 then "one" else string x
+let (|PartialActivePattern|_|) (y: 'a) (x: 'a) = if x = y then Some x else None
+
 module NestedModule =
   let publicFunction (x: int) = 3

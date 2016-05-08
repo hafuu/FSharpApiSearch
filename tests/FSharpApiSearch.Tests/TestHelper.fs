@@ -59,6 +59,8 @@ module DSL =
     let genericParams = memberGenericParameters declaringSignature member'
     let m = { member' with GenericParameters = genericParams }
     ApiSignature.Constructor (declaringSignature, m)
+  let activePattern xs = ApiSignature.ActivePatten (ActivePatternKind.ActivePattern, Arrow xs)
+  let partialActivePattern xs = ApiSignature.ActivePatten (ActivePatternKind.PartialActivePattern, Arrow xs)
 
   let constraint' vs c = { Variables = vs; Constraint = c }
 

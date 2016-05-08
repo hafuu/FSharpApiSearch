@@ -201,9 +201,13 @@ let toFSharpApi (x: FSharpMemberOrFunctionOrValue) =
   option {
     let! signature = (toSignature x.FullType)
     let target =
-      match signature with
-      | Arrow xs -> ApiSignature.ModuleFunction xs
-      | x -> ApiSignature.ModuleValue x
+      if x.IsActivePattern then
+        let kind = if x.DisplayName.Contains("|_|") then ActivePatternKind.PartialActivePattern else ActivePatternKind.ActivePattern
+        ApiSignature.ActivePatten (kind, signature)
+      else
+        match signature with
+        | Arrow xs -> ApiSignature.ModuleFunction xs
+        | x -> ApiSignature.ModuleValue x
     return { Name = ReverseName.ofString x.FullName; Signature = target; TypeConstraints = collectTypeConstraints x.GenericParameters }
   }
 

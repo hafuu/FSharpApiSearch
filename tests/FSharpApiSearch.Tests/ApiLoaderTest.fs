@@ -62,6 +62,11 @@ let list t =
   let list = createType "Microsoft.FSharp.Collections.list" [ t ] |> updateAssembly fscore
   typeAbbreviation (fsharpList t) list
 
+let fsharpOption t = createType "Microsoft.FSharp.Core.Option" [ t ] |> updateAssembly fscore
+let option t =
+  let opt = createType "Microsoft.FSharp.Core.option" [ t ] |> updateAssembly fscore
+  typeAbbreviation (fsharpOption t) opt
+
 let string =
   let String = createType "System.String" [] |> updateAssembly mscorlib
   let string = createType "Microsoft.FSharp.Core.string" [] |> updateAssembly fscore
@@ -130,6 +135,8 @@ module FSharp =
       "PublicModule.array", [ moduleValue (array int) ]
       "PublicModule.array2d", [ moduleValue (array2D int) ]
       "PublicModule.nestedArray", [ moduleValue (array (array2D int)) ]
+      "PublicModule.( |ActivePattern| )", [ activePattern [ int; string ] ]
+      "PublicModule.( |PartialActivePattern|_| )", [ partialActivePattern [ variable "a"; variable "a"; option (variable "a") ] ]
     ]
     run testApi
   }

@@ -121,9 +121,15 @@ type ApiKind =
   | Member of MemberModifier * MemberKind
 
 [<RequireQualifiedAccess>]
+type ActivePatternKind =
+  | ActivePattern
+  | PartialActivePattern
+
+[<RequireQualifiedAccess>]
 type ApiSignature =
   | ModuleValue of LowType
   | ModuleFunction of LowType list
+  | ActivePatten of ActivePatternKind * LowType
   | InstanceMember of LowType * Member
   | StaticMember of LowType * Member
   | Constructor of LowType * Member
@@ -140,6 +146,7 @@ with
     match this.Signature with
     | ApiSignature.ModuleValue _ -> ApiKind.ModuleValue
     | ApiSignature.ModuleFunction _ -> ApiKind.ModuleValue
+    | ApiSignature.ActivePatten _ -> ApiKind.ModuleValue
     | ApiSignature.Constructor _ -> ApiKind.Constructor
     | ApiSignature.InstanceMember (_, m) -> ApiKind.Member (MemberModifier.Instance, m.Kind)
     | ApiSignature.StaticMember (_, m) -> ApiKind.Member (MemberModifier.Static, m.Kind)
@@ -154,17 +161,32 @@ type ApiDictionary = {
 }
 
 [<RequireQualifiedAccess>]
+type ActivePatternSignature =
+  | AnyParameter of LowType * LowType
+  | Specified of LowType
+[<RequireQualifiedAccess>]
+type ActivePatternQuery = {
+  Kind: ActivePatternKind
+  Signature: ActivePatternSignature
+}
+
+[<RequireQualifiedAccess>]
+type SignatureQuery =
+  | Wildcard
+  | Signature of LowType
+  | InstanceMember of Receiver: LowType * Arguments: LowType list * ReturnType: LowType
+
+[<RequireQualifiedAccess>]
+type QueryMethod =
+  | ByName of string * SignatureQuery
+  | BySignature of SignatureQuery
+  | ByActivePattern of ActivePatternQuery
+
+[<RequireQualifiedAccess>]
 type Query = {
   OriginalString: string
   Method: QueryMethod
 }
-and [<RequireQualifiedAccess>] QueryMethod =
-  | ByName of string * SignatureQuery
-  | BySignature of SignatureQuery
-and [<RequireQualifiedAccess>] SignatureQuery =
-  | Wildcard
-  | Signature of LowType
-  | InstanceMember of Receiver: LowType * Arguments: LowType list * ReturnType: LowType
 
 type OptionStatus = Enabled | Disabled
 
@@ -389,6 +411,7 @@ module internal Print =
   let printApiSignature isDebug = function
     | ApiSignature.ModuleValue t -> printLowType isDebug t
     | ApiSignature.ModuleFunction xs -> printLowType isDebug (Arrow xs)
+    | ApiSignature.ActivePatten (_, t) -> printLowType isDebug t
     | ApiSignature.InstanceMember (declaringType, m) ->
       if isDebug then
         sprintf "%s => %s" (printLowType isDebug declaringType) (printMember isDebug m)
