@@ -431,6 +431,10 @@ and fsharpTypeEquality cache (t: FSharpType) =
     let root = getRoot t
     if Seq.isEmpty root.GenericArguments then
       equality cache root.TypeDefinition
+    elif root.IsTupleType then
+      foldFsharpTypeEquality cache root.GenericArguments
+    elif root.IsFunctionType then
+      cache, NotSatisfy
     else
       let cache, rootEquality = equality cache root.TypeDefinition
       match rootEquality with
@@ -532,6 +536,10 @@ and fsharpTypeComparison cache (t: FSharpType) =
     let root = getRoot t
     if Seq.isEmpty root.GenericArguments then
       comparison cache root.TypeDefinition
+    elif root.IsTupleType then
+      foldFsharpTypeComparison cache root.GenericArguments
+    elif root.IsFunctionType then
+      cache, NotSatisfy
     else
       let cache, rootComparison = comparison cache root.TypeDefinition
       match rootComparison with
