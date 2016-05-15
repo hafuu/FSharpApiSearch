@@ -111,6 +111,16 @@ module EqualityConstraints =
     | A of 'a * RecursiveType<'a>
     | B
 
+  type TupleAbbreviation = int * string
+  type TupleAbbreviationFieldRecord = {
+    Tuple : TupleAbbreviation
+  }
+
+  type FunctionAbbreviation = int -> string
+  type FunctionAbbreviationFieldRecord = {
+    Function : FunctionAbbreviation
+  }
+
 module ComparisonConstraints =
   open System
   open System.Collections
@@ -213,3 +223,13 @@ module ComparisonConstraints =
     | B
 
   let test<'a when 'a : comparison>(_: 'a) = ()
+
+  type TupleAbbreviation = int * string
+  type TupleAbbreviationFieldRecord = {
+    Tuple : TupleAbbreviation
+  }
+
+  type FunctionAbbreviation = int -> string
+  type FunctionAbbreviationFieldRecord = {
+    Function : FunctionAbbreviation
+  }

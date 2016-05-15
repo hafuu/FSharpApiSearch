@@ -549,6 +549,8 @@ module FSharp =
       "EqualityWithGenericType", Satisfy
       "NoEqualityWithGenericType", NotSatisfy
       "RecursiveType", Dependence [ "a" ]
+      "TupleAbbreviationFieldRecord", Satisfy
+      "FunctionAbbreviationFieldRecord", NotSatisfy
     ]
     run (fun (name, expected) ->
       testFullTypeDef' fsharpAssemblyApi (fun x -> x.Equality) (name :: ReverseName.ofString "FullTypeDefinition.EqualityConstraints", expected))
@@ -574,6 +576,8 @@ module FSharp =
       "ComparisonWithGenericType", Satisfy
       "NoComparisonWithGenericType", NotSatisfy
       "RecursiveType", Dependence [ "a" ]
+      "TupleAbbreviationFieldRecord", Satisfy
+      "FunctionAbbreviationFieldRecord", NotSatisfy
     ]
     run (fun (name, expected) ->
       testFullTypeDef' fsharpAssemblyApi (fun x -> x.Comparison) (name :: ReverseName.ofString "FullTypeDefinition.ComparisonConstraints", expected))
