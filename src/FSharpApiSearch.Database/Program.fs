@@ -26,9 +26,9 @@ module Args =
   }
 
   let rec parse arg = function
-    | KeyValue "FSharpCore" path :: rest -> parse { arg with AssemblyResolver = { arg.AssemblyResolver with FSharpCore = path } } rest
-    | KeyValue "Framework" path :: rest -> parse { arg with AssemblyResolver = { arg.AssemblyResolver with Framework = path } } rest
-    | KeyValue "lib" path :: rest -> parse { arg with References = path :: arg.References } rest
+    | KeyValue "--FSharpCore" path :: rest -> parse { arg with AssemblyResolver = { arg.AssemblyResolver with FSharpCore = path } } rest
+    | KeyValue "--Framework" path :: rest -> parse { arg with AssemblyResolver = { arg.AssemblyResolver with Framework = path } } rest
+    | KeyValue "--lib" path :: rest -> parse { arg with AssemblyResolver = { arg.AssemblyResolver with Directories = path :: arg.AssemblyResolver.Directories } } rest
     | ("--help" | "-h") :: rest -> parse { arg with Help = true } rest
     | path :: rest -> parse { arg with References = path :: arg.References } rest
     | [] -> arg
