@@ -301,7 +301,14 @@ module SpecialTypes =
       let (|NonTuple|_|) x =
         match x with
         | Tuple _ -> None
-        | _ -> Some x 
+        | _ -> Some x
+      let rec (|AbbreviationRoot|_|) x =
+        match x with
+        | TypeAbbreviation { Original = original } ->
+          match original with
+          | TypeAbbreviation _ -> (|AbbreviationRoot|_|) original
+          | _ -> Some original
+        | _ -> None
 
 module internal Print =
   open SpecialTypes

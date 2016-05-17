@@ -193,13 +193,20 @@ module LowTypeMatcher =
         Failure
       else
         Seq.zip leftTypes rightTypes
-        |> Seq.fold (fun result (left, right) -> MatchingResult.bindMatched (lowTypeMatcher.Test left right) result) (Matched ctx)
+        |> Seq.fold (fun result (left, right) ->
+          Debug.WriteLine(sprintf "Test %s and %s." (LowType.debug left) (LowType.debug right))
+          Debug.Indent()
+          let result = MatchingResult.bindMatched (lowTypeMatcher.Test left right) result
+          Debug.Unindent()
+          result
+        ) (Matched ctx)
 
     let typeAbbreviationRule (lowTypeMatcher: ILowTypeMatcher) left right ctx =
       match left, right with
       | (TypeAbbreviation abbreviation), other
       | other, (TypeAbbreviation abbreviation) ->
-        Debug.Write("type abbreviation rule.")
+        Debug.WriteLine("type abbreviation rule.")
+        Debug.WriteLine(sprintf "(%s) -> (%s)" (LowType.debug abbreviation.Abbreviation) (LowType.debug abbreviation.Original))
         lowTypeMatcher.Test abbreviation.Original other ctx
       | _ -> Continue ctx
 
@@ -368,7 +375,13 @@ module SignatureMatcher =
         Failure
       else
         Seq.zip leftTypes rightTypes
-        |> Seq.fold (fun result (left, right) -> MatchingResult.bindMatched (lowTypeMatcher.Test left right) result) (Matched ctx)
+        |> Seq.fold (fun result (left, right) ->
+          Debug.WriteLine(sprintf "Test %s and %s." (LowType.debug left) (LowType.debug right))
+          Debug.Indent()
+          let result = MatchingResult.bindMatched (lowTypeMatcher.Test left right) result
+          Debug.Unindent()
+          result
+        ) (Matched ctx)
   
     let moduleValueRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
       match left, right with
@@ -380,7 +393,9 @@ module SignatureMatcher =
 
     let moduleFunctionRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
       match left, right with
-      | SignatureQuery.Signature (Arrow _ as left), ApiSignature.ModuleFunction xs ->
+      | SignatureQuery.Signature (Arrow _ as left), ApiSignature.ModuleFunction xs
+      | SignatureQuery.Signature (LowType.Patterns.AbbreviationRoot (Arrow _ as left)), ApiSignature.ModuleFunction xs
+      | SignatureQuery.Signature (Arrow _ as left), ApiSignature.ModuleValue (LowType.Patterns.AbbreviationRoot (Arrow xs)) ->
         let right = Arrow xs
         Debug.WriteLine("module function rule.")
         lowTypeMatcher.Test left right ctx

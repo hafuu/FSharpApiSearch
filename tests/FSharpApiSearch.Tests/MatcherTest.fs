@@ -71,7 +71,7 @@ let nameMatchTest =
     })
   }
 
-let matchStrictTest' trace similarity cases = parameterize {
+let matchStrictTest' trace abbTable similarity cases = parameterize {
   source (seq {
     for strictOpt in [ Enabled; Disabled ] do
       for (query, target, expected) in cases do
@@ -81,7 +81,7 @@ let matchStrictTest' trace similarity cases = parameterize {
     use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
     do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
     let targetApi: Api = { Name = ReverseName.ofString "test"; Signature = target; TypeConstraints = [] }
-    let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
+    let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = Array.append TestHelper.fsharpAbbreviationTable abbTable }
     let options = { SearchOptions.defaultOptions with SimilaritySearching = similarity; StrictQueryVariable = strictOpt }
     let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.length = 1
     do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
@@ -108,8 +108,8 @@ let functionArgStyleTest trace cases = parameterize {
 }
 
 module NonsimilarityTest =
-  let matchTest cases = matchStrictTest' false Disabled cases
-  let trace cases = matchStrictTest' true Disabled cases
+  let matchTest cases = matchStrictTest' false [||] Disabled cases
+  let trace cases = matchStrictTest' true [||] Disabled cases
 
   let identityTest =
     matchTest [
@@ -212,9 +212,27 @@ module NonsimilarityTest =
       "float", moduleValue Int32, Always false
     ]
 
+  let functionTypeAbbreviationTest =
+    let charStream = createType "CharStream" [ variable "TResult" ]
+    let reply = createType "Reply" [ variable "TUserState" ]
+    let parser = typeAbbreviation (arrow [ charStream; reply ]) (createType "Parser" [ variable "TResult"; variable "TUserState" ])
+
+    let table = [|
+      { Abbreviation = (createType "Parser" [ variable "TResult"; variable "TUserState" ]); Original = arrow [ charStream; reply ] }
+    |]
+    let matchTest = matchStrictTest' false table Disabled
+    matchTest [
+      "Parser<'a, 'b>", moduleValue parser, Always true
+      "Parser<'a, 'b>", moduleFunction [ charStream; reply ], Always true
+      "CharStream<'a> -> Reply<'b>", moduleValue parser, Always true
+      "CharStream<'a> -> Reply<'b>", moduleFunction [ charStream; reply ], Always true
+      "Parser<'a, 'b> -> Parser<'a, 'b>", moduleFunction [ parser; parser ], Always true
+      "(CharStream<'a> -> Reply<'b>) -> Parser<'a, 'b>", moduleFunction [ parser; parser ], Always true
+    ]
+
 module SimilarityTest =
-  let matchTest cases = matchStrictTest' false Enabled cases
-  let trace cases = matchStrictTest' true Enabled cases
+  let matchTest cases = matchStrictTest' false [||] Enabled cases
+  let trace cases = matchStrictTest' false [||] Enabled cases
 
   let variableTest =
     matchTest [
