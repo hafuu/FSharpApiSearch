@@ -106,7 +106,10 @@ and abbreviationRoot (t: FSharpType) =
   elif Hack.isFloat t then
     Some (Identity (Identity.ofDotNetType typeof<System.Double>))
   elif t.IsFunctionType then
-    None
+    option {
+      let! xs = toFlatArrow t
+      return Arrow xs
+    }
   else
     toSignature t
 and toFlatArrow (t: FSharpType): LowType list option =

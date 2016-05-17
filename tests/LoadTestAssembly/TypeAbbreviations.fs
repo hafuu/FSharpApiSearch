@@ -11,5 +11,7 @@ type NestedTypeAbbreviation = SpecializedTypeAbbreviation
 
 type FunctionAbbreviation = int -> int
 
+let functionWithFunctionAbbreviation (x: FunctionAbbreviation): FunctionAbbreviation = x
+
 module NestedModule =
   type TypeAbbreviationInModule<'a> = Original<'a>

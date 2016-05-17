@@ -633,6 +633,8 @@ module TypeAbbreviation =
         Original = createType "TypeAbbreviations.Original"[ A ]  |> updateAssembly fsharpAssemblyName}
       { Abbreviation = createType "TypeAbbreviations.NestedModule.TypeAbbreviationInModule" [ variable "a" ] |> updateAssembly fsharpAssemblyName
         Original = createType "TypeAbbreviations.Original" [ variable "a" ] |> updateAssembly fsharpAssemblyName }
+      { Abbreviation = createType "TypeAbbreviations.FunctionAbbreviation" [] |> updateAssembly fsharpAssemblyName
+        Original = arrow [ int; int ] }
     ]
     run (fun entry -> test {
       let! api = fsharpAssemblyApi
@@ -640,6 +642,11 @@ module TypeAbbreviation =
       do! actual |> assertEquals true
     })
   }
+
+  let functionWithFunctionAbbreviationTest =
+    let t = { Abbreviation = createType "TypeAbbreviations.FunctionAbbreviation" [] |> updateAssembly fsharpAssemblyName
+              Original = arrow [ int; int ] }
+    testApi fsharpAssemblyApi ("TypeAbbreviations.functionWithFunctionAbbreviation", [ moduleFunction [ TypeAbbreviation t; TypeAbbreviation t ] ])
 
 module CSharp =
   let testApi = testApi csharpAssemblyApi
