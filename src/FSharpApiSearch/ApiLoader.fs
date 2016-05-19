@@ -33,6 +33,7 @@ type FSharpMemberOrFunctionOrValue with
   member this.IsStaticMember = not this.IsInstanceMember
   member this.IsMethod = this.FullType.IsFunctionType && not this.IsPropertyGetterMethod && not this.IsPropertySetterMethod
   member this.IsConstructor = this.CompiledName = ".ctor"
+  member this.IsCSharpExtensionMember = this.Attributes |> Seq.exists (fun attr -> attr.AttributeType.FullIdentity = SpecialTypes.FullIdentity.ExtensionAttribute)
   member this.MemberModifier = if this.IsStaticMember then MemberModifier.Static else MemberModifier.Instance
   member this.PropertyKind =
     if not this.IsProperty then
@@ -44,7 +45,9 @@ type FSharpMemberOrFunctionOrValue with
     else
       PropertyKind.Set
   member this.TargetSignatureConstructor = fun declaringType member' ->
-    if this.IsStaticMember then
+    if this.IsCSharpExtensionMember then
+      ApiSignature.ExtensionMember member'
+    elif this.IsStaticMember then
       ApiSignature.StaticMember (declaringType, member')
     else
       ApiSignature.InstanceMember (declaringType, member')
@@ -200,20 +203,6 @@ let collectTypeConstraints (genericParamters: seq<FSharpGenericParameter>): Type
   |> Seq.toList
   |> List.distinct
 
-let toFSharpApi (x: FSharpMemberOrFunctionOrValue) =
-  option {
-    let! signature = (toSignature x.FullType)
-    let target =
-      if x.IsActivePattern then
-        let kind = if x.DisplayName.Contains("|_|") then ActivePatternKind.PartialActivePattern else ActivePatternKind.ActivePattern
-        ApiSignature.ActivePatten (kind, signature)
-      else
-        match signature with
-        | Arrow xs -> ApiSignature.ModuleFunction xs
-        | x -> ApiSignature.ModuleValue x
-    return { Name = ReverseName.ofString x.FullName; Signature = target; TypeConstraints = collectTypeConstraints x.GenericParameters }
-  }
-
 let parameterSignature (t: FSharpMemberOrFunctionOrValue) =
   let xs = [
     for group in t.CurriedParameterGroups do
@@ -242,14 +231,6 @@ let methodMember (x: FSharpMemberOrFunctionOrValue) =
     return { Name = name; Kind = MemberKind.Method; GenericParameters = genericParams; Arguments = args; IsCurried = isCurried; ReturnType = returnType }
   }
 
-let constructorSignature (declaringEntity: FSharpEntity) declaringSignature (x: FSharpMemberOrFunctionOrValue) =
-  option {
-    let identity = declaringEntity.FullIdentity
-    let! target = methodMember x
-    let target = { target with Name = identity.Name.Head; ReturnType = declaringSignature }
-    return { Name = identity.Name; Signature = ApiSignature.Constructor (declaringSignature, target); TypeConstraints = collectTypeConstraints x.GenericParameters }
-  }
-
 let propertyMember (x: FSharpMemberOrFunctionOrValue) =
   option {
     let name = ReverseName.ofString x.FullName
@@ -259,6 +240,66 @@ let propertyMember (x: FSharpMemberOrFunctionOrValue) =
     let genericParams = x.GenericParametersAsTypeVariable
     return { Name = name.Head; Kind = memberKind; GenericParameters = genericParams; Arguments = args; IsCurried = false; ReturnType = returnType }
   }
+
+let toModuleValue (x: FSharpMemberOrFunctionOrValue) =
+  option {
+    let! signature = (toSignature x.FullType)
+    let target =
+      if x.IsActivePattern then
+        let kind = if x.DisplayName.Contains("|_|") then ActivePatternKind.PartialActivePattern else ActivePatternKind.ActivePattern
+        ApiSignature.ActivePatten (kind, signature)
+      else
+        match signature with
+        | Arrow xs -> ApiSignature.ModuleFunction xs
+        | x -> ApiSignature.ModuleValue x
+    return { Name = ReverseName.ofString x.FullName; Signature = target; TypeConstraints = collectTypeConstraints x.GenericParameters }
+  }
+
+let toTypeExtension (x: FSharpMemberOrFunctionOrValue) =
+  option {
+    let existingType = fsharpEntityToSignature x.LogicalEnclosingEntity
+    let modifier = x.MemberModifier
+
+    let! member' =
+      if x.IsPropertyGetterMethod || x.IsPropertySetterMethod then
+        None
+      elif x.IsProperty then
+        propertyMember x
+      else
+        let existingTypeParameters = x.LogicalEnclosingEntity.GenericParameters |> Seq.map (fun x -> x.DisplayName) |> Seq.toArray
+        let removeExistingTypeParameters xs = xs |> List.filter (fun p -> existingTypeParameters |> Array.exists ((=)p) = false)
+        methodMember x
+        |> Option.map (fun m -> { m with GenericParameters = removeExistingTypeParameters m.GenericParameters })
+
+    let declaration =
+      if x.IsProperty then
+        if x.HasGetterMethod then
+          ReverseName.ofString x.GetterMethod.EnclosingEntity.FullName
+        else
+          ReverseName.ofString x.SetterMethod.EnclosingEntity.FullName
+      else
+        ReverseName.ofString x.EnclosingEntity.FullName
+
+    let signature = ApiSignature.TypeExtension { ExistingType = existingType; Declaration = declaration; MemberModifier = modifier; Member = member' }
+    let name = member'.Name :: x.LogicalEnclosingEntity.FullIdentity.Name
+    return { Name = name; Signature = signature; TypeConstraints = collectTypeConstraints x.GenericParameters }
+  }
+
+let toFSharpApi (x: FSharpMemberOrFunctionOrValue) =
+  if x.IsExtensionMember then
+    toTypeExtension x
+  else
+    toModuleValue x
+
+let constructorSignature (declaringEntity: FSharpEntity) declaringSignature (x: FSharpMemberOrFunctionOrValue) =
+  option {
+    let identity = declaringEntity.FullIdentity
+    let! target = methodMember x
+    let target = { target with Name = identity.Name.Head; ReturnType = declaringSignature }
+    return { Name = identity.Name; Signature = ApiSignature.Constructor (declaringSignature, target); TypeConstraints = collectTypeConstraints x.GenericParameters }
+  }
+
+
 
 let memberSignature loadMember (declaringEntity: FSharpEntity) declaringSignature (x: FSharpMemberOrFunctionOrValue) =
   option {

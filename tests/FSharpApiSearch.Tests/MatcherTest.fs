@@ -1263,3 +1263,58 @@ module ActivePatternTest =
     ]
     run (testActivePattern false)
   }
+
+module TypeExtensionTest =
+  let matchTest cases = functionArgStyleTest false cases
+  let testModule = ReverseName.ofString "test"
+
+  let instanceMemberTest =
+    matchTest [
+      "A => B", typeExtension typeA testModule MemberModifier.Instance (property' "test" PropertyKind.Get [] typeB), Always true
+      "B => B", typeExtension typeA testModule MemberModifier.Instance (property' "test" PropertyKind.Get [] typeB), Always false
+
+      "A => A -> B", typeExtension typeA testModule MemberModifier.Instance (property' "test" PropertyKind.Get [ typeA ] typeB), Always true
+      "A => A -> A", typeExtension typeA testModule MemberModifier.Instance (property' "test" PropertyKind.Get [ typeA ] typeB), Always false
+
+      "A => A * B -> A", typeExtension typeA testModule MemberModifier.Instance (method' "test" [ typeA; typeB ] typeA), Always true
+      "A => A -> B -> A", typeExtension typeA testModule MemberModifier.Instance (method' "test" [ typeA; typeB ] typeA), WhenEnabled true
+
+      "A => B", typeExtension typeA testModule MemberModifier.Instance (method' "test" [ unit ] typeB), Always true
+
+      "A => B", typeExtension typeA testModule MemberModifier.Static (property' "test" PropertyKind.Set [] typeB), Always false
+    ]
+
+  let staticMemberTest =
+    matchTest [
+      "A -> B", typeExtension typeA testModule MemberModifier.Static (method' "test" [ typeA ] typeB), Always true
+      "A -> A", typeExtension typeA testModule MemberModifier.Static (method' "test" [ typeA ] typeB), Always false
+
+      "A", typeExtension typeA testModule MemberModifier.Static (property' "test" PropertyKind.Get [] typeA), Always true
+      "A", typeExtension typeA testModule MemberModifier.Static (property' "test" PropertyKind.Get [] typeB), Always false
+
+      "A -> B", typeExtension typeA testModule MemberModifier.Static (property' "test" PropertyKind.Get [ typeA ] typeB), Always true
+      "A -> B", typeExtension typeA testModule MemberModifier.Static (property' "test" PropertyKind.Get [ typeA ] typeA), Always false
+
+
+      "A * A -> B", typeExtension typeA testModule MemberModifier.Static (method' "test" [ typeA; typeA ] typeB), Always true
+      "A -> A -> B", typeExtension typeA testModule MemberModifier.Static (method' "test" [ typeA; typeA ] typeB), WhenEnabled true
+
+      "A -> B", typeExtension typeA testModule MemberModifier.Instance (method' "test" [ typeA ] typeB), Always false
+    ]
+
+  let extensionMemberTest =
+    matchTest [
+      "A => B", extensionMember (method' "test" [ typeA ] typeB), Always true
+      "A => B", extensionMember (method' "test" [ typeA ] typeA), Always false
+      "A => B", extensionMember (method' "test" [ typeB ] typeA), Always false
+
+      "A => A -> B", extensionMember (method' "test" [ typeA; typeA ] typeB), Always true
+      "A => A -> A -> B", extensionMember (method' "test" [ typeA; typeA; typeA ] typeB), WhenEnabled true
+
+      "A => B", extensionMember (method' "test" [ typeA; unit ] typeB), Always true
+
+      // extension member as static method
+      "A -> B", extensionMember (method' "test" [ typeA ] typeB), Always true
+      "A -> B", extensionMember (method' "test" [ typeA ] typeA), Always false
+      "A -> B -> A", extensionMember (method' "test" [ typeA; typeB ] typeA), WhenEnabled true
+    ]

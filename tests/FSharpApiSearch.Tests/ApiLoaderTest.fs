@@ -648,6 +648,60 @@ module TypeAbbreviation =
               Original = arrow [ int; int ] }
     testApi fsharpAssemblyApi ("TypeAbbreviations.functionWithFunctionAbbreviation", [ moduleFunction [ TypeAbbreviation t; TypeAbbreviation t ] ])
 
+module TypeExtension =
+  let testApi = testApi fsharpAssemblyApi
+  let testModule = ReverseName.ofString "TypeExtensions"
+  let fsharpList_t = fsharpList (variable "T")
+
+  let typeExtensionTest = parameterize {
+    source [
+      "System.Int32.Method", [ typeExtension int32 testModule MemberModifier.Instance (method' "Method" [ int ] unit) ]
+      "System.Int32.CurriedMethod", [ typeExtension int32 testModule MemberModifier.Instance (curriedMethod "CurriedMethod" [ int; string ] int) ]
+      "System.Int32.NoncurriedMethod", [ typeExtension int32 testModule MemberModifier.Instance (method' "NoncurriedMethod" [ int; string ] string) ]
+
+      "System.Int32.GetterProperty", [ typeExtension int32 testModule MemberModifier.Instance (property' "GetterProperty" PropertyKind.Get [] int) ]
+      "System.Int32.SetterProperty", [ typeExtension int32 testModule MemberModifier.Instance (property' "SetterProperty" PropertyKind.Set [] string) ]
+      "System.Int32.GetterSetterProperty", [
+          typeExtension int32 testModule MemberModifier.Instance (property' "GetterSetterProperty" PropertyKind.Get [] string)
+          typeExtension int32 testModule MemberModifier.Instance (property' "GetterSetterProperty" PropertyKind.Set [] string) 
+        ]
+
+      "System.Int32.GetterIndexedProperty", [ typeExtension int32 testModule MemberModifier.Instance (property' "GetterIndexedProperty" PropertyKind.Get [ int ] string) ]
+      "System.Int32.SetterIndexedProperty", [ typeExtension int32 testModule MemberModifier.Instance (property' "SetterIndexedProperty" PropertyKind.Set [ int ] string) ]
+      "System.Int32.GetterSetterIndexedProperty", [
+          typeExtension int32 testModule MemberModifier.Instance (property' "GetterSetterIndexedProperty" PropertyKind.Get [ string ] int)
+          typeExtension int32 testModule MemberModifier.Instance (property' "GetterSetterIndexedProperty" PropertyKind.Set [ string ] int) 
+        ]
+
+      "Microsoft.FSharp.Collections.List.Method", [ typeExtension fsharpList_t testModule MemberModifier.Static (method' "Method" [ variable "T" ] unit) ]
+      "Microsoft.FSharp.Collections.List.CurriedMethod", [ typeExtension fsharpList_t testModule MemberModifier.Static { curriedMethod "CurriedMethod" [ int; variable "b" ] (variable "b") with GenericParameters = [ "b" ] } ]
+      "Microsoft.FSharp.Collections.List.NoncurriedMethod", [ typeExtension fsharpList_t testModule MemberModifier.Static { method' "NoncurriedMethod" [ int; variable "b" ] int with GenericParameters = [ "b" ] } ]
+
+      "Microsoft.FSharp.Collections.List.GetterProperty", [ typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterProperty" PropertyKind.Get [] int) ]
+      "Microsoft.FSharp.Collections.List.SetterProperty", [ typeExtension fsharpList_t testModule MemberModifier.Static (property' "SetterProperty" PropertyKind.Set [] string) ]
+      "Microsoft.FSharp.Collections.List.GetterSetterProperty", [
+          typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterSetterProperty" PropertyKind.Get [] string)
+          typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterSetterProperty" PropertyKind.Set [] string)
+        ]
+
+      "Microsoft.FSharp.Collections.List.GetterIndexedProperty", [ typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterIndexedProperty" PropertyKind.Get [ int ] string) ]
+      "Microsoft.FSharp.Collections.List.SetterIndexedProperty", [ typeExtension fsharpList_t testModule MemberModifier.Static (property' "SetterIndexedProperty" PropertyKind.Set [ int ] string) ]
+      "Microsoft.FSharp.Collections.List.GetterSetterIndexedProperty", [
+          typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterSetterIndexedProperty" PropertyKind.Get [ string ] int)
+          typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterSetterIndexedProperty" PropertyKind.Set [ string ] int) 
+        ]
+    ]
+    run testApi
+  }
+
+  let extensionMemberTest = parameterize {
+    source [
+      "TypeExtensions.TestExtensions.ExtensionMethod", [ extensionMember (method' "ExtensionMethod" [ int ] int) ]
+      "TypeExtensions.TestExtensions.ExtensionMethod2", [ extensionMember (method' "ExtensionMethod2" [ int; int; string ] unit) ]
+    ]
+    run testApi
+  }
+
 module CSharp =
   let testApi = testApi csharpAssemblyApi
   let testConstraints = testConstraints csharpAssemblyApi

@@ -445,16 +445,22 @@ module SignatureMatcher =
         |> MatchingResult.mapMatched (Context.addDistance 1)
       | _ -> testMemberArgAndReturn lowTypeMatcher left member' ctx
 
+    let (|StaticMember|_|) = function
+      | ApiSignature.StaticMember (_, member') -> Some member'
+      | ApiSignature.TypeExtension { MemberModifier = MemberModifier.Static; Member = member' } -> Some member'
+      | ApiSignature.ExtensionMember member' -> Some member'
+      | _ -> None
+
     let staticMemberRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
       match left, right with
-      | SignatureQuery.Signature left, ApiSignature.StaticMember (_, member') ->
+      | SignatureQuery.Signature left, StaticMember member' ->
         Debug.WriteLine("static member rule.")
         testMemberArgAndReturn lowTypeMatcher left member' ctx
       | _ -> Continue ctx
 
     let staticMemberRule_IgnoreArgumentStyle (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
       match left, right with
-      | SignatureQuery.Signature left, ApiSignature.StaticMember (_, member') ->
+      | SignatureQuery.Signature left, StaticMember member' ->
         Debug.WriteLine("static member rule (ignore argument style).")
         testMemberArgAndReturn_IgnoreArgumentStyle lowTypeMatcher left member' ctx
       | _ -> Continue ctx
@@ -478,9 +484,17 @@ module SignatureMatcher =
       | [] -> queryReturnType
       | _ -> Arrow [ yield! queryArguments; yield queryReturnType ]
 
+    let (|InstanceMember|_|) = function
+      | ApiSignature.InstanceMember (declaringType, member') -> Some (declaringType, member')
+      | ApiSignature.TypeExtension { MemberModifier = MemberModifier.Instance; ExistingType = declaringType; Member = member' } -> Some (declaringType, member')
+      | ApiSignature.ExtensionMember ({ Arguments = declaringType :: arguments } as member') ->
+        let member' = { member' with Arguments = arguments }
+        Some (declaringType, member')
+      | _ -> None
+
     let instanceMemberRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
       match left, right with
-      | SignatureQuery.InstanceMember (Receiver = queryReceiver; Arguments = queryArguments; ReturnType = queryReturnType), ApiSignature.InstanceMember (declaringType, member') ->
+      | SignatureQuery.InstanceMember (Receiver = queryReceiver; Arguments = queryArguments; ReturnType = queryReturnType), InstanceMember (declaringType, member') ->
         Debug.WriteLine("instance member rule.")
         lowTypeMatcher.Test queryReceiver declaringType ctx
         |> MatchingResult.bindMatched (fun ctx ->
@@ -491,7 +505,7 @@ module SignatureMatcher =
 
     let instanceMemberRule_IgnoreArgumentStyle (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
       match left, right with
-      | SignatureQuery.InstanceMember (Receiver = queryReceiver; Arguments = queryArguments; ReturnType = queryReturnType), ApiSignature.InstanceMember (declaringType, member') ->
+      | SignatureQuery.InstanceMember (Receiver = queryReceiver; Arguments = queryArguments; ReturnType = queryReturnType), InstanceMember (declaringType, member') ->
         Debug.WriteLine("instance member rule (ignore argument style).")
         lowTypeMatcher.Test queryReceiver declaringType ctx
         |> MatchingResult.bindMatched (fun ctx ->
@@ -502,7 +516,7 @@ module SignatureMatcher =
 
     let instanceMemberUnitArgumentRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
       match left, right with
-      | SignatureQuery.InstanceMember (Receiver = queryReceiver; Arguments = []; ReturnType = queryReturnType), ApiSignature.InstanceMember (declaringType, ({ Arguments = [ LowType.Patterns.Unit ] } as member')) ->
+      | SignatureQuery.InstanceMember (Receiver = queryReceiver; Arguments = []; ReturnType = queryReturnType), InstanceMember (declaringType, ({ Arguments = [ LowType.Patterns.Unit ] } as member')) ->
         Debug.WriteLine("instance member unit argument rule.")
         let leftElems = [
           yield queryReceiver

@@ -62,6 +62,9 @@ module DSL =
   let activePattern xs = ApiSignature.ActivePatten (ActivePatternKind.ActivePattern, Arrow xs)
   let partialActivePattern xs = ApiSignature.ActivePatten (ActivePatternKind.PartialActivePattern, Arrow xs)
 
+  let typeExtension existingType declaration modifier member' = ApiSignature.TypeExtension { ExistingType = existingType; Declaration = declaration; MemberModifier = modifier; Member = member' }
+  let extensionMember member' = ApiSignature.ExtensionMember member'
+
   let constraint' vs c = { Variables = vs; Constraint = c }
 
   let arrayType = "Microsoft.FSharp.Core.[]"

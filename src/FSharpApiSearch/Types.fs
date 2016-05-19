@@ -114,11 +114,20 @@ type TypeAbbreviationDefinition = {
   Original: LowType
 }
 
+type TypeExtension = {
+  ExistingType: LowType
+  Declaration: ReverseName
+  MemberModifier: MemberModifier
+  Member: Member
+}
+
 [<RequireQualifiedAccess>]
 type ApiKind =
   | ModuleValue
   | Constructor
   | Member of MemberModifier * MemberKind
+  | TypeExtension of MemberModifier * MemberKind
+  | ExtensionMember
 
 [<RequireQualifiedAccess>]
 type ActivePatternKind =
@@ -135,6 +144,8 @@ type ApiSignature =
   | Constructor of LowType * Member
   | FullTypeDefinition of FullTypeDefinition
   | TypeAbbreviation of TypeAbbreviationDefinition
+  | TypeExtension of TypeExtension
+  | ExtensionMember of Member
 
 type Api = {
   Name: ReverseName
@@ -152,6 +163,8 @@ with
     | ApiSignature.StaticMember (_, m) -> ApiKind.Member (MemberModifier.Static, m.Kind)
     | ApiSignature.FullTypeDefinition _ -> failwith "not implemented"
     | ApiSignature.TypeAbbreviation _ -> failwith "not implemeneted"
+    | ApiSignature.TypeExtension t -> ApiKind.Member (t.MemberModifier, t.Member.Kind)
+    | ApiSignature.ExtensionMember _ -> ApiKind.ExtensionMember
 
 type ApiDictionary = {
   AssemblyName: string
@@ -249,6 +262,8 @@ module SpecialTypes =
     let IComparable = ofDotNetType typeof<IComparable>
     let IStructuralComparable = ofDotNetType typeof<IStructuralComparable>
 
+    let ExtensionAttribute = ofDotNetType typeof<System.Runtime.CompilerServices.ExtensionAttribute>
+
   module Identity =
     let ofDotNetType (t: Type) = FullIdentity (FullIdentity.ofDotNetType t)
 
@@ -328,6 +343,8 @@ module internal Print =
     | ApiKind.ModuleValue -> "module value"
     | ApiKind.Constructor -> "constructor"
     | ApiKind.Member (modifier, memberKind) -> sprintf "%s %s" (printMemberModifier modifier) (printMemberKind memberKind)
+    | ApiKind.TypeExtension (modifier, memberKind) -> sprintf "%s %s" (printMemberModifier modifier) (printMemberKind memberKind)
+    | ApiKind.ExtensionMember -> "extension member"
 
   let printIdentity = function
     | FullIdentity i -> i.Name.Head
@@ -434,6 +451,12 @@ module internal Print =
     | ApiSignature.Constructor (_, m) -> printMember isDebug m
     | ApiSignature.FullTypeDefinition x -> printFullTypeDefinition isDebug x
     | ApiSignature.TypeAbbreviation t -> printLowType isDebug t.Abbreviation
+    | ApiSignature.TypeExtension t ->
+      if isDebug then
+        sprintf "%s => %s" (printLowType isDebug t.ExistingType) (printMember isDebug t.Member)
+      else
+        printMember isDebug t.Member
+    | ApiSignature.ExtensionMember m -> printMember isDebug m
 
 type LowType with
   member this.Print() = Print.printLowType false this
@@ -451,12 +474,15 @@ type FullTypeDefinition with
   member this.Print() = Print.printFullTypeDefinition false this
   member this.Debug() = Print.printFullTypeDefinition true this
 
-type ApiKind with
-  member this.Print() = Print.printApiKind this
-
 type Api with
+  member this.PrintSignature() = this.Signature.Print()
   member this.PrintTypeConstraints() =
     sprintf "when %s" (this.TypeConstraints |> List.map (fun c -> c.Print()) |> String.concat " and ")
+  member this.PrintKind() =
+    match this.Signature with
+    | ApiSignature.TypeExtension { Declaration = declaration } ->
+      sprintf "%s (%s)" (Print.printApiKind this.Kind) (ReverseName.toString declaration)
+    | _ -> Print.printApiKind this.Kind
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Identity =
