@@ -1,3 +1,9 @@
+### 0.3.0-beta - 2016/5/22
+* Support active pattern
+* Support function type abbreviation
+* Support type extension and extension member
+* Fix array printing (#57)
+
 ### 0.2.1-beta - 2016/5/15
 * Fix loading type constraints of type abbreviation (#66)
 * Fix FSharpApiSearch.Database.exe option's bugs (#65, #67)
