@@ -4,6 +4,7 @@ open System.IO
 open System.Reflection
 open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
+open Persimmon.Assertion
 open FSharpApiSearch
 open TestHelper.DSL
 open TestAssemblies

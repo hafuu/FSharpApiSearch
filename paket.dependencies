@@ -19,3 +19,4 @@ group Test
   
   nuget Persimmon
   nuget Persimmon.Console
+  nuget Persimmon.Assertion
