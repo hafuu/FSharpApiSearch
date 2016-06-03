@@ -2,6 +2,7 @@
 
 open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
+open Persimmon.MuscleAssert
 open TestAssemblies
 open Microsoft.FSharp.Compiler.SourceCodeServices
 

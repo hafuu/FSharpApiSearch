@@ -2,6 +2,7 @@
 
 open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
+open Persimmon.MuscleAssert
 open System.IO
 open FSharpApiSearch
 open System.Reflection
