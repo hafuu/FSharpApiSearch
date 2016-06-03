@@ -5,7 +5,7 @@ open FSharpApiSearch
 module DSL =
 
   let createType name args =
-    let id = FullIdentity { AssemblyName = "test"; Name = ReverseName.ofString name; GenericParameterCount = List.length args }
+    let id = FullIdentity { AssemblyName = "test"; Name = Name.friendlyNameOfString name; GenericParameterCount = List.length args }
     match args with
     | [] -> Identity id
     | args -> Generic (Identity id, args)
@@ -17,7 +17,7 @@ module DSL =
 
   let typeAbbreviation abbreviated abbreviation = TypeAbbreviation { Abbreviation = abbreviation; Original = abbreviated; }
 
-  let identity name = Identity (PartialIdentity { Name = ReverseName.ofString name; GenericParameterCount = 0 })
+  let identity name = Identity (PartialIdentity { Name = FriendlyName.ofString name; GenericParameterCount = 0 })
   let variable name = Variable (VariableSource.Target, name)
   let queryVariable name = Variable (VariableSource.Query, name)
 
@@ -27,7 +27,12 @@ module DSL =
   let generic id args =
     match id with
     | Identity (PartialIdentity id) ->
-      let id = { id with GenericParameterCount = List.length args }
+      let parameterCount = List.length args
+      let name =
+        match id.Name with
+        | [] -> []
+        | n :: tail -> { n with GenericParametersForDisplay = List.init parameterCount (sprintf "T%d") } :: tail
+      let id = { id with Name = name; GenericParameterCount = parameterCount }
       Generic (Identity (PartialIdentity id), args)
     | _ -> Generic (id, args)
 
@@ -67,24 +72,34 @@ module DSL =
 
   let constraint' vs c = { Variables = vs; Constraint = c }
 
-  let arrayType = "Microsoft.FSharp.Core.[]"
-  let array2DType = "Microsoft.FSharp.Core.[,]"
+  let arrayType = "Microsoft.FSharp.Core.[]<'T>"
+  let array2DType = "Microsoft.FSharp.Core.[,]<'T>"
   let array t = createType arrayType [ t ]
   let array2D t = createType array2DType [ t ]
 
-  let queryArray t = generic (identity "[]") [ t ]
-  let queryArray2D t = generic (identity "[,]") [ t ]
+  let queryArray t = generic (identity "[]<'T>") [ t ]
+  let queryArray2D t = generic (identity "[,]<'T>") [ t ]
 
   let tuple xs = Tuple xs
 
+  let typeAbbreviationDef name original =
+    let defName = FriendlyName.ofString name
+    let fullName =
+      let toFullName (x: NameItem) =
+        match x.GenericParametersForDisplay with
+        | [] -> x.DisplayName
+        | args -> sprintf "%s`%d" x.DisplayName args.Length
+      defName |> List.rev |> List.map toFullName |> String.concat "."
+    { Name = defName; FullName = fullName; AssemblyName = "test"; GenericParameters = defName.Head.GenericParametersForDisplay; Abbreviated = original; Original = original }
+
 open DSL
 
-let fsharpAbbreviationTable = [|
-    { Abbreviation = createType "Microsoft.FSharp.Core.int" []; Original = createType "System.Int32" [] }
-    { Abbreviation = createType "Microsoft.FSharp.Core.float" []; Original = createType "System.Double" [] }
-    { Abbreviation = createType "Microsoft.FSharp.Core.single" []; Original = createType "System.Single" [] }
-    { Abbreviation = createType "Microsoft.FSharp.Core.string" []; Original = createType "System.String" [] }
-    { Abbreviation = createType "Microsoft.FSharp.Core.unit" []; Original = SpecialTypes.LowType.Unit }
-    { Abbreviation = createType "Microsoft.FSharp.Collections.list" [ variable "a" ]; Original = createType "Microsoft.FSharp.Collections.List" [ variable "a" ] }
-    { Abbreviation = createType "Microsoft.FSharp.Core.option" [ variable "a" ]; Original = createType "Microsoft.FSharp.Core.Option" [ variable "a" ] }
+let fsharpAbbreviationTable: TypeAbbreviationDefinition[] = [|
+    typeAbbreviationDef "Microsoft.FSharp.Core.int" (createType "System.Int32" [])
+    typeAbbreviationDef "Microsoft.FSharp.Core.float" (createType "System.Double" [])
+    typeAbbreviationDef "Microsoft.FSharp.Core.single" (createType "System.Single" [])
+    typeAbbreviationDef "Microsoft.FSharp.Core.string" (createType "System.String" [])
+    typeAbbreviationDef "Microsoft.FSharp.Core.unit" SpecialTypes.LowType.Unit
+    typeAbbreviationDef "Microsoft.FSharp.Collections.list<'a>" (createType "Microsoft.FSharp.Collections.List<'a>" [ variable "a" ])
+    typeAbbreviationDef "Microsoft.FSharp.Core.option<'a>" (createType "Microsoft.FSharp.Core.Option<'a>" [ variable "a" ])
   |]

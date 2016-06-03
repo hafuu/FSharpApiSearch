@@ -22,6 +22,28 @@ module PrintTest =
   let memberCurriedMethod = curriedMethod "test" [ variableA; typeB ] typeC
   let memberProperty = member' "test" (MemberKind.Property PropertyKind.Get) [] typeA
 
+  let printLowTypeTest = parameterize {
+    source [
+      createType "A" [], "A"
+      createType "A.B" [], "B"
+      createType "A.B<'C>" [ variable "C" ], "B<'C>"
+    ]
+    run (fun (input: LowType, expected) -> test {
+      do! input.Print() |> assertEquals expected
+    })
+  }
+
+  let printName_long_test = parameterize {
+    source[
+      Name.friendlyNameOfString "A.B", "A.B"
+      Name.friendlyNameOfString "A.B<'C>", "A.B<'C>"
+      Name.friendlyNameOfString "A<'C>.B<'D>", "A<'C>.B<'D>"
+    ]
+    run (fun (input: Name, expected) -> test {
+      do! input.Print() |> assertEquals expected
+    })
+  }
+
   let printApiSignatureTest = parameterize {
     source [
       moduleValue typeA, "a"
@@ -89,19 +111,19 @@ module QueryTest = // TODO: Matcherのテストに移動
       "A.override<'a>", (typeAbbreviation (generic (identity "A.Hidden") [ queryVariable "a" ]) (generic (identity "A.override") [ queryVariable "a" ]))
     ]
     run (fun (query, expected) -> test {
-      let abbreviations = [|
-          { Abbreviation = identity "string"; Original = identity "String" }
-          { Abbreviation = generic (identity "list") [ variable "a" ]; Original = generic (identity "List") [ variable "a" ] }
-          { Abbreviation = identity "intList"; Original = generic (identity "List") [ identity "int" ] }
-          { Abbreviation = generic (identity "reverseArg") [ variable "b"; variable "a" ]; Original = generic (identity "ReverseArg") [ variable "a"; variable "b" ] }
-          { Abbreviation = generic (identity "map") [ variable "a"; variable "b" ]; Original = generic (identity "Map") [ variable "a"; variable "b" ] }
-          { Abbreviation = generic (identity "intKeyMap") [ variable "v" ]; Original = generic (identity "Map") [ identity "int"; variable "v" ] }
-          { Abbreviation = generic (identity "samemap") [ variable "a" ]; Original = generic (identity "Map") [ variable "a"; variable "a" ] }
-          { Abbreviation = identity "A.override"; Original = identity "A.Hidden" }
-          { Abbreviation = identity "B.override"; Original = identity "B.Override" }
-          { Abbreviation = generic (identity "A.override") [ variable "a" ]; Original = generic (identity "A.Hidden") [ variable "a" ] }
-          { Abbreviation = generic (identity "B.override") [ variable "a" ]; Original = generic (identity "B.Override") [ variable "a" ] }
-        |]
+      let abbreviations: TypeAbbreviationDefinition[] = [|
+        typeAbbreviationDef "string" (identity "String")
+        typeAbbreviationDef "list<'a>" (generic (identity "List") [ variable "a" ])
+        typeAbbreviationDef "intList" (generic (identity "List") [ identity "int" ])
+        typeAbbreviationDef "reverseArg<'b, 'a>" (generic (identity "ReverseArg") [ variable "a"; variable "b" ])
+        typeAbbreviationDef "map<'a, 'b>" (generic (identity "Map") [ variable "a"; variable "b" ])
+        typeAbbreviationDef "intKeyMap<'v>" (generic (identity "Map") [ identity "int"; variable "v" ])
+        typeAbbreviationDef "samemap<'a>" (generic (identity "Map") [ variable "a"; variable "a" ])
+        typeAbbreviationDef "A.override" (identity "A.Hidden")
+        typeAbbreviationDef "B.override" (identity "B.Override")
+        typeAbbreviationDef "A.override<'a>" (generic (identity "A.Hidden") [ variable "a" ])
+        typeAbbreviationDef "B.override<'a>" (generic (identity "B.Override") [ variable "a" ])
+      |]
       let dictionaries = Seq.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = Array.empty; TypeAbbreviations = abbreviations }
       let actual = Matcher.Initializer.initializeQuery dictionaries (QueryParser.parse query)
       let expected: Query = { OriginalString = query; Method = QueryMethod.BySignature (SignatureQuery.Signature expected) }

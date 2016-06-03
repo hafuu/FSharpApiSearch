@@ -25,20 +25,31 @@ let csharpAssemblyPath =
     Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
     , csharpAssemblyName + ".dll")
 
-let assemblies = lazy FSharpApiSearch.AssemblyLoader.load assemblyResolver (Path.GetFullPath(fsharpAssemblyPath) :: Path.GetFullPath(csharpAssemblyPath) :: FSharpApiSearch.FSharpApiSearchClient.DefaultReferences)
+let assemblies = test {
+  return FSharpApiSearch.AssemblyLoader.load assemblyResolver (Path.GetFullPath(fsharpAssemblyPath) :: Path.GetFullPath(csharpAssemblyPath) :: FSharpApiSearch.FSharpApiSearchClient.DefaultReferences)
+}
+
+let apiDictionary = test {
+  let! assemblies = assemblies
+  return ApiLoader.load assemblies
+}
 
 let fsharpAssemblyApi = test {
-  return assemblies.Value |> List.find (fun x -> x.FileName = Some fsharpAssemblyPath ) |> ApiLoader.load
+  let! apiDictionary = apiDictionary
+  return apiDictionary |> Array.find (fun x -> x.AssemblyName = fsharpAssemblyName)
 }
 
 let csharpAssemblyApi = test {
-  return assemblies.Value |> List.find (fun x -> x.FileName = Some csharpAssemblyPath ) |> ApiLoader.load
+  let! apiDictionary = apiDictionary
+  return apiDictionary |> Array.find (fun x -> x.AssemblyName = csharpAssemblyName)
 }
 
 let fscoreApi = test {
-  return assemblies.Value |> List.find (fun x -> x.SimpleName = "FSharp.Core") |> ApiLoader.load
+  let! apiDictionary = apiDictionary
+  return apiDictionary |> Array.find (fun x -> x.AssemblyName = "FSharp.Core")
 }
 
 let mscorlibApi = test {
-  return assemblies.Value |> List.find (fun x -> x.SimpleName = "mscorlib") |> ApiLoader.load
+  let! apiDictionary = apiDictionary
+  return apiDictionary |> Array.find (fun x -> x.AssemblyName = "mscorlib")
 }

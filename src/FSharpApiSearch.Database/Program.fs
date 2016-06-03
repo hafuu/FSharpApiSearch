@@ -68,8 +68,7 @@ let main argv =
       printAssemblies args.AssemblyResolver assemblies
       let dictionaries =
         AssemblyLoader.load args.AssemblyResolver assemblies
-        |> List.map ApiLoader.load
-        |> List.toArray
+        |> ApiLoader.load
       ApiLoader.save ApiLoader.databaseName dictionaries
       0
     with ex ->

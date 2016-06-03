@@ -56,4 +56,4 @@ let load (assemblyResolver: AssemblyResolver) references =
   let refAssemblies =
     let x = checker.ParseAndCheckProject(options) |> Async.RunSynchronously
     x.ProjectContext.GetReferencedAssemblies()
-  refAssemblies
+  Array.ofList refAssemblies

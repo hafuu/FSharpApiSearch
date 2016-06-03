@@ -356,10 +356,9 @@ module NameMatcher =
   let test query (api: Api) ctx =
     match query with
     | QueryMethod.ByName (expectedName, _) ->
-      if expectedName = api.Name.Head then
-        Matched ctx
-      else
-        Failure
+      match api.Name with
+      | FriendlyName (actualName :: _) when expectedName = actualName.DisplayName -> Matched ctx
+      | _ -> Failure
     | _ -> Matched ctx
   let instance (_: SearchOptions) =
     { new IApiMatcher with
@@ -617,7 +616,7 @@ module ConstraintSolver =
       | _ -> failwith "invalid base type."
     match getIdentity baseType with
     | FullIdentity full ->
-      ctx.ApiDictionaries.[full.AssemblyName].TypeDefinitions |> Seq.find (fun td -> td.FullIdentity = full)
+      ctx.ApiDictionaries.[full.AssemblyName].TypeDefinitions |> Seq.find (fun td -> Identity.testFullIdentity td.FullIdentity full)
       |> Array.singleton
     | PartialIdentity partial ->
       ctx.QueryTypes.[partial]
@@ -634,7 +633,7 @@ module ConstraintSolver =
     | ConstraintTestee (testeeIdentity, testTypeArgs) ->
       let testees =
         match testeeIdentity with
-        | FullIdentity i -> ctx.ApiDictionaries.[i.AssemblyName].TypeDefinitions |> Seq.find (fun td -> td.FullIdentity = i) |> Array.singleton
+        | FullIdentity i -> ctx.ApiDictionaries.[i.AssemblyName].TypeDefinitions |> Seq.find (fun td -> Identity.testFullIdentity td.FullIdentity i) |> Array.singleton
         | PartialIdentity i -> ctx.QueryTypes.[i]
       for typeDef in testees do
         Debug.WriteLine(sprintf "Test %s: %s" title (typeDef.Debug()))
@@ -974,8 +973,8 @@ module Initializer =
       ApiDictionaries = dictionaries |> Seq.map (fun d -> (d.AssemblyName, d)) |> Map.ofSeq
     }
 
-  let replaceTypeAbbreviation (dictionaries: ApiDictionary seq) (query: Query) =
-    let table = dictionaries |> Seq.collect (fun x -> x.TypeAbbreviations) |> Seq.toList
+  let replaceTypeAbbreviation (dictionaries: ApiDictionary seq) (query: Query) = // TODO: TypeAbbreviation -> TypeAbbreviationDefinitionに変えたので書き直しできそう
+    let table = dictionaries |> Seq.collect (fun x -> x.TypeAbbreviations) |> Seq.map (fun t -> t.TypeAbbreviation) |> Seq.toList
     let rec replace = function
       | Identity id as i ->
         let replacement = table |> List.tryFindBack (function { Abbreviation = Identity abbId } -> Identity.sameName abbId id | _ -> false)
@@ -1041,5 +1040,5 @@ let search (dictionaries: ApiDictionary[]) (options: SearchOptions) (targets: Ap
     match test lowTypeMatcher apiMatchers query initialContext api with
     | Matched ctx -> Some { Distance = ctx.Distance; Api = api }
     | _ -> None)
-  |> Seq.sortBy (fun x -> (x.Distance, ReverseName.toString x.Api.Name))
+  |> Seq.sortBy (fun x -> (x.Distance, "not implemented"))
   |> Seq.cache

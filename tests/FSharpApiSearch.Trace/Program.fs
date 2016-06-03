@@ -40,7 +40,7 @@ let main argv =
         Console.Write("> ");
         let targetName = Console.ReadLine()
 
-        let target = apis |> Array.find (fun x -> x.Name = ReverseName.ofString targetName)
+        let target = apis |> Array.find (fun x -> x.Name.Print() = targetName)
         
         let result = Matcher.search dictionaries options [ target ] query
 

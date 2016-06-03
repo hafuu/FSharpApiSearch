@@ -11,6 +11,7 @@ open TestAssemblies
 
 let emptyDef: FullTypeDefinition = {
   Name = []
+  FullName = ""
   AssemblyName = ""
   BaseType = None
   AllInterfaces = []
@@ -53,19 +54,19 @@ let unit =
   let unit = createType "Microsoft.FSharp.Core.unit" [] |> updateAssembly fscore
   typeAbbreviation Unit unit
 
-let ienumerable t = createType "System.Collections.Generic.IEnumerable" [ t ] |> updateAssembly mscorlib
+let ienumerable t = createType "System.Collections.Generic.IEnumerable<'T>" [ t ] |> updateAssembly mscorlib
 let seq t =
-  let seq = createType "Microsoft.FSharp.Collections.seq" [ t ] |> updateAssembly fscore
+  let seq = createType "Microsoft.FSharp.Collections.seq<'T>" [ t ] |> updateAssembly fscore
   typeAbbreviation (ienumerable t) seq
 
-let fsharpList t = createType "Microsoft.FSharp.Collections.List" [ t] |> updateAssembly fscore
+let fsharpList t = createType "Microsoft.FSharp.Collections.List<'T>" [ t] |> updateAssembly fscore
 let list t =
-  let list = createType "Microsoft.FSharp.Collections.list" [ t ] |> updateAssembly fscore
+  let list = createType "Microsoft.FSharp.Collections.list<'T>" [ t ] |> updateAssembly fscore
   typeAbbreviation (fsharpList t) list
 
-let fsharpOption t = createType "Microsoft.FSharp.Core.Option" [ t ] |> updateAssembly fscore
+let fsharpOption t = createType "Microsoft.FSharp.Core.Option<'T>" [ t ] |> updateAssembly fscore
 let option t =
-  let opt = createType "Microsoft.FSharp.Core.option" [ t ] |> updateAssembly fscore
+  let opt = createType "Microsoft.FSharp.Core.option<'T>" [ t ] |> updateAssembly fscore
   typeAbbreviation (fsharpOption t) opt
 
 let string =
@@ -73,14 +74,14 @@ let string =
   let string = createType "Microsoft.FSharp.Core.string" [] |> updateAssembly fscore
   typeAbbreviation String string
 
-let map k v = createType "Microsoft.FSharp.Collections.Map" [ k; v ] |> updateAssembly fscore
+let map k v = createType "Microsoft.FSharp.Collections.Map<'Key, 'Value>" [ k; v ] |> updateAssembly fscore
 
 let array = array >> updateAssembly fscore
 let array2D = array2D >> updateAssembly fscore
 
 let istructualEquatable = createType "System.Collections.IStructuralEquatable" [] |> updateAssembly mscorlib
-let iequatable x = createType "System.IEquatable" [ x ] |> updateAssembly mscorlib
-let genericIComparable x = createType "System.IComparable" [ x ] |> updateAssembly mscorlib
+let iequatable x = createType "System.IEquatable<'t>" [ x ] |> updateAssembly mscorlib
+let genericIComparable x = createType "System.IComparable<'t>" [ x ] |> updateAssembly mscorlib
 let icomparable = createType "System.IComparable" [] |> updateAssembly mscorlib
 let istructuralComparable = createType "System.IStructuralComparable" [] |> updateAssembly mscorlib
 
@@ -88,7 +89,7 @@ let valuetype = createType "System.ValueType" [] |> updateAssembly mscorlib
 
 let testApi (assembly: TestCase<ApiDictionary>) (name, expected) = test {
   let! apiDict = assembly
-  let name = ReverseName.ofString name
+  let name = Name.friendlyNameOfString name
   let actual =
     Seq.filter (fun x -> x.Name = name) apiDict.Api 
     |> Seq.map (fun x -> x.Signature)
@@ -109,11 +110,11 @@ let testFullTypeDef' (assembly: TestCase<ApiDictionary>) filter (name, expected)
   do! (filter actual) |> assertEquals expected
 }
 
-let testFullTypeDef (assembly: TestCase<ApiDictionary>) (expected: FullTypeDefinition) = testFullTypeDef' assembly id (expected.Name, expected)
+let testFullTypeDef (assembly: TestCase<ApiDictionary>) (expected: FullTypeDefinition) = testFullTypeDef' assembly id (FriendlyName expected.Name, expected)
 
 let testConstraints (assembly: TestCase<ApiDictionary>) (name, expectedTarget, expectedConstraints) = test {
   let! apiDict = assembly
-  let name = ReverseName.ofString name
+  let name = Name.friendlyNameOfString name
   let actual = Seq.find (fun x -> x.Name = name) apiDict.Api
   do! actual.Signature |> assertEquals expectedTarget
   do! (List.sort actual.TypeConstraints) |> assertEquals (List.sort expectedConstraints)
@@ -186,11 +187,11 @@ module FSharp =
     }
 
   let loadGenericClassTest =
-    let t = createType "TopLevelNamespace.GenericClass" [ variable "a" ] |> updateAssembly fsharpAssemblyName
+    let t = createType "TopLevelNamespace.GenericClass<'a>" [ variable "a" ] |> updateAssembly fsharpAssemblyName
     parameterize {
       source [
-        "TopLevelNamespace.GenericClass.Method", [ instanceMember t (method' "Method" [ variable "a" ] int) ]
-        "TopLevelNamespace.GenericClass", [ constructor' t (method' "GenericClass" [ unit ] t) ]
+        "TopLevelNamespace.GenericClass<'a>.Method", [ instanceMember t (method' "Method" [ variable "a" ] int) ]
+        "TopLevelNamespace.GenericClass<'a>", [ constructor' t (method' "GenericClass" [ unit ] t) ]
       ]
       run testApi
     }
@@ -209,10 +210,10 @@ module FSharp =
     }
 
   let loadGenericRecordTest =
-    let t = createType "OtherTypes.GenericRecord" [ variable "a" ] |> updateAssembly fsharpAssemblyName
+    let t = createType "OtherTypes.GenericRecord<'a>" [ variable "a" ] |> updateAssembly fsharpAssemblyName
     parameterize {
       source [
-        "OtherTypes.GenericRecord.Field", [ instanceMember t (field "Field" (variable "a")) ]
+        "OtherTypes.GenericRecord<'a>.Field", [ instanceMember t (field "Field" (variable "a")) ]
       ]
       run testApi  
     }
@@ -259,17 +260,17 @@ module FSharp =
 
   let interfaceInheritanceTest =
     let child = createType "InterfaceInheritance.ChildInterface" [] |> updateAssembly fsharpAssemblyName
-    let genericChild = createType "InterfaceInheritance.GenericChildInterface" [ variable "a" ] |> updateAssembly fsharpAssemblyName
+    let genericChild = createType "InterfaceInheritance.GenericChildInterface<'a>" [ variable "a" ] |> updateAssembly fsharpAssemblyName
     let intChild = createType "InterfaceInheritance.IntChildInterface" [] |> updateAssembly fsharpAssemblyName
-    let confrict = createType "InterfaceInheritance.ConflictParameterInterface" [ variable "b" ] |> updateAssembly fsharpAssemblyName
+    let confrict = createType "InterfaceInheritance.ConflictParameterInterface<'b>" [ variable "b" ] |> updateAssembly fsharpAssemblyName
     parameterize {
       source [
         "InterfaceInheritance.ChildInterface.ChildMethod", [ instanceMember child (method' "ChildMethod" [ unit ] float) ]
         "InterfaceInheritance.ChildInterface.ParentMethod", [ instanceMember child (method' "ParentMethod" [ unit] string) ]
         "InterfaceInheritance.ChildInterface.GrandParentMethod", [ instanceMember child (method' "GrandParentMethod" [ unit ] int) ]
-        "InterfaceInheritance.GenericChildInterface.ParentMethod", [ instanceMember genericChild (method' "ParentMethod" [ variable "a" ] (variable "b")) ]
-        "InterfaceInheritance.GenericChildInterface.GrandParentMethod", [ instanceMember genericChild (method' "GrandParentMethod" [ variable "a" ] (variable "u")) ]
-        "InterfaceInheritance.ConflictParameterInterface.ParentMethod", [ instanceMember confrict (method' "ParentMethod" [ variable "b" ] (variable "b1")) ]
+        "InterfaceInheritance.GenericChildInterface<'a>.ParentMethod", [ instanceMember genericChild (method' "ParentMethod" [ variable "a" ] (variable "b")) ]
+        "InterfaceInheritance.GenericChildInterface<'a>.GrandParentMethod", [ instanceMember genericChild (method' "GrandParentMethod" [ variable "a" ] (variable "u")) ]
+        "InterfaceInheritance.ConflictParameterInterface<'b>.ParentMethod", [ instanceMember confrict (method' "ParentMethod" [ variable "b" ] (variable "b1")) ]
         "InterfaceInheritance.IntChildInterface.ParentMethod", [ instanceMember intChild (method' "ParentMethod" [ int ] (variable "b")) ]
       ]
       run testApi
@@ -278,8 +279,8 @@ module FSharp =
   // bug #60
   let internalInterfaceTest = test {
     let! mscorDict = mscorlibApi
-    let tuple = mscorDict.TypeDefinitions |> Array.find (fun x -> x.Name = ReverseName.ofString "System.Tuple" && x.GenericParameters.Length = 2)
-    let existsITuple = tuple.AllInterfaces |> Seq.exists (function Identity (FullIdentity i) -> i.Name = ReverseName.ofString "System.ITuple" | _ -> false)
+    let tuple = mscorDict.TypeDefinitions |> Array.find (fun x -> x.Name = FriendlyName.ofString "System.Tuple<'T1, 'T2>" && x.GenericParameters.Length = 2)
+    let existsITuple = tuple.AllInterfaces |> Seq.exists (function Identity (FullIdentity i) -> i.Name = Name.friendlyNameOfString "System.ITuple" | _ -> false)
     do! existsITuple |> assertEquals false
   }
 
@@ -299,18 +300,18 @@ module FSharp =
       run (fun x -> testApi (x, []))
     }
   let typeConstraintsTest =
-    let subtypeClass = createType "TypeConstraints.SubTypeClass" [ variable "a" ] |> updateAssembly fsharpAssemblyName
-    let subtypeRecord = createType "TypeConstraints.SubTypeRecord" [ variable "a" ] |> updateAssembly fsharpAssemblyName
+    let subtypeClass = createType "TypeConstraints.SubTypeClass<'a>" [ variable "a" ] |> updateAssembly fsharpAssemblyName
+    let subtypeRecord = createType "TypeConstraints.SubTypeRecord<'a>" [ variable "a" ] |> updateAssembly fsharpAssemblyName
     parameterize {
       source [
         // subtype
         ("TypeConstraints.subtypeConFunction",
           (moduleFunction [ variable "Tseq"; unit ]),
           [ constraint' [ "Tseq"] (SubtypeConstraints (seq int)) ])
-        ("TypeConstraints.SubTypeClass.Method",
+        ("TypeConstraints.SubTypeClass<'a>.Method",
           (staticMember subtypeClass (method' "Method" [ variable "a"; variable "b" ] unit)),
           [ constraint' [ "a" ] (SubtypeConstraints (seq int)); constraint' [ "b" ] (SubtypeConstraints (seq string)) ])
-        ("TypeConstraints.SubTypeRecord.Field",
+        ("TypeConstraints.SubTypeRecord<'a>.Field",
           (instanceMember subtypeRecord (field "Field" (variable "a"))),
           [ constraint' [ "a" ] (SubtypeConstraints (seq int)) ])
 
@@ -416,7 +417,8 @@ module FSharp =
   let fullTypeDefinitionTest =
     let plainClass = {
       emptyDef with
-        Name = ReverseName.ofString "FullTypeDefinition.PlainClass"
+        Name = FriendlyName.ofString "FullTypeDefinition.PlainClass"
+        FullName = "FullTypeDefinition.PlainClass"
         AssemblyName = fsharpAssemblyName
         BaseType = Some obj
         DefaultConstructor = Satisfy
@@ -424,13 +426,15 @@ module FSharp =
 
     let plainInterface = {
       emptyDef with
-        Name = ReverseName.ofString "FullTypeDefinition.PlainInterface"
+        Name = FriendlyName.ofString "FullTypeDefinition.PlainInterface"
+        FullName = "FullTypeDefinition.PlainInterface"
         AssemblyName = fsharpAssemblyName
     }
 
     let interfaceImplClass = {
       emptyDef with
-        Name = ReverseName.ofString "FullTypeDefinition.InterfaceImplClass"
+        Name = FriendlyName.ofString "FullTypeDefinition.InterfaceImplClass"
+        FullName = "FullTypeDefinition.InterfaceImplClass"
         AssemblyName = fsharpAssemblyName
         BaseType = Some obj
         AllInterfaces = [ Identity (FullIdentity plainInterface.FullIdentity) ]
@@ -439,14 +443,16 @@ module FSharp =
 
     let interfaceInherit = {
       emptyDef with
-        Name = ReverseName.ofString "FullTypeDefinition.InterfaceInherit"
+        Name = FriendlyName.ofString "FullTypeDefinition.InterfaceInherit"
+        FullName = "FullTypeDefinition.InterfaceInherit"
         AssemblyName = fsharpAssemblyName
         AllInterfaces = [ Identity (FullIdentity plainInterface.FullIdentity) ]
     }
 
     let supportNullClass = {
       emptyDef with
-        Name = ReverseName.ofString "FullTypeDefinition.SupportNullClass"
+        Name = FriendlyName.ofString "FullTypeDefinition.SupportNullClass"
+        FullName = "FullTypeDefinition.SupportNullClass"
         AssemblyName = fsharpAssemblyName
         BaseType = Some obj
         SupportNull = Satisfy
@@ -455,7 +461,8 @@ module FSharp =
 
     let nonSupportNullSubClass = {
       emptyDef with
-        Name = ReverseName.ofString "FullTypeDefinition.SupportNullSubClass"
+        Name = FriendlyName.ofString "FullTypeDefinition.SupportNullSubClass"
+        FullName = "FullTypeDefinition.SupportNullSubClass"
         AssemblyName = fsharpAssemblyName
         BaseType = Some (Identity (FullIdentity supportNullClass.FullIdentity))
         SupportNull = NotSatisfy
@@ -464,14 +471,16 @@ module FSharp =
 
     let supportNullInterface = {
       emptyDef with
-        Name = ReverseName.ofString "FullTypeDefinition.SupportNullInterface"
+        Name = FriendlyName.ofString "FullTypeDefinition.SupportNullInterface"
+        FullName = "FullTypeDefinition.SupportNullInterface"
         AssemblyName = fsharpAssemblyName
         SupportNull = Satisfy
     }
 
     let supportNullSubInterface = {
       emptyDef with
-        Name = ReverseName.ofString "FullTypeDefinition.SupportNullSubInterface"
+        Name = FriendlyName.ofString "FullTypeDefinition.SupportNullSubInterface"
+        FullName = "FullTypeDefinition.SupportNullSubInterface"
         AssemblyName = fsharpAssemblyName
         AllInterfaces = [ Identity (FullIdentity supportNullInterface.FullIdentity) ]
         SupportNull = Satisfy
@@ -479,7 +488,8 @@ module FSharp =
 
     let nonSupportNullSubInterface = {
       emptyDef with
-        Name = ReverseName.ofString "FullTypeDefinition.NonSupportNullSubInterface"
+        Name = FriendlyName.ofString "FullTypeDefinition.NonSupportNullSubInterface"
+        FullName = "FullTypeDefinition.NonSupportNullSubInterface"
         AssemblyName = fsharpAssemblyName
         AllInterfaces = [ Identity (FullIdentity supportNullInterface.FullIdentity) ]
         SupportNull = NotSatisfy
@@ -487,7 +497,8 @@ module FSharp =
 
     let withoutDefaultConstructor = {
       emptyDef with
-        Name = ReverseName.ofString "FullTypeDefinition.WithoutDefaultConstructor"
+        Name = FriendlyName.ofString "FullTypeDefinition.WithoutDefaultConstructor"
+        FullName = "FullTypeDefinition.WithoutDefaultConstructor"
         AssemblyName = fsharpAssemblyName
         BaseType = Some obj
         DefaultConstructor = NotSatisfy
@@ -497,7 +508,8 @@ module FSharp =
 
     let memberClass = {
       emptyDef with
-        Name = ReverseName.ofString "FullTypeDefinition.MemberClass"
+        Name = FriendlyName.ofString "FullTypeDefinition.MemberClass"
+        FullName = "FullTypeDefinition.MemberClass"
         AssemblyName = fsharpAssemblyName
         BaseType = Some obj
         StaticMembers =
@@ -542,19 +554,20 @@ module FSharp =
       "InferredEqualityUnion", Satisfy
       "InferredNoEqualityUnion", NotSatisfy
       "CustomEqualityRecord", Satisfy
-      "GenericClass", Satisfy
-      "EqualityConditionalClass", Dependence [ "a" ]
-      "CustomEqualityAndConditionalRecord", Dependence [ "a" ]
-      "EqualityGenericRecord", Dependence [ "a"; "b" ]
-      "NoEqualityGenericRecord", NotSatisfy
+      "GenericClass<'a, 'b>", Satisfy
+      "EqualityConditionalClass<'a, 'b>", Dependence [ "a" ]
+      "CustomEqualityAndConditionalRecord<'a, 'b>", Dependence [ "a" ]
+      "EqualityGenericRecord<'a, 'b>", Dependence [ "a"; "b" ]
+      "NoEqualityGenericRecord<'a, 'b>", NotSatisfy
       "EqualityWithGenericType", Satisfy
       "NoEqualityWithGenericType", NotSatisfy
-      "RecursiveType", Dependence [ "a" ]
+      "RecursiveType<'a>", Dependence [ "a" ]
       "TupleAbbreviationFieldRecord", Satisfy
       "FunctionAbbreviationFieldRecord", NotSatisfy
     ]
     run (fun (name, expected) ->
-      testFullTypeDef' fsharpAssemblyApi (fun x -> x.Equality) (name :: ReverseName.ofString "FullTypeDefinition.EqualityConstraints", expected))
+      let testName = FriendlyName.ofString name @ FriendlyName.ofString "FullTypeDefinition.EqualityConstraints"
+      testFullTypeDef' fsharpAssemblyApi (fun x -> x.Equality) (FriendlyName testName, expected))
   }
 
   let testComparison = parameterize {
@@ -568,20 +581,20 @@ module FSharp =
       "InferredComparisonUnion", Satisfy
       "InferredNoComparisonUnion", NotSatisfy
       "CustomComparisonRecord", Satisfy
-      "GenericNoComparisonClass", NotSatisfy
-      "GenericComparisonClass", Satisfy
-      "ComparisonConditionalClass", Dependence [ "a" ]
-      "CustomComparisonAndConditionalRecord", Dependence [ "a" ]
-      "ComparisonGenericRecord", Dependence [ "a"; "b" ]
-      "NoComparisonGenericRecord", NotSatisfy
+      "GenericNoComparisonClass<'a, 'b>", NotSatisfy
+      "GenericComparisonClass<'a, 'b>", Satisfy
+      "ComparisonConditionalClass<'a, 'b>", Dependence [ "a" ]
+      "CustomComparisonAndConditionalRecord<'a, 'b>", Dependence [ "a" ]
+      "ComparisonGenericRecord<'a, 'b>", Dependence [ "a"; "b" ]
+      "NoComparisonGenericRecord<'a, 'b>", NotSatisfy
       "ComparisonWithGenericType", Satisfy
       "NoComparisonWithGenericType", NotSatisfy
-      "RecursiveType", Dependence [ "a" ]
+      "RecursiveType<'a>", Dependence [ "a" ]
       "TupleAbbreviationFieldRecord", Satisfy
       "FunctionAbbreviationFieldRecord", NotSatisfy
     ]
     run (fun (name, expected) ->
-      testFullTypeDef' fsharpAssemblyApi (fun x -> x.Comparison) (name :: ReverseName.ofString "FullTypeDefinition.ComparisonConstraints", expected))
+      testFullTypeDef' fsharpAssemblyApi (fun x -> x.Comparison) (Name.friendlyNameOfString ("FullTypeDefinition.ComparisonConstraints." + name), expected))
   }
 
   let compilerInternalTest = test {
@@ -589,7 +602,7 @@ module FSharp =
     let actual =
       fscoreDict.Api
       |> Seq.filter (fun x ->
-        let name = ReverseName.toString x.Name
+        let name = x.Name.Print()
         name.StartsWith("Microsoft.FSharp.Core.LanguagePrimitives.") || name.StartsWith("Microsoft.FSharp.Core.Operators.OperatorIntrinsics.")
       )
       |> Seq.length
@@ -597,15 +610,15 @@ module FSharp =
   }
 
 module SpecialType =
-  let tupleName = ReverseName.ofString "System.Tuple"
+  let tupleName = Name.friendlyNameOfString "System.Tuple<'T1, 'T2>"
   let tupleNullnessTest =
     testFullTypeDef' mscorlibApi (fun x -> x.SupportNull) (tupleName, NotSatisfy)
   let tupleEqualityTest =
-    testFullTypeDef' mscorlibApi (fun x -> x.Equality) (tupleName, Dependence [ "T1"; "T2"; "T3"; "T4"; "T5"; "T6"; "T7"; "TRest"])
+    testFullTypeDef' mscorlibApi (fun x -> x.Equality) (tupleName, Dependence [ "T1"; "T2" ])
   let tupleComparisonTest =
-    testFullTypeDef' mscorlibApi (fun x -> x.Comparison) (tupleName, Dependence [ "T1"; "T2"; "T3"; "T4"; "T5"; "T6"; "T7"; "TRest"])
+    testFullTypeDef' mscorlibApi (fun x -> x.Comparison) (tupleName, Dependence [ "T1"; "T2" ])
 
-  let arrayName = ReverseName.ofString "Microsoft.FSharp.Core.[]"
+  let arrayName = Name.friendlyNameOfString "Microsoft.FSharp.Core.[]<'T>"
 
   let arrayNullnessTest =
     testFullTypeDef' fscoreApi (fun x -> x.SupportNull) (arrayName, Satisfy)
@@ -615,41 +628,40 @@ module SpecialType =
     testFullTypeDef' fscoreApi (fun x -> x.Comparison) (arrayName, Dependence [ "T" ])
 
   let intptrComparison =
-    testFullTypeDef' mscorlibApi (fun x -> x.Comparison) (ReverseName.ofString "System.IntPtr", Satisfy)
+    testFullTypeDef' mscorlibApi (fun x -> x.Comparison) (Name.friendlyNameOfString "System.IntPtr", Satisfy)
   let uintptrComparison =
-    testFullTypeDef' mscorlibApi (fun x -> x.Comparison) (ReverseName.ofString "System.UIntPtr", Satisfy)
+    testFullTypeDef' mscorlibApi (fun x -> x.Comparison) (Name.friendlyNameOfString "System.UIntPtr", Satisfy)
 
   let int32ImplicitStaticMembers =
-    testFullTypeDef' mscorlibApi (fun x -> x.ImplicitStaticMembers |> List.exists (fun x -> x.Name = "op_Addition")) (ReverseName.ofString "System.Int32", true)
+    testFullTypeDef' mscorlibApi (fun x -> x.ImplicitStaticMembers |> List.exists (fun x -> x.Name = "op_Addition")) (Name.friendlyNameOfString "System.Int32", true)
 
   let Unit =
-    testFullTypeDef' fscoreApi (fun x -> x.AssemblyName) (ReverseName.ofString "Microsoft.FSharp.Core.Unit", "FSharp.Core")
+    testFullTypeDef' fscoreApi (fun x -> x.AssemblyName) (Name.friendlyNameOfString "Microsoft.FSharp.Core.Unit", "FSharp.Core")
 
   let UnionCaseInfo =
-    testFullTypeDef' fscoreApi (fun x -> x.AssemblyName) (ReverseName.ofString "Microsoft.FSharp.Reflection.UnionCaseInfo", "FSharp.Core")
+    testFullTypeDef' fscoreApi (fun x -> x.AssemblyName) (Name.friendlyNameOfString "Microsoft.FSharp.Reflection.UnionCaseInfo", "FSharp.Core")
 
   let Delegate =
-    testFullTypeDef' csharpAssemblyApi (fun x -> x.AssemblyName) (ReverseName.ofString "CSharpLoadTestAssembly.TestDelegate", csharpAssemblyName)
+    testFullTypeDef' csharpAssemblyApi (fun x -> x.AssemblyName) (Name.friendlyNameOfString "CSharpLoadTestAssembly.TestDelegate", csharpAssemblyName)
 
 module TypeAbbreviation =
   let A = createType "TypeAbbreviations.A" [] |> updateAssembly fsharpAssemblyName
   let typeAbbreviationTest = parameterize {
     source [
-      { Abbreviation = createType "TypeAbbreviations.GenericTypeAbbreviation" [ variable "b" ] |> updateAssembly fsharpAssemblyName
-        Original = createType "TypeAbbreviations.Original" [ variable "b" ] |> updateAssembly fsharpAssemblyName }
-      { Abbreviation = createType "TypeAbbreviations.SpecializedTypeAbbreviation" [] |> updateAssembly fsharpAssemblyName
-        Original = createType "TypeAbbreviations.Original" [ A ] |> updateAssembly fsharpAssemblyName }
-      { Abbreviation = createType "TypeAbbreviations.NestedTypeAbbreviation" [] |> updateAssembly fsharpAssemblyName
-        Original = createType "TypeAbbreviations.Original"[ A ]  |> updateAssembly fsharpAssemblyName}
-      { Abbreviation = createType "TypeAbbreviations.NestedModule.TypeAbbreviationInModule" [ variable "a" ] |> updateAssembly fsharpAssemblyName
-        Original = createType "TypeAbbreviations.Original" [ variable "a" ] |> updateAssembly fsharpAssemblyName }
-      { Abbreviation = createType "TypeAbbreviations.FunctionAbbreviation" [] |> updateAssembly fsharpAssemblyName
-        Original = arrow [ int; int ] }
+      typeAbbreviationDef "TypeAbbreviations.GenericTypeAbbreviation<'b>" (createType "TypeAbbreviations.Original<'a>" [ variable "b" ] |> updateAssembly fsharpAssemblyName)
+      typeAbbreviationDef "TypeAbbreviations.SpecializedTypeAbbreviation" (createType "TypeAbbreviations.Original<'a>" [ A ] |> updateAssembly fsharpAssemblyName)
+      
+      { typeAbbreviationDef "TypeAbbreviations.NestedTypeAbbreviation" (createType "TypeAbbreviations.Original<'a>"[ A ]  |> updateAssembly fsharpAssemblyName) with
+          Abbreviated = createType "TypeAbbreviations.SpecializedTypeAbbreviation" [] |> updateAssembly fsharpAssemblyName
+      }
+      typeAbbreviationDef "TypeAbbreviations.NestedModule.TypeAbbreviationInModule<'a>" (createType "TypeAbbreviations.Original<'a>"[ variable "a" ]  |> updateAssembly fsharpAssemblyName)
+      typeAbbreviationDef "TypeAbbreviations.FunctionAbbreviation" (arrow [ int; int ])
     ]
     run (fun entry -> test {
       let! api = fsharpAssemblyApi
-      let actual = api.TypeAbbreviations |> Seq.contains entry
-      do! actual |> assertEquals true
+      let expected = { entry with AssemblyName = fsharpAssemblyName }
+      let actual = api.TypeAbbreviations |> Seq.tryFind (fun x -> x.FullName = expected.FullName)
+      do! actual |> assertEquals (Some expected)
     })
   }
 
@@ -660,7 +672,7 @@ module TypeAbbreviation =
 
 module TypeExtension =
   let testApi = testApi fsharpAssemblyApi
-  let testModule = ReverseName.ofString "TypeExtensions"
+  let testModule = FriendlyName.ofString "TypeExtensions"
   let fsharpList_t = fsharpList (variable "T")
 
   let typeExtensionTest = parameterize {
@@ -683,20 +695,20 @@ module TypeExtension =
           typeExtension int32 testModule MemberModifier.Instance (property' "GetterSetterIndexedProperty" PropertyKind.Set [ string ] int) 
         ]
 
-      "Microsoft.FSharp.Collections.List.Method", [ typeExtension fsharpList_t testModule MemberModifier.Static (method' "Method" [ variable "T" ] unit) ]
-      "Microsoft.FSharp.Collections.List.CurriedMethod", [ typeExtension fsharpList_t testModule MemberModifier.Static { curriedMethod "CurriedMethod" [ int; variable "b" ] (variable "b") with GenericParameters = [ "b" ] } ]
-      "Microsoft.FSharp.Collections.List.NoncurriedMethod", [ typeExtension fsharpList_t testModule MemberModifier.Static { method' "NoncurriedMethod" [ int; variable "b" ] int with GenericParameters = [ "b" ] } ]
+      "Microsoft.FSharp.Collections.List<'T>.Method", [ typeExtension fsharpList_t testModule MemberModifier.Static (method' "Method" [ variable "T" ] unit) ]
+      "Microsoft.FSharp.Collections.List<'T>.CurriedMethod", [ typeExtension fsharpList_t testModule MemberModifier.Static { curriedMethod "CurriedMethod" [ int; variable "b" ] (variable "b") with GenericParameters = [ "b" ] } ]
+      "Microsoft.FSharp.Collections.List<'T>.NoncurriedMethod", [ typeExtension fsharpList_t testModule MemberModifier.Static { method' "NoncurriedMethod" [ int; variable "b" ] int with GenericParameters = [ "b" ] } ]
 
-      "Microsoft.FSharp.Collections.List.GetterProperty", [ typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterProperty" PropertyKind.Get [] int) ]
-      "Microsoft.FSharp.Collections.List.SetterProperty", [ typeExtension fsharpList_t testModule MemberModifier.Static (property' "SetterProperty" PropertyKind.Set [] string) ]
-      "Microsoft.FSharp.Collections.List.GetterSetterProperty", [
+      "Microsoft.FSharp.Collections.List<'T>.GetterProperty", [ typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterProperty" PropertyKind.Get [] int) ]
+      "Microsoft.FSharp.Collections.List<'T>.SetterProperty", [ typeExtension fsharpList_t testModule MemberModifier.Static (property' "SetterProperty" PropertyKind.Set [] string) ]
+      "Microsoft.FSharp.Collections.List<'T>.GetterSetterProperty", [
           typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterSetterProperty" PropertyKind.Get [] string)
           typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterSetterProperty" PropertyKind.Set [] string)
         ]
 
-      "Microsoft.FSharp.Collections.List.GetterIndexedProperty", [ typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterIndexedProperty" PropertyKind.Get [ int ] string) ]
-      "Microsoft.FSharp.Collections.List.SetterIndexedProperty", [ typeExtension fsharpList_t testModule MemberModifier.Static (property' "SetterIndexedProperty" PropertyKind.Set [ int ] string) ]
-      "Microsoft.FSharp.Collections.List.GetterSetterIndexedProperty", [
+      "Microsoft.FSharp.Collections.List<'T>.GetterIndexedProperty", [ typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterIndexedProperty" PropertyKind.Get [ int ] string) ]
+      "Microsoft.FSharp.Collections.List<'T>.SetterIndexedProperty", [ typeExtension fsharpList_t testModule MemberModifier.Static (property' "SetterIndexedProperty" PropertyKind.Set [ int ] string) ]
+      "Microsoft.FSharp.Collections.List<'T>.GetterSetterIndexedProperty", [
           typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterSetterIndexedProperty" PropertyKind.Get [ string ] int)
           typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterSetterIndexedProperty" PropertyKind.Set [ string ] int) 
         ]
@@ -771,26 +783,35 @@ module CSharp =
       run testApi
     }
 
-  let loadInnerClassTest =
+  let loadNestedClassTest =
     let outer = createType "CSharpLoadTestAssembly.OuterClass" [] |> updateAssembly csharpAssemblyName
     let inner = createType "CSharpLoadTestAssembly.OuterClass.InnerClass" [] |> updateAssembly csharpAssemblyName
+
+    let genericOuter = createType "CSharpLoadTestAssembly.GenericOuterClass<'T>" [ variable "T" ] |> updateAssembly csharpAssemblyName
+    let genericInner = createType "CSharpLoadTestAssembly.GenericOuterClass<'T>.GenericInnerClass<'T, 'U>" [ variable "T"; variable "U" ] |> updateAssembly csharpAssemblyName
+
     parameterize {
       source [
+        "CSharpLoadTestAssembly.OuterClass", [ constructor' outer (method' "OuterClass" [ unit ] outer) ]
         "CSharpLoadTestAssembly.OuterClass.InnerClass", [ constructor' inner (method' "InnerClass" [ unit ] inner) ]
         "CSharpLoadTestAssembly.OuterClass.InnerClass.StaticMethod", [ staticMember inner (method' "StaticMethod" [ unit ] int) ]
+
+        "CSharpLoadTestAssembly.GenericOuterClass<'T>", [ constructor' genericOuter (method' "GenericOuterClass" [ unit ] genericOuter) ]
+        "CSharpLoadTestAssembly.GenericOuterClass<'T>.GenericInnerClass<'T, 'U>", [ constructor' genericInner (method' "GenericInnerClass" [ unit ] genericInner) ]
+        "CSharpLoadTestAssembly.GenericOuterClass<'T>.GenericInnerClass<'T, 'U>.Method", [ staticMember genericInner (method' "Method" [ variable "T"; variable "U" ] unit) ]
       ]
       run testApi
     }
 
   let loadInterfaceTest =
     let i = createType "CSharpLoadTestAssembly.Interface" [] |> updateAssembly csharpAssemblyName
-    let gi = createType "CSharpLoadTestAssembly.GenericInterface" [ variable "T" ] |> updateAssembly csharpAssemblyName
+    let gi = createType "CSharpLoadTestAssembly.GenericInterface<'T>" [ variable "T" ] |> updateAssembly csharpAssemblyName
     parameterize {
       source [
         "CSharpLoadTestAssembly.Interface.Method", [ instanceMember i (method' "Method" [ int; string ] int) ]
         "CSharpLoadTestAssembly.Interface.Property", [ instanceMember i (property' "Property" PropertyKind.GetSet [] int) ]
-        "CSharpLoadTestAssembly.GenericInterface.Method", [ instanceMember gi (method' "Method" [ variable "T" ] int) ]
-        "CSharpLoadTestAssembly.GenericInterface.Property", [ instanceMember gi (property' "Property" PropertyKind.Set [] (variable "T")) ]
+        "CSharpLoadTestAssembly.GenericInterface<'T>.Method", [ instanceMember gi (method' "Method" [ variable "T" ] int) ]
+        "CSharpLoadTestAssembly.GenericInterface<'T>.Property", [ instanceMember gi (property' "Property" PropertyKind.Set [] (variable "T")) ]
       ]
       run testApi
     }

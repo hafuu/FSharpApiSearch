@@ -1,22 +1,51 @@
 ﻿namespace FSharpApiSearch
 
-type ReverseName = string list
-
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module ReverseName =
-  let toString (name: ReverseName) = name |> List.rev |> String.concat "."
-  let ofString (name: string) = name.Split('.') |> Array.toList |> List.rev
-
 type TypeVariable = string
 
+type NameItem = {
+  DisplayName: string
+  // CompiledName: string
+  GenericParametersForDisplay: TypeVariable list
+}
+
+type FullName = string
+type FriendlyName = NameItem list
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module FriendlyName =
+  open System.Text.RegularExpressions
+
+  let ofString (name: string) =
+    name.Split('.')
+    |> Seq.map (fun n ->
+      if n.Contains("<") then
+        let xs = n.Split([| '<' |], 2)
+        let name = xs.[0]
+        let args = [ for m in Regex.Matches(xs.[1], @"'(\w+)") -> m.Groups.[1].Value ]
+        { DisplayName = name; GenericParametersForDisplay = args }
+      else
+        { DisplayName = n; GenericParametersForDisplay = [] })
+    |> Seq.toList
+    |> List.rev
+
+type Name =
+  | LoadingName of assemblyName: string * FullName * FriendlyName
+  | FriendlyName of FriendlyName
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module Name =
+  let friendlyNameOfString (name: string) = FriendlyName (FriendlyName.ofString name)
+
+  let loadingNameError() = failwith "Loading name at run time is invalid data."
+
 type PartialIdentity = {
-  Name: ReverseName
+  Name: FriendlyName
   GenericParameterCount: int
 }
 
 type FullIdentity = {
   AssemblyName: string
-  Name: ReverseName
+  Name: Name
   GenericParameterCount: int
 }
 
@@ -85,7 +114,8 @@ type ConstraintStatus =
   | Dependence of TypeVariable list
 
 type FullTypeDefinition = {
-  Name: ReverseName
+  Name: FriendlyName
+  FullName: FullName
   AssemblyName: string
   BaseType: LowType option
   AllInterfaces: LowType list
@@ -106,17 +136,34 @@ type FullTypeDefinition = {
   Comparison: ConstraintStatus
 }
 with
-  member this.FullIdentity = { AssemblyName = this.AssemblyName; Name = this.Name; GenericParameterCount = this.GenericParameters.Length }
+  member this.FullIdentity = { AssemblyName = this.AssemblyName; Name = FriendlyName this.Name; GenericParameterCount = this.GenericParameters.Length }
 
 type TypeAbbreviationDefinition = {
-  Abbreviation: LowType
+  Name: FriendlyName
+  FullName: FullName
+  AssemblyName: string
+  GenericParameters: TypeVariable list
   Abbreviated: LowType
   Original: LowType
 }
+with
+  member this.FullIdentity = { AssemblyName = this.AssemblyName; Name = FriendlyName this.Name; GenericParameterCount = this.GenericParameters.Length }
+  member this.TypeAbbreviation =
+    let abbreviation =
+      match this.GenericParameters with
+      | [] -> Identity (FullIdentity this.FullIdentity)
+      | args ->
+        let id = Identity (FullIdentity this.FullIdentity)
+        let args = args |> List.map (fun a -> Variable (VariableSource.Target, a))
+        Generic (id, args)
+    {
+      Abbreviation = abbreviation
+      Original = this.Original
+    }: TypeAbbreviation
 
 type TypeExtension = {
   ExistingType: LowType
-  Declaration: ReverseName
+  Declaration: FriendlyName
   MemberModifier: MemberModifier
   Member: Member
 }
@@ -148,7 +195,7 @@ type ApiSignature =
   | ExtensionMember of Member
 
 type Api = {
-  Name: ReverseName
+  Name: Name
   Signature: ApiSignature
   TypeConstraints: TypeConstraint list
 }
@@ -170,7 +217,7 @@ type ApiDictionary = {
   AssemblyName: string
   Api: Api[]
   TypeDefinitions: FullTypeDefinition[]
-  TypeAbbreviations: TypeAbbreviation[]
+  TypeAbbreviations: TypeAbbreviationDefinition[]
 }
 
 [<RequireQualifiedAccess>]
@@ -227,20 +274,35 @@ module SpecialTypes =
   let mscorlib = "mscorlib"
   let fscore = "FSharp.Core"
 
+  let UnitLoadingName = LoadingName (fscore, typeof<Unit>.FullName, [])
+  let UnitFriendlyName = FriendlyName (FriendlyName.ofString typeof<Unit>.FullName)
+
+  module LoadingFullIdentity =
+    open System.Collections
+
+    let ofDotNetType (t: Type) =
+      if t.IsGenericType then failwith "It is not support generic type."
+      let assemblyName = t.Assembly.GetName().Name
+      { AssemblyName = assemblyName; Name = LoadingName (assemblyName, t.FullName, []); GenericParameterCount = 0 }
+
+    let IntPtr = ofDotNetType typeof<IntPtr>
+    let UIntPtr = ofDotNetType typeof<UIntPtr>
+
+    let IComparable = ofDotNetType typeof<IComparable>
+    let IStructuralComparable = ofDotNetType typeof<IStructuralComparable>
+
+    let ExtensionAttribute = ofDotNetType typeof<System.Runtime.CompilerServices.ExtensionAttribute>
+
   module FullIdentity =
     open System.Collections
 
     let ofDotNetType (t: Type) =
-      let assemblyName = t.Assembly.GetName().Name
-      let argCount = t.GetGenericArguments().Length
-      let fullName = Regex.Replace(t.FullName, @"`\d+$", "")
-      let name = ReverseName.ofString fullName
-      { AssemblyName = assemblyName; Name = name; GenericParameterCount = argCount }
+      if t.IsGenericType then failwith "It is not support generic type."
+      { AssemblyName = t.Assembly.GetName().Name; Name = Name.friendlyNameOfString t.FullName; GenericParameterCount = 0 }
 
-    let tupleName = ReverseName.ofString "System.Tuple"
-
-    let isTuple (x: FullIdentity) =
-      x.AssemblyName = mscorlib && x.Name = tupleName
+    let tupleName n =
+      let name = { DisplayName = "Tuple"; GenericParametersForDisplay = List.init n (sprintf "T%d") } :: { DisplayName = "System"; GenericParametersForDisplay = [] } :: []
+      FriendlyName name
 
     let Boolean = ofDotNetType typeof<Boolean>
     let Byte = ofDotNetType typeof<Byte>
@@ -259,21 +321,16 @@ module SpecialTypes =
     let UInt64 = ofDotNetType typeof<UInt64>
     let UIntPtr = ofDotNetType typeof<UIntPtr>
 
-    let IComparable = ofDotNetType typeof<IComparable>
-    let IStructuralComparable = ofDotNetType typeof<IStructuralComparable>
-
-    let ExtensionAttribute = ofDotNetType typeof<System.Runtime.CompilerServices.ExtensionAttribute>
-
   module Identity =
     let ofDotNetType (t: Type) = FullIdentity (FullIdentity.ofDotNetType t)
 
-    let tupleN n = FullIdentity { AssemblyName = mscorlib; Name = FullIdentity.tupleName; GenericParameterCount = n }
+    let tupleN n = FullIdentity { AssemblyName = mscorlib; Name = FullIdentity.tupleName n; GenericParameterCount = n }
 
   module LowType =
     let ofDotNetType (t: Type) = LowType.Identity (Identity.ofDotNetType t)
     let Unit = ofDotNetType typeof<Unit>
     let unit =
-      let unit = LowType.Identity (FullIdentity { AssemblyName = fscore; Name = ReverseName.ofString "Microsoft.FSharp.Core.unit"; GenericParameterCount = 0 })
+      let unit = LowType.Identity (FullIdentity { AssemblyName = fscore; Name = Name.friendlyNameOfString "Microsoft.FSharp.Core.unit"; GenericParameterCount = 0 })
       TypeAbbreviation { Abbreviation = unit; Original = Unit }
 
     let Boolean = ofDotNetType typeof<Boolean>
@@ -293,9 +350,13 @@ module SpecialTypes =
     let UInt64 = ofDotNetType typeof<UInt64>
     let UIntPtr = ofDotNetType typeof<UIntPtr>
 
+    let float =
+      let float = LowType.Identity (FullIdentity { AssemblyName = fscore; Name = Name.friendlyNameOfString "Microsoft.FSharp.Core.float"; GenericParameterCount = 0 })
+      TypeAbbreviation { Abbreviation = float; Original = Double }
+
     let rec isUnit (x: LowType) =
       match x with
-      | Identity _ as i -> i = Unit
+      | Identity (FullIdentity { Name = name }) -> name = UnitLoadingName || name = UnitFriendlyName
       | TypeAbbreviation { Original = o } -> isUnit o
       | _ -> false
 
@@ -305,13 +366,16 @@ module SpecialTypes =
         match x with
         | Generic (Identity id, [ elem ]) ->
           match id with
-          | FullIdentity { Name = name }
+          | FullIdentity { Name = FriendlyName name }
           | PartialIdentity { Name = name } ->
-            let name = name.Head
-            if Regex.IsMatch(name, arrayRegexPattern) then
-              Some (name, elem)
-            else
-              None
+            match name with
+            | { DisplayName = name; GenericParametersForDisplay = [ _ ] } :: _ ->
+              if Regex.IsMatch(name, arrayRegexPattern) then
+                Some (name, elem)
+              else
+                None
+            | _ -> None
+          | FullIdentity { Name = LoadingName _ } -> Name.loadingNameError()
         | _ -> None
       let (|NonTuple|_|) x =
         match x with
@@ -346,9 +410,36 @@ module internal Print =
     | ApiKind.TypeExtension (modifier, memberKind) -> sprintf "%s %s" (printMemberModifier modifier) (printMemberKind memberKind)
     | ApiKind.ExtensionMember -> "extension member"
 
+  let printFriendlyName = function
+    | [] -> "<empty>"
+    | ns ->
+      let print (x: NameItem) =
+        match x.GenericParametersForDisplay with
+        | [] -> x.DisplayName
+        | args -> sprintf "%s<%s>" x.DisplayName (args |> List.map (sprintf "'%s") |> String.concat ", ")
+      ns |> Seq.map print |> Seq.rev |> String.concat "."
+
+  let printName = function
+    | LoadingName (_, n1, n2) ->
+      match n2 with
+      | [] -> n1
+      | n2 -> n1 + "." + printFriendlyName n2
+    | FriendlyName n -> printFriendlyName n
+
+  let printFriendlyName_short = function
+    | [] -> "<empty>"
+    | n :: _ -> n.DisplayName
+
+  let printName_short = function
+    | LoadingName (_, n1, n2) ->
+      match n2 with
+      | [] -> n1
+      | n2 -> printFriendlyName_short n2
+    | FriendlyName n -> printFriendlyName_short n
+
   let printIdentity = function
-    | FullIdentity i -> i.Name.Head
-    | PartialIdentity i -> i.Name.Head
+    | FullIdentity i -> printName_short i.Name
+    | PartialIdentity i -> printFriendlyName_short i.Name
 
   let printVariableSource = function
     | VariableSource.Query -> "q"
@@ -435,8 +526,13 @@ module internal Print =
     
   let printFullTypeDefinition isDebug (x: FullTypeDefinition) =
     match x.GenericParameters with
-    | [] -> sprintf "%s.%s" x.AssemblyName (ReverseName.toString x.Name)
-    | args -> sprintf "%s.%s<%s>" x.AssemblyName (ReverseName.toString x.Name) (args |> Seq.map (printVariable isDebug VariableSource.Target) |> String.concat ", ")
+    | [] -> sprintf "%s.%s" x.AssemblyName (printFriendlyName x.Name)
+    | args -> sprintf "%s.%s<%s>" x.AssemblyName (printFriendlyName x.Name) (args |> Seq.map (printVariable isDebug VariableSource.Target) |> String.concat ", ")
+
+  let pringTypeAbbreviation isDebug (x: TypeAbbreviationDefinition) =
+    match x.GenericParameters with
+    | [] -> sprintf "%s.%s" x.AssemblyName (printFriendlyName x.Name)
+    | args -> sprintf "%s.%s<%s>" x.AssemblyName (printFriendlyName x.Name) (args |> Seq.map (printVariable isDebug VariableSource.Target) |> String.concat ", ")
 
   let printApiSignature isDebug = function
     | ApiSignature.ModuleValue t -> printLowType isDebug t
@@ -450,13 +546,16 @@ module internal Print =
     | ApiSignature.StaticMember (_, m) -> printMember isDebug m
     | ApiSignature.Constructor (_, m) -> printMember isDebug m
     | ApiSignature.FullTypeDefinition x -> printFullTypeDefinition isDebug x
-    | ApiSignature.TypeAbbreviation t -> printLowType isDebug t.Abbreviation
+    | ApiSignature.TypeAbbreviation t -> pringTypeAbbreviation isDebug t
     | ApiSignature.TypeExtension t ->
       if isDebug then
         sprintf "%s => %s" (printLowType isDebug t.ExistingType) (printMember isDebug t.Member)
       else
         printMember isDebug t.Member
     | ApiSignature.ExtensionMember m -> printMember isDebug m
+
+type Name with
+  member this.Print() = Print.printName this
 
 type LowType with
   member this.Print() = Print.printLowType false this
@@ -481,22 +580,38 @@ type Api with
   member this.PrintKind() =
     match this.Signature with
     | ApiSignature.TypeExtension { Declaration = declaration } ->
-      sprintf "%s (%s)" (Print.printApiKind this.Kind) (ReverseName.toString declaration)
+      sprintf "%s (%s)" (Print.printApiKind this.Kind) (Print.printFriendlyName declaration)
     | _ -> Print.printApiKind this.Kind
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Identity =
+  let private testFriendlyName (xs: FriendlyName) (ys: FriendlyName) =
+    Seq.zip xs ys |> Seq.forall (fun (x, y) -> x.DisplayName = y.DisplayName && x.GenericParametersForDisplay.Length = y.GenericParametersForDisplay.Length)
+
+  let testFullIdentity (x: FullIdentity) (y: FullIdentity) =
+    match x.Name, y.Name with
+    | (LoadingName _, _) | (_, LoadingName _) -> Name.loadingNameError()
+    | FriendlyName xName, FriendlyName yName -> x.AssemblyName = y.AssemblyName && testFriendlyName xName yName
+
+  let private testPartialAndFullIdentity (partial: PartialIdentity) (full: FullIdentity) =
+    let testNameItem (p: NameItem, f: NameItem) =
+      match p.GenericParametersForDisplay, f.GenericParametersForDisplay with
+      | [], _ -> p.DisplayName = f.DisplayName
+      | _ -> p.DisplayName = f.DisplayName && p.GenericParametersForDisplay.Length = f.GenericParametersForDisplay.Length
+    match full.Name with
+    | FriendlyName fullName ->
+      partial.GenericParameterCount = full.GenericParameterCount
+      && (Seq.zip partial.Name fullName |> Seq.forall testNameItem)
+    | LoadingName _ -> Name.loadingNameError()
+
   let sameName x y =
     match x, y with
-    | FullIdentity left, FullIdentity right -> left = right
+    | FullIdentity left, FullIdentity right -> testFullIdentity left right
     | FullIdentity full, PartialIdentity partial
-    | PartialIdentity partial, FullIdentity full ->
-      full.GenericParameterCount = partial.GenericParameterCount
-      && full.Name.Length >= partial.Name.Length
-      && Seq.zip full.Name partial.Name |> Seq.forall (fun (x, y) -> x = y)
+    | PartialIdentity partial, FullIdentity full -> testPartialAndFullIdentity partial full
     | PartialIdentity left, PartialIdentity right ->
       left.GenericParameterCount = right.GenericParameterCount
-      && Seq.zip left.Name right.Name |> Seq.forall (fun (x, y) -> x = y)
+      && testFriendlyName left.Name right.Name
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module LowType =

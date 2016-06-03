@@ -63,15 +63,6 @@ namespace CSharpLoadTestAssembly
         public int this[int x] { get { return x; } set { } }
     }
 
-    public class OuterClass
-    {
-        public class InnerClass
-        {
-            public InnerClass() { }
-            public static int StaticMethod() => 3;
-        }
-    }
-
     public struct Struct
     {
         public int Field;

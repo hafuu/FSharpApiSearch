@@ -10,7 +10,7 @@ let searchAndShowResult (client: FSharpApiSearchClient) (query: string) opt =
   let results = client.Search(query, opt)
   results
   |> Seq.iter (fun x ->
-    Console.Write(sprintf "%s: %s" (ReverseName.toString x.Api.Name) (x.Api.PrintSignature()))
+    Console.Write(sprintf "%s: %s" (x.Api.Name.Print()) (x.Api.PrintSignature()))
     Console.ForegroundColor <- ConsoleColor.DarkGray
     Console.WriteLine(sprintf ", %s, distance: %d" (x.Api.PrintKind()) x.Distance)
     if x.Api.TypeConstraints.IsEmpty = false then

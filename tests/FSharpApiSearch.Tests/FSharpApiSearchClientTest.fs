@@ -15,7 +15,7 @@ let assemblyPath =
 
 let testClient = test {
   let assemblies = AssemblyLoader.load TestAssemblies.assemblyResolver (assemblyPath :: FSharpApiSearchClient.DefaultReferences)
-  let dictionaries = assemblies |> Seq.map ApiLoader.load
+  let dictionaries = ApiLoader.load assemblies
   return FSharpApiSearchClient([ assemblyName ], dictionaries)
 }
 
@@ -29,7 +29,7 @@ let searchTest = parameterize {
     let! client = testClient
     let actual =
       client.Search(query, SearchOptions.defaultOptions)
-      |> Seq.map (fun x -> ReverseName.toString x.Api.Name) |> Seq.toList |> List.sort
+      |> Seq.map (fun x -> x.Api.Name.Print()) |> Seq.toList |> List.sort
     do! actual |> assertEquals (List.sort expecteds)
   })
 }
