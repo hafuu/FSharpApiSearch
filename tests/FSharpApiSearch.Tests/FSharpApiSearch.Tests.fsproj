@@ -147,8 +147,8 @@
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v2.0' Or $(TargetFrameworkVersion) == 'v3.0' Or $(TargetFrameworkVersion) == 'v3.5' Or $(TargetFrameworkVersion) == 'v4.0' Or $(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.5.1' Or $(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3' Or $(TargetFrameworkVersion) == 'v4.6' Or $(TargetFrameworkVersion) == 'v4.6.1' Or $(TargetFrameworkVersion) == 'v4.6.2')">
       <ItemGroup>
-        <Reference Include="Persimmon.Assertion">
-          <HintPath>..\..\packages\test\Persimmon.Assertion\lib\net20\Persimmon.Assertion.dll</HintPath>
+        <Reference Include="Persimmon.MuscleAssert">
+          <HintPath>..\..\packages\test\Persimmon.MuscleAssert\lib\net20\Persimmon.MuscleAssert.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>

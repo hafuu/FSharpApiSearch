@@ -39,9 +39,9 @@ GROUP Test
 NUGET
   remote: https://www.nuget.org/api/v2
   specs:
-    FSharp.Object.Diff (0.6)
+    FSharp.Object.Diff (0.6.1)
     Persimmon (1.1)
-    Persimmon.Assertion (0.4.0-beta)
-      FSharp.Object.Diff (>= 0.6)
-      Persimmon (>= 1.1)
     Persimmon.Console (1.1)
+    Persimmon.MuscleAssert (0.5)
+      FSharp.Object.Diff (>= 0.6.1)
+      Persimmon (>= 1.1)
