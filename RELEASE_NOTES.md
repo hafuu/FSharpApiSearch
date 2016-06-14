@@ -1,3 +1,6 @@
+### 0.3.1-beta - 2016/6/14
+* Fix error at similarity searching (#81)
+
 ### 0.3.0-beta - 2016/5/22
 * Support active pattern
 * Support function type abbreviation
