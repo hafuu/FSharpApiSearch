@@ -16,8 +16,7 @@ type FSharpEntity with
     { AssemblyName = assemblyName; Name = name; GenericParameterCount = this.GenericParameters.Count }
   member this.Identity = Identity (FullIdentity this.FullIdentity)
   member this.IsTuple = FullIdentity.isTuple this.FullIdentity
-  member this.IsCompilerInternal =
-    this.FullName = "Microsoft.FSharp.Core.LanguagePrimitives" || this.FullName = "Microsoft.FSharp.Core.Operators.OperatorIntrinsics"
+  member this.IsCompilerInternalModule = this.IsFSharpModule && (this.FullName = "Microsoft.FSharp.Core.LanguagePrimitives" || this.FullName = "Microsoft.FSharp.Core.Operators.OperatorIntrinsics")
 
 type FSharpType with
   member this.TryIdentity = this.TryFullIdentity |> Option.map (fun x -> Identity (FullIdentity x))
@@ -654,11 +653,15 @@ let rec collectApi (e: FSharpEntity): Api seq =
   seq {
     if e.IsNamespace then
       yield! collectFromNestedEntities e
-    elif e.IsFSharpModule && not e.IsCompilerInternal then
+    elif e.IsCompilerInternalModule then
+      ()
+    elif e.IsFSharpModule then
       yield! collectFromModule e
     elif e.IsFSharpAbbreviation && not e.IsMeasure then
       yield! collectTypeAbbreviationDefinition e
-    elif e.IsClass || e.IsValueType || e.IsFSharpRecord || e.IsFSharpUnion || e.IsArrayType then
+    elif e.IsClass || e.IsValueType || e.IsFSharpRecord || e.IsFSharpUnion || e.IsArrayType || e.IsDelegate then
+      yield! collectFromType e
+    elif e.Assembly.SimpleName = SpecialTypes.fscore && (e.IsOpaque || e.HasAssemblyCodeRepresentation)  then
       yield! collectFromType e
     elif e.IsInterface then
       yield! collectFromInterface e

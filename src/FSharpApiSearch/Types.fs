@@ -225,7 +225,7 @@ module SpecialTypes =
   let arrayRegexPattern = @"\[,*\]"
 
   let mscorlib = "mscorlib"
-  let sfcore = "FSharp.Core"
+  let fscore = "FSharp.Core"
 
   module FullIdentity =
     open System.Collections
@@ -273,7 +273,7 @@ module SpecialTypes =
     let ofDotNetType (t: Type) = LowType.Identity (Identity.ofDotNetType t)
     let Unit = ofDotNetType typeof<Unit>
     let unit =
-      let unit = LowType.Identity (FullIdentity { AssemblyName = sfcore; Name = ReverseName.ofString "Microsoft.FSharp.Core.unit"; GenericParameterCount = 0 })
+      let unit = LowType.Identity (FullIdentity { AssemblyName = fscore; Name = ReverseName.ofString "Microsoft.FSharp.Core.unit"; GenericParameterCount = 0 })
       TypeAbbreviation { Abbreviation = unit; Original = Unit }
 
     let Boolean = ofDotNetType typeof<Boolean>

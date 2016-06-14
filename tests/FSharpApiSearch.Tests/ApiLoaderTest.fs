@@ -622,6 +622,15 @@ module SpecialType =
   let int32ImplicitStaticMembers =
     testFullTypeDef' mscorlibApi (fun x -> x.ImplicitStaticMembers |> List.exists (fun x -> x.Name = "op_Addition")) (ReverseName.ofString "System.Int32", true)
 
+  let Unit =
+    testFullTypeDef' fscoreApi (fun x -> x.AssemblyName) (ReverseName.ofString "Microsoft.FSharp.Core.Unit", "FSharp.Core")
+
+  let UnionCaseInfo =
+    testFullTypeDef' fscoreApi (fun x -> x.AssemblyName) (ReverseName.ofString "Microsoft.FSharp.Reflection.UnionCaseInfo", "FSharp.Core")
+
+  let Delegate =
+    testFullTypeDef' csharpAssemblyApi (fun x -> x.AssemblyName) (ReverseName.ofString "CSharpLoadTestAssembly.TestDelegate", csharpAssemblyName)
+
 module TypeAbbreviation =
   let A = createType "TypeAbbreviations.A" [] |> updateAssembly fsharpAssemblyName
   let typeAbbreviationTest = parameterize {
