@@ -71,6 +71,13 @@ type FSharpField with
 let genericParameters (e: FSharpEntity) =
   e.GenericParameters |> Seq.map (fun p -> p.DisplayName : TypeVariable) |> Seq.toList
 
+let accessibility (e: FSharpEntity) =
+  let a = e.Accessibility
+  if a.IsPublic then
+    Public
+  else
+    Private
+
 let rec toSignature (t: FSharpType) =
   if Hack.isMeasure t then
     None
@@ -375,6 +382,7 @@ let collectTypeAbbreviationDefinition (accessPath: FriendlyName) (e: FSharpEntit
       Name = typeAbbreviationName
       FullName = e.TypeAbbreviationFullName
       AssemblyName = e.Assembly.SimpleName
+      Accessibility = accessibility e
       GenericParameters = e.GenericParameters |> Seq.map (fun p -> p.Name) |> Seq.toList
       Abbreviated = abbreviated
       Original = original
@@ -645,6 +653,7 @@ let fullTypeDef (name: FriendlyName) (e: FSharpEntity) members =
       Name = name
       FullName = fullName
       AssemblyName = identity.AssemblyName
+      Accessibility = accessibility e
       BaseType = baseType
       AllInterfaces = e.DeclaredInterfaces |> Seq.filter (fun x -> x.TypeDefinition.Accessibility.IsPublic) |> Seq.choose toSignature |> Seq.toList
       GenericParameters = genericParameters e
@@ -683,12 +692,11 @@ let rec collectApi (accessPath: FriendlyName) (e: FSharpEntity): Api seq =
       yield! collectFromType accessPath e
     elif e.IsInterface then
       yield! collectFromInterface accessPath e
-    elif e.Assembly.SimpleName = SpecialTypes.fscore && (e.IsOpaque || e.HasAssemblyCodeRepresentation) then
+    elif e.IsOpaque || e.HasAssemblyCodeRepresentation then
       yield! collectFromType accessPath e
   }
 and collectFromNestedEntities (accessPath: FriendlyName) (e: FSharpEntity): Api seq =
   e.NestedEntities
-  |> Seq.filter (fun n -> n.Accessibility.IsPublic)
   |> Seq.collect (collectApi accessPath)
 and collectFromModule (accessPath: FriendlyName) (e: FSharpEntity): Api seq =
   let moduleName = { DisplayName = e.DisplayName; GenericParametersForDisplay = [] } :: accessPath
@@ -714,7 +722,6 @@ and collectFromType (accessPath: FriendlyName) (e: FSharpEntity): Api seq =
       |> Seq.filter (fun x -> x.Accessibility.IsPublic && not x.IsCompilerGenerated)
       |> Seq.choose (toFieldApi typeName e declaringSignature)
       |> Seq.cache
-
     match fullTypeDef typeName e (Seq.append members fields) with
     | Some d ->
       yield d
@@ -782,7 +789,6 @@ let collectTypeAbbreviations (xs: Api seq) =
 let load' (assembly: FSharpAssembly): ApiDictionary =
   let api =
     assembly.Contents.Entities
-    |> Seq.filter (fun e -> e.Accessibility.IsPublic)
     |> Seq.collect (fun e ->
       let accessPath =
         match e.AccessPath with

@@ -974,7 +974,7 @@ module Initializer =
     }
 
   let replaceTypeAbbreviation (dictionaries: ApiDictionary seq) (query: Query) = // TODO: TypeAbbreviation -> TypeAbbreviationDefinitionに変えたので書き直しできそう
-    let table = dictionaries |> Seq.collect (fun x -> x.TypeAbbreviations) |> Seq.map (fun t -> t.TypeAbbreviation) |> Seq.toList
+    let table = dictionaries |> Seq.collect (fun x -> x.TypeAbbreviations) |> Seq.filter (fun t -> t.Accessibility = Public) |> Seq.map (fun t -> t.TypeAbbreviation) |> Seq.toList
     let rec replace = function
       | Identity id as i ->
         let replacement = table |> List.tryFindBack (function { Abbreviation = Identity abbId } -> Identity.sameName abbId id | _ -> false)

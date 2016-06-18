@@ -233,3 +233,7 @@ module ComparisonConstraints =
   type FunctionAbbreviationFieldRecord = {
     Function : FunctionAbbreviation
   }
+
+type PublicType() = class end
+type private PrivateType() = class end
+type internal InternalType() = class end

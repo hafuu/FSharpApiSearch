@@ -6,6 +6,7 @@ open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
 open Persimmon.MuscleAssert
 open FSharpApiSearch
+open TestHelper
 open TestHelper.DSL
 open TestAssemblies
 
@@ -13,6 +14,7 @@ let emptyDef: FullTypeDefinition = {
   Name = []
   FullName = ""
   AssemblyName = ""
+  Accessibility = Public
   BaseType = None
   AllInterfaces = []
   GenericParameters = []
@@ -609,6 +611,18 @@ module FSharp =
     do! actual |> assertEquals 0
   }
 
+  let accessibilityTest = parameterize {
+    source[
+      "FullTypeDefinition.PublicType", Public
+      "FullTypeDefinition.PrivateType", Private
+      "FullTypeDefinition.InternalType", Private
+
+      "InternalSignature.InternalType", Private
+    ]
+    run (fun (name, expected) ->
+      testFullTypeDef' fsharpAssemblyApi (fun x -> x.Accessibility) (Name.friendlyNameOfString name, expected))
+  }
+
 module SpecialType =
   let tupleName = Name.friendlyNameOfString "System.Tuple<'T1, 'T2>"
   let tupleNullnessTest =
@@ -656,6 +670,9 @@ module TypeAbbreviation =
       }
       typeAbbreviationDef "TypeAbbreviations.NestedModule.TypeAbbreviationInModule<'a>" (createType "TypeAbbreviations.Original<'a>"[ variable "a" ]  |> updateAssembly fsharpAssemblyName)
       typeAbbreviationDef "TypeAbbreviations.FunctionAbbreviation" (arrow [ int; int ])
+
+      (typeAbbreviationDef "TypeAbbreviations.InternalTypeAbbreviation" (A)).AsPrivate
+      (typeAbbreviationDef "TypeAbbreviations.PrivateTypeAbbreviation" (A)).AsPrivate
     ]
     run (fun entry -> test {
       let! api = fsharpAssemblyApi

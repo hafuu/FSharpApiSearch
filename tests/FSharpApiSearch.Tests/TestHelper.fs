@@ -90,9 +90,17 @@ module DSL =
         | [] -> x.DisplayName
         | args -> sprintf "%s`%d" x.DisplayName args.Length
       defName |> List.rev |> List.map toFullName |> String.concat "."
-    { Name = defName; FullName = fullName; AssemblyName = "test"; GenericParameters = defName.Head.GenericParametersForDisplay; Abbreviated = original; Original = original }
+    { Name = defName; FullName = fullName; AssemblyName = "test"; Accessibility = Public; GenericParameters = defName.Head.GenericParametersForDisplay; Abbreviated = original; Original = original }
 
 open DSL
+
+type FullTypeDefinition with
+  member this.AsPublic = { this with Accessibility = Public }
+  member this.AsPrivate = { this with Accessibility = Private }
+
+type TypeAbbreviationDefinition with
+  member this.AsPublic = { this with Accessibility = Public }
+  member this.AsPrivate = { this with Accessibility = Private }
 
 let fsharpAbbreviationTable: TypeAbbreviationDefinition[] = [|
     typeAbbreviationDef "Microsoft.FSharp.Core.int" (createType "System.Int32" [])

@@ -4,6 +4,7 @@ open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
 open Persimmon.MuscleAssert
 open FSharpApiSearch
+open TestHelper
 open TestHelper.DSL
 
 let typeA = createType "Test.A" []
@@ -229,6 +230,18 @@ module NonsimilarityTest =
       "CharStream<'a> -> Reply<'b>", moduleFunction [ charStream; reply ], Always true
       "Parser<'a, 'b> -> Parser<'a, 'b>", moduleFunction [ parser; parser ], Always true
       "(CharStream<'a> -> Reply<'b>) -> Parser<'a, 'b>", moduleFunction [ parser; parser ], Always true
+    ]
+
+  let privateTypeAbbreviationTest =
+    let original = createType "Test.Original" []
+    let privateTypeAbbreviation = createType "Test.PrivateTypeAbbreviation" []
+    let table = [|
+      (typeAbbreviationDef "Test.PrivateTypeAbbreviation" (createType "Test.Original" [])).AsPrivate
+    |]
+    let matchTest = matchStrictTest' false table Disabled
+    matchTest [
+      "Test.PrivateTypeAbbreviation", moduleValue original, Always false
+      "Test.PrivateTypeAbbreviation", moduleValue privateTypeAbbreviation, Always true
     ]
 
   let nestedClassTest =
@@ -462,6 +475,7 @@ module TypeConstraintTest =
     Name = []
     FullName = ""
     AssemblyName = "test"
+    Accessibility = Public
     BaseType = None
     AllInterfaces = []
     GenericParameters = []
@@ -674,6 +688,7 @@ module TypeConstraintTest =
     Name = FriendlyName.ofString "Test.TypeAbbreviationInterface"
     FullName = "Test.TypeAbbreviationInterface"
     AssemblyName = "test"
+    Accessibility = Public
     GenericParameters = []
     Abbreviated = OriginalTypeAbbreviatedInterface.LowType
     Original = OriginalTypeAbbreviatedInterface.LowType

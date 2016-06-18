@@ -15,3 +15,6 @@ let functionWithFunctionAbbreviation (x: FunctionAbbreviation): FunctionAbbrevia
 
 module NestedModule =
   type TypeAbbreviationInModule<'a> = Original<'a>
+
+type internal InternalTypeAbbreviation = A
+type private PrivateTypeAbbreviation = A

@@ -69,6 +69,11 @@ and TypeAbbreviation = {
   Original: LowType
 }
 
+type Accessibility =
+  | Public
+  | Private
+  //| Internal
+
 [<RequireQualifiedAccess>]
 type PropertyKind = Get | Set | GetSet
 
@@ -117,6 +122,7 @@ type FullTypeDefinition = {
   Name: FriendlyName
   FullName: FullName
   AssemblyName: string
+  Accessibility: Accessibility
   BaseType: LowType option
   AllInterfaces: LowType list
   GenericParameters: TypeVariable list
@@ -142,6 +148,7 @@ type TypeAbbreviationDefinition = {
   Name: FriendlyName
   FullName: FullName
   AssemblyName: string
+  Accessibility: Accessibility
   GenericParameters: TypeVariable list
   Abbreviated: LowType
   Original: LowType
