@@ -269,7 +269,7 @@ module SimilarityTest =
   let recursiveAndCircularTest =
     matchTest [
       "'a -> 'a", moduleFunction [ typeC variableA; variableA ], Always false // nativeptr<'T> -> 'T
-      "('a -> 'b) -> C<'a>", moduleFunction [ (arrow [ variableA; typeC variableB ]); typeC variableA; typeC variableB ], Always false // ('a -> 'b option) -> 'a option -> 'b option
+      "('a -> 'b) -> C<'a> -> C<'b>", moduleFunction [ (arrow [ variableA; typeC variableB ]); typeC variableA; typeC variableB ], Always false // ('a -> 'b option) -> 'a option -> 'b option
       "('a -> 'b) -> 'a 'm -> 'b 'm", moduleFunction [ (arrow [ variableA; typeC variableB ]); typeD1 variableA; variableB ], Always false // ('T -> option<'U>) -> seq<'T> -> 'U
     ]
 
