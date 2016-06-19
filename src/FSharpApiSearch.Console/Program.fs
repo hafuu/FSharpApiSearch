@@ -6,7 +6,8 @@ open System
 open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
-let searchAndShowResult (client: FSharpApiSearchClient) (query: string) opt =
+let searchAndShowResult (client: FSharpApiSearchClient) (query: string) args =
+  let opt = args.SearchOptions
   let results = client.Search(query, opt)
   results
   |> Seq.iter (fun x ->
@@ -15,9 +16,9 @@ let searchAndShowResult (client: FSharpApiSearchClient) (query: string) opt =
     Console.WriteLine(sprintf ", %s, distance: %d" (x.Api.PrintKind()) x.Distance)
     if x.Api.TypeConstraints.IsEmpty = false then
       Console.WriteLine(sprintf "  %s" (x.Api.PrintTypeConstraints()))
-    match x.Api.Document with
-    | Some doc -> Console.WriteLine(doc)
-    | None -> ()
+    match args.ShowXmlDocument, x.Api.Document with
+    | Enabled, Some doc -> Console.WriteLine(doc)
+    | _ -> ()
     Console.ResetColor()
   )
   Console.WriteLine()
@@ -64,6 +65,7 @@ module Interactive =
   let StrictQueryVariable = { Get = (fun x -> x.StrictQueryVariable ); Set = (fun value x -> { x with StrictQueryVariable = value }) }
   let SimilaritySearching = { Get = (fun x -> x.SimilaritySearching ); Set = (fun value x -> { x with SimilaritySearching = value }) }
   let IgnoreArgumentStyle = { Get = (fun x -> x.IgnoreArgumentStyle); Set = (fun value x -> { x with IgnoreArgumentStyle = value }) }
+  let ShowXmlDocument = { Get = (fun x -> x.ShowXmlDocument); Set = (fun value x -> { x with ShowXmlDocument = value }) }
   let StackTrace = { Get = (fun x -> x.StackTrace); Set = (fun value x -> { x with StackTrace = value }) }
 
   let rec loop (client: FSharpApiSearchClient) arg =
@@ -73,10 +75,11 @@ module Interactive =
     | OptionSetting "#strict" StrictQueryVariable arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#similarity" SimilaritySearching arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#ignore-argstyle" IgnoreArgumentStyle arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
+    | OptionSetting "#xmldoc" ShowXmlDocument arg newArg -> loop client newArg
     | OptionSetting "#stacktrace" StackTrace arg newArg -> loop client newArg
     | query ->
       try
-        searchAndShowResult client query arg.SearchOptions
+        searchAndShowResult client query arg
       with ex ->
         showException arg ex
       loop client arg
@@ -98,6 +101,9 @@ options:
   --target:<assembly>, -t:<assembly>
       Specifies the assembly name of the searching target.
       If omitted, it will target 'FSharp.Core', 'mscorlib', 'System' and 'System.Core'.
+  --xmldoc[+|-]
+      Enables or disables to show xml document of API.
+      Default is disabled.
   --stacktrace[+|-]
       Enables or disables stacktrace output if an exception occurs.
       The default is disabled.
@@ -114,7 +120,7 @@ let main argv =
   | { Query = Some query } ->
     try
       let client = createClient targets ApiLoader.databaseName
-      searchAndShowResult client query args.SearchOptions
+      searchAndShowResult client query args
     with
       ex -> showException args ex
   | { Query = None } ->
