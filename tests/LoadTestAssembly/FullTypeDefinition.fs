@@ -121,6 +121,15 @@ module EqualityConstraints =
     Function : FunctionAbbreviation
   }
 
+  type AbbreviatedGenericParameter<'a> = 'a
+  type AbbreviatedGenericParameterField<'a> = {
+    A: AbbreviatedGenericParameter<'a>
+  }
+
+  type AbbreviatedGenericParameterInt = {
+    A: AbbreviatedGenericParameter<int>
+  }
+
 module ComparisonConstraints =
   open System
   open System.Collections
@@ -232,6 +241,15 @@ module ComparisonConstraints =
   type FunctionAbbreviation = int -> string
   type FunctionAbbreviationFieldRecord = {
     Function : FunctionAbbreviation
+  }
+
+  type AbbreviatedGenericParameter<'a> = 'a
+  type AbbreviatedGenericParameterField<'a> = {
+    A: AbbreviatedGenericParameter<'a>
+  }
+
+  type AbbreviatedGenericParameterInt = {
+    A: AbbreviatedGenericParameter<int>
   }
 
 type PublicType() = class end

@@ -497,7 +497,9 @@ and fsharpTypeEquality cache (t: FSharpType) =
   else
     let rec getRoot (t: FSharpType) = if t.IsAbbreviation then getRoot t.AbbreviatedType else t
     let root = getRoot t
-    if Seq.isEmpty root.GenericArguments then
+    if root.IsGenericParameter then
+      cache, Satisfy
+    elif Seq.isEmpty root.GenericArguments then
       equality cache root.TypeDefinition
     elif root.IsTupleType then
       foldFsharpTypeEquality cache root.GenericArguments
@@ -602,7 +604,9 @@ and fsharpTypeComparison cache (t: FSharpType) =
   else
     let rec getRoot (t: FSharpType) = if t.IsAbbreviation then getRoot t.AbbreviatedType else t
     let root = getRoot t
-    if Seq.isEmpty root.GenericArguments then
+    if root.IsGenericParameter then
+      cache, Satisfy
+    elif Seq.isEmpty root.GenericArguments then
       comparison cache root.TypeDefinition
     elif root.IsTupleType then
       foldFsharpTypeComparison cache root.GenericArguments

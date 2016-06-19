@@ -566,6 +566,8 @@ module FSharp =
       "RecursiveType<'a>", Dependence [ "a" ]
       "TupleAbbreviationFieldRecord", Satisfy
       "FunctionAbbreviationFieldRecord", NotSatisfy
+      "AbbreviatedGenericParameterField<'a>", Dependence [ "a" ]
+      "AbbreviatedGenericParameterInt", Satisfy
     ]
     run (fun (name, expected) ->
       let testName = FriendlyName.ofString name @ FriendlyName.ofString "FullTypeDefinition.EqualityConstraints"
@@ -594,6 +596,8 @@ module FSharp =
       "RecursiveType<'a>", Dependence [ "a" ]
       "TupleAbbreviationFieldRecord", Satisfy
       "FunctionAbbreviationFieldRecord", NotSatisfy
+      "AbbreviatedGenericParameterField<'a>", Dependence [ "a" ]
+      "AbbreviatedGenericParameterInt", Satisfy
     ]
     run (fun (name, expected) ->
       testFullTypeDef' fsharpAssemblyApi (fun x -> x.Comparison) (Name.friendlyNameOfString ("FullTypeDefinition.ComparisonConstraints." + name), expected))
