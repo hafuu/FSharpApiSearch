@@ -422,8 +422,21 @@ module SignatureMatcher =
 
     let testMemberArgAndReturn (lowTypeMatcher: ILowTypeMatcher) (left: LowType) (member': Member) ctx =
       let leftElems = breakArrow left
-      let rightElems = normalizeMember member'
-      testAll lowTypeMatcher leftElems rightElems ctx
+      if member'.IsCurried then
+        let rightElems = seq { yield! member'.Arguments; yield member'.ReturnType }
+        testAll lowTypeMatcher leftElems rightElems ctx
+      else
+        match leftElems, member' with
+        | [ leftOne ], { Arguments = []; ReturnType = rightRet } -> lowTypeMatcher.Test leftOne rightRet ctx
+        | [ _ ], { Arguments = _ } -> Failure
+        | [ _; _ ], { Arguments = [ rightArg ]; ReturnType = rightRet } ->
+          let rightElems = [ rightArg; rightRet ]
+          testAll lowTypeMatcher leftElems rightElems ctx
+        | [ _; _ ], { Arguments = [] } -> Failure
+        | [ Tuple _; _ ], { Arguments = _ } ->
+          let rightElems = [ Tuple member'.Arguments; member'.ReturnType ]
+          testAll lowTypeMatcher leftElems rightElems ctx
+        | _ -> Failure
 
     let testMemberArgAndReturn_IgnoreArgumentStyle (lowTypeMatcher: ILowTypeMatcher) (left: LowType) (member': Member) ctx =
       match left, member' with

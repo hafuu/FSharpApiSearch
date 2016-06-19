@@ -351,6 +351,7 @@ module IgnoreArgumentStyleTest =
 
       "?", staticMember typeA tupleMethod, Always false
       "? -> A", staticMember typeA tupleMethod, Always true
+      "? -> A", staticMember typeA nonCurriedMethod, Always false // bug #78
 
       "A", staticMember typeA property, Always true
       "B", staticMember typeA property, Always false
