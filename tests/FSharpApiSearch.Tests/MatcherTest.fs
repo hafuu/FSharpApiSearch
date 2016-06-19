@@ -67,7 +67,7 @@ let nameMatchTest =
       "map : ('a -> 'b) -> 'a list -> 'b list", "Test.C.map", cMap, false
     ]
     run (fun (query, targetName, targetSig, expected) -> test {
-      let target: Api = { Name = Name.friendlyNameOfString targetName; Signature = targetSig; TypeConstraints = [] }
+      let target: Api = { Name = Name.friendlyNameOfString targetName; Signature = targetSig; TypeConstraints = []; Document = None }
       let actual = Matcher.search Array.empty SearchOptions.defaultOptions [ target ] query |> Seq.length = 1
       do! actual |> assertEquals expected
     })
@@ -82,7 +82,7 @@ let matchStrictTest' trace abbTable similarity cases = parameterize {
   run (fun (strictOpt, query, target, expected) -> test {
     use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
     do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
-    let targetApi: Api = { Name = Name.friendlyNameOfString "test"; Signature = target; TypeConstraints = [] }
+    let targetApi: Api = { Name = Name.friendlyNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
     let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = Array.append TestHelper.fsharpAbbreviationTable abbTable }
     let options = { SearchOptions.defaultOptions with SimilaritySearching = similarity; StrictQueryVariable = strictOpt }
     let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.length = 1
@@ -100,7 +100,7 @@ let functionArgStyleTest trace cases = parameterize {
   run (fun (ignoreArgStyleOpt, query, target, expected) -> test {
     use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
     do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
-    let targetApi: Api = { Name = Name.friendlyNameOfString "test"; Signature = target; TypeConstraints = [] }
+    let targetApi: Api = { Name = Name.friendlyNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
     let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
     let options = { SearchOptions.defaultOptions with IgnoreArgumentStyle = ignoreArgStyleOpt }
     let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.length = 1
@@ -316,7 +316,7 @@ module SimilarityTest =
     ]
 
     run (fun (query, target, expected) -> test {
-      let targetApi: Api = { Name = Name.friendlyNameOfString "test"; Signature = target; TypeConstraints = [] }
+      let targetApi: Api = { Name = Name.friendlyNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
       let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
       let options = { SimilaritySearching = Enabled; StrictQueryVariable = Enabled; IgnoreArgumentStyle = Enabled }
       let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.head
@@ -428,7 +428,7 @@ module IgnoreArgumentStyleTest =
     ]
 
     run (fun (query, target, expected) -> test {
-      let targetApi: Api = { Name = Name.friendlyNameOfString "test"; Signature = target; TypeConstraints = [] }
+      let targetApi: Api = { Name = Name.friendlyNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
       let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
       let options = { SimilaritySearching = Disabled; StrictQueryVariable = Enabled; IgnoreArgumentStyle = Enabled }
       let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.head
@@ -887,7 +887,7 @@ module TypeConstraintTest =
   let testConstraint trace (query, target, constraints, expected) = test {
     use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
     do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
-    let targetApi: Api = { Name = Name.friendlyNameOfString "test"; Signature = target; TypeConstraints = constraints }
+    let targetApi: Api = { Name = Name.friendlyNameOfString "test"; Signature = target; TypeConstraints = constraints; Document = None }
 
     let dictionaries = [|
       mscorlibDict
@@ -1292,7 +1292,7 @@ module ActivePatternTest =
     use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
     do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
     try
-      let targetApi: Api = { Name = Name.friendlyNameOfString "test"; Signature = target; TypeConstraints = [] }
+      let targetApi: Api = { Name = Name.friendlyNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
       let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
       let options = SearchOptions.defaultOptions
       let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.length = 1

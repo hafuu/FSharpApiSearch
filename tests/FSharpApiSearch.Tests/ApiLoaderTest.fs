@@ -870,3 +870,19 @@ module CSharp =
       ]
       run testConstraints
     }
+
+module XmlDocTest =
+  let xmlDocTest = parameterize {
+    source[
+      "XmlDoc.Type", Some "this is comment" 
+      "XmlDoc.f", Some "this is function comment"
+      "XmlDoc.NoComment", None
+    ]
+    run (fun (name, expected) -> test {
+      let! apiDic = fsharpAssemblyApi
+      let name = Name.friendlyNameOfString name
+      let api = apiDic.Api |> Seq.find (fun x -> x.Name = name)
+      let actual = api.Document
+      do! actual |> assertEquals expected
+    })
+  }

@@ -205,6 +205,7 @@ type Api = {
   Name: Name
   Signature: ApiSignature
   TypeConstraints: TypeConstraint list
+  Document: string option
 }
 with
   member this.Kind =

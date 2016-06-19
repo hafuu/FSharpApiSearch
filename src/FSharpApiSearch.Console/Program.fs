@@ -15,6 +15,9 @@ let searchAndShowResult (client: FSharpApiSearchClient) (query: string) opt =
     Console.WriteLine(sprintf ", %s, distance: %d" (x.Api.PrintKind()) x.Distance)
     if x.Api.TypeConstraints.IsEmpty = false then
       Console.WriteLine(sprintf "  %s" (x.Api.PrintTypeConstraints()))
+    match x.Api.Document with
+    | Some doc -> Console.WriteLine(doc)
+    | None -> ()
     Console.ResetColor()
   )
   Console.WriteLine()

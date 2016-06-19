@@ -63,6 +63,7 @@
     <Compile Include="TypeExtensions.fs" />
     <Compile Include="InternalSignature.fsi" />
     <Compile Include="InternalSignature.fs" />
+    <Compile Include="XmlDoc.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
