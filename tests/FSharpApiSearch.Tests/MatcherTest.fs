@@ -254,7 +254,7 @@ module NonsimilarityTest =
 
 module SimilarityTest =
   let matchTest cases = matchStrictTest' false [||] Enabled cases
-  let trace cases = matchStrictTest' false [||] Enabled cases
+  let trace cases = matchStrictTest' true [||] Enabled cases
 
   let variableTest =
     matchTest [
@@ -292,6 +292,10 @@ module SimilarityTest =
       "list<'a>", moduleValue (list variableA), Always true
       "list<'a>", moduleValue (list typeA), Always true
       "list<A>", moduleValue (list typeB), Always false
+
+      // bug #68
+      "(int -> string) -> ?<int> -> ?<string>", moduleFunction [ arrow [ variableA; variableB]; list variableA; list variableB ], Always true
+      "(Int -> String) -> ?<Int> -> ?<String>", moduleFunction [ arrow [ variableA; variableB]; list variableA; list variableB ], Always true
     ]
 
   let distanceTest = parameterize {

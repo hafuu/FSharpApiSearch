@@ -1007,6 +1007,9 @@ module Initializer =
           TypeAbbreviation { Abbreviation = generic; Original = replacedGeneric }
         | Some _ -> generic
         | None -> Generic (Identity id, replacedArgs)
+      | Generic (id, args) ->
+        let replacedArgs = args |> List.map replace
+        Generic (id, replacedArgs)
       | Arrow xs -> Arrow (List.map replace xs)
       | Tuple xs -> Tuple (List.map replace xs)
       | other -> other
