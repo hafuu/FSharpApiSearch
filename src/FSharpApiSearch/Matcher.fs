@@ -545,12 +545,31 @@ module SignatureMatcher =
     let instanceMemberAndFunctionRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
       match left, right with
       | SignatureQuery.InstanceMember (Receiver = queryReceiver; Arguments = queryArguments; ReturnType = queryReturnType), ApiSignature.ModuleFunction rightElems ->
+        Debug.WriteLine("instance member and function rule.")
         let leftElems = [
           yield! queryArguments
           yield queryReceiver
           yield queryReturnType
         ]
         testAll lowTypeMatcher leftElems rightElems ctx
+        |> MatchingResult.mapMatched (Context.addDistance 1)
+      | _ -> Continue ctx
+
+    let arrowAndInstanceMemberRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
+      match left, right with
+      | SignatureQuery.Signature (Arrow (leftReceiver :: leftMemberPart)), InstanceMember (declaringType, member') ->
+        Debug.WriteLine("arrow and instance member rule.")
+        lowTypeMatcher.Test leftReceiver declaringType ctx
+        |> MatchingResult.bindMatched (testMemberArgAndReturn lowTypeMatcher (Arrow leftMemberPart) member')
+        |> MatchingResult.mapMatched (Context.addDistance 1)
+      | _ -> Continue ctx
+
+    let arrowAndInstanceMemberRule_IgnoreArgumentStyle (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
+      match left, right with
+      | SignatureQuery.Signature (Arrow (leftReceiver :: leftMemberPart)), InstanceMember (declaringType, member') ->
+        Debug.WriteLine("arrow and instance member rule (ignore argument style).")
+        lowTypeMatcher.Test leftReceiver declaringType ctx
+        |> MatchingResult.bindMatched (testMemberArgAndReturn_IgnoreArgumentStyle lowTypeMatcher (Arrow leftMemberPart) member')
         |> MatchingResult.mapMatched (Context.addDistance 1)
       | _ -> Continue ctx
 
@@ -579,8 +598,10 @@ module SignatureMatcher =
         match options with
         | { IgnoreArgumentStyle = Enabled } ->
           yield Rules.instanceMemberRule_IgnoreArgumentStyle
+          yield Rules.arrowAndInstanceMemberRule_IgnoreArgumentStyle
         | { IgnoreArgumentStyle = Disabled } ->
           yield Rules.instanceMemberRule
+          yield Rules.arrowAndInstanceMemberRule
         
         yield Rule.terminator
       ]

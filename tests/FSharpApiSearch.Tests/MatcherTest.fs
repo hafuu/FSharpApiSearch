@@ -73,40 +73,36 @@ let nameMatchTest =
     })
   }
 
+let matchTest trace abbTable (options, query, target, expected) = test {
+  use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
+  do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
+  try
+    let targetApi: Api = { Name = Name.friendlyNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
+    let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = [||]; TypeAbbreviations = Array.append TestHelper.fsharpAbbreviationTable abbTable }
+    let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.length = 1
+    do! actual |> assertEquals expected
+  finally
+    do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
+}
+
 let matchStrictTest' trace abbTable similarity cases = parameterize {
   source (seq {
     for strictOpt in [ Enabled; Disabled ] do
       for (query, target, expected) in cases do
-        yield (strictOpt, query, target, expectedValue strictOpt expected)
+        let options = { SearchOptions.defaultOptions with SimilaritySearching = similarity; StrictQueryVariable = strictOpt }
+        yield (options, query, target, expectedValue strictOpt expected)
   })
-  run (fun (strictOpt, query, target, expected) -> test {
-    use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
-    do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
-    let targetApi: Api = { Name = Name.friendlyNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
-    let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = Array.append TestHelper.fsharpAbbreviationTable abbTable }
-    let options = { SearchOptions.defaultOptions with SimilaritySearching = similarity; StrictQueryVariable = strictOpt }
-    let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.length = 1
-    do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
-    do! actual |> assertEquals expected
-  })
+  run (matchTest trace abbTable)
 }
 
 let functionArgStyleTest trace cases = parameterize {
   source (seq {
       for opt in [ Enabled; Disabled ] do
       for (query, target, expected) in cases do
-        yield (opt, query, target, expectedValue opt expected)
+        let options = { SearchOptions.defaultOptions with IgnoreArgumentStyle = opt }
+        yield (options, query, target, expectedValue opt expected)
   })
-  run (fun (ignoreArgStyleOpt, query, target, expected) -> test {
-    use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
-    do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
-    let targetApi: Api = { Name = Name.friendlyNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
-    let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
-    let options = { SearchOptions.defaultOptions with IgnoreArgumentStyle = ignoreArgStyleOpt }
-    let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.length = 1
-    do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
-    do! actual |> assertEquals expected
-  })
+  run (matchTest trace [||])
 }
 
 module NonsimilarityTest =
@@ -411,11 +407,29 @@ module IgnoreArgumentStyleTest =
       "C<A> => A -> B -> A", instanceMember (typeC variableA) curriedMethod, Always false
     ]
 
+  let firstArgAsReceiverTest =
+    matchTest [
+      "A -> A -> B -> A", instanceMember typeA curriedMethod, Always true
+      "B -> A -> B -> A", instanceMember typeA curriedMethod, Always false
+      "A -> A * B -> A", instanceMember typeA nonCurriedMethod, Always true
+      "A -> A * B -> A", instanceMember typeA tupleMethod, Always true
+
+      "A -> A -> B -> A", instanceMember typeA nonCurriedMethod, WhenEnabled true
+      "A -> A -> B -> A", instanceMember typeA tupleMethod, WhenEnabled true
+      "A -> A * B -> A", instanceMember typeA curriedMethod, WhenEnabled true
+      
+      "A -> A", instanceMember typeA property, Always true
+      "A -> B -> A", instanceMember typeA indexedProperty, Always true
+    ]
+
   let instanceMemberSperialRuleTest =
     matchTest [
       "A => A", instanceMember typeA unitArgmentMethod, Always true
       "A => B -> C<A>", moduleFunction [ typeB; typeA; typeC typeA ], Always true
       "A => B -> C<A>", moduleFunction [ tuple [ typeB; typeA ]; typeC typeA ], Always false
+
+      "A -> A", instanceMember typeA unitArgmentMethod, Always false
+      "A -> B -> C<A>", moduleFunction [ typeB; typeA; typeC typeA ], Always false
     ]
 
   let distanceTest = parameterize {
