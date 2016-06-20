@@ -566,10 +566,14 @@ module SignatureMatcher =
 
     let arrowAndInstanceMemberRule_IgnoreArgumentStyle (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
       match left, right with
-      | SignatureQuery.Signature (Arrow (leftReceiver :: leftMemberPart)), InstanceMember (declaringType, member') ->
+      | SignatureQuery.Signature (Arrow (leftReceiver :: leftArgAndRet)), InstanceMember (declaringType, member') ->
+        let leftArgAndRet =
+          match leftArgAndRet with
+          | [ one ] -> one
+          | many -> Arrow many
         Debug.WriteLine("arrow and instance member rule (ignore argument style).")
         lowTypeMatcher.Test leftReceiver declaringType ctx
-        |> MatchingResult.bindMatched (testMemberArgAndReturn_IgnoreArgumentStyle lowTypeMatcher (Arrow leftMemberPart) member')
+        |> MatchingResult.bindMatched (testMemberArgAndReturn_IgnoreArgumentStyle lowTypeMatcher leftArgAndRet member')
         |> MatchingResult.mapMatched (Context.addDistance 1)
       | _ -> Continue ctx
 

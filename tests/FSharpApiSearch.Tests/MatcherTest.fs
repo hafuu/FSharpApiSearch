@@ -444,6 +444,8 @@ module IgnoreArgumentStyleTest =
 
       "A => A", instanceMember typeA unitArgmentMethod, 1
       "A => B -> C<A>", moduleFunction [ typeB; typeA; typeC typeA ], 1
+
+      "A -> A", instanceMember typeA property, 1
     ]
 
     run (fun (query, target, expected) -> test {
