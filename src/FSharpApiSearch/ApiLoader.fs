@@ -54,7 +54,7 @@ type FSharpMemberOrFunctionOrValue with
   member this.IsStaticMember = not this.IsInstanceMember
   member this.IsMethod = this.FullType.IsFunctionType && not this.IsPropertyGetterMethod && not this.IsPropertySetterMethod
   member this.IsConstructor = this.CompiledName = ".ctor"
-  member this.IsCSharpExtensionMember = this.Attributes |> Seq.exists (fun attr -> attr.AttributeType.LoadingFullIdentity = SpecialTypes.LoadingFullIdentity.ExtensionAttribute)
+  member this.IsCSharpExtensionMember = this.Attributes |> Seq.exists (fun attr -> attr.AttributeType.TryFullName = Some "System.Runtime.CompilerServices.ExtensionAttribute")
   member this.MemberModifier = if this.IsStaticMember then MemberModifier.Static else MemberModifier.Instance
   member this.PropertyKind =
     if not this.IsProperty then

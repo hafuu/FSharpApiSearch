@@ -299,8 +299,6 @@ module SpecialTypes =
     let IComparable = ofDotNetType typeof<IComparable>
     let IStructuralComparable = ofDotNetType typeof<IStructuralComparable>
 
-    let ExtensionAttribute = ofDotNetType typeof<System.Runtime.CompilerServices.ExtensionAttribute>
-
   module FullIdentity =
     open System.Collections
 

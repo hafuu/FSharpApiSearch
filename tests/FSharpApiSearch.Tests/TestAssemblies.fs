@@ -25,8 +25,14 @@ let csharpAssemblyPath =
     Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
     , csharpAssemblyName + ".dll")
 
+let net40AssemblyName = @"Net40Assembly"
+let net40AssemblyPath =
+  Path.Combine(
+    Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
+    , net40AssemblyName + ".dll")
+
 let assemblies = test {
-  return FSharpApiSearch.AssemblyLoader.load assemblyResolver (Path.GetFullPath(fsharpAssemblyPath) :: Path.GetFullPath(csharpAssemblyPath) :: FSharpApiSearch.FSharpApiSearchClient.DefaultReferences)
+  return FSharpApiSearch.AssemblyLoader.load assemblyResolver (Path.GetFullPath(fsharpAssemblyPath) :: Path.GetFullPath(net40AssemblyPath) :: Path.GetFullPath(csharpAssemblyPath) :: FSharpApiSearch.FSharpApiSearchClient.DefaultReferences)
 }
 
 let apiDictionary = test {
@@ -37,6 +43,11 @@ let apiDictionary = test {
 let fsharpAssemblyApi = test {
   let! apiDictionary = apiDictionary
   return apiDictionary |> Array.find (fun x -> x.AssemblyName = fsharpAssemblyName)
+}
+
+let net40AssemblyApi = test {
+  let! apiDictionary = apiDictionary
+  return apiDictionary |> Array.find (fun x -> x.AssemblyName = net40AssemblyName)
 }
 
 let csharpAssemblyApi = test {

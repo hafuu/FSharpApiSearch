@@ -692,7 +692,9 @@ module TypeAbbreviation =
     testApi fsharpAssemblyApi ("TypeAbbreviations.functionWithFunctionAbbreviation", [ moduleFunction [ TypeAbbreviation t; TypeAbbreviation t ] ])
 
 module TypeExtension =
+  let testApi_net40 = testApi net40AssemblyApi
   let testApi = testApi fsharpAssemblyApi
+  
   let testModule = FriendlyName.ofString "TypeExtensions"
   let fsharpList_t = fsharpList (variable "T")
 
@@ -743,6 +745,13 @@ module TypeExtension =
       "TypeExtensions.TestExtensions.ExtensionMethod2", [ extensionMember (method' "ExtensionMethod2" [ int; int; string ] unit) ]
     ]
     run testApi
+  }
+
+  let net40ExtensionMemberTest = parameterize {
+    source[
+      "Net40Assembly.TestExtensions.ExtensionMethod", [ extensionMember (method' "ExtensionMethod" [ int ] int) ]
+    ]
+    run testApi_net40
   }
 
 module CSharp =

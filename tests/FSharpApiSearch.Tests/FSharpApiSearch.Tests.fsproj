@@ -84,6 +84,11 @@
       <Project>{c05f3812-b549-4220-9853-eb4bbbf6c78b}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <ProjectReference Include="..\Net40Assembly\Net40Assembly.fsproj">
+      <Name>Net40Assembly</Name>
+      <Project>{7997b6de-f044-461d-8388-bc375ca05c11}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\SearchTestAssembly\SearchTestAssembly.fsproj">
       <Name>SearchTestAssembly</Name>
       <Project>{73f7a955-3f4b-41a0-a522-3c0284b836c6}</Project>

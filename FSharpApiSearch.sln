@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.25123.0
+VisualStudioVersion = 14.0.24720.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{63297B98-5CED-492C-A5B7-A5B4F73CF142}"
 	ProjectSection(SolutionItems) = preProject
@@ -47,6 +47,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CSharpLoadTestAssembly", "t
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharpApiSearch.Database", "src\FSharpApiSearch.Database\FSharpApiSearch.Database.fsproj", "{161B5314-CBE0-4DF5-A627-72DC0015401D}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Net40Assembly", "tests\Net40Assembly\Net40Assembly.fsproj", "{7997B6DE-F044-461D-8388-BC375CA05C11}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -85,6 +87,10 @@ Global
 		{161B5314-CBE0-4DF5-A627-72DC0015401D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{161B5314-CBE0-4DF5-A627-72DC0015401D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{161B5314-CBE0-4DF5-A627-72DC0015401D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7997B6DE-F044-461D-8388-BC375CA05C11}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7997B6DE-F044-461D-8388-BC375CA05C11}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7997B6DE-F044-461D-8388-BC375CA05C11}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7997B6DE-F044-461D-8388-BC375CA05C11}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -97,5 +103,6 @@ Global
 		{73F7A955-3F4B-41A0-A522-3C0284B836C6} = {ED8079DD-2B06-4030-9F0F-DC548F98E1C4}
 		{9B49EA5B-EF46-44D5-ABDE-58E092F72FA9} = {ED8079DD-2B06-4030-9F0F-DC548F98E1C4}
 		{6273542C-01F5-4EBF-8AAB-9FCAA96BEA62} = {ED8079DD-2B06-4030-9F0F-DC548F98E1C4}
+		{7997B6DE-F044-461D-8388-BC375CA05C11} = {ED8079DD-2B06-4030-9F0F-DC548F98E1C4}
 	EndGlobalSection
 EndGlobal
