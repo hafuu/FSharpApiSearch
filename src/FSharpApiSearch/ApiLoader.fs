@@ -270,9 +270,9 @@ let propertyMember (x: FSharpMemberOrFunctionOrValue) =
     return { Name = x.DisplayName; Kind = memberKind; GenericParameters = genericParams; Arguments = args; IsCurried = false; ReturnType = returnType }
   }
 
-let toModuleValue xml (declaringModuleName: FriendlyName) (x: FSharpMemberOrFunctionOrValue) =
+let toModuleValue xml (declaringModuleName: DisplayName) (x: FSharpMemberOrFunctionOrValue) =
   option {
-    let name = { DisplayName = x.DisplayName; GenericParametersForDisplay = [] } :: declaringModuleName
+    let name = { FSharpName = x.DisplayName; GenericParametersForDisplay = [] } :: declaringModuleName
     let! signature = (toSignature x.FullType)
     let target =
       if x.IsActivePattern then
@@ -282,10 +282,10 @@ let toModuleValue xml (declaringModuleName: FriendlyName) (x: FSharpMemberOrFunc
         match signature with
         | Arrow xs -> ApiSignature.ModuleFunction xs
         | x -> ApiSignature.ModuleValue x
-    return { Name = FriendlyName name; Signature = target; TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
+    return { Name = DisplayName name; Signature = target; TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
   }
 
-let toTypeExtension xml (declaringModuleName: FriendlyName) (x: FSharpMemberOrFunctionOrValue) =
+let toTypeExtension xml (declaringModuleName: DisplayName) (x: FSharpMemberOrFunctionOrValue) =
   option {
     let existingType = fsharpEntityToSignature x.LogicalEnclosingEntity
     let modifier = x.MemberModifier
@@ -305,33 +305,33 @@ let toTypeExtension xml (declaringModuleName: FriendlyName) (x: FSharpMemberOrFu
     let name =
       let memberAssemblyName = x.LogicalEnclosingEntity.Assembly.SimpleName
       let memberTypeName = x.LogicalEnclosingEntity.FullName
-      let memberName = { DisplayName = member'.Name; GenericParametersForDisplay = [] }
+      let memberName = { FSharpName = member'.Name; GenericParametersForDisplay = [] }
       LoadingName (memberAssemblyName, memberTypeName, [ memberName ])
     return { Name = name; Signature = signature; TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
   }
 
-let toFSharpApi xml (declaringModuleName: FriendlyName) (x: FSharpMemberOrFunctionOrValue) =
+let toFSharpApi xml (declaringModuleName: DisplayName) (x: FSharpMemberOrFunctionOrValue) =
   if x.IsExtensionMember then
     toTypeExtension xml declaringModuleName x
   else
     toModuleValue xml declaringModuleName x
 
-let constructorSignature xml (declaringSignatureName: FriendlyName) declaringSignature (x: FSharpMemberOrFunctionOrValue) =
+let constructorSignature xml (declaringSignatureName: DisplayName) declaringSignature (x: FSharpMemberOrFunctionOrValue) =
   option {
     let! target = methodMember x
-    let target = { target with Name = declaringSignatureName.Head.DisplayName; ReturnType = declaringSignature }
-    return { Name = FriendlyName declaringSignatureName; Signature = ApiSignature.Constructor (declaringSignature, target); TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
+    let target = { target with Name = declaringSignatureName.Head.FSharpName; ReturnType = declaringSignature }
+    return { Name = DisplayName declaringSignatureName; Signature = ApiSignature.Constructor (declaringSignature, target); TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
   }
 
-let memberSignature xml (loadMember: FSharpMemberOrFunctionOrValue -> Member option) (declaringSignatureName: FriendlyName) (declaringEntity: FSharpEntity) declaringSignature (x: FSharpMemberOrFunctionOrValue) =
+let memberSignature xml (loadMember: FSharpMemberOrFunctionOrValue -> Member option) (declaringSignatureName: DisplayName) (declaringEntity: FSharpEntity) declaringSignature (x: FSharpMemberOrFunctionOrValue) =
   option {
     let! member' = loadMember x
-    let name = { DisplayName = member'.Name; GenericParametersForDisplay = [] } :: declaringSignatureName
+    let name = { FSharpName = member'.Name; GenericParametersForDisplay = [] } :: declaringSignatureName
     let typeConstraints = Seq.append declaringEntity.GenericParameters x.GenericParameters |> collectTypeConstraints
-    return { Name = FriendlyName name; Signature = x.TargetSignatureConstructor declaringSignature member'; TypeConstraints = typeConstraints; Document = tryGetXmlDoc xml x }
+    return { Name = DisplayName name; Signature = x.TargetSignatureConstructor declaringSignature member'; TypeConstraints = typeConstraints; Document = tryGetXmlDoc xml x }
   }
 
-let toTypeMemberApi xml (declaringSignatureName: FriendlyName) (declaringEntity: FSharpEntity) (declaringSignature: LowType) (x: FSharpMemberOrFunctionOrValue) =
+let toTypeMemberApi xml (declaringSignatureName: DisplayName) (declaringEntity: FSharpEntity) (declaringSignature: LowType) (x: FSharpMemberOrFunctionOrValue) =
   if x.IsConstructor then
     constructorSignature xml declaringSignatureName declaringSignature x
   elif x.IsMethod then
@@ -341,12 +341,12 @@ let toTypeMemberApi xml (declaringSignatureName: FriendlyName) (declaringEntity:
   else
     None
 
-let toFieldApi xml (accessPath: FriendlyName) (declaringEntity: FSharpEntity) (declaringSignature: LowType) (field: FSharpField) =
+let toFieldApi xml (accessPath: DisplayName) (declaringEntity: FSharpEntity) (declaringSignature: LowType) (field: FSharpField) =
   option {
     let! returnType = toSignature field.FieldType
     let member' = { Name = field.Name; Kind = MemberKind.Field; GenericParameters = []; Arguments = []; IsCurried = false; ReturnType = returnType }
-    let apiName = { DisplayName = field.Name; GenericParametersForDisplay = [] } :: accessPath
-    return { Name = FriendlyName apiName; Signature = field.TargetSignatureConstructor declaringSignature member'; TypeConstraints = collectTypeConstraints declaringEntity.GenericParameters; Document = tryGetXmlDoc xml field }
+    let apiName = { FSharpName = field.Name; GenericParametersForDisplay = [] } :: accessPath
+    return { Name = DisplayName apiName; Signature = field.TargetSignatureConstructor declaringSignature member'; TypeConstraints = collectTypeConstraints declaringEntity.GenericParameters; Document = tryGetXmlDoc xml field }
   }
 
 let resolveConflictGenericArgumnet (replacementVariables: LowType list) (m: FSharpMemberOrFunctionOrValue) =
@@ -371,7 +371,7 @@ let genericParametersAndArguments (t: FSharpType) =
   })
   |> Seq.toList
 
-let updateInterfaceDeclaringType (declaringSignatureName: FriendlyName) declaringSignature api =
+let updateInterfaceDeclaringType (declaringSignatureName: DisplayName) declaringSignature api =
   let target =
     match api.Signature with
     | ApiSignature.InstanceMember (_, m) -> ApiSignature.InstanceMember (declaringSignature, m)
@@ -380,12 +380,12 @@ let updateInterfaceDeclaringType (declaringSignatureName: FriendlyName) declarin
   let name =
     match api.Name with
     | LoadingName (_, _, name :: _) -> name :: declaringSignatureName
-    | FriendlyName (name :: _) -> name :: declaringSignatureName
+    | DisplayName (name :: _) -> name :: declaringSignatureName
     | _ -> declaringSignatureName
-  { api with Name = FriendlyName name; Signature = target }
+  { api with Name = DisplayName name; Signature = target }
 
-let collectTypeAbbreviationDefinition xml (accessPath: FriendlyName) (e: FSharpEntity): Api seq =
-  let typeAbbreviationName = { DisplayName = e.DisplayName; GenericParametersForDisplay = genericParameters e } :: accessPath
+let collectTypeAbbreviationDefinition xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
+  let typeAbbreviationName = { FSharpName = e.DisplayName; GenericParametersForDisplay = genericParameters e } :: accessPath
   option {
     let! abbreviatedAndOriginal = toSignature e.AbbreviatedType
     let abbreviated, original =
@@ -402,7 +402,7 @@ let collectTypeAbbreviationDefinition xml (accessPath: FriendlyName) (e: FSharpE
       Original = original
     }
     let target = ApiSignature.TypeAbbreviation abbreviationDef
-    return { Name = FriendlyName typeAbbreviationName; Signature = target; TypeConstraints = collectTypeConstraints e.GenericParameters; Document = tryGetXmlDoc xml e }
+    return { Name = DisplayName typeAbbreviationName; Signature = target; TypeConstraints = collectTypeConstraints e.GenericParameters; Document = tryGetXmlDoc xml e }
   }
   |> Option.toList
   |> List.toSeq
@@ -639,9 +639,9 @@ and fsharpTypeComparison cache (t: FSharpType) =
           |> Seq.choose (fun (t, v) -> if Seq.exists ((=)v) dependenceVariables then Some t else None)
         foldFsharpTypeComparison cache testArgs
 
-let fullTypeDef xml (name: FriendlyName) (e: FSharpEntity) members =
+let fullTypeDef xml (name: DisplayName) (e: FSharpEntity) members =
   option {
-    let identity = { e.LoadingFullIdentity with Name = FriendlyName name }
+    let identity = { e.LoadingFullIdentity with Name = DisplayName name }
     let baseType =
       if not e.IsInterface then
         e.BaseType |> Option.bind toSignature
@@ -692,13 +692,13 @@ let fullTypeDef xml (name: FriendlyName) (e: FSharpEntity) members =
       Equality = equality Map.empty e |> snd
       Comparison = comparison Map.empty e |> snd
     }
-    return { Name = FriendlyName name; Signature = ApiSignature.FullTypeDefinition typeDef; TypeConstraints = typeDef.TypeConstraints; Document = tryGetXmlDoc xml e }
+    return { Name = DisplayName name; Signature = ApiSignature.FullTypeDefinition typeDef; TypeConstraints = typeDef.TypeConstraints; Document = tryGetXmlDoc xml e }
   }
 
-let rec collectApi xml (accessPath: FriendlyName) (e: FSharpEntity): Api seq =
+let rec collectApi xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
   seq {
     if e.IsNamespace then
-      let accessPath = { DisplayName = e.DisplayName; GenericParametersForDisplay = [] } :: accessPath
+      let accessPath = { FSharpName = e.DisplayName; GenericParametersForDisplay = [] } :: accessPath
       yield! collectFromNestedEntities xml accessPath e
     elif e.IsCompilerInternalModule then
       ()
@@ -713,19 +713,19 @@ let rec collectApi xml (accessPath: FriendlyName) (e: FSharpEntity): Api seq =
     elif e.IsOpaque || e.HasAssemblyCodeRepresentation then
       yield! collectFromType xml accessPath e
   }
-and collectFromNestedEntities xml (accessPath: FriendlyName) (e: FSharpEntity): Api seq =
+and collectFromNestedEntities xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
   e.NestedEntities
   |> Seq.collect (collectApi xml accessPath)
-and collectFromModule xml (accessPath: FriendlyName) (e: FSharpEntity): Api seq =
-  let moduleName = { DisplayName = e.DisplayName; GenericParametersForDisplay = [] } :: accessPath
+and collectFromModule xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
+  let moduleName = { FSharpName = e.DisplayName; GenericParametersForDisplay = [] } :: accessPath
   seq {
     yield! e.MembersFunctionsAndValues
             |> Seq.filter (fun x -> x.Accessibility.IsPublic)
             |> Seq.choose (toFSharpApi xml moduleName)
     yield! collectFromNestedEntities xml moduleName e
   }
-and collectFromType xml (accessPath: FriendlyName) (e: FSharpEntity): Api seq =
-  let typeName = { DisplayName = e.DisplayName; GenericParametersForDisplay = genericParameters e } :: accessPath
+and collectFromType xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
+  let typeName = { FSharpName = e.DisplayName; GenericParametersForDisplay = genericParameters e } :: accessPath
   seq {
     let declaringSignature = fsharpEntityToSignature e
 
@@ -748,7 +748,7 @@ and collectFromType xml (accessPath: FriendlyName) (e: FSharpEntity): Api seq =
     | None -> ()
     yield! collectFromNestedEntities xml typeName e
   }
-and collectInterfaceMembers xml (declaringSignatureName: FriendlyName) (inheritArgs: (TypeVariable * LowType) list) (e: FSharpEntity): Api seq =
+and collectInterfaceMembers xml (declaringSignatureName: DisplayName) (inheritArgs: (TypeVariable * LowType) list) (e: FSharpEntity): Api seq =
   let replaceVariable replacements = function
     | ApiSignature.InstanceMember (declaringType, member') ->
       let apply = LowType.applyVariable VariableSource.Target replacements
@@ -788,8 +788,8 @@ and collectInterfaceMembers xml (declaringSignatureName: FriendlyName) (inheritA
       yield! collectInterfaceMembers xml declaringSignatureName inheritArgs parentInterface.TypeDefinition
               |> Seq.map (updateInterfaceDeclaringType declaringSignatureName declaringSignature)
   }
-and collectFromInterface xml (accessPath: FriendlyName) (e: FSharpEntity): Api seq =
-  let interfaceName = { DisplayName = e.DisplayName; GenericParametersForDisplay = genericParameters e } :: accessPath
+and collectFromInterface xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
+  let interfaceName = { FSharpName = e.DisplayName; GenericParametersForDisplay = genericParameters e } :: accessPath
   seq {
     let members = collectInterfaceMembers xml interfaceName [] e |> Seq.cache
 
@@ -821,7 +821,7 @@ let load' (assembly: FSharpAssembly): ApiDictionary =
       let accessPath =
         match e.AccessPath with
         | "global" -> []
-        | a -> FriendlyName.ofString a
+        | a -> DisplayName.ofString a
       collectApi xml accessPath e)
     |> Seq.toArray
   let types =
@@ -834,12 +834,12 @@ let load' (assembly: FSharpAssembly): ApiDictionary =
   { AssemblyName = assembly.SimpleName; Api = api; TypeDefinitions = types; TypeAbbreviations = typeAbbreviations }
 
 module NameResolve =
-  type NameCache = IDictionary<string, IDictionary<string, FriendlyName>>
+  type NameCache = IDictionary<string, IDictionary<string, DisplayName>>
   
   let resolve_Name (cache: NameCache) (name: Name) =
     match name with
-    | LoadingName (assemblyName, fullName, friendlyName) -> FriendlyName (friendlyName @ cache.[assemblyName].[fullName])
-    | FriendlyName _ as n -> n
+    | LoadingName (assemblyName, fullName, displayName) -> DisplayName (displayName @ cache.[assemblyName].[fullName])
+    | DisplayName _ as n -> n
   
   let rec resolve_LowType cache = function
     | Wildcard _ as w -> w

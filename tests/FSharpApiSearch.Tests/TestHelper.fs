@@ -5,7 +5,7 @@ open FSharpApiSearch
 module DSL =
 
   let createType name args =
-    let id = FullIdentity { AssemblyName = "test"; Name = Name.friendlyNameOfString name; GenericParameterCount = List.length args }
+    let id = FullIdentity { AssemblyName = "test"; Name = Name.displayNameOfString name; GenericParameterCount = List.length args }
     match args with
     | [] -> Identity id
     | args -> Generic (Identity id, args)
@@ -17,7 +17,7 @@ module DSL =
 
   let typeAbbreviation abbreviated abbreviation = TypeAbbreviation { Abbreviation = abbreviation; Original = abbreviated; }
 
-  let identity name = Identity (PartialIdentity { Name = FriendlyName.ofString name; GenericParameterCount = 0 })
+  let identity name = Identity (PartialIdentity { Name = DisplayName.ofString name; GenericParameterCount = 0 })
   let variable name = Variable (VariableSource.Target, name)
   let queryVariable name = Variable (VariableSource.Query, name)
 
@@ -83,12 +83,12 @@ module DSL =
   let tuple xs = Tuple xs
 
   let typeAbbreviationDef name original =
-    let defName = FriendlyName.ofString name
+    let defName = DisplayName.ofString name
     let fullName =
       let toFullName (x: NameItem) =
         match x.GenericParametersForDisplay with
-        | [] -> x.DisplayName
-        | args -> sprintf "%s`%d" x.DisplayName args.Length
+        | [] -> x.FSharpName
+        | args -> sprintf "%s`%d" x.FSharpName args.Length
       defName |> List.rev |> List.map toFullName |> String.concat "."
     { Name = defName; FullName = fullName; AssemblyName = "test"; Accessibility = Public; GenericParameters = defName.Head.GenericParametersForDisplay; Abbreviated = original; Original = original }
 

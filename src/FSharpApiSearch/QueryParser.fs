@@ -9,7 +9,7 @@ let inline pcharAndTrim c = pchar c |> trim
 
 module FSharpSignatureParser =
   let name = regex @"\w+" <?> "name"
-  let partialName = sepBy1 name (pchar '.') |>> (List.map (fun n -> { DisplayName = n; GenericParametersForDisplay = [] } ) >> List.rev)
+  let partialName = sepBy1 name (pchar '.') |>> (List.map (fun n -> { FSharpName = n; GenericParametersForDisplay = [] } ) >> List.rev)
 
   let fsharpSignature, fsharpSignatureRef = createParserForwardedToRef()
 
@@ -48,7 +48,7 @@ module FSharpSignatureParser =
       wildcard
     ]
   
-  let arraySymbol = regex arrayRegexPattern |> trim |>> (fun array -> Identity (PartialIdentity { Name = [ { DisplayName = array; GenericParametersForDisplay = [ "T" ] } ]; GenericParameterCount = 1 }))
+  let arraySymbol = regex arrayRegexPattern |> trim |>> (fun array -> Identity (PartialIdentity { Name = [ { FSharpName = array; GenericParametersForDisplay = [ "T" ] } ]; GenericParameterCount = 1 }))
   let maybeArray t =
     t
     .>>. many arraySymbol

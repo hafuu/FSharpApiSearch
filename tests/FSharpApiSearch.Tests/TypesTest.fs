@@ -35,9 +35,9 @@ module PrintTest =
 
   let printName_long_test = parameterize {
     source[
-      Name.friendlyNameOfString "A.B", "A.B"
-      Name.friendlyNameOfString "A.B<'C>", "A.B<'C>"
-      Name.friendlyNameOfString "A<'C>.B<'D>", "A<'C>.B<'D>"
+      Name.displayNameOfString "A.B", "A.B"
+      Name.displayNameOfString "A.B<'C>", "A.B<'C>"
+      Name.displayNameOfString "A<'C>.B<'D>", "A<'C>.B<'D>"
     ]
     run (fun (input: Name, expected) -> test {
       do! input.Print() |> assertEquals expected

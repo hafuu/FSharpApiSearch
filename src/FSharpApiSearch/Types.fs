@@ -3,16 +3,16 @@
 type TypeVariable = string
 
 type NameItem = {
-  DisplayName: string
+  FSharpName: string
   // CompiledName: string
   GenericParametersForDisplay: TypeVariable list
 }
 
 type FullName = string
-type FriendlyName = NameItem list
+type DisplayName = NameItem list
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module FriendlyName =
+module DisplayName =
   open System.Text.RegularExpressions
 
   let ofString (name: string) =
@@ -22,24 +22,24 @@ module FriendlyName =
         let xs = n.Split([| '<' |], 2)
         let name = xs.[0]
         let args = [ for m in Regex.Matches(xs.[1], @"'(\w+)") -> m.Groups.[1].Value ]
-        { DisplayName = name; GenericParametersForDisplay = args }
+        { FSharpName = name; GenericParametersForDisplay = args }
       else
-        { DisplayName = n; GenericParametersForDisplay = [] })
+        { FSharpName = n; GenericParametersForDisplay = [] })
     |> Seq.toList
     |> List.rev
 
 type Name =
-  | LoadingName of assemblyName: string * FullName * FriendlyName
-  | FriendlyName of FriendlyName
+  | LoadingName of assemblyName: string * FullName * DisplayName
+  | DisplayName of DisplayName
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Name =
-  let friendlyNameOfString (name: string) = FriendlyName (FriendlyName.ofString name)
+  let displayNameOfString (name: string) = DisplayName (DisplayName.ofString name)
 
   let loadingNameError() = failwith "Loading name at run time is invalid data."
 
 type PartialIdentity = {
-  Name: FriendlyName
+  Name: DisplayName
   GenericParameterCount: int
 }
 
@@ -119,7 +119,7 @@ type ConstraintStatus =
   | Dependence of TypeVariable list
 
 type FullTypeDefinition = {
-  Name: FriendlyName
+  Name: DisplayName
   FullName: FullName
   AssemblyName: string
   Accessibility: Accessibility
@@ -142,10 +142,10 @@ type FullTypeDefinition = {
   Comparison: ConstraintStatus
 }
 with
-  member this.FullIdentity = { AssemblyName = this.AssemblyName; Name = FriendlyName this.Name; GenericParameterCount = this.GenericParameters.Length }
+  member this.FullIdentity = { AssemblyName = this.AssemblyName; Name = DisplayName this.Name; GenericParameterCount = this.GenericParameters.Length }
 
 type TypeAbbreviationDefinition = {
-  Name: FriendlyName
+  Name: DisplayName
   FullName: FullName
   AssemblyName: string
   Accessibility: Accessibility
@@ -154,7 +154,7 @@ type TypeAbbreviationDefinition = {
   Original: LowType
 }
 with
-  member this.FullIdentity = { AssemblyName = this.AssemblyName; Name = FriendlyName this.Name; GenericParameterCount = this.GenericParameters.Length }
+  member this.FullIdentity = { AssemblyName = this.AssemblyName; Name = DisplayName this.Name; GenericParameterCount = this.GenericParameters.Length }
   member this.TypeAbbreviation =
     let abbreviation =
       match this.GenericParameters with
@@ -170,7 +170,7 @@ with
 
 type TypeExtension = {
   ExistingType: LowType
-  Declaration: FriendlyName
+  Declaration: DisplayName
   MemberModifier: MemberModifier
   Member: Member
 }
@@ -283,7 +283,7 @@ module SpecialTypes =
   let fscore = "FSharp.Core"
 
   let UnitLoadingName = LoadingName (fscore, typeof<Unit>.FullName, [])
-  let UnitFriendlyName = FriendlyName (FriendlyName.ofString typeof<Unit>.FullName)
+  let UnitDisplayName = DisplayName (DisplayName.ofString typeof<Unit>.FullName)
 
   module LoadingFullIdentity =
     open System.Collections
@@ -304,11 +304,11 @@ module SpecialTypes =
 
     let ofDotNetType (t: Type) =
       if t.IsGenericType then failwith "It is not support generic type."
-      { AssemblyName = t.Assembly.GetName().Name; Name = Name.friendlyNameOfString t.FullName; GenericParameterCount = 0 }
+      { AssemblyName = t.Assembly.GetName().Name; Name = Name.displayNameOfString t.FullName; GenericParameterCount = 0 }
 
     let tupleName n =
-      let name = { DisplayName = "Tuple"; GenericParametersForDisplay = List.init n (sprintf "T%d") } :: { DisplayName = "System"; GenericParametersForDisplay = [] } :: []
-      FriendlyName name
+      let name = { FSharpName = "Tuple"; GenericParametersForDisplay = List.init n (sprintf "T%d") } :: { FSharpName = "System"; GenericParametersForDisplay = [] } :: []
+      DisplayName name
 
     let Boolean = ofDotNetType typeof<Boolean>
     let Byte = ofDotNetType typeof<Byte>
@@ -336,7 +336,7 @@ module SpecialTypes =
     let ofDotNetType (t: Type) = LowType.Identity (Identity.ofDotNetType t)
     let Unit = ofDotNetType typeof<Unit>
     let unit =
-      let unit = LowType.Identity (FullIdentity { AssemblyName = fscore; Name = Name.friendlyNameOfString "Microsoft.FSharp.Core.unit"; GenericParameterCount = 0 })
+      let unit = LowType.Identity (FullIdentity { AssemblyName = fscore; Name = Name.displayNameOfString "Microsoft.FSharp.Core.unit"; GenericParameterCount = 0 })
       TypeAbbreviation { Abbreviation = unit; Original = Unit }
 
     let Boolean = ofDotNetType typeof<Boolean>
@@ -357,12 +357,12 @@ module SpecialTypes =
     let UIntPtr = ofDotNetType typeof<UIntPtr>
 
     let float =
-      let float = LowType.Identity (FullIdentity { AssemblyName = fscore; Name = Name.friendlyNameOfString "Microsoft.FSharp.Core.float"; GenericParameterCount = 0 })
+      let float = LowType.Identity (FullIdentity { AssemblyName = fscore; Name = Name.displayNameOfString "Microsoft.FSharp.Core.float"; GenericParameterCount = 0 })
       TypeAbbreviation { Abbreviation = float; Original = Double }
 
     let rec isUnit (x: LowType) =
       match x with
-      | Identity (FullIdentity { Name = name }) -> name = UnitLoadingName || name = UnitFriendlyName
+      | Identity (FullIdentity { Name = name }) -> name = UnitLoadingName || name = UnitDisplayName
       | TypeAbbreviation { Original = o } -> isUnit o
       | _ -> false
 
@@ -372,10 +372,10 @@ module SpecialTypes =
         match x with
         | Generic (Identity id, [ elem ]) ->
           match id with
-          | FullIdentity { Name = FriendlyName name }
+          | FullIdentity { Name = DisplayName name }
           | PartialIdentity { Name = name } ->
             match name with
-            | { DisplayName = name; GenericParametersForDisplay = [ _ ] } :: _ ->
+            | { FSharpName = name; GenericParametersForDisplay = [ _ ] } :: _ ->
               if Regex.IsMatch(name, arrayRegexPattern) then
                 Some (name, elem)
               else
@@ -416,36 +416,36 @@ module internal Print =
     | ApiKind.TypeExtension (modifier, memberKind) -> sprintf "%s %s" (printMemberModifier modifier) (printMemberKind memberKind)
     | ApiKind.ExtensionMember -> "extension member"
 
-  let printFriendlyName = function
+  let printDisplayName = function
     | [] -> "<empty>"
     | ns ->
       let print (x: NameItem) =
         match x.GenericParametersForDisplay with
-        | [] -> x.DisplayName
-        | args -> sprintf "%s<%s>" x.DisplayName (args |> List.map (sprintf "'%s") |> String.concat ", ")
+        | [] -> x.FSharpName
+        | args -> sprintf "%s<%s>" x.FSharpName (args |> List.map (sprintf "'%s") |> String.concat ", ")
       ns |> Seq.map print |> Seq.rev |> String.concat "."
 
   let printName = function
     | LoadingName (_, n1, n2) ->
       match n2 with
       | [] -> n1
-      | n2 -> n1 + "." + printFriendlyName n2
-    | FriendlyName n -> printFriendlyName n
+      | n2 -> n1 + "." + printDisplayName n2
+    | DisplayName n -> printDisplayName n
 
-  let printFriendlyName_short = function
+  let printDisplayName_short = function
     | [] -> "<empty>"
-    | n :: _ -> n.DisplayName
+    | n :: _ -> n.FSharpName
 
   let printName_short = function
     | LoadingName (_, n1, n2) ->
       match n2 with
       | [] -> n1
-      | n2 -> printFriendlyName_short n2
-    | FriendlyName n -> printFriendlyName_short n
+      | n2 -> printDisplayName_short n2
+    | DisplayName n -> printDisplayName_short n
 
   let printIdentity = function
     | FullIdentity i -> printName_short i.Name
-    | PartialIdentity i -> printFriendlyName_short i.Name
+    | PartialIdentity i -> printDisplayName_short i.Name
 
   let printVariableSource = function
     | VariableSource.Query -> "q"
@@ -532,13 +532,13 @@ module internal Print =
     
   let printFullTypeDefinition isDebug (x: FullTypeDefinition) =
     match x.GenericParameters with
-    | [] -> sprintf "%s.%s" x.AssemblyName (printFriendlyName x.Name)
-    | args -> sprintf "%s.%s<%s>" x.AssemblyName (printFriendlyName x.Name) (args |> Seq.map (printVariable isDebug VariableSource.Target) |> String.concat ", ")
+    | [] -> sprintf "%s.%s" x.AssemblyName (printDisplayName x.Name)
+    | args -> sprintf "%s.%s<%s>" x.AssemblyName (printDisplayName x.Name) (args |> Seq.map (printVariable isDebug VariableSource.Target) |> String.concat ", ")
 
   let pringTypeAbbreviation isDebug (x: TypeAbbreviationDefinition) =
     match x.GenericParameters with
-    | [] -> sprintf "%s.%s" x.AssemblyName (printFriendlyName x.Name)
-    | args -> sprintf "%s.%s<%s>" x.AssemblyName (printFriendlyName x.Name) (args |> Seq.map (printVariable isDebug VariableSource.Target) |> String.concat ", ")
+    | [] -> sprintf "%s.%s" x.AssemblyName (printDisplayName x.Name)
+    | args -> sprintf "%s.%s<%s>" x.AssemblyName (printDisplayName x.Name) (args |> Seq.map (printVariable isDebug VariableSource.Target) |> String.concat ", ")
 
   let printApiSignature isDebug = function
     | ApiSignature.ModuleValue t -> printLowType isDebug t
@@ -586,26 +586,26 @@ type Api with
   member this.PrintKind() =
     match this.Signature with
     | ApiSignature.TypeExtension { Declaration = declaration } ->
-      sprintf "%s (%s)" (Print.printApiKind this.Kind) (Print.printFriendlyName declaration)
+      sprintf "%s (%s)" (Print.printApiKind this.Kind) (Print.printDisplayName declaration)
     | _ -> Print.printApiKind this.Kind
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Identity =
-  let private testFriendlyName (xs: FriendlyName) (ys: FriendlyName) =
-    Seq.zip xs ys |> Seq.forall (fun (x, y) -> x.DisplayName = y.DisplayName && x.GenericParametersForDisplay.Length = y.GenericParametersForDisplay.Length)
+  let private testDisplayName (xs: DisplayName) (ys: DisplayName) =
+    Seq.zip xs ys |> Seq.forall (fun (x, y) -> x.FSharpName = y.FSharpName && x.GenericParametersForDisplay.Length = y.GenericParametersForDisplay.Length)
 
   let testFullIdentity (x: FullIdentity) (y: FullIdentity) =
     match x.Name, y.Name with
     | (LoadingName _, _) | (_, LoadingName _) -> Name.loadingNameError()
-    | FriendlyName xName, FriendlyName yName -> x.AssemblyName = y.AssemblyName && testFriendlyName xName yName
+    | DisplayName xName, DisplayName yName -> x.AssemblyName = y.AssemblyName && testDisplayName xName yName
 
   let private testPartialAndFullIdentity (partial: PartialIdentity) (full: FullIdentity) =
     let testNameItem (p: NameItem, f: NameItem) =
       match p.GenericParametersForDisplay, f.GenericParametersForDisplay with
-      | [], _ -> p.DisplayName = f.DisplayName
-      | _ -> p.DisplayName = f.DisplayName && p.GenericParametersForDisplay.Length = f.GenericParametersForDisplay.Length
+      | [], _ -> p.FSharpName = f.FSharpName
+      | _ -> p.FSharpName = f.FSharpName && p.GenericParametersForDisplay.Length = f.GenericParametersForDisplay.Length
     match full.Name with
-    | FriendlyName fullName ->
+    | DisplayName fullName ->
       partial.GenericParameterCount = full.GenericParameterCount
       && (Seq.zip partial.Name fullName |> Seq.forall testNameItem)
     | LoadingName _ -> Name.loadingNameError()
@@ -617,7 +617,7 @@ module Identity =
     | PartialIdentity partial, FullIdentity full -> testPartialAndFullIdentity partial full
     | PartialIdentity left, PartialIdentity right ->
       left.GenericParameterCount = right.GenericParameterCount
-      && testFriendlyName left.Name right.Name
+      && testDisplayName left.Name right.Name
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module LowType =

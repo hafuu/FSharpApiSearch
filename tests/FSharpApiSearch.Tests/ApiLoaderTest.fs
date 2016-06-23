@@ -91,7 +91,7 @@ let valuetype = createType "System.ValueType" [] |> updateAssembly mscorlib
 
 let testApi (assembly: TestCase<ApiDictionary>) (name, expected) = test {
   let! apiDict = assembly
-  let name = Name.friendlyNameOfString name
+  let name = Name.displayNameOfString name
   let actual =
     Seq.filter (fun x -> x.Name = name) apiDict.Api 
     |> Seq.map (fun x -> x.Signature)
@@ -112,11 +112,11 @@ let testFullTypeDef' (assembly: TestCase<ApiDictionary>) filter (name, expected)
   do! (filter actual) |> assertEquals expected
 }
 
-let testFullTypeDef (assembly: TestCase<ApiDictionary>) (expected: FullTypeDefinition) = testFullTypeDef' assembly id (FriendlyName expected.Name, expected)
+let testFullTypeDef (assembly: TestCase<ApiDictionary>) (expected: FullTypeDefinition) = testFullTypeDef' assembly id (DisplayName expected.Name, expected)
 
 let testConstraints (assembly: TestCase<ApiDictionary>) (name, expectedTarget, expectedConstraints) = test {
   let! apiDict = assembly
-  let name = Name.friendlyNameOfString name
+  let name = Name.displayNameOfString name
   let actual = Seq.find (fun x -> x.Name = name) apiDict.Api
   do! actual.Signature |> assertEquals expectedTarget
   do! (List.sort actual.TypeConstraints) |> assertEquals (List.sort expectedConstraints)
@@ -281,8 +281,8 @@ module FSharp =
   // bug #60
   let internalInterfaceTest = test {
     let! mscorDict = mscorlibApi
-    let tuple = mscorDict.TypeDefinitions |> Array.find (fun x -> x.Name = FriendlyName.ofString "System.Tuple<'T1, 'T2>" && x.GenericParameters.Length = 2)
-    let existsITuple = tuple.AllInterfaces |> Seq.exists (function Identity (FullIdentity i) -> i.Name = Name.friendlyNameOfString "System.ITuple" | _ -> false)
+    let tuple = mscorDict.TypeDefinitions |> Array.find (fun x -> x.Name = DisplayName.ofString "System.Tuple<'T1, 'T2>" && x.GenericParameters.Length = 2)
+    let existsITuple = tuple.AllInterfaces |> Seq.exists (function Identity (FullIdentity i) -> i.Name = Name.displayNameOfString "System.ITuple" | _ -> false)
     do! existsITuple |> assertEquals false
   }
 
@@ -419,7 +419,7 @@ module FSharp =
   let fullTypeDefinitionTest =
     let plainClass = {
       emptyDef with
-        Name = FriendlyName.ofString "FullTypeDefinition.PlainClass"
+        Name = DisplayName.ofString "FullTypeDefinition.PlainClass"
         FullName = "FullTypeDefinition.PlainClass"
         AssemblyName = fsharpAssemblyName
         BaseType = Some obj
@@ -428,14 +428,14 @@ module FSharp =
 
     let plainInterface = {
       emptyDef with
-        Name = FriendlyName.ofString "FullTypeDefinition.PlainInterface"
+        Name = DisplayName.ofString "FullTypeDefinition.PlainInterface"
         FullName = "FullTypeDefinition.PlainInterface"
         AssemblyName = fsharpAssemblyName
     }
 
     let interfaceImplClass = {
       emptyDef with
-        Name = FriendlyName.ofString "FullTypeDefinition.InterfaceImplClass"
+        Name = DisplayName.ofString "FullTypeDefinition.InterfaceImplClass"
         FullName = "FullTypeDefinition.InterfaceImplClass"
         AssemblyName = fsharpAssemblyName
         BaseType = Some obj
@@ -445,7 +445,7 @@ module FSharp =
 
     let interfaceInherit = {
       emptyDef with
-        Name = FriendlyName.ofString "FullTypeDefinition.InterfaceInherit"
+        Name = DisplayName.ofString "FullTypeDefinition.InterfaceInherit"
         FullName = "FullTypeDefinition.InterfaceInherit"
         AssemblyName = fsharpAssemblyName
         AllInterfaces = [ Identity (FullIdentity plainInterface.FullIdentity) ]
@@ -453,7 +453,7 @@ module FSharp =
 
     let supportNullClass = {
       emptyDef with
-        Name = FriendlyName.ofString "FullTypeDefinition.SupportNullClass"
+        Name = DisplayName.ofString "FullTypeDefinition.SupportNullClass"
         FullName = "FullTypeDefinition.SupportNullClass"
         AssemblyName = fsharpAssemblyName
         BaseType = Some obj
@@ -463,7 +463,7 @@ module FSharp =
 
     let nonSupportNullSubClass = {
       emptyDef with
-        Name = FriendlyName.ofString "FullTypeDefinition.SupportNullSubClass"
+        Name = DisplayName.ofString "FullTypeDefinition.SupportNullSubClass"
         FullName = "FullTypeDefinition.SupportNullSubClass"
         AssemblyName = fsharpAssemblyName
         BaseType = Some (Identity (FullIdentity supportNullClass.FullIdentity))
@@ -473,7 +473,7 @@ module FSharp =
 
     let supportNullInterface = {
       emptyDef with
-        Name = FriendlyName.ofString "FullTypeDefinition.SupportNullInterface"
+        Name = DisplayName.ofString "FullTypeDefinition.SupportNullInterface"
         FullName = "FullTypeDefinition.SupportNullInterface"
         AssemblyName = fsharpAssemblyName
         SupportNull = Satisfy
@@ -481,7 +481,7 @@ module FSharp =
 
     let supportNullSubInterface = {
       emptyDef with
-        Name = FriendlyName.ofString "FullTypeDefinition.SupportNullSubInterface"
+        Name = DisplayName.ofString "FullTypeDefinition.SupportNullSubInterface"
         FullName = "FullTypeDefinition.SupportNullSubInterface"
         AssemblyName = fsharpAssemblyName
         AllInterfaces = [ Identity (FullIdentity supportNullInterface.FullIdentity) ]
@@ -490,7 +490,7 @@ module FSharp =
 
     let nonSupportNullSubInterface = {
       emptyDef with
-        Name = FriendlyName.ofString "FullTypeDefinition.NonSupportNullSubInterface"
+        Name = DisplayName.ofString "FullTypeDefinition.NonSupportNullSubInterface"
         FullName = "FullTypeDefinition.NonSupportNullSubInterface"
         AssemblyName = fsharpAssemblyName
         AllInterfaces = [ Identity (FullIdentity supportNullInterface.FullIdentity) ]
@@ -499,7 +499,7 @@ module FSharp =
 
     let withoutDefaultConstructor = {
       emptyDef with
-        Name = FriendlyName.ofString "FullTypeDefinition.WithoutDefaultConstructor"
+        Name = DisplayName.ofString "FullTypeDefinition.WithoutDefaultConstructor"
         FullName = "FullTypeDefinition.WithoutDefaultConstructor"
         AssemblyName = fsharpAssemblyName
         BaseType = Some obj
@@ -510,7 +510,7 @@ module FSharp =
 
     let memberClass = {
       emptyDef with
-        Name = FriendlyName.ofString "FullTypeDefinition.MemberClass"
+        Name = DisplayName.ofString "FullTypeDefinition.MemberClass"
         FullName = "FullTypeDefinition.MemberClass"
         AssemblyName = fsharpAssemblyName
         BaseType = Some obj
@@ -570,8 +570,8 @@ module FSharp =
       "AbbreviatedGenericParameterInt", Satisfy
     ]
     run (fun (name, expected) ->
-      let testName = FriendlyName.ofString name @ FriendlyName.ofString "FullTypeDefinition.EqualityConstraints"
-      testFullTypeDef' fsharpAssemblyApi (fun x -> x.Equality) (FriendlyName testName, expected))
+      let testName = DisplayName.ofString name @ DisplayName.ofString "FullTypeDefinition.EqualityConstraints"
+      testFullTypeDef' fsharpAssemblyApi (fun x -> x.Equality) (DisplayName testName, expected))
   }
 
   let testComparison = parameterize {
@@ -600,7 +600,7 @@ module FSharp =
       "AbbreviatedGenericParameterInt", Satisfy
     ]
     run (fun (name, expected) ->
-      testFullTypeDef' fsharpAssemblyApi (fun x -> x.Comparison) (Name.friendlyNameOfString ("FullTypeDefinition.ComparisonConstraints." + name), expected))
+      testFullTypeDef' fsharpAssemblyApi (fun x -> x.Comparison) (Name.displayNameOfString ("FullTypeDefinition.ComparisonConstraints." + name), expected))
   }
 
   let compilerInternalTest = test {
@@ -624,11 +624,11 @@ module FSharp =
       "InternalSignature.InternalType", Private
     ]
     run (fun (name, expected) ->
-      testFullTypeDef' fsharpAssemblyApi (fun x -> x.Accessibility) (Name.friendlyNameOfString name, expected))
+      testFullTypeDef' fsharpAssemblyApi (fun x -> x.Accessibility) (Name.displayNameOfString name, expected))
   }
 
 module SpecialType =
-  let tupleName = Name.friendlyNameOfString "System.Tuple<'T1, 'T2>"
+  let tupleName = Name.displayNameOfString "System.Tuple<'T1, 'T2>"
   let tupleNullnessTest =
     testFullTypeDef' mscorlibApi (fun x -> x.SupportNull) (tupleName, NotSatisfy)
   let tupleEqualityTest =
@@ -636,7 +636,7 @@ module SpecialType =
   let tupleComparisonTest =
     testFullTypeDef' mscorlibApi (fun x -> x.Comparison) (tupleName, Dependence [ "T1"; "T2" ])
 
-  let arrayName = Name.friendlyNameOfString "Microsoft.FSharp.Core.[]<'T>"
+  let arrayName = Name.displayNameOfString "Microsoft.FSharp.Core.[]<'T>"
 
   let arrayNullnessTest =
     testFullTypeDef' fscoreApi (fun x -> x.SupportNull) (arrayName, Satisfy)
@@ -646,21 +646,21 @@ module SpecialType =
     testFullTypeDef' fscoreApi (fun x -> x.Comparison) (arrayName, Dependence [ "T" ])
 
   let intptrComparison =
-    testFullTypeDef' mscorlibApi (fun x -> x.Comparison) (Name.friendlyNameOfString "System.IntPtr", Satisfy)
+    testFullTypeDef' mscorlibApi (fun x -> x.Comparison) (Name.displayNameOfString "System.IntPtr", Satisfy)
   let uintptrComparison =
-    testFullTypeDef' mscorlibApi (fun x -> x.Comparison) (Name.friendlyNameOfString "System.UIntPtr", Satisfy)
+    testFullTypeDef' mscorlibApi (fun x -> x.Comparison) (Name.displayNameOfString "System.UIntPtr", Satisfy)
 
   let int32ImplicitStaticMembers =
-    testFullTypeDef' mscorlibApi (fun x -> x.ImplicitStaticMembers |> List.exists (fun x -> x.Name = "op_Addition")) (Name.friendlyNameOfString "System.Int32", true)
+    testFullTypeDef' mscorlibApi (fun x -> x.ImplicitStaticMembers |> List.exists (fun x -> x.Name = "op_Addition")) (Name.displayNameOfString "System.Int32", true)
 
   let Unit =
-    testFullTypeDef' fscoreApi (fun x -> x.AssemblyName) (Name.friendlyNameOfString "Microsoft.FSharp.Core.Unit", "FSharp.Core")
+    testFullTypeDef' fscoreApi (fun x -> x.AssemblyName) (Name.displayNameOfString "Microsoft.FSharp.Core.Unit", "FSharp.Core")
 
   let UnionCaseInfo =
-    testFullTypeDef' fscoreApi (fun x -> x.AssemblyName) (Name.friendlyNameOfString "Microsoft.FSharp.Reflection.UnionCaseInfo", "FSharp.Core")
+    testFullTypeDef' fscoreApi (fun x -> x.AssemblyName) (Name.displayNameOfString "Microsoft.FSharp.Reflection.UnionCaseInfo", "FSharp.Core")
 
   let Delegate =
-    testFullTypeDef' csharpAssemblyApi (fun x -> x.AssemblyName) (Name.friendlyNameOfString "CSharpLoadTestAssembly.TestDelegate", csharpAssemblyName)
+    testFullTypeDef' csharpAssemblyApi (fun x -> x.AssemblyName) (Name.displayNameOfString "CSharpLoadTestAssembly.TestDelegate", csharpAssemblyName)
 
 module TypeAbbreviation =
   let A = createType "TypeAbbreviations.A" [] |> updateAssembly fsharpAssemblyName
@@ -695,7 +695,7 @@ module TypeExtension =
   let testApi_net40 = testApi net40AssemblyApi
   let testApi = testApi fsharpAssemblyApi
   
-  let testModule = FriendlyName.ofString "TypeExtensions"
+  let testModule = DisplayName.ofString "TypeExtensions"
   let fsharpList_t = fsharpList (variable "T")
 
   let typeExtensionTest = parameterize {
@@ -889,7 +889,7 @@ module XmlDocTest =
     ]
     run (fun (name, expected) -> test {
       let! apiDic = fsharpAssemblyApi
-      let name = Name.friendlyNameOfString name
+      let name = Name.displayNameOfString name
       let api = apiDic.Api |> Seq.find (fun x -> x.Name = name)
       let actual = api.Document
       do! actual |> assertEquals expected

@@ -67,7 +67,7 @@ let nameMatchTest =
       "map : ('a -> 'b) -> 'a list -> 'b list", "Test.C.map", cMap, false
     ]
     run (fun (query, targetName, targetSig, expected) -> test {
-      let target: Api = { Name = Name.friendlyNameOfString targetName; Signature = targetSig; TypeConstraints = []; Document = None }
+      let target: Api = { Name = Name.displayNameOfString targetName; Signature = targetSig; TypeConstraints = []; Document = None }
       let actual = Matcher.search Array.empty SearchOptions.defaultOptions [ target ] query |> Seq.length = 1
       do! actual |> assertEquals expected
     })
@@ -77,7 +77,7 @@ let matchTest trace abbTable (options, query, target, expected) = test {
   use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
   do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
   try
-    let targetApi: Api = { Name = Name.friendlyNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
+    let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
     let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = [||]; TypeAbbreviations = Array.append TestHelper.fsharpAbbreviationTable abbTable }
     let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.length = 1
     do! actual |> assertEquals expected
@@ -316,7 +316,7 @@ module SimilarityTest =
     ]
 
     run (fun (query, target, expected) -> test {
-      let targetApi: Api = { Name = Name.friendlyNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
+      let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
       let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
       let options = { SimilaritySearching = Enabled; StrictQueryVariable = Enabled; IgnoreArgumentStyle = Enabled }
       let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.head
@@ -449,7 +449,7 @@ module IgnoreArgumentStyleTest =
     ]
 
     run (fun (query, target, expected) -> test {
-      let targetApi: Api = { Name = Name.friendlyNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
+      let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
       let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
       let options = { SimilaritySearching = Disabled; StrictQueryVariable = Enabled; IgnoreArgumentStyle = Enabled }
       let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.head
@@ -518,14 +518,14 @@ module TypeConstraintTest =
   let Object = {
     empty with
       AssemblyName = "mscorlib"
-      Name = FriendlyName.ofString "System.Object"
+      Name = DisplayName.ofString "System.Object"
       FullName = "System.Object"
       SupportNull = Satisfy
   }
 
   let Tuple2 = {
     empty with
-      Name = FriendlyName.ofString "System.Tuple<'T1, 'T2>"
+      Name = DisplayName.ofString "System.Tuple<'T1, 'T2>"
       FullName = "System.Tuple`2"
       AssemblyName = "mscorlib"
       BaseType = Some (instantiate Object [])
@@ -541,7 +541,7 @@ module TypeConstraintTest =
 
   let Tuple3 = {
     empty with
-      Name = FriendlyName.ofString "System.Tuple<'T1, 'T2, 'T3>"
+      Name = DisplayName.ofString "System.Tuple<'T1, 'T2, 'T3>"
       FullName = "System.Tuple`3"
       AssemblyName = "mscorlib"
       BaseType = Some (instantiate Object [])
@@ -558,7 +558,7 @@ module TypeConstraintTest =
 
   let Array' = {
     empty with
-      Name = FriendlyName.ofString "System.Array"
+      Name = DisplayName.ofString "System.Array"
       AssemblyName = "mscorlib"
       BaseType = Some (instantiate Object [])
   }
@@ -577,7 +577,7 @@ module TypeConstraintTest =
 
   let Array1D = {
     empty with
-      Name = FriendlyName.ofString "Microsoft.FSharp.Core.[]<'a>"
+      Name = DisplayName.ofString "Microsoft.FSharp.Core.[]<'a>"
       FullName = "Microsoft.FSharp.Core.[]`1"
       AssemblyName = "FSharp.Core"
       BaseType = Some (instantiate Array' [])
@@ -598,21 +598,21 @@ module TypeConstraintTest =
 
   let Parent = {
     empty with
-      Name = FriendlyName.ofString "Test.Parent"
+      Name = DisplayName.ofString "Test.Parent"
       FullName = "Test.Parent"
       BaseType = Some (instantiate Object [])
   }
 
   let Child = {
     empty with
-      Name = FriendlyName.ofString "Test.Child"
+      Name = DisplayName.ofString "Test.Child"
       FullName = "Test.Child"
       BaseType = Some (instantiate Parent [])
   }
 
   let GenericParent = {
     empty with
-      Name = FriendlyName.ofString "Test.GenericParent<'a, 'b>"
+      Name = DisplayName.ofString "Test.GenericParent<'a, 'b>"
       FullName = "Test.GenericParent`2"
       GenericParameters = [ "a"; "b" ]
       BaseType = Some (instantiate Object [])
@@ -620,7 +620,7 @@ module TypeConstraintTest =
 
   let GenericChild = {
     empty with
-      Name = FriendlyName.ofString "Test.GenericChild<'a, 'b>"
+      Name = DisplayName.ofString "Test.GenericChild<'a, 'b>"
       FullName = "Test.GenericChild`2"
       GenericParameters = [ "a"; "b" ]
       BaseType = Some (instantiate GenericParent [ variable "a"; variable "b" ])
@@ -628,7 +628,7 @@ module TypeConstraintTest =
 
   let AnotherGeneric = {
     empty with
-      Name = FriendlyName.ofString "Test.AnotherGeneric<'a, 'b>"
+      Name = DisplayName.ofString "Test.AnotherGeneric<'a, 'b>"
       FullName = "Test.AnotherGeneric`2"
       GenericParameters = [ "a"; "b" ]
       BaseType = Some (instantiate Object [])
@@ -636,21 +636,21 @@ module TypeConstraintTest =
 
   let IA = {
     empty with
-      Name = FriendlyName.ofString "Test.IA"
+      Name = DisplayName.ofString "Test.IA"
       FullName = "Test.IA"
       GenericParameters = []
   }
 
   let IB = {
     empty with
-      Name = FriendlyName.ofString "Test.IB"
+      Name = DisplayName.ofString "Test.IB"
       FullName = "Test.IB"
       GenericParameters = []
   }
 
   let ImplA = {
     empty with
-      Name = FriendlyName.ofString "Test.ImplA"
+      Name = DisplayName.ofString "Test.ImplA"
       FullName = "Test.ImplA"
       GenericParameters = []
       BaseType = Some (instantiate Object [])
@@ -659,7 +659,7 @@ module TypeConstraintTest =
 
   let ImplAB = {
     empty with
-      Name = FriendlyName.ofString "Test.ImplAB"
+      Name = DisplayName.ofString "Test.ImplAB"
       FullName = "Test.ImplAB"
       GenericParameters = []
       BaseType = Some (instantiate Object [])
@@ -668,7 +668,7 @@ module TypeConstraintTest =
 
   let Foo_X = {
     empty with
-      Name = FriendlyName.ofString "Foo.X"
+      Name = DisplayName.ofString "Foo.X"
       FullName = "Foo.X"
       GenericParameters = []
       BaseType = Some (instantiate Object [])
@@ -677,7 +677,7 @@ module TypeConstraintTest =
 
   let Bar_X = {
     empty with
-      Name = FriendlyName.ofString "Bar.X"
+      Name = DisplayName.ofString "Bar.X"
       FullName = "Bar.X"
       GenericParameters = []
       BaseType = Some (instantiate Object [])
@@ -686,14 +686,14 @@ module TypeConstraintTest =
 
   let GenericInterface = {
     empty with
-      Name = FriendlyName.ofString "Test.GenericInterface"
+      Name = DisplayName.ofString "Test.GenericInterface"
       FullName = "Test.GenericInterface`1"
       GenericParameters = [ "a" ]
   }
 
   let GenericInterfaceImplement = {
     empty with
-      Name = FriendlyName.ofString "Test.GenericInterfaceImplement"
+      Name = DisplayName.ofString "Test.GenericInterfaceImplement"
       FullName = "Test.GenericInterfaceImplement"
       BaseType = Some (instantiate Object [])
       AllInterfaces = [ instantiate GenericInterface [ ImplA.LowType ] ]
@@ -701,12 +701,12 @@ module TypeConstraintTest =
 
   let OriginalTypeAbbreviatedInterface = {
     empty with
-      Name = FriendlyName.ofString "Test.OriginalTypeAbbreviatedInterface"
+      Name = DisplayName.ofString "Test.OriginalTypeAbbreviatedInterface"
       FullName = "Test.OriginalTypeAbbreviatedInterface"
   }
 
   let TypeAbbreviationInterface = {
-    Name = FriendlyName.ofString "Test.TypeAbbreviationInterface"
+    Name = DisplayName.ofString "Test.TypeAbbreviationInterface"
     FullName = "Test.TypeAbbreviationInterface"
     AssemblyName = "test"
     Accessibility = Public
@@ -717,7 +717,7 @@ module TypeConstraintTest =
 
   let AbbreviationImplement = {
     empty with
-      Name = FriendlyName.ofString "Test.AbbreviationImplement"
+      Name = DisplayName.ofString "Test.AbbreviationImplement"
       FullName = "Test.AbbreviationImplement"
       BaseType = Some (instantiate Object [])
       AllInterfaces = [ TypeAbbreviationInterface.LowType ]
@@ -725,7 +725,7 @@ module TypeConstraintTest =
 
   let NullableType = {
     empty with
-      Name = FriendlyName.ofString "Test.NullableType"
+      Name = DisplayName.ofString "Test.NullableType"
       FullName = "Test.NullableType"
       BaseType = Some (instantiate Object [])
       SupportNull = Satisfy
@@ -733,7 +733,7 @@ module TypeConstraintTest =
 
   let NonNullableType = {
     empty with
-      Name = FriendlyName.ofString "Test.NonNullableType"
+      Name = DisplayName.ofString "Test.NonNullableType"
       FullName = "Test.NonNullableType"
       BaseType = Some (instantiate Object [])
       SupportNull = NotSatisfy
@@ -741,7 +741,7 @@ module TypeConstraintTest =
 
   let MemberTestType = {
     empty with
-      Name = FriendlyName.ofString "Test.MemberTestType"
+      Name = DisplayName.ofString "Test.MemberTestType"
       FullName = "Test.MemberTestType"
       BaseType = Some (instantiate Object [])
       StaticMembers =
@@ -759,7 +759,7 @@ module TypeConstraintTest =
 
   let GenericMemberTestType = {
     empty with
-      Name = FriendlyName.ofString "Test.GenericMemberTestType<'T>"
+      Name = DisplayName.ofString "Test.GenericMemberTestType<'T>"
       FullName = "Test.GenericMemberTestType`1"
       BaseType = Some (instantiate Object [])
       GenericParameters = [ "T" ]
@@ -772,7 +772,7 @@ module TypeConstraintTest =
 
   let ImplicitMemberType = {
     empty with
-      Name = FriendlyName.ofString "Test.ImplicitMemberType"
+      Name = DisplayName.ofString "Test.ImplicitMemberType"
       FullName = "Test.ImplicitMemberType"
       BaseType = Some (instantiate Object [])
       ImplicitInstanceMembers =
@@ -787,7 +787,7 @@ module TypeConstraintTest =
 
   let ValueType = {
     empty with
-      Name = FriendlyName.ofString "Test.ValueType"
+      Name = DisplayName.ofString "Test.ValueType"
       FullName = "Test.ValueType"
       BaseType = Some (instantiate Object [])
       ValueType = Satisfy
@@ -796,7 +796,7 @@ module TypeConstraintTest =
 
   let ReferenceType = {
     empty with
-      Name = FriendlyName.ofString "Test.ReferenceType"
+      Name = DisplayName.ofString "Test.ReferenceType"
       FullName = "Test.ReferenceType"
       BaseType = Some (instantiate Object [])
       ValueType = NotSatisfy
@@ -805,7 +805,7 @@ module TypeConstraintTest =
 
   let WithDefaultConstructor = {
     empty with
-      Name = FriendlyName.ofString "Test.WithDefaultConstructor"
+      Name = DisplayName.ofString "Test.WithDefaultConstructor"
       FullName = "Test.WithDefaultConstructor"
       BaseType = Some (instantiate Object [])
       DefaultConstructor = Satisfy
@@ -813,7 +813,7 @@ module TypeConstraintTest =
 
   let WithoutDefaultConstructor = {
     empty with
-      Name = FriendlyName.ofString "Test.WithoutDefaultConstructor"
+      Name = DisplayName.ofString "Test.WithoutDefaultConstructor"
       FullName = "Test.WithoutDefaultConstructor"
       BaseType = Some (instantiate Object [])
       DefaultConstructor = NotSatisfy
@@ -821,7 +821,7 @@ module TypeConstraintTest =
 
   let EqualityType = {
     empty with
-      Name = FriendlyName.ofString "Test.EqualityType"
+      Name = DisplayName.ofString "Test.EqualityType"
       FullName = "Test.EqualityType"
       BaseType = Some (instantiate Object [])
       Equality = Satisfy
@@ -829,7 +829,7 @@ module TypeConstraintTest =
 
   let NoEqualityType = {
     empty with
-      Name = FriendlyName.ofString "Test.NoEqualityType"
+      Name = DisplayName.ofString "Test.NoEqualityType"
       FullName = "Test.NoEqualityType"
       BaseType = Some (instantiate Object [])
       Equality = NotSatisfy
@@ -837,7 +837,7 @@ module TypeConstraintTest =
 
   let DependenceEqualityType1 = {
     empty with
-      Name = FriendlyName.ofString "Test.DependenceEqualityType1<'a>"
+      Name = DisplayName.ofString "Test.DependenceEqualityType1<'a>"
       FullName = "Test.DependenceEqualityType1`1"
       BaseType = Some (instantiate Object [])
       GenericParameters = [ "a" ]
@@ -846,7 +846,7 @@ module TypeConstraintTest =
 
   let DependenceEqualityType2 = {
     empty with
-      Name = FriendlyName.ofString "Test.DependenceEqualityType2<'a, 'b>"
+      Name = DisplayName.ofString "Test.DependenceEqualityType2<'a, 'b>"
       FullName = "Test.DependenceEqualityType2`2"
       BaseType = Some (instantiate Object [])
       GenericParameters = [ "a"; "b" ]
@@ -855,7 +855,7 @@ module TypeConstraintTest =
 
   let DependenceEqualityType3 = {
     empty with
-      Name = FriendlyName.ofString "Test.DependenceEqualityType3<'a, 'b>"
+      Name = DisplayName.ofString "Test.DependenceEqualityType3<'a, 'b>"
       FullName = "Test.DependenceEqualityType3`2"
       BaseType = Some (instantiate Object [])
       GenericParameters = [ "a"; "b" ]
@@ -864,7 +864,7 @@ module TypeConstraintTest =
 
   let ComparisonType = {
     empty with
-      Name = FriendlyName.ofString "Test.ComparisonType"
+      Name = DisplayName.ofString "Test.ComparisonType"
       FullName = "Test.ComparisonType"
       BaseType = Some (instantiate Object [])
       Comparison = Satisfy
@@ -872,7 +872,7 @@ module TypeConstraintTest =
 
   let NoComparisonType = {
     empty with
-      Name = FriendlyName.ofString "Test.NoComparisonType"
+      Name = DisplayName.ofString "Test.NoComparisonType"
       FullName = "Test.NoComparisonType"
       BaseType = Some (instantiate Object [])
       Comparison = NotSatisfy
@@ -880,7 +880,7 @@ module TypeConstraintTest =
 
   let DependenceComparisonType = {
     empty with
-      Name = FriendlyName.ofString "Test.DependenceComparisonType<'a>"
+      Name = DisplayName.ofString "Test.DependenceComparisonType<'a>"
       FullName = "Test.DependenceComparisonType`1"
       BaseType = Some (instantiate Object [])
       GenericParameters = [ "a" ]
@@ -908,7 +908,7 @@ module TypeConstraintTest =
   let testConstraint trace (query, target, constraints, expected) = test {
     use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
     do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
-    let targetApi: Api = { Name = Name.friendlyNameOfString "test"; Signature = target; TypeConstraints = constraints; Document = None }
+    let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = constraints; Document = None }
 
     let dictionaries = [|
       mscorlibDict
@@ -1313,7 +1313,7 @@ module ActivePatternTest =
     use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
     do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
     try
-      let targetApi: Api = { Name = Name.friendlyNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
+      let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
       let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
       let options = SearchOptions.defaultOptions
       let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.length = 1
@@ -1349,7 +1349,7 @@ module ActivePatternTest =
 
 module TypeExtensionTest =
   let matchTest cases = functionArgStyleTest false cases
-  let testModule = FriendlyName.ofString "test"
+  let testModule = DisplayName.ofString "test"
 
   let instanceMemberTest =
     matchTest [
