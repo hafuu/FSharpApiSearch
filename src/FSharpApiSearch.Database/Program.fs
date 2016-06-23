@@ -18,7 +18,7 @@ module Args =
     AssemblyResolver =
       {
         FSharpCore = ConfigurationManager.AppSettings.Get("FSharpCore")
-        Framework = ConfigurationManager.AppSettings.Get("Framework")
+        Framework = ConfigurationManager.AppSettings.Get("Framework").Split(';') |> Array.toList |> List.rev
         Directories = []
       }
     References = []
@@ -27,7 +27,7 @@ module Args =
 
   let rec parse arg = function
     | KeyValue "--FSharpCore" path :: rest -> parse { arg with AssemblyResolver = { arg.AssemblyResolver with FSharpCore = path } } rest
-    | KeyValue "--Framework" path :: rest -> parse { arg with AssemblyResolver = { arg.AssemblyResolver with Framework = path } } rest
+    | KeyValue "--Framework" path :: rest -> parse { arg with AssemblyResolver = { arg.AssemblyResolver with Framework = path :: arg.AssemblyResolver.Framework } } rest
     | KeyValue "--lib" path :: rest -> parse { arg with AssemblyResolver = { arg.AssemblyResolver with Directories = path :: arg.AssemblyResolver.Directories } } rest
     | ("--help" | "-h") :: rest -> parse { arg with Help = true } rest
     | path :: rest -> parse { arg with References = path :: arg.References } rest

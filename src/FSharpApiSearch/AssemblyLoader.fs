@@ -6,7 +6,7 @@ open System.Reflection
 
 type AssemblyResolver = {
   FSharpCore: string
-  Framework: string
+  Framework: string list
   Directories: string list
 }
 with
@@ -15,7 +15,7 @@ with
     if assemblyName = "FSharp.Core.dll" then
       Some (Path.Combine(this.FSharpCore, assemblyName))
     else
-      seq { yield! this.Directories; yield this.Framework }
+      seq { yield! this.Directories; yield! this.Framework }
       |> Seq.map (fun dir -> Path.Combine(dir, assemblyName))
       |> Seq.tryFindBack File.Exists
 
