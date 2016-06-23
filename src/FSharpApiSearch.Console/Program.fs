@@ -68,6 +68,26 @@ module Interactive =
   let ShowXmlDocument = { Get = (fun x -> x.ShowXmlDocument); Set = (fun value x -> { x with ShowXmlDocument = value }) }
   let StackTrace = { Get = (fun x -> x.StackTrace); Set = (fun value x -> { x with StackTrace = value }) }
 
+  let helpMessage = """
+FSharpApiSearch.Console interactive mode directive:
+  #strict [enable|disable]
+      Enables or disables to strictly deal with variables of different name in the query.
+  #similarity [enable|disable]
+      Enables or disables the similarity searching.
+  #ignore-argstyle [enable|disable]
+      Enables of disables to ignore the difference of the argument style.
+      The argument style refers to curried argument, multi argument and tuple argument.
+  #xmldoc [enable|disable]
+      Enables or disables to show xml document of API.
+  #stacktrace [enable|disable]
+      Enables or disables stacktrace output if an exception occurs.
+  #help
+      Print this message.
+  #q
+      Quit interactive mode.
+
+  If ommit the option value, print the current value of the option."""
+
   let rec loop (client: FSharpApiSearchClient) arg =
     printf "> "
     match Console.ReadLine().TrimEnd(';') with
@@ -77,6 +97,10 @@ module Interactive =
     | OptionSetting "#ignore-argstyle" IgnoreArgumentStyle arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#xmldoc" ShowXmlDocument arg newArg -> loop client newArg
     | OptionSetting "#stacktrace" StackTrace arg newArg -> loop client newArg
+    | "#help" ->
+      Console.WriteLine(helpMessage)
+      Console.WriteLine()
+      loop client arg
     | query ->
       try
         searchAndShowResult client query arg
@@ -108,7 +132,9 @@ options:
       Enables or disables stacktrace output if an exception occurs.
       The default is disabled.
   --help, -h
-      Print this message."""
+      Print this message.
+      
+To print the help of interactive mode, enter '#help' in interactive mode."""
 
 [<EntryPoint>]
 let main argv =
@@ -128,7 +154,7 @@ let main argv =
       let client = createClient targets ApiLoader.databaseName
       printfn "Targets the following assemblies."
       client.TargetAssemblies |> List.iter (printfn "  %s")
-      printfn "Input query or #q to quit."
+      printfn "Input query, #help to print help or #q to quit."
       Interactive.loop client args |> ignore
     with
       ex -> showException args ex
