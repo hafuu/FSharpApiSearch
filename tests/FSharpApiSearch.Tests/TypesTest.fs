@@ -7,6 +7,25 @@ open FSharpApiSearch
 
 open TestHelper.DSL
 
+let parseDisplayNameTest = parameterize {
+  source [
+    "A.B", [ { FSharpName = "B"; InternalFSharpName = "B"; GenericParametersForDisplay = [] }; { FSharpName = "A"; InternalFSharpName = "A"; GenericParametersForDisplay = [] } ]
+    "A.B<'T>", [ { FSharpName = "B"; InternalFSharpName = "B"; GenericParametersForDisplay = [ "T" ] }; { FSharpName = "A"; InternalFSharpName = "A"; GenericParametersForDisplay = [] } ]
+  ]
+  run (fun (x, expected) -> test {
+    do! DisplayName.ofString x |> assertEquals expected
+  })
+}
+
+let parseOperatorDisplayNameTest = parameterize {
+  source [
+    "A.( + )", [ { FSharpName = "( + )"; InternalFSharpName = "op_Addition"; GenericParametersForDisplay = [] }; { FSharpName = "A"; InternalFSharpName = "A"; GenericParametersForDisplay = [] } ]
+  ]
+  run (fun (x, expected) -> test {
+    do! DisplayName.ofOperatorString x |> assertEquals expected
+  })
+}
+
 module PrintTest =
   let typeA = createType "a" []
   let typeB = createType "b" []

@@ -9,7 +9,7 @@ let inline pcharAndTrim c = pchar c |> trim
 
 module FSharpSignatureParser =
   let name = regex @"\w+" <?> "name"
-  let partialName = sepBy1 name (pchar '.') |>> (List.map (fun n -> { FSharpName = n; GenericParametersForDisplay = [] } ) >> List.rev)
+  let partialName = sepBy1 name (pchar '.') |>> (List.map (fun n -> { FSharpName = n; InternalFSharpName = n; GenericParametersForDisplay = [] } ) >> List.rev)
 
   let fsharpSignature, fsharpSignatureRef = createParserForwardedToRef()
 
@@ -48,7 +48,7 @@ module FSharpSignatureParser =
       wildcard
     ]
   
-  let arraySymbol = regex arrayRegexPattern |> trim |>> (fun array -> Identity (PartialIdentity { Name = [ { FSharpName = array; GenericParametersForDisplay = [ "T" ] } ]; GenericParameterCount = 1 }))
+  let arraySymbol = regex arrayRegexPattern |> trim |>> (fun array -> Identity (PartialIdentity { Name = [ { FSharpName = array; InternalFSharpName = array; GenericParametersForDisplay = [ "T" ] } ]; GenericParameterCount = 1 }))
   let maybeArray t =
     t
     .>>. many arraySymbol
@@ -101,11 +101,12 @@ let allPatterns = trim (skipString "...") >>. skipString "->" >>. FSharpSignatur
 let activePattern = FSharpSignatureParser.fsharpSignature |>> ActivePatternSignature.Specified
 let activePatternQuery = trim activePatternKind .>> skipString ":" .>>. (attempt allPatterns <|> activePattern) |>> (fun (kind, sig') -> QueryMethod.ByActivePattern { Kind = kind; Signature = sig' })
 
-let memberName = many1 (letter <|> anyOf "_'") |> trim |>> (fun xs -> System.String(Array.ofList xs))
+let opName = trim (skipChar '(') >>. many1Chars (anyOf "!%&*+-./<=>?@^|~:[]")  .>> trim (skipChar ')') |>> Microsoft.FSharp.Compiler.PrettyNaming.CompileOpName
+let memberName = many1Chars (letter <|> anyOf "_'") |> trim
 let wildcard = pstring "_" |> trim >>% SignatureQuery.Wildcard
 
 let anyOrSignature = attempt wildcard <|> (FSharpSignatureParser.extendedFsharpSignature)
-let nameQuery = memberName .>> pstring ":" .>>. anyOrSignature |>> (fun (name, sigPart) -> QueryMethod.ByName (name, sigPart))
+let nameQuery = (memberName <|> opName) .>> pstring ":" .>>. anyOrSignature |>> (fun (name, sigPart) -> QueryMethod.ByName (name, sigPart))
 
 let signatureQuery = FSharpSignatureParser.extendedFsharpSignature |>> QueryMethod.BySignature
 

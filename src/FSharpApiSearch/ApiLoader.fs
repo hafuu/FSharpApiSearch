@@ -9,8 +9,6 @@ open Nessos.FsPickler
 open System.Collections.Generic
 open System.Xml.Linq
 
-module Hack = FSharpApiSearch.Hack
-
 let inline internal tryGetXmlDoc (xml: XElement option) (symbol: ^a): string option =
   option {
     let! xml = xml
@@ -74,7 +72,15 @@ type FSharpMemberOrFunctionOrValue with
       ApiSignature.InstanceMember (declaringType, member')
   member this.GenericParametersAsTypeVariable =
     this.GenericParameters |> Seq.map (fun x -> x.DisplayName : TypeVariable) |> Seq.toList
-      
+  member this.GetDisplayName =
+    let dn = this.DisplayName
+    let isOperator =
+      dn.StartsWith("(") && dn.EndsWith(")") && this.CompiledName.StartsWith("op_")
+    if isOperator then
+      { FSharpName = dn; InternalFSharpName = this.CompiledName; GenericParametersForDisplay = [] }
+    else
+      { FSharpName = dn; InternalFSharpName = dn; GenericParametersForDisplay = [] }
+
 type FSharpField with
   member this.TargetSignatureConstructor = fun declaringType member' ->
     if this.IsStatic then
@@ -243,12 +249,7 @@ let parameterSignature (t: FSharpMemberOrFunctionOrValue) =
 
 let methodMember (x: FSharpMemberOrFunctionOrValue) =
   option {
-    let name =
-      let n = x.DisplayName
-      if Regex.IsMatch(n, @"^\( .* \)$") then
-        x.CompiledName
-      else
-        n
+    let name = x.GetDisplayName
     let! args =
       if x.CurriedParameterGroups.Count = 1 && x.CurriedParameterGroups.[0].Count = 0 then
         toSignature x.FullType.GenericArguments.[0] |> Option.map List.singleton
@@ -258,7 +259,8 @@ let methodMember (x: FSharpMemberOrFunctionOrValue) =
     let! returnType = toSignature x.ReturnParameter.Type
     let isCurried = x.CurriedParameterGroups.Count >= 2
     let genericParams = x.GenericParametersAsTypeVariable
-    return { Name = name; Kind = MemberKind.Method; GenericParameters = genericParams; Arguments = args; IsCurried = isCurried; ReturnType = returnType }
+    let member' = { Name = name.InternalFSharpName; Kind = MemberKind.Method; GenericParameters = genericParams; Arguments = args; IsCurried = isCurried; ReturnType = returnType }
+    return (name, member')
   }
 
 let propertyMember (x: FSharpMemberOrFunctionOrValue) =
@@ -267,12 +269,14 @@ let propertyMember (x: FSharpMemberOrFunctionOrValue) =
     let! args = parameterSignature x
     let! returnType = toSignature x.ReturnParameter.Type
     let genericParams = x.GenericParametersAsTypeVariable
-    return { Name = x.DisplayName; Kind = memberKind; GenericParameters = genericParams; Arguments = args; IsCurried = false; ReturnType = returnType }
+    let name = x.GetDisplayName
+    let member' = { Name = name.InternalFSharpName; Kind = memberKind; GenericParameters = genericParams; Arguments = args; IsCurried = false; ReturnType = returnType }
+    return (name, member')
   }
 
 let toModuleValue xml (declaringModuleName: DisplayName) (x: FSharpMemberOrFunctionOrValue) =
   option {
-    let name = { FSharpName = x.DisplayName; GenericParametersForDisplay = [] } :: declaringModuleName
+    let name = x.GetDisplayName :: declaringModuleName
     let! signature = (toSignature x.FullType)
     let target =
       if x.IsActivePattern then
@@ -290,7 +294,7 @@ let toTypeExtension xml (declaringModuleName: DisplayName) (x: FSharpMemberOrFun
     let existingType = fsharpEntityToSignature x.LogicalEnclosingEntity
     let modifier = x.MemberModifier
 
-    let! member' =
+    let! _, member' =
       if x.IsPropertyGetterMethod || x.IsPropertySetterMethod then
         None
       elif x.IsProperty then
@@ -299,13 +303,15 @@ let toTypeExtension xml (declaringModuleName: DisplayName) (x: FSharpMemberOrFun
         let existingTypeParameters = x.LogicalEnclosingEntity.GenericParameters |> Seq.map (fun x -> x.DisplayName) |> Seq.toArray
         let removeExistingTypeParameters xs = xs |> List.filter (fun p -> existingTypeParameters |> Array.exists ((=)p) = false)
         methodMember x
-        |> Option.map (fun m -> { m with GenericParameters = removeExistingTypeParameters m.GenericParameters })
+        |> Option.map (fun (n, m) -> (n, { m with GenericParameters = removeExistingTypeParameters m.GenericParameters }))
 
     let signature = ApiSignature.TypeExtension { ExistingType = existingType; Declaration = declaringModuleName; MemberModifier = modifier; Member = member' }
     let name =
       let memberAssemblyName = x.LogicalEnclosingEntity.Assembly.SimpleName
       let memberTypeName = x.LogicalEnclosingEntity.FullName
-      let memberName = { FSharpName = member'.Name; GenericParametersForDisplay = [] }
+      let memberName =
+        let name = member'.Name
+        { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = [] }
       LoadingName (memberAssemblyName, memberTypeName, [ memberName ])
     return { Name = name; Signature = signature; TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
   }
@@ -318,15 +324,15 @@ let toFSharpApi xml (declaringModuleName: DisplayName) (x: FSharpMemberOrFunctio
 
 let constructorSignature xml (declaringSignatureName: DisplayName) declaringSignature (x: FSharpMemberOrFunctionOrValue) =
   option {
-    let! target = methodMember x
+    let! _, target = methodMember x
     let target = { target with Name = declaringSignatureName.Head.FSharpName; ReturnType = declaringSignature }
     return { Name = DisplayName declaringSignatureName; Signature = ApiSignature.Constructor (declaringSignature, target); TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
   }
 
-let memberSignature xml (loadMember: FSharpMemberOrFunctionOrValue -> Member option) (declaringSignatureName: DisplayName) (declaringEntity: FSharpEntity) declaringSignature (x: FSharpMemberOrFunctionOrValue) =
+let memberSignature xml (loadMember: FSharpMemberOrFunctionOrValue -> (NameItem * Member) option) (declaringSignatureName: DisplayName) (declaringEntity: FSharpEntity) declaringSignature (x: FSharpMemberOrFunctionOrValue) =
   option {
-    let! member' = loadMember x
-    let name = { FSharpName = member'.Name; GenericParametersForDisplay = [] } :: declaringSignatureName
+    let! name, member' = loadMember x
+    let name = name :: declaringSignatureName
     let typeConstraints = Seq.append declaringEntity.GenericParameters x.GenericParameters |> collectTypeConstraints
     return { Name = DisplayName name; Signature = x.TargetSignatureConstructor declaringSignature member'; TypeConstraints = typeConstraints; Document = tryGetXmlDoc xml x }
   }
@@ -345,7 +351,9 @@ let toFieldApi xml (accessPath: DisplayName) (declaringEntity: FSharpEntity) (de
   option {
     let! returnType = toSignature field.FieldType
     let member' = { Name = field.Name; Kind = MemberKind.Field; GenericParameters = []; Arguments = []; IsCurried = false; ReturnType = returnType }
-    let apiName = { FSharpName = field.Name; GenericParametersForDisplay = [] } :: accessPath
+    let apiName =
+      let name = field.Name
+      { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = [] } :: accessPath
     return { Name = DisplayName apiName; Signature = field.TargetSignatureConstructor declaringSignature member'; TypeConstraints = collectTypeConstraints declaringEntity.GenericParameters; Document = tryGetXmlDoc xml field }
   }
 
@@ -385,7 +393,9 @@ let updateInterfaceDeclaringType (declaringSignatureName: DisplayName) declaring
   { api with Name = DisplayName name; Signature = target }
 
 let collectTypeAbbreviationDefinition xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
-  let typeAbbreviationName = { FSharpName = e.DisplayName; GenericParametersForDisplay = genericParameters e } :: accessPath
+  let typeAbbreviationName =
+    let name = e.DisplayName
+    { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = genericParameters e } :: accessPath
   option {
     let! abbreviatedAndOriginal = toSignature e.AbbreviatedType
     let abbreviated, original =
@@ -698,7 +708,9 @@ let fullTypeDef xml (name: DisplayName) (e: FSharpEntity) members =
 let rec collectApi xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
   seq {
     if e.IsNamespace then
-      let accessPath = { FSharpName = e.DisplayName; GenericParametersForDisplay = [] } :: accessPath
+      let accessPath =
+        let name = e.DisplayName
+        { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = [] } :: accessPath
       yield! collectFromNestedEntities xml accessPath e
     elif e.IsCompilerInternalModule then
       ()
@@ -717,7 +729,9 @@ and collectFromNestedEntities xml (accessPath: DisplayName) (e: FSharpEntity): A
   e.NestedEntities
   |> Seq.collect (collectApi xml accessPath)
 and collectFromModule xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
-  let moduleName = { FSharpName = e.DisplayName; GenericParametersForDisplay = [] } :: accessPath
+  let moduleName =
+    let name = e.DisplayName
+    { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = [] } :: accessPath
   seq {
     yield! e.MembersFunctionsAndValues
             |> Seq.filter (fun x -> x.Accessibility.IsPublic)
@@ -725,7 +739,9 @@ and collectFromModule xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
     yield! collectFromNestedEntities xml moduleName e
   }
 and collectFromType xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
-  let typeName = { FSharpName = e.DisplayName; GenericParametersForDisplay = genericParameters e } :: accessPath
+  let typeName =
+    let name = e.DisplayName
+    { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = genericParameters e } :: accessPath
   seq {
     let declaringSignature = fsharpEntityToSignature e
 
@@ -789,7 +805,9 @@ and collectInterfaceMembers xml (declaringSignatureName: DisplayName) (inheritAr
               |> Seq.map (updateInterfaceDeclaringType declaringSignatureName declaringSignature)
   }
 and collectFromInterface xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
-  let interfaceName = { FSharpName = e.DisplayName; GenericParametersForDisplay = genericParameters e } :: accessPath
+  let interfaceName =
+    let name = e.DisplayName
+    { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = genericParameters e } :: accessPath
   seq {
     let members = collectInterfaceMembers xml interfaceName [] e |> Seq.cache
 

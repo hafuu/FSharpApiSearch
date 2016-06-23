@@ -4,6 +4,7 @@ type TypeVariable = string
 
 type NameItem = {
   FSharpName: string
+  InternalFSharpName: string
   // CompiledName: string
   GenericParametersForDisplay: TypeVariable list
 }
@@ -22,11 +23,16 @@ module DisplayName =
         let xs = n.Split([| '<' |], 2)
         let name = xs.[0]
         let args = [ for m in Regex.Matches(xs.[1], @"'(\w+)") -> m.Groups.[1].Value ]
-        { FSharpName = name; GenericParametersForDisplay = args }
+        { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = args }
       else
-        { FSharpName = n; GenericParametersForDisplay = [] })
+        { FSharpName = n; InternalFSharpName = n; GenericParametersForDisplay = [] })
     |> Seq.toList
     |> List.rev
+  
+  let ofOperatorString (name: string) =
+    let name = ofString name
+    let head = { name.Head with InternalFSharpName = Microsoft.FSharp.Compiler.PrettyNaming.CompileOpName (name.Head.FSharpName.Trim('(', ')', ' ')) }
+    head :: name.Tail
 
 type Name =
   | LoadingName of assemblyName: string * FullName * DisplayName
@@ -35,6 +41,7 @@ type Name =
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Name =
   let displayNameOfString (name: string) = DisplayName (DisplayName.ofString name)
+  let displayNameOfOperatorString (name: string) = DisplayName (DisplayName.ofOperatorString name)
 
   let loadingNameError() = failwith "Loading name at run time is invalid data."
 
@@ -307,7 +314,7 @@ module SpecialTypes =
       { AssemblyName = t.Assembly.GetName().Name; Name = Name.displayNameOfString t.FullName; GenericParameterCount = 0 }
 
     let tupleName n =
-      let name = { FSharpName = "Tuple"; GenericParametersForDisplay = List.init n (sprintf "T%d") } :: { FSharpName = "System"; GenericParametersForDisplay = [] } :: []
+      let name = { FSharpName = "Tuple"; InternalFSharpName = "Tuple"; GenericParametersForDisplay = List.init n (sprintf "T%d") } :: { FSharpName = "System"; InternalFSharpName = "System"; GenericParametersForDisplay = [] } :: []
       DisplayName name
 
     let Boolean = ofDotNetType typeof<Boolean>
@@ -592,7 +599,7 @@ type Api with
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Identity =
   let private testDisplayName (xs: DisplayName) (ys: DisplayName) =
-    Seq.zip xs ys |> Seq.forall (fun (x, y) -> x.FSharpName = y.FSharpName && x.GenericParametersForDisplay.Length = y.GenericParametersForDisplay.Length)
+    Seq.zip xs ys |> Seq.forall (fun (x, y) -> x.InternalFSharpName = y.InternalFSharpName && x.GenericParametersForDisplay.Length = y.GenericParametersForDisplay.Length)
 
   let testFullIdentity (x: FullIdentity) (y: FullIdentity) =
     match x.Name, y.Name with
@@ -602,8 +609,8 @@ module Identity =
   let private testPartialAndFullIdentity (partial: PartialIdentity) (full: FullIdentity) =
     let testNameItem (p: NameItem, f: NameItem) =
       match p.GenericParametersForDisplay, f.GenericParametersForDisplay with
-      | [], _ -> p.FSharpName = f.FSharpName
-      | _ -> p.FSharpName = f.FSharpName && p.GenericParametersForDisplay.Length = f.GenericParametersForDisplay.Length
+      | [], _ -> p.InternalFSharpName = f.InternalFSharpName
+      | _ -> p.InternalFSharpName = f.InternalFSharpName && p.GenericParametersForDisplay.Length = f.GenericParametersForDisplay.Length
     match full.Name with
     | DisplayName fullName ->
       partial.GenericParameterCount = full.GenericParameterCount

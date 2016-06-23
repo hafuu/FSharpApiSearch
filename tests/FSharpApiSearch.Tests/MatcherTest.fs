@@ -62,12 +62,15 @@ let nameMatchTest =
   
   parameterize {
     source [
-      "map : _", "Microsoft.FSharp.Collections.List.map", listMap, true
-      "bind : _", "Microsoft.FSharp.Collections.List.map", listMap, false
-      "map : ('a -> 'b) -> 'a list -> 'b list", "Test.C.map", cMap, false
+      "map : _", Name.displayNameOfString "Microsoft.FSharp.Collections.List.map", listMap, true
+      "bind : _", Name.displayNameOfString "Microsoft.FSharp.Collections.List.map", listMap, false
+      "map : ('a -> 'b) -> 'a list -> 'b list", Name.displayNameOfString "Test.C.map", cMap, false
+      "(+) : _", Name.displayNameOfOperatorString "Test.(+)", listMap, true
+      "(+) : _", Name.displayNameOfString "Test.op_Addition", listMap, true
+      "(-) : _", Name.displayNameOfOperatorString "Test.(+)", listMap, false
     ]
     run (fun (query, targetName, targetSig, expected) -> test {
-      let target: Api = { Name = Name.displayNameOfString targetName; Signature = targetSig; TypeConstraints = []; Document = None }
+      let target: Api = { Name = targetName; Signature = targetSig; TypeConstraints = []; Document = None }
       let actual = Matcher.search Array.empty SearchOptions.defaultOptions [ target ] query |> Seq.length = 1
       do! actual |> assertEquals expected
     })

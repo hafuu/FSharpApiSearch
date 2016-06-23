@@ -89,9 +89,9 @@ let istructuralComparable = createType "System.IStructuralComparable" [] |> upda
 
 let valuetype = createType "System.ValueType" [] |> updateAssembly mscorlib
 
-let testApi (assembly: TestCase<ApiDictionary>) (name, expected) = test {
+let testApi' (assembly: TestCase<ApiDictionary>) nameConverter (name, expected) = test {
   let! apiDict = assembly
-  let name = Name.displayNameOfString name
+  let name = nameConverter name
   let actual =
     Seq.filter (fun x -> x.Name = name) apiDict.Api 
     |> Seq.map (fun x -> x.Signature)
@@ -123,7 +123,7 @@ let testConstraints (assembly: TestCase<ApiDictionary>) (name, expectedTarget, e
 }
 
 module FSharp =
-  let testApi = testApi fsharpAssemblyApi
+  let testApi = testApi' fsharpAssemblyApi Name.displayNameOfString
   let testConstraints = testConstraints fsharpAssemblyApi
 
   let loadModuleMemberTest = parameterize {
@@ -627,6 +627,19 @@ module FSharp =
       testFullTypeDef' fsharpAssemblyApi (fun x -> x.Accessibility) (Name.displayNameOfString name, expected))
   }
 
+
+
+  let operatorTest =
+    let testApi = testApi' fsharpAssemblyApi DisplayName
+    let t = createType "Operators.A" [] |> updateAssembly fsharpAssemblyName
+    parameterize {
+      source [
+        (DisplayName.ofOperatorString "Operators.( + )"), [ moduleFunction [ int; int; int ] ]
+        (DisplayName.ofOperatorString "Operators.A.( - )"), [ staticMember t (method' "op_Subtraction" [ t; t ] t) ]
+      ]
+      run testApi  
+    }
+
 module SpecialType =
   let tupleName = Name.displayNameOfString "System.Tuple<'T1, 'T2>"
   let tupleNullnessTest =
@@ -689,11 +702,11 @@ module TypeAbbreviation =
   let functionWithFunctionAbbreviationTest =
     let t = { Abbreviation = createType "TypeAbbreviations.FunctionAbbreviation" [] |> updateAssembly fsharpAssemblyName
               Original = arrow [ int; int ] }
-    testApi fsharpAssemblyApi ("TypeAbbreviations.functionWithFunctionAbbreviation", [ moduleFunction [ TypeAbbreviation t; TypeAbbreviation t ] ])
+    testApi' fsharpAssemblyApi Name.displayNameOfString ("TypeAbbreviations.functionWithFunctionAbbreviation", [ moduleFunction [ TypeAbbreviation t; TypeAbbreviation t ] ])
 
 module TypeExtension =
-  let testApi_net40 = testApi net40AssemblyApi
-  let testApi = testApi fsharpAssemblyApi
+  let testApi_net40 = testApi' net40AssemblyApi Name.displayNameOfString
+  let testApi = testApi' fsharpAssemblyApi Name.displayNameOfString
   
   let testModule = DisplayName.ofString "TypeExtensions"
   let fsharpList_t = fsharpList (variable "T")
@@ -755,7 +768,7 @@ module TypeExtension =
   }
 
 module CSharp =
-  let testApi = testApi csharpAssemblyApi
+  let testApi = testApi' csharpAssemblyApi Name.displayNameOfString
   let testConstraints = testConstraints csharpAssemblyApi
 
   let loadStaticMemberTest =
@@ -878,6 +891,17 @@ module CSharp =
           [ constraint' [ "T" ] (SubtypeConstraints (variable "U")) ])
       ]
       run testConstraints
+    }
+
+  let operatorTest =
+    let testApi = testApi' csharpAssemblyApi DisplayName
+    let t = createType "CSharpLoadTestAssembly.Operators" [] |> updateAssembly csharpAssemblyName
+    parameterize {
+      source [
+        (DisplayName.ofString "CSharpLoadTestAssembly.Operators.op_Addition"), [ staticMember t (method' "op_Addition" [ t; t ] t) ]
+        (DisplayName.ofString "CSharpLoadTestAssembly.Operators.op_Implicit"), [ staticMember t (method' "op_Implicit" [ string ] t) ]
+      ]
+      run testApi  
     }
 
 module XmlDocTest =

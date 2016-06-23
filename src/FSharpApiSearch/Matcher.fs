@@ -357,7 +357,7 @@ module NameMatcher =
     match query with
     | QueryMethod.ByName (expectedName, _) ->
       match api.Name with
-      | DisplayName (actualName :: _) when expectedName = actualName.FSharpName -> Matched ctx
+      | DisplayName (actualName :: _) when expectedName = actualName.InternalFSharpName -> Matched ctx
       | _ -> Failure
     | _ -> Matched ctx
   let instance (_: SearchOptions) =

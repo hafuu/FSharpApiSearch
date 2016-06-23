@@ -64,6 +64,7 @@
     <Compile Include="InternalSignature.fsi" />
     <Compile Include="InternalSignature.fs" />
     <Compile Include="XmlDoc.fs" />
+    <Compile Include="Operators.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
