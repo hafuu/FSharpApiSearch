@@ -1,3 +1,9 @@
+### 0.4.0-beta - 2016/6/23
+* Change the first argument to search as a receiver (#80)
+* Add `--xmldoc` option to show xml document
+* Fix loading bugs (#41, #83)
+* Fix searching bugs (#78, #68)
+
 ### 0.3.1-beta - 2016/6/14
 * Fix error at similarity searching (#81)
 
