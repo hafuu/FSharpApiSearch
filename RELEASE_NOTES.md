@@ -1,5 +1,6 @@
 ### 0.4.0-beta - 2016/6/23
 * Change the first argument to search as a receiver (#80)
+* Add searching by operator name
 * Add `--xmldoc` option to show xml document
 * Fix loading bugs (#41, #83)
 * Fix searching bugs (#78, #68)
