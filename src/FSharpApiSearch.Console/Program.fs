@@ -101,6 +101,9 @@ FSharpApiSearch.Console interactive mode directive:
       Console.WriteLine(helpMessage)
       Console.WriteLine()
       loop client arg
+    | invalidOption when invalidOption.StartsWith("#") ->
+      printfn "invalid option"
+      loop client arg
     | query ->
       try
         searchAndShowResult client query arg
