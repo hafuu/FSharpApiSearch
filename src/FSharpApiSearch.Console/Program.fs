@@ -10,6 +10,7 @@ let searchAndShowResult (client: FSharpApiSearchClient) (query: string) args =
   let opt = args.SearchOptions
   let results = client.Search(query, opt)
   results
+  |> Seq.sortBy (fun x -> (x.Distance, x.Api.Name.Print()))
   |> Seq.iter (fun x ->
     Console.Write(sprintf "%s: %s" (x.Api.Name.Print()) (x.Api.PrintSignature()))
     Console.ForegroundColor <- ConsoleColor.DarkGray

@@ -1081,5 +1081,4 @@ let search (dictionaries: ApiDictionary[]) (options: SearchOptions) (targets: Ap
     match test lowTypeMatcher apiMatchers query initialContext api with
     | Matched ctx -> Some { Distance = ctx.Distance; Api = api }
     | _ -> None)
-  |> Seq.sortBy (fun x -> (x.Distance, "not implemented"))
   |> Seq.cache
