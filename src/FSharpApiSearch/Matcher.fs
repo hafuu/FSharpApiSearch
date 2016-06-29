@@ -1080,13 +1080,15 @@ let test (lowTypeMatcher: ILowTypeMatcher) (apiMatchers: IApiMatcher list) (quer
     | _ -> Failure
   ) (Matched ctx)
 
-let search (dictionaries: ApiDictionary[]) (options: SearchOptions) (targets: Api seq) (queryStr: string) =
+let search (dictionaries: ApiDictionary[]) (options: SearchOptions) (targets: ApiDictionary seq) (queryStr: string) =
   let lowTypeMatcher, apiMatchers = Initializer.matchers options
   let query = QueryParser.parse queryStr |> Initializer.initializeQuery dictionaries
   let initialContext = Initializer.initializeContext dictionaries options query
-  targets
-  |> Seq.choose (fun api ->
-    match test lowTypeMatcher apiMatchers query initialContext api with
-    | Matched ctx -> Some { Distance = ctx.Distance; Api = api }
-    | _ -> None)
+  seq {
+    for dic in targets do
+      for api in dic.Api do
+        match test lowTypeMatcher apiMatchers query initialContext api with
+        | Matched ctx -> yield { Distance = ctx.Distance; Api = api; AssemblyName = dic.AssemblyName }
+        | _ -> ()
+  }
   |> Seq.cache

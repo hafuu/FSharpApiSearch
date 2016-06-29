@@ -77,9 +77,18 @@ let nameMatchTest =
     ]
     run (fun (query, targetName, targetSig, expected) -> test {
       let target: Api = { Name = targetName; Signature = targetSig; TypeConstraints = []; Document = None }
-      let actual = Matcher.search Array.empty SearchOptions.defaultOptions [ target ] query |> Seq.length = 1
+      let dummyDict = { AssemblyName = "dummy"; Api = [| target |]; TypeDefinitions = [||]; TypeAbbreviations = [||] }
+      let actual = Matcher.search Array.empty SearchOptions.defaultOptions [ dummyDict ] query |> Seq.length = 1
       do! actual |> assertEquals expected
     })
+  }
+
+let assemblyNameTest =
+  test {
+    let api: Api = { Name = Name.displayNameOfString "test"; Signature = moduleValue int; TypeConstraints = []; Document = None }
+    let dummyDict = { AssemblyName = "dummyAssembly"; Api = [| api |]; TypeDefinitions = [||]; TypeAbbreviations = [||] }
+    let actual = Matcher.search Array.empty SearchOptions.defaultOptions [ dummyDict ] "?" |> Seq.toList
+    do! actual |> assertEquals [ { AssemblyName = "dummyAssembly"; Api = api; Distance = 0 } ]
   }
 
 let matchTest trace abbTable (options, query, target, expected) = test {
@@ -88,7 +97,7 @@ let matchTest trace abbTable (options, query, target, expected) = test {
   try
     let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
     let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = [||]; TypeAbbreviations = Array.append TestHelper.fsharpAbbreviationTable abbTable }
-    let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.length = 1
+    let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.length = 1
     do! actual |> assertEquals expected
   finally
     do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
@@ -328,7 +337,7 @@ module SimilarityTest =
       let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
       let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
       let options = { SimilaritySearching = Enabled; StrictQueryVariable = Enabled; IgnoreArgumentStyle = Enabled }
-      let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.head
+      let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.head
       do! actual.Distance |> assertEquals expected
     })
   }
@@ -461,7 +470,7 @@ module IgnoreArgumentStyleTest =
       let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
       let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
       let options = { SimilaritySearching = Disabled; StrictQueryVariable = Enabled; IgnoreArgumentStyle = Enabled }
-      let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.head
+      let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.head
       do! actual.Distance |> assertEquals expected
     })
   }
@@ -926,7 +935,8 @@ module TypeConstraintTest =
     |]
 
     let options = { SimilaritySearching = Enabled; StrictQueryVariable = Enabled; IgnoreArgumentStyle = Enabled }
-    let actual = Matcher.search dictionaries options [ targetApi ] query |> Seq.length = 1
+    let dummyDict = { AssemblyName = "dummy"; Api = [| targetApi |]; TypeDefinitions = [||]; TypeAbbreviations = [||] }
+    let actual = Matcher.search dictionaries options [ dummyDict ] query |> Seq.length = 1
     do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
     do! actual |> assertEquals expected
   }
@@ -1325,7 +1335,7 @@ module ActivePatternTest =
       let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
       let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
       let options = SearchOptions.defaultOptions
-      let actual = Matcher.search [| dict |] options [ targetApi ] query |> Seq.length = 1
+      let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.length = 1
       do! actual |> assertEquals expected
     finally
       do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)

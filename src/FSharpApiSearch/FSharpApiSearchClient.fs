@@ -6,7 +6,6 @@ open FSharpApiSearch.AssemblyLoader
 type FSharpApiSearchClient(targets: string seq, dictionaries: ApiDictionary seq) =
   let dictionaries = dictionaries |> Seq.toArray
   let targetDictionaries = dictionaries |> Seq.filter (fun x -> targets |> Seq.exists ((=)x.AssemblyName)) |> Seq.toArray
-  let apis = targetDictionaries |> Seq.collect (fun x -> x.Api) |> Seq.toArray
 
   static member DefaultReferences = [
     "mscorlib" 
@@ -23,6 +22,6 @@ type FSharpApiSearchClient(targets: string seq, dictionaries: ApiDictionary seq)
     "FSharp.Core"
   ]
 
-  member this.Search(query: string, options: SearchOptions) = Matcher.search dictionaries options apis query
+  member this.Search(query: string, options: SearchOptions) = Matcher.search dictionaries options targetDictionaries query
 
   member this.TargetAssemblies: string list = targetDictionaries |> Array.map (fun x -> x.AssemblyName) |> Array.toList

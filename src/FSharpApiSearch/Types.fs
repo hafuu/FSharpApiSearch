@@ -277,6 +277,7 @@ module SearchOptions =
 
 type Result = {
   Api: Api
+  AssemblyName: string
   Distance: int
 }
 

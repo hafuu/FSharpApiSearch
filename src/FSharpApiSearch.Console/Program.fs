@@ -14,7 +14,7 @@ let searchAndShowResult (client: FSharpApiSearchClient) (query: string) args =
   |> Seq.iter (fun x ->
     Console.Write(sprintf "%s: %s" (x.Api.Name.Print()) (x.Api.PrintSignature()))
     Console.ForegroundColor <- ConsoleColor.DarkGray
-    Console.WriteLine(sprintf ", %s, distance: %d" (x.Api.PrintKind()) x.Distance)
+    Console.WriteLine(sprintf ", %s, assembly: %s, distance: %d" (x.Api.PrintKind()) x.AssemblyName x.Distance)
     if x.Api.TypeConstraints.IsEmpty = false then
       Console.WriteLine(sprintf "  %s" (x.Api.PrintTypeConstraints()))
     match args.ShowXmlDocument, x.Api.Document with
