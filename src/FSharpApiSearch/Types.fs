@@ -253,7 +253,7 @@ type SignatureQuery =
 
 [<RequireQualifiedAccess>]
 type QueryMethod =
-  | ByName of string * SignatureQuery
+  | ByName of string list * SignatureQuery
   | BySignature of SignatureQuery
   | ByActivePattern of ActivePatternQuery
 

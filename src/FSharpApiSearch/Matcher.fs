@@ -357,7 +357,15 @@ module NameMatcher =
     match query with
     | QueryMethod.ByName (expectedName, _) ->
       match api.Name with
-      | DisplayName (actualName :: _) when expectedName = actualName.InternalFSharpName -> Matched ctx
+      | DisplayName actualName when expectedName.Length <= actualName.Length ->
+        let matched =
+          Seq.zip expectedName actualName
+          |> Seq.forall (fun (expected, actual) ->
+            match expected with
+            | "*" -> true // wildcard
+            | _ -> expected = actual.InternalFSharpName
+          )
+        if matched then Matched ctx else Failure
       | _ -> Failure
     | _ -> Matched ctx
   let instance (_: SearchOptions) =

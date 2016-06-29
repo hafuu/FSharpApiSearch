@@ -68,6 +68,12 @@ let nameMatchTest =
       "(+) : _", Name.displayNameOfOperatorString "Test.(+)", listMap, true
       "(+) : _", Name.displayNameOfString "Test.op_Addition", listMap, true
       "(-) : _", Name.displayNameOfOperatorString "Test.(+)", listMap, false
+      "A.B : _", Name.displayNameOfString "A.B", listMap, true
+      "A.B : _", Name.displayNameOfString "X.A.B", listMap, true
+      "A.B : _", Name.displayNameOfString "X.Y.B", listMap, false
+      "A.B : _", Name.displayNameOfString "B", listMap, false
+      "* : _", Name.displayNameOfString "A", listMap, true
+      "* : _", Name.displayNameOfString "B", listMap, true
     ]
     run (fun (query, targetName, targetSig, expected) -> test {
       let target: Api = { Name = targetName; Signature = targetSig; TypeConstraints = []; Document = None }

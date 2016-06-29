@@ -103,10 +103,13 @@ let activePatternQuery = trim activePatternKind .>> skipString ":" .>>. (attempt
 
 let opName = trim (skipChar '(') >>. many1Chars (anyOf "!%&*+-./<=>?@^|~:[]")  .>> trim (skipChar ')') |>> Microsoft.FSharp.Compiler.PrettyNaming.CompileOpName
 let memberName = many1Chars (letter <|> anyOf "_'") |> trim
-let wildcard = pstring "_" |> trim >>% SignatureQuery.Wildcard
+let signatureWildcard = pstring "_" |> trim >>% SignatureQuery.Wildcard
+let nameWildcard = pstring "*" |> trim
 
-let anyOrSignature = attempt wildcard <|> (FSharpSignatureParser.extendedFsharpSignature)
-let nameQuery = (memberName <|> opName) .>> pstring ":" .>>. anyOrSignature |>> (fun (name, sigPart) -> QueryMethod.ByName (name, sigPart))
+let anyOrSignature = attempt signatureWildcard <|> (FSharpSignatureParser.extendedFsharpSignature)
+let nameQuery =
+  let name = memberName <|> opName <|> nameWildcard
+  sepBy1 name (pchar '.') .>> pstring ":" .>>. anyOrSignature |>> (fun (name, sigPart) -> QueryMethod.ByName (List.rev name, sigPart))
 
 let signatureQuery = FSharpSignatureParser.extendedFsharpSignature |>> QueryMethod.BySignature
 

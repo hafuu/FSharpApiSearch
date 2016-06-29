@@ -113,11 +113,14 @@ module ByName =
     let option_beta = generic (identity "option") [ beta ]
     parameterize {
       source [
-        "map : _", "map", SignatureQuery.Wildcard
-        "bind : ('a -> 'b option) -> 'a option -> 'b option", "bind", (SignatureQuery.Signature (arrow [ (arrow [ alpha; option_beta ]); option_alpha; option_beta ]))
-        "ToString : obj => unit -> string", "ToString", (SignatureQuery.InstanceMember (identity "obj", [ identity "unit" ], identity "string"))
-        "(+) : _", "op_Addition", SignatureQuery.Wildcard
-        "( + ) : _", "op_Addition", SignatureQuery.Wildcard
+        "map : _", [ "map" ], SignatureQuery.Wildcard
+        "bind : ('a -> 'b option) -> 'a option -> 'b option", [ "bind" ], (SignatureQuery.Signature (arrow [ (arrow [ alpha; option_beta ]); option_alpha; option_beta ]))
+        "ToString : obj => unit -> string", [ "ToString" ], (SignatureQuery.InstanceMember (identity "obj", [ identity "unit" ], identity "string"))
+        "(+) : _", [ "op_Addition" ], SignatureQuery.Wildcard
+        "( + ) : _", [ "op_Addition" ], SignatureQuery.Wildcard
+        "A.B : _", [ "B"; "A" ], SignatureQuery.Wildcard
+        "* : _", [ "*" ], SignatureQuery.Wildcard
+        "( * ) : _", [ "op_Multiply" ], SignatureQuery.Wildcard
       ]
       run (fun (input, expectedName, expectedSig) -> test {
         let actual = QueryParser.parse input
