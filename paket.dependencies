@@ -1,7 +1,7 @@
 source https://nuget.org/api/v2
 
 nuget FParsec >= 1.0.2
-nuget FSharp.Compiler.Service >= 3.0.0
+nuget FSharp.Compiler.Service >= 5.0.0
 nuget FsPickler >= 2.1.0
 
 group Build
