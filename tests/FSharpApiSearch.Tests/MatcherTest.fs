@@ -51,7 +51,7 @@ let strictInequalitiesTest =
   test {
     let query = QueryParser.parse "?a -> ?b -> 'a -> 'b"
     let opt = SearchOptions.defaultOptions
-    let eqs = Matcher.Equations.empty |> Matcher.Initializer.initialEquations opt query
+    let eqs = MatcherTypes.Equations.empty |> MatcherInitializer.initialEquations opt query
     do! eqs.Inequalities |> assertEquals [ (queryVariable "a", queryVariable "b"); (Wildcard (Some "a"), Wildcard (Some "b")) ]
   }
 

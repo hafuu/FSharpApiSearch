@@ -144,7 +144,7 @@ module QueryTest = // TODO: Matcherのテストに移動
         typeAbbreviationDef "B.override<'a>" (generic (identity "B.Override") [ variable "a" ])
       |]
       let dictionaries = Seq.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = Array.empty; TypeAbbreviations = abbreviations }
-      let actual = Matcher.Initializer.initializeQuery dictionaries (QueryParser.parse query)
+      let actual = MatcherInitializer.initializeQuery dictionaries (QueryParser.parse query)
       let expected: Query = { OriginalString = query; Method = QueryMethod.BySignature (SignatureQuery.Signature expected) }
       do! actual |> assertEquals expected
     })

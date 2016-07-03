@@ -1,4 +1,4 @@
-﻿module FSharpApiSearch.QueryParser
+﻿module internal FSharpApiSearch.QueryParser
 
 open FParsec
 

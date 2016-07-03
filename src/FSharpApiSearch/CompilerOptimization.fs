@@ -1,12 +1,53 @@
 ﻿module internal FSharpApiSearch.CompilerOptimization
 
 open Microsoft.FSharp.Compiler
-open SpecialTypes
 
 type ImplicitMember = {
   InstanceMembers: Member list
   StaticMembers: Member list
 }
+
+module FullIdentity =
+  open System
+  open SpecialTypes.FullIdentity
+
+  let Boolean = ofDotNetType typeof<Boolean>
+  let Byte = ofDotNetType typeof<Byte>
+  let Char = ofDotNetType typeof<Char>
+  let Decimal = ofDotNetType typeof<Decimal>
+  let Double = ofDotNetType typeof<Double>
+  let Single = ofDotNetType typeof<Single>
+  let Int32 = ofDotNetType typeof<Int32>
+  let Int16 = ofDotNetType typeof<Int16>
+  let Int64 = ofDotNetType typeof<Int64>
+  let IntPtr = ofDotNetType typeof<IntPtr>
+  let SByte = ofDotNetType typeof<SByte>
+  let String = ofDotNetType typeof<String>
+  let UInt16 = ofDotNetType typeof<UInt16>
+  let UInt32 = ofDotNetType typeof<UInt32>
+  let UInt64 = ofDotNetType typeof<UInt64>
+  let UIntPtr = ofDotNetType typeof<UIntPtr>
+
+module LowType =
+  open System
+  open SpecialTypes.LowType
+
+  let Boolean = ofDotNetType typeof<Boolean>
+  let Byte = ofDotNetType typeof<Byte>
+  let Char = ofDotNetType typeof<Char>
+  let Decimal = ofDotNetType typeof<Decimal>
+  let Double = ofDotNetType typeof<Double>
+  let Single = ofDotNetType typeof<Single>
+  let Int32 = ofDotNetType typeof<Int32>
+  let Int16 = ofDotNetType typeof<Int16>
+  let Int64 = ofDotNetType typeof<Int64>
+  let IntPtr = ofDotNetType typeof<IntPtr>
+  let SByte = ofDotNetType typeof<SByte>
+  let String = ofDotNetType typeof<String>
+  let UInt16 = ofDotNetType typeof<UInt16>
+  let UInt32 = ofDotNetType typeof<UInt32>
+  let UInt64 = ofDotNetType typeof<UInt64>
+  let UIntPtr = ofDotNetType typeof<UIntPtr>
 
 let table: Map<FullIdentity, ImplicitMember> =
   Map.ofList [

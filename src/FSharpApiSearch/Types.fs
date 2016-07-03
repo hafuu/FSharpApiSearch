@@ -13,7 +13,7 @@ type FullName = string
 type DisplayName = NameItem list
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module DisplayName =
+module internal DisplayName =
   open System.Text.RegularExpressions
 
   let ofString (name: string) =
@@ -39,7 +39,7 @@ type Name =
   | DisplayName of DisplayName
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module Name =
+module internal Name =
   let displayNameOfString (name: string) = DisplayName (DisplayName.ofString name)
   let displayNameOfOperatorString (name: string) = DisplayName (DisplayName.ofOperatorString name)
 
@@ -149,7 +149,7 @@ type FullTypeDefinition = {
   Comparison: ConstraintStatus
 }
 with
-  member this.FullIdentity = { AssemblyName = this.AssemblyName; Name = DisplayName this.Name; GenericParameterCount = this.GenericParameters.Length }
+  member internal this.FullIdentity = { AssemblyName = this.AssemblyName; Name = DisplayName this.Name; GenericParameterCount = this.GenericParameters.Length }
 
 type TypeAbbreviationDefinition = {
   Name: DisplayName
@@ -161,8 +161,8 @@ type TypeAbbreviationDefinition = {
   Original: LowType
 }
 with
-  member this.FullIdentity = { AssemblyName = this.AssemblyName; Name = DisplayName this.Name; GenericParameterCount = this.GenericParameters.Length }
-  member this.TypeAbbreviation =
+  member internal this.FullIdentity = { AssemblyName = this.AssemblyName; Name = DisplayName this.Name; GenericParameterCount = this.GenericParameters.Length }
+  member internal this.TypeAbbreviation =
     let abbreviation =
       match this.GenericParameters with
       | [] -> Identity (FullIdentity this.FullIdentity)
@@ -281,7 +281,7 @@ type Result = {
   Distance: int
 }
 
-module SpecialTypes =
+module internal SpecialTypes =
   open System
   open System.Text.RegularExpressions
 
@@ -301,12 +301,6 @@ module SpecialTypes =
       let assemblyName = t.Assembly.GetName().Name
       { AssemblyName = assemblyName; Name = LoadingName (assemblyName, t.FullName, []); GenericParameterCount = 0 }
 
-    let IntPtr = ofDotNetType typeof<IntPtr>
-    let UIntPtr = ofDotNetType typeof<UIntPtr>
-
-    let IComparable = ofDotNetType typeof<IComparable>
-    let IStructuralComparable = ofDotNetType typeof<IStructuralComparable>
-
   module FullIdentity =
     open System.Collections
 
@@ -317,23 +311,6 @@ module SpecialTypes =
     let tupleName n =
       let name = { FSharpName = "Tuple"; InternalFSharpName = "Tuple"; GenericParametersForDisplay = List.init n (sprintf "T%d") } :: { FSharpName = "System"; InternalFSharpName = "System"; GenericParametersForDisplay = [] } :: []
       DisplayName name
-
-    let Boolean = ofDotNetType typeof<Boolean>
-    let Byte = ofDotNetType typeof<Byte>
-    let Char = ofDotNetType typeof<Char>
-    let Decimal = ofDotNetType typeof<Decimal>
-    let Double = ofDotNetType typeof<Double>
-    let Single = ofDotNetType typeof<Single>
-    let Int32 = ofDotNetType typeof<Int32>
-    let Int16 = ofDotNetType typeof<Int16>
-    let Int64 = ofDotNetType typeof<Int64>
-    let IntPtr = ofDotNetType typeof<IntPtr>
-    let SByte = ofDotNetType typeof<SByte>
-    let String = ofDotNetType typeof<String>
-    let UInt16 = ofDotNetType typeof<UInt16>
-    let UInt32 = ofDotNetType typeof<UInt32>
-    let UInt64 = ofDotNetType typeof<UInt64>
-    let UIntPtr = ofDotNetType typeof<UIntPtr>
 
   module Identity =
     let ofDotNetType (t: Type) = FullIdentity (FullIdentity.ofDotNetType t)
@@ -347,23 +324,7 @@ module SpecialTypes =
       let unit = LowType.Identity (FullIdentity { AssemblyName = fscore; Name = Name.displayNameOfString "Microsoft.FSharp.Core.unit"; GenericParameterCount = 0 })
       TypeAbbreviation { Abbreviation = unit; Original = Unit }
 
-    let Boolean = ofDotNetType typeof<Boolean>
-    let Byte = ofDotNetType typeof<Byte>
-    let Char = ofDotNetType typeof<Char>
-    let Decimal = ofDotNetType typeof<Decimal>
     let Double = ofDotNetType typeof<Double>
-    let Single = ofDotNetType typeof<Single>
-    let Int32 = ofDotNetType typeof<Int32>
-    let Int16 = ofDotNetType typeof<Int16>
-    let Int64 = ofDotNetType typeof<Int64>
-    let IntPtr = ofDotNetType typeof<IntPtr>
-    let SByte = ofDotNetType typeof<SByte>
-    let String = ofDotNetType typeof<String>
-    let UInt16 = ofDotNetType typeof<UInt16>
-    let UInt32 = ofDotNetType typeof<UInt32>
-    let UInt64 = ofDotNetType typeof<UInt64>
-    let UIntPtr = ofDotNetType typeof<UIntPtr>
-
     let float =
       let float = LowType.Identity (FullIdentity { AssemblyName = fscore; Name = Name.displayNameOfString "Microsoft.FSharp.Core.float"; GenericParameterCount = 0 })
       TypeAbbreviation { Abbreviation = float; Original = Double }
@@ -598,7 +559,7 @@ type Api with
     | _ -> Print.printApiKind this.Kind
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module Identity =
+module internal Identity =
   let private testDisplayName (xs: DisplayName) (ys: DisplayName) =
     Seq.zip xs ys |> Seq.forall (fun (x, y) -> x.InternalFSharpName = y.InternalFSharpName && x.GenericParametersForDisplay.Length = y.GenericParametersForDisplay.Length)
 
@@ -628,7 +589,7 @@ module Identity =
       && testDisplayName left.Name right.Name
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module LowType =
+module internal LowType =
   let debug (x: LowType) = x.Debug()
 
   let rec applyVariable source (replacements: Map<TypeVariable, LowType>) = function
@@ -657,14 +618,14 @@ module LowType =
     f x |> List.distinct
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module ApiSignature =
+module internal ApiSignature =
   let debug (x: ApiSignature) = x.Debug()
   let print (x: ApiSignature) = x.Print()
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module TypeConstraint =
+module internal TypeConstraint =
   let debug (x: TypeConstraint) = x.Debug()
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module FullTypeDefinition =
+module internal FullTypeDefinition =
   let debug (x: FullTypeDefinition) = x.Debug()

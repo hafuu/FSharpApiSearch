@@ -19,7 +19,7 @@ with
       |> Seq.map (fun dir -> Path.Combine(dir, assemblyName))
       |> Seq.tryFindBack File.Exists
 
-let ignoreFSharpCompilerServiceError() =
+let internal ignoreFSharpCompilerServiceError() =
   typeof<FSharpChecker>.Assembly.GetType("Microsoft.FSharp.Compiler.AbstractIL.Diagnostics")
   |> Option.ofObj
   |> Option.bind (fun diagMod -> diagMod.GetMember("diagnosticsLog", BindingFlags.NonPublic ||| BindingFlags.Static) |> Array.tryHead)
