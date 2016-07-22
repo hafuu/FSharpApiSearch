@@ -4,7 +4,7 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open FSharpApiSearch.SpecialTypes
 open System.Text.RegularExpressions
 open System.IO
-open Nessos.FsPickler
+open MBrace.FsPickler
 open System.Collections.Generic
 open System.Xml.Linq
 

@@ -2,7 +2,6 @@
 
 open FSharpApiSearch
 open CommandLine
-open Nessos.FsPickler
 open System.IO
 open System.Configuration
 
