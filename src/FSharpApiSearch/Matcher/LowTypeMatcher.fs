@@ -182,11 +182,11 @@ module Rules =
     | TypeAbbreviation x -> distanceFromVariable x.Original
   and seqDistance xs = xs |> Seq.sumBy (distanceFromVariable >> max 1)
 
-  let similarityVariableRule lowTypeMatcher left right ctx =
+  let greedyVariableRule lowTypeMatcher left right ctx =
     match left, right with
     | (Variable _ as variable), other
     | other, (Variable _ as variable) ->
-      Debug.WriteLine("similarity variable rule.")
+      Debug.WriteLine("greedy variable rule.")
       if Equations.containsEquality variable other ctx.Equations then
         Debug.WriteLine("The equality already exists.")
         Matched ctx
@@ -263,9 +263,9 @@ let instance options =
       yield Rules.wildcardGroupRule
       yield Rules.wildcardRule
     
-      match options with
-      | { SimilaritySearching = Enabled } -> yield Rules.similarityVariableRule
-      | { SimilaritySearching = Disabled } -> yield Rules.variableRule
+      match options.GreedyMatching with
+      | Enabled -> yield Rules.greedyVariableRule
+      | Disabled -> yield Rules.variableRule
 
       yield Rules.identityRule
       yield Rules.tupleRule

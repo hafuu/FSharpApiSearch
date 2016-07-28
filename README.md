@@ -161,12 +161,12 @@ FSharpApiSearch.Console.exeに`--strict[+|-]`オプションを付けて起動�
 
 このオプションに無効にした場合は、`?a -> ?b`というクエリで`int -> int`にマッチします。
 
-### `similarity`オプション : 類似検索
-FSharpApiSearch.Console.exeに`--similarity[+|-]`オプションを付けて起動するか、
-インタラクティブモードで`#similarity [enable|disable]`を実行すると設定できます。
+### `greedy-matching`オプション
+FSharpApiSearch.Console.exeに`--greedy-matching[+|-]`オプションを付けて起動するか、
+インタラクティブモードで`#greedy-matching [enable|disable]`を実行すると設定できます。
 デフォルトは無効です。
 
-`similarity`オプションが有効の場合は、型変数と他の型がそれぞれマッチするようになり、一致度が高い順に並び替えられて表示されます。
+`greedy-matching`オプションが有効の場合は、型変数と他の型がそれぞれマッチするようになり、一致度が高い順に並び替えられて表示されます。
 また、検索に型制約が考慮されるようになります。
 
 ### `ignore-argstyle`オプション : 引数形式を無視

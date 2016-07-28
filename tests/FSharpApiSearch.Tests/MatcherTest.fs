@@ -103,11 +103,11 @@ let matchTest trace abbTable (options, query, target, expected) = test {
     do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
 }
 
-let matchStrictTest' trace abbTable similarity cases = parameterize {
+let greedyMatchingTest trace abbTable greedyOpt cases = parameterize {
   source (seq {
     for strictOpt in [ Enabled; Disabled ] do
       for (query, target, expected) in cases do
-        let options = { SearchOptions.defaultOptions with SimilaritySearching = similarity; StrictQueryVariable = strictOpt }
+        let options = { SearchOptions.defaultOptions with GreedyMatching = greedyOpt; StrictQueryVariable = strictOpt }
         yield (options, query, target, expectedValue strictOpt expected)
   })
   run (matchTest trace abbTable)
@@ -123,9 +123,9 @@ let functionArgStyleTest trace cases = parameterize {
   run (matchTest trace [||])
 }
 
-module NonsimilarityTest =
-  let matchTest cases = matchStrictTest' false [||] Disabled cases
-  let trace cases = matchStrictTest' true [||] Disabled cases
+module NongreedyTest =
+  let matchTest cases = greedyMatchingTest false [||] Disabled cases
+  let trace cases = greedyMatchingTest true [||] Disabled cases
 
   let identityTest =
     matchTest [
@@ -236,7 +236,7 @@ module NonsimilarityTest =
     let table = [|
       typeAbbreviationDef "Parser<'TResult, 'TUserState>" (arrow [ charStream; reply ])
     |]
-    let matchTest = matchStrictTest' false table Disabled
+    let matchTest = greedyMatchingTest false table Disabled
     matchTest [
       "Parser<'a, 'b>", moduleValue parser, Always true
       "Parser<'a, 'b>", moduleFunction [ charStream; reply ], Always true
@@ -252,7 +252,7 @@ module NonsimilarityTest =
     let table = [|
       (typeAbbreviationDef "Test.PrivateTypeAbbreviation" (createType "Test.Original" [])).AsPrivate
     |]
-    let matchTest = matchStrictTest' false table Disabled
+    let matchTest = greedyMatchingTest false table Disabled
     matchTest [
       "Test.PrivateTypeAbbreviation", moduleValue original, Always false
       "Test.PrivateTypeAbbreviation", moduleValue privateTypeAbbreviation, Always true
@@ -266,9 +266,9 @@ module NonsimilarityTest =
       "GenericOuter.GenericInner<'T, 'U>", moduleValue genericInner, Always true
     ]
 
-module SimilarityTest =
-  let matchTest cases = matchStrictTest' false [||] Enabled cases
-  let trace cases = matchStrictTest' true [||] Enabled cases
+module GreedyTest =
+  let matchTest cases = greedyMatchingTest false [||] Enabled cases
+  let trace cases = greedyMatchingTest true [||] Enabled cases
 
   let variableTest =
     matchTest [
@@ -336,7 +336,7 @@ module SimilarityTest =
     run (fun (query, target, expected) -> test {
       let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
       let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
-      let options = { SimilaritySearching = Enabled; StrictQueryVariable = Enabled; IgnoreArgumentStyle = Enabled }
+      let options = { GreedyMatching = Enabled; StrictQueryVariable = Enabled; IgnoreArgumentStyle = Enabled }
       let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.head
       do! actual.Distance |> assertEquals expected
     })
@@ -469,7 +469,7 @@ module IgnoreArgumentStyleTest =
     run (fun (query, target, expected) -> test {
       let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
       let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
-      let options = { SimilaritySearching = Disabled; StrictQueryVariable = Enabled; IgnoreArgumentStyle = Enabled }
+      let options = { GreedyMatching = Disabled; StrictQueryVariable = Enabled; IgnoreArgumentStyle = Enabled }
       let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.head
       do! actual.Distance |> assertEquals expected
     })
@@ -934,7 +934,7 @@ module TypeConstraintTest =
       dictionary
     |]
 
-    let options = { SimilaritySearching = Enabled; StrictQueryVariable = Enabled; IgnoreArgumentStyle = Enabled }
+    let options = { GreedyMatching = Enabled; StrictQueryVariable = Enabled; IgnoreArgumentStyle = Enabled }
     let dummyDict = { AssemblyName = "dummy"; Api = [| targetApi |]; TypeDefinitions = [||]; TypeAbbreviations = [||] }
     let actual = Matcher.search dictionaries options [ dummyDict ] query |> Seq.length = 1
     do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)

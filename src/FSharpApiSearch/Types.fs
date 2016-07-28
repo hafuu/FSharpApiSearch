@@ -266,14 +266,14 @@ type Query = {
 type OptionStatus = Enabled | Disabled
 
 type SearchOptions = {
-  SimilaritySearching: OptionStatus
+  GreedyMatching: OptionStatus
   StrictQueryVariable: OptionStatus
   IgnoreArgumentStyle: OptionStatus
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module SearchOptions =
-  let defaultOptions = { SimilaritySearching = Disabled; StrictQueryVariable = Enabled; IgnoreArgumentStyle = Enabled }
+  let defaultOptions = { GreedyMatching = Disabled; StrictQueryVariable = Enabled; IgnoreArgumentStyle = Enabled }
 
 type Result = {
   Api: Api

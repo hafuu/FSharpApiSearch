@@ -64,7 +64,7 @@ module Interactive =
     | _ -> None
 
   let StrictQueryVariable = { Get = (fun x -> x.StrictQueryVariable ); Set = (fun value x -> { x with StrictQueryVariable = value }) }
-  let SimilaritySearching = { Get = (fun x -> x.SimilaritySearching ); Set = (fun value x -> { x with SimilaritySearching = value }) }
+  let GreedyMatching = { Get = (fun x -> x.GreedyMatching ); Set = (fun value x -> { x with GreedyMatching = value }) }
   let IgnoreArgumentStyle = { Get = (fun x -> x.IgnoreArgumentStyle); Set = (fun value x -> { x with IgnoreArgumentStyle = value }) }
   let ShowXmlDocument = { Get = (fun x -> x.ShowXmlDocument); Set = (fun value x -> { x with ShowXmlDocument = value }) }
   let StackTrace = { Get = (fun x -> x.StackTrace); Set = (fun value x -> { x with StackTrace = value }) }
@@ -73,8 +73,8 @@ module Interactive =
 FSharpApiSearch.Console interactive mode directive:
   #strict [enable|disable]
       Enables or disables to strictly deal with variables of different name in the query.
-  #similarity [enable|disable]
-      Enables or disables the similarity searching.
+  #greedy-matching [enable|disable]
+      Enables or disables the greedy matching.
   #ignore-argstyle [enable|disable]
       Enables of disables to ignore the difference of the argument style.
       The argument style refers to curried argument, multi argument and tuple argument.
@@ -94,7 +94,7 @@ FSharpApiSearch.Console interactive mode directive:
     match Console.ReadLine().TrimEnd(';') with
     | "#q" -> arg
     | OptionSetting "#strict" StrictQueryVariable arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
-    | OptionSetting "#similarity" SimilaritySearching arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
+    | OptionSetting "#greedy-matching" GreedyMatching arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#ignore-argstyle" IgnoreArgumentStyle arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#xmldoc" ShowXmlDocument arg newArg -> loop client newArg
     | OptionSetting "#stacktrace" StackTrace arg newArg -> loop client newArg
@@ -119,8 +119,8 @@ options:
   --strict[+|-]
       Enables or disables to strictly deal with variables of different name in the query.
       The default is enabled.
-  --similarity[+|-]
-      Enables or disables the similarity searching.
+  --greedy-matching[+|-]
+      Enables or disables the greedy matching.
       The default is disabled.
   --ignore-argstyle[+|-]
       Enables of disables to ignore the difference of the argument style.
