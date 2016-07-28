@@ -1,8 +1,6 @@
 # FSharpApiSearch
 F# API Search Engineはシグネチャや名前でF#のAPIを検索できる検索エンジンです。
 
-**ベータ版なので仕様が不安定です。**
-
 ## プロジェクト一覧
 | プロジェクト名           | 概要                                                     |
 |--------------------------|----------------------------------------------------------|
@@ -61,16 +59,26 @@ FSharpApiSearch.Console.exeの`--target`オプションを使用するとデー�
 `name : signature`と書きます。シグネチャを指定しない場合は、シグネチャ部分に`_`を指定します。
 
     > id : 'a -> 'a
-    Microsoft.FSharp.Core.Operators.id: 'T -> 'T, module value, distance: 0
+    Microsoft.FSharp.Core.Operators.id: 'T -> 'T, module value, FSharp.Core
 
     > choose : _
-    Microsoft.FSharp.Control.Observable.choose: ('T -> option<'U>) -> IObservable<'T> -> IObservable<'U>, module value, distance: 0
-	Microsoft.FSharp.Control.Event.choose: ('T -> option<'U>) -> IEvent<'Del, 'T> -> IEvent<'U>, module value, distance: 0
-	  when 'Del : delegate and 'Del :> Delegate
-	Microsoft.FSharp.Collections.Seq.choose: ('T -> option<'U>) -> seq<'T> -> seq<'U>, module value, distance: 0
-	Microsoft.FSharp.Collections.List.choose: ('T -> option<'U>) -> list<'T> -> list<'U>, module value, distance: 0
-	Microsoft.FSharp.Collections.Array.choose: ('T -> option<'U>) -> 'T[] -> 'U[], module value, distance: 0
-	Microsoft.FSharp.Collections.Array.Parallel.choose: ('T -> option<'U>) -> 'T[] -> 'U[], module value, distance: 0
+    Microsoft.FSharp.Collections.Array.Parallel.choose: ('T -> option<'U>) -> 'T[] -> 'U[], module value, FSharp.Core
+    Microsoft.FSharp.Collections.Array.choose: ('T -> option<'U>) -> 'T[] -> 'U[], module value, FSharp.Core
+    Microsoft.FSharp.Collections.List.choose: ('T -> option<'U>) -> list<'T> -> list<'U>, module value, FSharp.Core
+    Microsoft.FSharp.Collections.Seq.choose: ('T -> option<'U>) -> seq<'T> -> seq<'U>, module value, FSharp.Core
+    Microsoft.FSharp.Control.Event.choose: ('T -> option<'U>) -> IEvent<'Del, 'T> -> IEvent<'U>, module value, FSharp.Core
+      when 'Del : delegate and 'Del :> Delegate
+    Microsoft.FSharp.Control.Observable.choose: ('T -> option<'U>) -> IObservable<'T> -> IObservable<'U>, module value, FSharp.Core
+
+アスタリスク(`*`)と名前空間を組み合あわせると検索範囲を限定できます。
+例えば、`FSharp.Core.String.* : _`は`FSharp.Core.String`モジュールの全てのAPIを表示します。
+
+    > FSharp.Core.String.* : _
+    Microsoft.FSharp.Core.String.collect: (char -> string) -> string -> string, module value, FSharp.Core
+    Microsoft.FSharp.Core.String.concat: string -> seq<string> -> string, module value, FSharp.Core
+    Microsoft.FSharp.Core.String.exists: (char -> bool) -> string -> bool, module value, FSharp.Core
+    Microsoft.FSharp.Core.String.filter: (char -> bool) -> string -> string, module value, FSharp.Core
+    ...
 
 ### ワイルドカード
 通常、`'a`などの型変数と`int`などの型名はマッチしません。
@@ -78,12 +86,11 @@ FSharpApiSearch.Console.exeの`--target`オプションを使用するとデー�
 このような場合に、ワイルドカード`?`が使えます。
 
     > ? -> list<?> -> ?
-    Microsoft.FSharp.Core.Operators.( @ ): list<'T> -> list<'T> -> list<'T>, module value, distance: 0
-	Microsoft.FSharp.Collections.List.append: list<'T> -> list<'T> -> list<'T>, module value, distance: 0
-	Microsoft.FSharp.Collections.List.averageBy: ('T -> 'U) -> list<'T> -> 'U, module value, distance: 0
-	  when 'U : (static member op_Addition : 'U * 'U -> 'U) and 'U : (static member DivideByInt : 'U * int -> 'U) and 'U : (static member get_Zero : unit -> 'U)
-	Microsoft.FSharp.Collections.List.choose: ('T -> option<'U>) -> list<'T> -> list<'U>, module value, distance: 0
-	Microsoft.FSharp.Collections.List.chunkBySize: int -> list<'T> -> list<list<'T>>, module value, distance: 0
+    Microsoft.FSharp.Collections.List.append: list<'T> -> list<'T> -> list<'T>, module value, FSharp.Core
+    Microsoft.FSharp.Collections.List.averageBy: ('T -> 'U) -> list<'T> -> 'U, module value, FSharp.Core
+      when 'U : (static member op_Addition : 'U * 'U -> 'U) and 'U : (static member DivideByInt : 'U * int -> 'U) and 'U : (static member get_Zero : unit -> 'U)
+    Microsoft.FSharp.Collections.List.choose: ('T -> option<'U>) -> list<'T> -> list<'U>, module value, FSharp.Core
+    Microsoft.FSharp.Collections.List.chunkBySize: int -> list<'T> -> list<list<'T>>, module value, FSharp.Core
     ...
 
 また、ワイルドカードに名前を付けることで、同じ名前を持つワイルドカードの位置には同一の型名が入るという条件を追加できます。
@@ -120,9 +127,9 @@ FSharpApiSearch.Console.exeの`--target`オプションを使用するとデー�
 例は次の通りです。
 
     > string => int
-    System.String.Length: int, instance property with get, distance: 0
-	System.String.GetHashCode: unit -> int, instance method, distance: 1
-	Microsoft.FSharp.Core.String.length: string -> int, module value, distance: 1
+    System.String.Length: int, instance property with get, mscorlib
+    Microsoft.FSharp.Core.String.length: string -> int, module value, FSharp.Core
+    System.String.GetHashCode: unit -> int, instance method, mscorlib
 
 `System.String.Length`は`int`を返すプロパティなのでマッチしていますが、
 それに加えて`Microsoft.FSharp.Core.String.length`もマッチしています。
