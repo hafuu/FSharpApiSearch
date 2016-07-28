@@ -151,12 +151,13 @@ FSharpApiSearch.Console.exeの`--target`オプションを使用するとデー�
 
 ## 検索オプション
 
-### `strict`オプション : 厳密な変数
-FSharpApiSearch.Console.exeに`--strict[+|-]`オプションを付けて起動するか、
-インタラクティブモードで`#strict [enable|disable]`を実行すると設定できます。
+### `respect-name-difference`オプション
+FSharpApiSearch.Console.exeに`--respect-name-difference[+|-]`オプションを付けて起動するか、
+インタラクティブモードで`#respect-name-difference [enable|disable]`を実行すると設定できます。
 デフォルトは有効です。
 
-`strict`オプションが有効の場合は、クエリ中の型変数または名前付きワイルドカードを使用した場合に、違う名前同士が同じ型にマッチしません。
+`respect-name-difference`オプションが有効の場合は、クエリ中の異なる型変数や名前付きワイルドカードの名前の違いを検索に反映します。
+異なる名前同士は同じ型にマッチしません。
 例えば、`?a -> ?a`というクエリは`int -> int`というシグネチャにマッチしますが、`?a -> ?b`というクエリは`int -> int`にマッチしません。
 
 このオプションに無効にした場合は、`?a -> ?b`というクエリで`int -> int`にマッチします。

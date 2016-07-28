@@ -267,13 +267,13 @@ type OptionStatus = Enabled | Disabled
 
 type SearchOptions = {
   GreedyMatching: OptionStatus
-  StrictQueryVariable: OptionStatus
+  RespectNameDifference: OptionStatus
   IgnoreArgumentStyle: OptionStatus
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module SearchOptions =
-  let defaultOptions = { GreedyMatching = Disabled; StrictQueryVariable = Enabled; IgnoreArgumentStyle = Enabled }
+  let defaultOptions = { GreedyMatching = Disabled; RespectNameDifference = Enabled; IgnoreArgumentStyle = Enabled }
 
 type Result = {
   Api: Api

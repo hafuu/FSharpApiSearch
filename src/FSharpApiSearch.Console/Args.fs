@@ -23,7 +23,7 @@ module Args =
   let boolToOptionStatus = function true -> Enabled | false -> Disabled
 
   let rec parse arg = function
-    | Status "--strict" v :: rest -> parse { arg with SearchOptions = { arg.SearchOptions with StrictQueryVariable = boolToOptionStatus v } } rest
+    | Status "--respect-name-difference" v :: rest -> parse { arg with SearchOptions = { arg.SearchOptions with RespectNameDifference = boolToOptionStatus v } } rest
     | Status "--greedy-matching" v :: rest -> parse { arg with SearchOptions = { arg.SearchOptions with GreedyMatching = boolToOptionStatus v } } rest
     | Status "--ignore-argstyle" v :: rest -> parse { arg with SearchOptions = { arg.SearchOptions with IgnoreArgumentStyle = boolToOptionStatus v } } rest
     | (KeyValue "--target" t | KeyValue "-t" t) :: rest -> parse { arg with Targets = t :: arg.Targets } rest

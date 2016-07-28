@@ -41,13 +41,13 @@ type Expected =
   | Always of bool
   | WhenEnabled of bool
 
-let expectedValue strictOpt expected =
-  match expected, strictOpt with
+let expectedValue optValue expected =
+  match expected, optValue with
   | Always b, _ -> b
   | WhenEnabled b, Enabled -> b
   | WhenEnabled b, Disabled -> not b
 
-let strictInequalitiesTest =
+let respectNameDifferenceInequalitiesTest =
   test {
     let query = QueryParser.parse "?a -> ?b -> 'a -> 'b"
     let opt = SearchOptions.defaultOptions
@@ -105,10 +105,10 @@ let matchTest trace abbTable (options, query, target, expected) = test {
 
 let greedyMatchingTest trace abbTable greedyOpt cases = parameterize {
   source (seq {
-    for strictOpt in [ Enabled; Disabled ] do
+    for respectNameDiffOpt in [ Enabled; Disabled ] do
       for (query, target, expected) in cases do
-        let options = { SearchOptions.defaultOptions with GreedyMatching = greedyOpt; StrictQueryVariable = strictOpt }
-        yield (options, query, target, expectedValue strictOpt expected)
+        let options = { SearchOptions.defaultOptions with GreedyMatching = greedyOpt; RespectNameDifference = respectNameDiffOpt }
+        yield (options, query, target, expectedValue respectNameDiffOpt expected)
   })
   run (matchTest trace abbTable)
 }
@@ -336,7 +336,7 @@ module GreedyTest =
     run (fun (query, target, expected) -> test {
       let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
       let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
-      let options = { GreedyMatching = Enabled; StrictQueryVariable = Enabled; IgnoreArgumentStyle = Enabled }
+      let options = { GreedyMatching = Enabled; RespectNameDifference = Enabled; IgnoreArgumentStyle = Enabled }
       let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.head
       do! actual.Distance |> assertEquals expected
     })
@@ -469,7 +469,7 @@ module IgnoreArgumentStyleTest =
     run (fun (query, target, expected) -> test {
       let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
       let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
-      let options = { GreedyMatching = Disabled; StrictQueryVariable = Enabled; IgnoreArgumentStyle = Enabled }
+      let options = { GreedyMatching = Disabled; RespectNameDifference = Enabled; IgnoreArgumentStyle = Enabled }
       let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.head
       do! actual.Distance |> assertEquals expected
     })
@@ -934,7 +934,7 @@ module TypeConstraintTest =
       dictionary
     |]
 
-    let options = { GreedyMatching = Enabled; StrictQueryVariable = Enabled; IgnoreArgumentStyle = Enabled }
+    let options = { GreedyMatching = Enabled; RespectNameDifference = Enabled; IgnoreArgumentStyle = Enabled }
     let dummyDict = { AssemblyName = "dummy"; Api = [| targetApi |]; TypeDefinitions = [||]; TypeAbbreviations = [||] }
     let actual = Matcher.search dictionaries options [ dummyDict ] query |> Seq.length = 1
     do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)

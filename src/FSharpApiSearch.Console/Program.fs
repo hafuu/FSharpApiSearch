@@ -63,7 +63,7 @@ module Interactive =
       Some target
     | _ -> None
 
-  let StrictQueryVariable = { Get = (fun x -> x.StrictQueryVariable ); Set = (fun value x -> { x with StrictQueryVariable = value }) }
+  let RespectNameDifference = { Get = (fun x -> x.RespectNameDifference ); Set = (fun value x -> { x with RespectNameDifference = value }) }
   let GreedyMatching = { Get = (fun x -> x.GreedyMatching ); Set = (fun value x -> { x with GreedyMatching = value }) }
   let IgnoreArgumentStyle = { Get = (fun x -> x.IgnoreArgumentStyle); Set = (fun value x -> { x with IgnoreArgumentStyle = value }) }
   let ShowXmlDocument = { Get = (fun x -> x.ShowXmlDocument); Set = (fun value x -> { x with ShowXmlDocument = value }) }
@@ -71,8 +71,8 @@ module Interactive =
 
   let helpMessage = """
 FSharpApiSearch.Console interactive mode directive:
-  #strict [enable|disable]
-      Enables or disables to strictly deal with variables of different name in the query.
+  #respect-name-difference [enable|disable]
+      Enables or disables to respect the variable name difference in the query.
   #greedy-matching [enable|disable]
       Enables or disables the greedy matching.
   #ignore-argstyle [enable|disable]
@@ -93,7 +93,7 @@ FSharpApiSearch.Console interactive mode directive:
     printf "> "
     match Console.ReadLine().TrimEnd(';') with
     | "#q" -> arg
-    | OptionSetting "#strict" StrictQueryVariable arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
+    | OptionSetting "#respect-name-difference" RespectNameDifference arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#greedy-matching" GreedyMatching arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#ignore-argstyle" IgnoreArgumentStyle arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#xmldoc" ShowXmlDocument arg newArg -> loop client newArg
@@ -116,8 +116,8 @@ let helpMessage = """usage: FSharpApiSearch.Console.exe <query> <options>
 
 query: Optional. If omitted, it will start in interactive mode.
 options:
-  --strict[+|-]
-      Enables or disables to strictly deal with variables of different name in the query.
+  --respect-name-difference[+|-]
+      Enables or disables to respect the variable name difference in the query.
       The default is enabled.
   --greedy-matching[+|-]
       Enables or disables the greedy matching.

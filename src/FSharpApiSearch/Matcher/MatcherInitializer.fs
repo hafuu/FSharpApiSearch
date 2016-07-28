@@ -54,7 +54,7 @@ let collectWildcardGroups = collectFromSignatureQuery (function Wildcard (Some _
 let collectPartialIdentities = collectFromSignatureQuery (function Identity (PartialIdentity id) -> Some id | _ -> None)
 
 let initialEquations options query eqs =
-  match options.StrictQueryVariable with
+  match options.RespectNameDifference with
   | Enabled ->
     let variables = collectVariables query
     let wildcards = collectWildcardGroups query
