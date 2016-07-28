@@ -36,10 +36,10 @@ let collectFromSignatureQuery getTarget query =
       match sigQuery with
       | SignatureQuery.Wildcard -> Seq.empty
       | SignatureQuery.Signature lt -> f lt
-      | SignatureQuery.InstanceMember (receiver, arguments, returnType) ->
+      | SignatureQuery.InstanceMember (receiver, parameters, returnType) ->
         Seq.concat [
           f receiver
-          Seq.collect f arguments
+          Seq.collect f parameters
           f returnType
         ]
     | { Query.Method = QueryMethod.ByActivePattern apQuery } ->

@@ -124,24 +124,24 @@ let addGenericMemberReplacements (m: Member) replacements =
 
 let normalizeGetterMethod (m: Member) =
   let args =
-    match m.Arguments with
+    match m.Parameters with
     | [] -> [ LowType.Unit ]
     | args -> args
   Arrow [ yield! args; yield m.ReturnType ]
 
 let normalizeSetterMethod (m: Member) =
   let args = [
-    yield! m.Arguments
+    yield! m.Parameters
     yield m.ReturnType
   ]
   Arrow [ yield! args; yield LowType.Unit ]
 
 let normalizeMethod (m: Member) =
-  Arrow [ yield! m.Arguments; yield m.ReturnType ]
+  Arrow [ yield! m.Parameters; yield m.ReturnType ]
 
 let testMemberConstraint (lowTypeMatcher: ILowTypeMatcher) modifier (expectedMember: Member) =
   let normalizedExpectedMember  =
-    let xs = [ yield! expectedMember.Arguments; yield expectedMember.ReturnType ]
+    let xs = [ yield! expectedMember.Parameters; yield expectedMember.ReturnType ]
     Arrow xs
 
   createConstraintSolver
@@ -166,7 +166,7 @@ let testMemberConstraint (lowTypeMatcher: ILowTypeMatcher) modifier (expectedMem
             elif "set_" + member'.Name = expectedMember.Name then Some (normalizeSetterMethod member')
             else None
           | _->
-            if member'.Name = expectedMember.Name && member'.IsCurried = false && member'.Arguments.Length = expectedMember.Arguments.Length then
+            if member'.Name = expectedMember.Name && member'.IsCurried = false && member'.Parameters.Length = expectedMember.Parameters.Length then
               Some (normalizeMethod member')
             else None
         normalized |> Option.map (fun x -> (x, addGenericMemberReplacements member' genericTypeReplacements))

@@ -16,7 +16,7 @@ namespace CSharpLoadTestAssembly
         public static int[,] Array2dMethod() => null;
         public static int[,][] NestedArrayMethod() => new[,] { { new int[0], new int[0] } };
 
-        public static int NoArgumentMethod() => 3;
+        public static int NoParameterMethod() => 3;
         public static void NonCurriedMethod(int x, string y) { }
         public static void TupleMethod(Tuple<int, string> x) { }
 
@@ -32,7 +32,7 @@ namespace CSharpLoadTestAssembly
 
     public class InstanceMemberClass
     {
-        public int NoArgumentMethod() => 3;
+        public int NoParameterMethod() => 3;
         public void NonCurriedMethod(int x, string y) { }
         public void TupleMethod(Tuple<int, string> x) { }
 

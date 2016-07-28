@@ -77,24 +77,24 @@ file
           sprintf "PrettyNaming.CompileOpName(\"%s\")" (memberName.Replace("(", "").Replace(")", ""))
         else
           sprintf "\"%s\"" memberName
-      let args, ret =
+      let parameters, ret =
         let sig' = Regex.Replace(sig', @"['\^]\w+", t)
         let xs = sig'.Split([| "->" |], StringSplitOptions.None) |> Array.map (fun x -> x.Trim())
         let args = Array.truncate (Array.length xs - 1) xs |> Array.toList
         let ret = Array.last xs
         (args, getName ret)
       let kind =
-        match args with
+        match parameters with
         | [] -> "MemberKind.Property PropertyKind.Get"
         | _ -> "MemberKind.Method"
-      let args =
-        args
+      let parameters =
+        parameters
         |> List.collect (fun x -> x.Split('*') |> Array.toList)
         |> List.map (fun x -> x.Trim())
         |> List.map (fun x -> sprintf "LowType.%s" (getName x))
         |> String.concat "; "
         |> sprintf "[ %s ]"
-      sprintf """            { Name = %s; Kind = %s; GenericParameters = []; Arguments = %s; IsCurried = false; ReturnType = LowType.%s }""" memberName kind args ret
+      sprintf """            { Name = %s; Kind = %s; GenericParameters = []; Parameters = %s; IsCurried = false; ReturnType = LowType.%s }""" memberName kind parameters ret
     )
     |> String.concat "\r\n"
   printfn "    (FullIdentity.%s, " typeName

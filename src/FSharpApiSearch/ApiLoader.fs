@@ -213,7 +213,7 @@ module internal Impl =
                   List.tail args // instance member contains receiver
             let variables = data.MemberSources |> Seq.map (fun x -> x.GenericParameter.Name) |> Seq.toList
             let name = data.MemberName
-            let member' = { Name = name; Kind = MemberKind.Method; Arguments = args; ReturnType = returnType; IsCurried = false; GenericParameters = [] }
+            let member' = { Name = name; Kind = MemberKind.Method; Parameters = args; ReturnType = returnType; IsCurried = false; GenericParameters = [] }
             return { Variables = variables; Constraint = MemberConstraints (modifier, member') }
           }
         elif c.IsNonNullableValueTypeConstraint then
@@ -250,7 +250,7 @@ module internal Impl =
   let methodMember (x: FSharpMemberOrFunctionOrValue) =
     option {
       let name = x.GetDisplayName
-      let! args =
+      let! parameters =
         if x.CurriedParameterGroups.Count = 1 && x.CurriedParameterGroups.[0].Count = 0 then
           fsharpTypeToLowType x.FullType.GenericArguments.[0] |> Option.map List.singleton
         else
@@ -259,18 +259,18 @@ module internal Impl =
       let! returnType = fsharpTypeToLowType x.ReturnParameter.Type
       let isCurried = x.CurriedParameterGroups.Count >= 2
       let genericParams = x.GenericParametersAsTypeVariable
-      let member' = { Name = name.InternalFSharpName; Kind = MemberKind.Method; GenericParameters = genericParams; Arguments = args; IsCurried = isCurried; ReturnType = returnType }
+      let member' = { Name = name.InternalFSharpName; Kind = MemberKind.Method; GenericParameters = genericParams; Parameters = parameters; IsCurried = isCurried; ReturnType = returnType }
       return (name, member')
     }
 
   let propertyMember (x: FSharpMemberOrFunctionOrValue) =
     option {
       let memberKind = MemberKind.Property x.PropertyKind
-      let! args = parameterSignature x
+      let! parameters = parameterSignature x
       let! returnType = fsharpTypeToLowType x.ReturnParameter.Type
       let genericParams = x.GenericParametersAsTypeVariable
       let name = x.GetDisplayName
-      let member' = { Name = name.InternalFSharpName; Kind = memberKind; GenericParameters = genericParams; Arguments = args; IsCurried = false; ReturnType = returnType }
+      let member' = { Name = name.InternalFSharpName; Kind = memberKind; GenericParameters = genericParams; Parameters = parameters; IsCurried = false; ReturnType = returnType }
       return (name, member')
     }
 
@@ -350,7 +350,7 @@ module internal Impl =
   let toFieldApi xml (accessPath: DisplayName) (declaringEntity: FSharpEntity) (declaringSignature: LowType) (field: FSharpField) =
     option {
       let! returnType = fsharpTypeToLowType field.FieldType
-      let member' = { Name = field.Name; Kind = MemberKind.Field; GenericParameters = []; Arguments = []; IsCurried = false; ReturnType = returnType }
+      let member' = { Name = field.Name; Kind = MemberKind.Field; GenericParameters = []; Parameters = []; IsCurried = false; ReturnType = returnType }
       let apiName =
         let name = field.Name
         { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = [] } :: accessPath
@@ -440,7 +440,7 @@ module internal Impl =
   let hasDefaultConstructor (xs: Member seq) =
     xs
     |> Seq.exists (function
-      | { Arguments = [ LowType.Patterns.Unit ] } -> true
+      | { Parameters = [ LowType.Patterns.Unit ] } -> true
       | _ -> false)
 
   type EqualityAndComparisonLoaderBuilder = {
@@ -714,7 +714,7 @@ module internal Impl =
         let member' =
           { member' with
               GenericParameters = genericParameters
-              Arguments = member'.Arguments |> List.map apply
+              Parameters = member'.Parameters |> List.map apply
               ReturnType = member'.ReturnType |> apply
           }
         ApiSignature.InstanceMember (declaringType, member')
@@ -811,7 +811,7 @@ module internal Impl =
 
     let resolve_Member cache (member': Member) =
       { member' with
-          Arguments = List.map (resolve_LowType cache) member'.Arguments
+          Parameters = List.map (resolve_LowType cache) member'.Parameters
           ReturnType = resolve_LowType cache member'.ReturnType
       }
 

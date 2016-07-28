@@ -3,8 +3,8 @@
 type StaticMemberClass() =
   new (x: int) = StaticMemberClass()
 
-  static member NoArgumentMethod () = 3
-  static member OneArgumentMethod (x: int) = 3
+  static member NoParameterMethod () = 3
+  static member OneParameterMethod (x: int) = 3
   static member NonCurriedMethod (x: int, y: string) = x
   static member CurriedMethod (x: int) (y: string) = x
   static member TupleMethod (x: int * string) = fst x
@@ -27,8 +27,8 @@ type StaticMemberClass() =
   static member internal InternalMethod() = 0
 
 type InstanceMemberClass() =
-  member this.NoArgumentMethod () = 3
-  member this.OneArgumentMethod (x: int) = 3
+  member this.NoParameterMethod () = 3
+  member this.OneParameterMethod (x: int) = 3
   member this.NonCurriedMethod (x: int, y: string) = x
   member this.CurriedMethod (x: int) (y: string) = x
   member this.TupleMethod (x: int * string) = fst x

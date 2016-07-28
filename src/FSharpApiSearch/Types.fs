@@ -97,7 +97,7 @@ type Member = {
   Name: string
   Kind: MemberKind
   GenericParameters: TypeVariable list
-  Arguments: LowType list
+  Parameters: LowType list
   IsCurried: bool
   ReturnType: LowType
 }
@@ -249,7 +249,7 @@ type ActivePatternQuery = {
 type SignatureQuery =
   | Wildcard
   | Signature of LowType
-  | InstanceMember of Receiver: LowType * Arguments: LowType list * ReturnType: LowType
+  | InstanceMember of Receiver: LowType * Parameters: LowType list * ReturnType: LowType
 
 [<RequireQualifiedAccess>]
 type QueryMethod =
@@ -268,12 +268,12 @@ type OptionStatus = Enabled | Disabled
 type SearchOptions = {
   GreedyMatching: OptionStatus
   RespectNameDifference: OptionStatus
-  IgnoreArgumentStyle: OptionStatus
+  IgnoreParameterStyle: OptionStatus
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module SearchOptions =
-  let defaultOptions = { GreedyMatching = Disabled; RespectNameDifference = Enabled; IgnoreArgumentStyle = Enabled }
+  let defaultOptions = { GreedyMatching = Disabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled }
 
 type Result = {
   Api: Api
@@ -461,7 +461,7 @@ module internal Print =
 
   let printMember isDebug (m: Member) =
     let argPart =
-      match m.Arguments with
+      match m.Parameters with
       | [ Tuple _ as t ] -> Some (sprintf "(%s)" (printLowType isDebug t))
       | [] -> None
       | args ->

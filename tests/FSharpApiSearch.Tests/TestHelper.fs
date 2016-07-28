@@ -38,16 +38,16 @@ module DSL =
 
   let arrow xs = Arrow xs
 
-  let member' name kind arguments returnType = { Name = name; Kind = kind; GenericParameters = []; Arguments = arguments; IsCurried = false; ReturnType = returnType }
-  let property' name kind arguments returnType = { Name = name; Kind = MemberKind.Property kind; GenericParameters = []; Arguments = arguments; IsCurried = false; ReturnType = returnType }
-  let method' name arguments returnType = member' name MemberKind.Method arguments returnType
-  let curriedMethod name arguments returnType = { method' name arguments returnType with IsCurried = true }
-  let field name returnType = { Name = name; Kind = MemberKind.Field; GenericParameters = []; Arguments = []; IsCurried = false; ReturnType = returnType }
+  let member' name kind parameters returnType = { Name = name; Kind = kind; GenericParameters = []; Parameters = parameters; IsCurried = false; ReturnType = returnType }
+  let property' name kind parameters returnType = { Name = name; Kind = MemberKind.Property kind; GenericParameters = []; Parameters = parameters; IsCurried = false; ReturnType = returnType }
+  let method' name parameters returnType = member' name MemberKind.Method parameters returnType
+  let curriedMethod name parameters returnType = { method' name parameters returnType with IsCurried = true }
+  let field name returnType = { Name = name; Kind = MemberKind.Field; GenericParameters = []; Parameters = []; IsCurried = false; ReturnType = returnType }
 
   let private memberGenericParameters (declaring: LowType) (member': Member) =
     let toTypeVariable = function Variable (_, v) -> v | _ -> failwith "it is not variable."
     let declaringVariables = LowType.collectVariables declaring |> List.map toTypeVariable |> Set.ofList
-    let memberVariables = (member'.ReturnType :: member'.Arguments) |> List.collect LowType.collectVariables |> List.map toTypeVariable |> List.distinct |> Set.ofList
+    let memberVariables = (member'.ReturnType :: member'.Parameters) |> List.collect LowType.collectVariables |> List.map toTypeVariable |> List.distinct |> Set.ofList
     (memberVariables - declaringVariables) |> Set.toList
 
   let moduleFunction xs = ApiSignature.ModuleFunction xs

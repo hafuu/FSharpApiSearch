@@ -149,8 +149,8 @@ module FSharp =
     let t = createType "TopLevelNamespace.StaticMemberClass" [] |> updateAssembly fsharpAssemblyName
     parameterize {
       source [
-        "TopLevelNamespace.StaticMemberClass.NoArgumentMethod", [ staticMember t (method' "NoArgumentMethod" [ unit ] int) ]
-        "TopLevelNamespace.StaticMemberClass.OneArgumentMethod", [ staticMember t (method' "OneArgumentMethod" [ int ] int) ]
+        "TopLevelNamespace.StaticMemberClass.NoParameterMethod", [ staticMember t (method' "NoParameterMethod" [ unit ] int) ]
+        "TopLevelNamespace.StaticMemberClass.OneParameterMethod", [ staticMember t (method' "OneParameterMethod" [ int ] int) ]
         "TopLevelNamespace.StaticMemberClass.NonCurriedMethod", [ staticMember t (method' "NonCurriedMethod" [ int; string ] int) ]
         "TopLevelNamespace.StaticMemberClass.CurriedMethod", [ staticMember t (curriedMethod "CurriedMethod" [ int; string ] int) ]
         "TopLevelNamespace.StaticMemberClass.TupleMethod", [ staticMember t (method' "TupleMethod" [ tuple [ int; string ] ] int) ]
@@ -172,8 +172,8 @@ module FSharp =
     let t = createType "TopLevelNamespace.InstanceMemberClass" [] |> updateAssembly fsharpAssemblyName
     parameterize {
       source [
-        "TopLevelNamespace.InstanceMemberClass.NoArgumentMethod", [ instanceMember t (method' "NoArgumentMethod" [ unit ] int) ]
-        "TopLevelNamespace.InstanceMemberClass.OneArgumentMethod", [ instanceMember t (method' "OneArgumentMethod" [ int ] int) ]
+        "TopLevelNamespace.InstanceMemberClass.NoParameterMethod", [ instanceMember t (method' "NoParameterMethod" [ unit ] int) ]
+        "TopLevelNamespace.InstanceMemberClass.OneParameterMethod", [ instanceMember t (method' "OneParameterMethod" [ int ] int) ]
         "TopLevelNamespace.InstanceMemberClass.NonCurriedMethod", [ instanceMember t (method' "NonCurriedMethod" [ int; string ] int) ]
         "TopLevelNamespace.InstanceMemberClass.CurriedMethod", [ instanceMember t (curriedMethod "CurriedMethod" [ int; string ] int) ]
         "TopLevelNamespace.InstanceMemberClass.TupleMethod", [ instanceMember t (method' "TupleMethod" [ tuple [ int; string ] ] int) ]
@@ -775,7 +775,7 @@ module CSharp =
     let t = createType "CSharpLoadTestAssembly.StaticMemberClass" [] |> updateAssembly csharpAssemblyName
     parameterize {
       source [
-        "CSharpLoadTestAssembly.StaticMemberClass.NoArgumentMethod", [ staticMember t (method' "NoArgumentMethod" [ unit ] int) ]
+        "CSharpLoadTestAssembly.StaticMemberClass.NoParameterMethod", [ staticMember t (method' "NoParameterMethod" [ unit ] int) ]
         "CSharpLoadTestAssembly.StaticMemberClass.NonCurriedMethod", [ staticMember t (method' "NonCurriedMethod" [ int; string ] unit) ]
         "CSharpLoadTestAssembly.StaticMemberClass.TupleMethod", [ staticMember t (method' "TupleMethod" [ tuple [ int; string ] ] unit) ]
         "CSharpLoadTestAssembly.StaticMemberClass", [ constructor' t (method' "StaticMemberClass" [ unit ] t); constructor' t (method' "StaticMemberClass" [ string; string ] t) ]
@@ -802,7 +802,7 @@ module CSharp =
     let t = createType "CSharpLoadTestAssembly.InstanceMemberClass" [] |> updateAssembly csharpAssemblyName
     parameterize {
       source [
-        "CSharpLoadTestAssembly.InstanceMemberClass.NoArgumentMethod", [ instanceMember t (method' "NoArgumentMethod" [ unit ] int) ]
+        "CSharpLoadTestAssembly.InstanceMemberClass.NoParameterMethod", [ instanceMember t (method' "NoParameterMethod" [ unit ] int) ]
         "CSharpLoadTestAssembly.InstanceMemberClass.NonCurriedMethod", [ instanceMember t (method' "NonCurriedMethod" [ int; string ] unit) ]
         "CSharpLoadTestAssembly.InstanceMemberClass.TupleMethod", [ instanceMember t (method' "TupleMethod" [ tuple [ int; string ] ] unit) ]
         "CSharpLoadTestAssembly.InstanceMemberClass.OverloadMethod", [ instanceMember t (method' "OverloadMethod" [ int ] int); instanceMember t (method' "OverloadMethod" [ string ] string) ]

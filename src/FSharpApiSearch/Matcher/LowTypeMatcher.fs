@@ -209,10 +209,10 @@ module Rules =
       testAll lowTypeMatcher leftElems rightElems ctx
     | _ -> Continue ctx
 
-  let arrowRule_IgnoreArgumentStyle lowTypeMatcher left right ctx =
+  let arrowRule_IgnoreParameterStyle lowTypeMatcher left right ctx =
     match left, right with
     | Arrow leftElems, Arrow rightElems ->
-      Debug.WriteLine("arrow rule (ignore argument style).")
+      Debug.WriteLine("arrow rule (ignore parameter style).")
       match leftElems, rightElems with
       | [ Tuple _; _ ], [ Tuple _; _ ]
       | [ Wildcard _; _ ], _
@@ -271,9 +271,9 @@ let instance options =
       yield Rules.tupleRule
       yield Rules.genericRule
 
-      match options with
-      | { IgnoreArgumentStyle = Enabled } -> yield Rules.arrowRule_IgnoreArgumentStyle
-      | { IgnoreArgumentStyle = Disabled } -> yield Rules.arrowRule
+      match options.IgnoreParameterStyle with
+      | Enabled -> yield Rules.arrowRule_IgnoreParameterStyle
+      | Disabled -> yield Rules.arrowRule
         
       yield Rule.terminator
     ]

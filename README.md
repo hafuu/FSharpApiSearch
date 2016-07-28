@@ -104,7 +104,7 @@ FSharpApiSearch.Console.exeの`--target`オプションを使用するとデー�
 
 多引数のメソッドを検索するには`receiver -> arg1 -> arg2 -> returnType`または`receiver -> arg1 * arg2 -> returnType`と書きます。
 通常ではメソッドの引数がタプル形式（`arg1 * arg2`）とカリー化形式（`arg1 -> arg2`）を区別せずに検索します。
-引数の形式を区別して検索したい場合は`ignore-argstyle`オプションを無効にします。
+引数の形式を区別して検索したい場合は`ignore-param-style`オプションを無効にします。
 
 プロパティを検索する場合は`receiver -> propertyType`と書きます。
 インデックス付きプロパティは`receiver -> index -> propertyType`と書きます。
@@ -170,13 +170,13 @@ FSharpApiSearch.Console.exeに`--greedy-matching[+|-]`オプションを付け�
 `greedy-matching`オプションが有効の場合は、型変数と他の型がそれぞれマッチするようになり、一致度が高い順に並び替えられて表示されます。
 また、検索に型制約が考慮されるようになります。
 
-### `ignore-argstyle`オプション : 引数形式を無視
-FSharpApiSearch.Console.exeに`--ignore-argstyle[+|-]`オプションを付けて起動するか、
-インタラクティブモードで`#ignore-argstyle [enable|disable]`を実行すると設定できます。
+### `ignore-param-style`オプション
+FSharpApiSearch.Console.exeに`--ignore-param-style[+|-]`オプションを付けて起動するか、
+インタラクティブモードで`#ignore-param-style [enable|disable]`を実行すると設定できます。
 デフォルトは有効です。
 
 関数、メソッドの引数の形式には、カリー化形式（`arg1 -> arg2 -> returnType`）とタプル形式（`arg1 * arg2 -> returnType`）の2種類があります。
-`ignore-argstyle`オプションが有効の場合は、カリー化形式とタプル形式を無視してマッチします。
+`ignore-param-style`オプションが有効の場合は、カリー化形式とタプル形式を無視してマッチします。
 
 ### `xmldoc`オプション
 FSharpApiSearch.Console.exeに`--xmldoc[+|-]`オプションを付けて起動するか、

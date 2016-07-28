@@ -65,7 +65,7 @@ module Interactive =
 
   let RespectNameDifference = { Get = (fun x -> x.RespectNameDifference ); Set = (fun value x -> { x with RespectNameDifference = value }) }
   let GreedyMatching = { Get = (fun x -> x.GreedyMatching ); Set = (fun value x -> { x with GreedyMatching = value }) }
-  let IgnoreArgumentStyle = { Get = (fun x -> x.IgnoreArgumentStyle); Set = (fun value x -> { x with IgnoreArgumentStyle = value }) }
+  let IgnoreParameterStyle = { Get = (fun x -> x.IgnoreParameterStyle); Set = (fun value x -> { x with IgnoreParameterStyle = value }) }
   let ShowXmlDocument = { Get = (fun x -> x.ShowXmlDocument); Set = (fun value x -> { x with ShowXmlDocument = value }) }
   let StackTrace = { Get = (fun x -> x.StackTrace); Set = (fun value x -> { x with StackTrace = value }) }
 
@@ -75,9 +75,9 @@ FSharpApiSearch.Console interactive mode directive:
       Enables or disables to respect the variable name difference in the query.
   #greedy-matching [enable|disable]
       Enables or disables the greedy matching.
-  #ignore-argstyle [enable|disable]
-      Enables of disables to ignore the difference of the argument style.
-      The argument style refers to curried argument, multi argument and tuple argument.
+  #ignore-param-style [enable|disable]
+      Enables of disables to ignore the difference of the parameter style.
+      The parameter style refers to curried parameter, multi parameter and tuple parameter.
   #xmldoc [enable|disable]
       Enables or disables to show xml document of API.
   #stacktrace [enable|disable]
@@ -95,7 +95,7 @@ FSharpApiSearch.Console interactive mode directive:
     | "#q" -> arg
     | OptionSetting "#respect-name-difference" RespectNameDifference arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#greedy-matching" GreedyMatching arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
-    | OptionSetting "#ignore-argstyle" IgnoreArgumentStyle arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
+    | OptionSetting "#ignore-param-style" IgnoreParameterStyle arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#xmldoc" ShowXmlDocument arg newArg -> loop client newArg
     | OptionSetting "#stacktrace" StackTrace arg newArg -> loop client newArg
     | "#help" ->
@@ -122,9 +122,9 @@ options:
   --greedy-matching[+|-]
       Enables or disables the greedy matching.
       The default is disabled.
-  --ignore-argstyle[+|-]
-      Enables of disables to ignore the difference of the argument style.
-      The argument style refers to curried argument, multi argument and tuple argument.
+  --ignore-param-style[+|-]
+      Enables of disables to ignore the difference of the parameter style.
+      The parameter style refers to curried parameter, multi parameter and tuple parameter.
       The default is enabled.
   --target:<assembly>, -t:<assembly>
       Specifies the assembly name of the searching target.

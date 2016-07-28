@@ -82,12 +82,12 @@ module FSharpSignatureParser =
 
   let instanceMember =
     fsharpSignature .>> pstring "=>" .>>. fsharpSignature
-    |>> (fun (receiver, argsAndRet) ->
-      let args, ret =
-        match argsAndRet with
+    |>> (fun (receiver, paramsAndRet) ->
+      let parameters, ret =
+        match paramsAndRet with
         | Arrow xs -> (List.take (xs.Length - 1) xs), (List.last xs)
         | ret -> [], ret
-      SignatureQuery.InstanceMember (Receiver = receiver, Arguments = args, ReturnType = ret)
+      SignatureQuery.InstanceMember (Receiver = receiver, Parameters = parameters, ReturnType = ret)
     )
 
   let extendedFsharpSignature = choice [ attempt instanceMember <|> (fsharpSignature |>> SignatureQuery.Signature) ]
