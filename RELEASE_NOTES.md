@@ -1,3 +1,8 @@
+### 1.0.0 - 2016/7/29
+* Add the assembly name to the result
+* Add the namespace searching (#9)
+* Change the search option names (#61)
+
 ### 0.4.0-beta - 2016/6/23
 * Change the first argument to search as a receiver (#80)
 * Add searching by operator name
