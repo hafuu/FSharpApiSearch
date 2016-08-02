@@ -791,7 +791,13 @@ module internal Impl =
   
     let resolve_Name (cache: NameCache) (name: Name) =
       match name with
-      | LoadingName (assemblyName, fullName, displayName) -> DisplayName (displayName @ cache.[assemblyName].[fullName])
+      | LoadingName (assemblyName, fullName, displayName) ->
+        match cache.TryGetValue(assemblyName) with
+        | true, assembly ->
+            match assembly.TryGetValue(fullName) with
+            | true, namespace' -> DisplayName (displayName @ namespace')
+            | false, _ -> failwithf "Namespace %s is not found in %s" assemblyName assemblyName
+        | false, _ -> failwithf "Assembly %s is not found" assemblyName
       | DisplayName _ as n -> n
   
     let rec resolve_LowType cache = function
