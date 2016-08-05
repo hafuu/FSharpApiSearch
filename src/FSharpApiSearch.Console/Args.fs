@@ -18,7 +18,9 @@ type Args = {
 module Args =
   open FSharpApiSearch.CommandLine
 
-  let empty = { Query = None; Targets = []; SearchOptions = SearchOptions.defaultOptions; ShowXmlDocument = Disabled; StackTrace = Disabled; Help = false }
+  let empty =
+    let defaultOpt = { SearchOptions.defaultOptions with Parallel = Enabled }
+    { Query = None; Targets = []; SearchOptions = defaultOpt; ShowXmlDocument = Disabled; StackTrace = Disabled; Help = false }
 
   let boolToOptionStatus = function true -> Enabled | false -> Disabled
 

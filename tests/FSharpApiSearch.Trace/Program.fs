@@ -15,7 +15,7 @@ let assemblyResolver: AssemblyLoader.AssemblyResolver = {
 [<EntryPoint>]
 let main argv =
   let args = Args.parse Args.empty (List.ofArray argv)
-  let options = args.SearchOptions
+  let options = { args.SearchOptions with Parallel = Disabled }
 
   let dictionaries = ApiLoader.loadFromFile ApiLoader.databaseName
   let targets = Args.targetsOrDefault args

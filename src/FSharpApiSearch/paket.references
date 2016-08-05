@@ -1,3 +1,4 @@
 FParsec
 FSharp.Compiler.Service
 FsPickler
+FSharp.Collections.ParallelSeq

@@ -2,6 +2,7 @@
 
 open System.Diagnostics
 open FSharpApiSearch.MatcherTypes
+open FSharp.Collections.ParallelSeq
 
 let internal test (lowTypeMatcher: ILowTypeMatcher) (apiMatchers: IApiMatcher list) (query: Query) (ctx: Context) (api: Api) =
   apiMatchers
@@ -20,15 +21,23 @@ let internal test (lowTypeMatcher: ILowTypeMatcher) (apiMatchers: IApiMatcher li
     | _ -> Failure
   ) (Matched ctx)
 
+let private choose (options: SearchOptions) f xs=
+  match options.Parallel with
+  | Enabled -> PSeq.choose f xs :> seq<_>
+  | Disabled -> Seq.choose f xs
+
 let search (dictionaries: ApiDictionary[]) (options: SearchOptions) (targets: ApiDictionary seq) (queryStr: string) =
   let lowTypeMatcher, apiMatchers = MatcherInitializer.matchers options
   let query = QueryParser.parse queryStr |> MatcherInitializer.initializeQuery dictionaries
   let initialContext = MatcherInitializer.initializeContext dictionaries options query
+
   seq {
     for dic in targets do
-      for api in dic.Api do
-        match test lowTypeMatcher apiMatchers query initialContext api with
-        | Matched ctx -> yield { Distance = ctx.Distance; Api = api; AssemblyName = dic.AssemblyName }
-        | _ -> ()
+    for api in dic.Api do
+    yield (dic, api)
   }
-  |> Seq.cache
+  |> choose options (fun (dic, api) ->
+    match test lowTypeMatcher apiMatchers query initialContext api with
+    | Matched ctx -> Some { Distance = ctx.Distance; Api = api; AssemblyName = dic.AssemblyName }
+    | _ -> None
+  )

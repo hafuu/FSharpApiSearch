@@ -1,6 +1,7 @@
 NUGET
   remote: https://www.nuget.org/api/v2
     FParsec (1.0.2)
+    FSharp.Collections.ParallelSeq (1.0.2)
     FSharp.Compiler.Service (6.0.1)
       System.Collections.Immutable (>= 1.2)
       System.Reflection.Metadata (>= 1.4.1-beta-24227-04)
@@ -35,11 +36,11 @@ NUGET
       System.Text.Encoding (>= 4.0.11) - framework: dnxcore50, netstandard10, netstandard13, >= netstandard15
       System.Threading.Tasks (>= 4.0.11) - framework: dnxcore50, netstandard10, netstandard13, >= netstandard15
     System.Linq (4.1) - framework: >= netstandard10
-      System.Collections (>= 4.0.11) - framework: dnxcore50, netstandard10, >= netstandard15
-      System.Diagnostics.Debug (>= 4.0.11) - framework: dnxcore50, >= netstandard15
-      System.Resources.ResourceManager (>= 4.0.1) - framework: dnxcore50, >= netstandard15
-      System.Runtime (>= 4.1) - framework: dnxcore50, netstandard10, >= netstandard15
-      System.Runtime.Extensions (>= 4.1) - framework: dnxcore50, >= netstandard15
+      System.Collections (>= 4.0.11) - framework: dnxcore50, netstandard10, >= netstandard16
+      System.Diagnostics.Debug (>= 4.0.11) - framework: dnxcore50, >= netstandard16
+      System.Resources.ResourceManager (>= 4.0.1) - framework: dnxcore50, >= netstandard16
+      System.Runtime (>= 4.1) - framework: dnxcore50, netstandard10, >= netstandard16
+      System.Runtime.Extensions (>= 4.1) - framework: dnxcore50, >= netstandard16
     System.Reflection (4.1) - framework: >= netstandard10
       Microsoft.NETCore.Platforms (>= 1.0.1) - framework: dnxcore50, netstandard10, netstandard13, >= netstandard15
       Microsoft.NETCore.Targets (>= 1.0.1) - framework: dnxcore50, netstandard10, netstandard13, >= netstandard15
@@ -94,7 +95,7 @@ NUGET
       Microsoft.NETCore.Targets (>= 1.0.1) - framework: dnxcore50, netstandard11, netstandard12, netstandard13, >= netstandard15
       System.Reflection (>= 4.1) - framework: dnxcore50, netstandard11, netstandard12, netstandard13, >= netstandard15
       System.Reflection.Primitives (>= 4.0.1) - framework: dnxcore50, netstandard11, netstandard12, netstandard13, >= netstandard15
-      System.Runtime (>= 4.1) - framework: dnxcore50, netstandard11, netstandard12, netstandard13, >= netstandard15
+      System.Runtime (>= 4.1) - framework: >= net462, dnxcore50, netstandard11, netstandard12, netstandard13, >= netstandard15
       System.Runtime.Handles (>= 4.0.1) - framework: dnxcore50, netstandard13, >= netstandard15
     System.Text.Encoding (4.0.11) - framework: >= netstandard10
       Microsoft.NETCore.Platforms (>= 1.0.1) - framework: dnxcore50, netstandard10, >= netstandard13

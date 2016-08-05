@@ -269,11 +269,12 @@ type SearchOptions = {
   GreedyMatching: OptionStatus
   RespectNameDifference: OptionStatus
   IgnoreParameterStyle: OptionStatus
+  Parallel: OptionStatus
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module SearchOptions =
-  let defaultOptions = { GreedyMatching = Disabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled }
+  let defaultOptions = { GreedyMatching = Disabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; Parallel = Disabled }
 
 type Result = {
   Api: Api
