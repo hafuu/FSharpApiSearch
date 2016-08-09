@@ -149,11 +149,11 @@ module Rules =
       lowTypeMatcher.Test abbreviation.Original other ctx
     | _ -> Continue ctx
 
-  let identityRule _ left right ctx =
+  let identityRule nameEquality _ left right ctx =
     match left, right with
     | Identity leftIdentity, Identity rightIdentity ->
       Debug.WriteLine("identity rule.")
-      if Identity.sameName leftIdentity rightIdentity then
+      if nameEquality leftIdentity rightIdentity then
         Debug.WriteLine("There are same identities.")
         Matched ctx
       else
@@ -257,6 +257,11 @@ module Rules =
     | _ -> Continue ctx
 
 let instance options =
+  let nameEquality =
+    match options.IgnoreCase with
+    | Enabled -> Identity.sameNameIgnoreCase
+    | Disabled -> Identity.sameName
+
   let rule =
     Rule.compose [
       yield Rules.typeAbbreviationRule
@@ -267,7 +272,7 @@ let instance options =
       | Enabled -> yield Rules.greedyVariableRule
       | Disabled -> yield Rules.variableRule
 
-      yield Rules.identityRule
+      yield Rules.identityRule nameEquality
       yield Rules.tupleRule
       yield Rules.genericRule
 

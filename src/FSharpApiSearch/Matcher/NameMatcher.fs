@@ -3,7 +3,7 @@
 open System.Diagnostics
 open FSharpApiSearch.MatcherTypes
 
-let test query (api: Api) ctx =
+let test stringEquality query (api: Api) ctx =
   match query with
   | QueryMethod.ByName (expectedName, _) ->
     match api.Name with
@@ -13,12 +13,16 @@ let test query (api: Api) ctx =
         |> Seq.forall (fun (expected, actual) ->
           match expected with
           | "*" -> true // wildcard
-          | _ -> expected = actual.InternalFSharpName
+          | _ -> stringEquality expected actual.InternalFSharpName
         )
       if matched then Matched ctx else Failure
     | _ -> Failure
   | _ -> Matched ctx
-let instance (_: SearchOptions) =
+let instance (options: SearchOptions) =
+  let stringEquality =
+    match options.IgnoreCase with
+    | Enabled -> String.equalsIgnoreCase
+    | Disabled -> String.equals
   { new IApiMatcher with
       member this.Name = "Name Matcher"
-      member this.Test lowTypeMatcher query api ctx = test query api ctx }
+      member this.Test lowTypeMatcher query api ctx = test stringEquality query api ctx }

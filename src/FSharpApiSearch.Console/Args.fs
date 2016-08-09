@@ -28,6 +28,7 @@ module Args =
     | Status "--respect-name-difference" v :: rest -> parse { arg with SearchOptions = { arg.SearchOptions with RespectNameDifference = boolToOptionStatus v } } rest
     | Status "--greedy-matching" v :: rest -> parse { arg with SearchOptions = { arg.SearchOptions with GreedyMatching = boolToOptionStatus v } } rest
     | Status "--ignore-param-style" v :: rest -> parse { arg with SearchOptions = { arg.SearchOptions with IgnoreParameterStyle = boolToOptionStatus v } } rest
+    | Status "--ignore-case" v :: rest -> parse { arg with SearchOptions = { arg.SearchOptions with IgnoreCase = boolToOptionStatus v } } rest
     | (KeyValue "--target" t | KeyValue "-t" t) :: rest -> parse { arg with Targets = t :: arg.Targets } rest
     | Status "--xmldoc" v :: rest -> parse { arg with ShowXmlDocument = boolToOptionStatus v } rest
     | Status "--stacktrace" v :: rest -> parse { arg with StackTrace = boolToOptionStatus v } rest

@@ -269,12 +269,13 @@ type SearchOptions = {
   GreedyMatching: OptionStatus
   RespectNameDifference: OptionStatus
   IgnoreParameterStyle: OptionStatus
+  IgnoreCase: OptionStatus
   Parallel: OptionStatus
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module SearchOptions =
-  let defaultOptions = { GreedyMatching = Disabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; Parallel = Disabled }
+  let defaultOptions = { GreedyMatching = Disabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled; Parallel = Disabled }
 
 type Result = {
   Api: Api
@@ -561,33 +562,39 @@ type Api with
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module internal Identity =
-  let private testDisplayName (xs: DisplayName) (ys: DisplayName) =
-    Seq.zip xs ys |> Seq.forall (fun (x, y) -> x.InternalFSharpName = y.InternalFSharpName && x.GenericParametersForDisplay.Length = y.GenericParametersForDisplay.Length)
+  open System
+
+  let private testDisplayName cmp (xs: DisplayName) (ys: DisplayName) =
+    Seq.zip xs ys |> Seq.forall (fun (x, y) -> String.equalsWithComparer cmp x.InternalFSharpName y.InternalFSharpName && x.GenericParametersForDisplay.Length = y.GenericParametersForDisplay.Length)
 
   let testFullIdentity (x: FullIdentity) (y: FullIdentity) =
     match x.Name, y.Name with
     | (LoadingName _, _) | (_, LoadingName _) -> Name.loadingNameError()
-    | DisplayName xName, DisplayName yName -> x.AssemblyName = y.AssemblyName && testDisplayName xName yName
+    | DisplayName xName, DisplayName yName -> x.AssemblyName = y.AssemblyName && testDisplayName StringComparer.InvariantCulture xName yName
 
-  let private testPartialAndFullIdentity (partial: PartialIdentity) (full: FullIdentity) =
+  let private testPartialAndFullIdentity cmp (partial: PartialIdentity) (full: FullIdentity) =
+    let strEqual x y = String.equalsWithComparer cmp x y
     let testNameItem (p: NameItem, f: NameItem) =
       match p.GenericParametersForDisplay, f.GenericParametersForDisplay with
-      | [], _ -> p.InternalFSharpName = f.InternalFSharpName
-      | _ -> p.InternalFSharpName = f.InternalFSharpName && p.GenericParametersForDisplay.Length = f.GenericParametersForDisplay.Length
+      | [], _ -> strEqual p.InternalFSharpName f.InternalFSharpName
+      | _ -> strEqual p.InternalFSharpName f.InternalFSharpName && p.GenericParametersForDisplay.Length = f.GenericParametersForDisplay.Length
     match full.Name with
     | DisplayName fullName ->
       partial.GenericParameterCount = full.GenericParameterCount
       && (Seq.zip partial.Name fullName |> Seq.forall testNameItem)
     | LoadingName _ -> Name.loadingNameError()
 
-  let sameName x y =
+  let private sameName' cmp x y =
     match x, y with
     | FullIdentity left, FullIdentity right -> testFullIdentity left right
     | FullIdentity full, PartialIdentity partial
-    | PartialIdentity partial, FullIdentity full -> testPartialAndFullIdentity partial full
+    | PartialIdentity partial, FullIdentity full -> testPartialAndFullIdentity cmp partial full
     | PartialIdentity left, PartialIdentity right ->
       left.GenericParameterCount = right.GenericParameterCount
-      && testDisplayName left.Name right.Name
+      && testDisplayName cmp left.Name right.Name
+
+  let sameName x y = sameName' StringComparer.InvariantCulture x y
+  let sameNameIgnoreCase x y = sameName' StringComparer.InvariantCultureIgnoreCase x y
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module internal LowType =

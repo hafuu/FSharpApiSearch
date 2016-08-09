@@ -185,6 +185,13 @@ FSharpApiSearch.Console.exeに`--ignore-param-style[+|-]`オプションを付�
 関数、メソッドの引数の形式には、カリー化形式（`arg1 -> arg2 -> returnType`）とタプル形式（`arg1 * arg2 -> returnType`）の2種類があります。
 `ignore-param-style`オプションが有効の場合は、カリー化形式とタプル形式を無視してマッチします。
 
+### `ignore-case`オプション
+FSharpApiSearch.Console.exeに`--ignore-case[+|-]`オプションを付けて起動するか、
+インタラクティブモードで`#ignore-case [enable|disable]`を実行すると設定できます。
+デフォルトは有効です。
+
+`ignore-case`オプションが有効の場合は、API名、型名とのマッチング時に大文字と小文字を区別しません。
+
 ### `xmldoc`オプション
 FSharpApiSearch.Console.exeに`--xmldoc[+|-]`オプションを付けて起動するか、
 インタラクティブモードで`#xmldoc [enable|disable]`を実行すると設定できます。

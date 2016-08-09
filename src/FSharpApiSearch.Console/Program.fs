@@ -67,6 +67,7 @@ module Interactive =
   let RespectNameDifference = { Get = (fun x -> x.RespectNameDifference ); Set = (fun value x -> { x with RespectNameDifference = value }) }
   let GreedyMatching = { Get = (fun x -> x.GreedyMatching ); Set = (fun value x -> { x with GreedyMatching = value }) }
   let IgnoreParameterStyle = { Get = (fun x -> x.IgnoreParameterStyle); Set = (fun value x -> { x with IgnoreParameterStyle = value }) }
+  let IgnoreCase = { Get = (fun x -> x.IgnoreCase); Set = (fun value x -> { x with IgnoreCase = value }) }
   let ShowXmlDocument = { Get = (fun x -> x.ShowXmlDocument); Set = (fun value x -> { x with ShowXmlDocument = value }) }
   let StackTrace = { Get = (fun x -> x.StackTrace); Set = (fun value x -> { x with StackTrace = value }) }
 
@@ -79,6 +80,8 @@ FSharpApiSearch.Console interactive mode directive:
   #ignore-param-style [enable|disable]
       Enables of disables to ignore the difference of the parameter style.
       The parameter style refers to curried parameter, multi parameter and tuple parameter.
+  #ignore-case
+      Enables or disables to use ignore case matching.
   #xmldoc [enable|disable]
       Enables or disables to show xml document of API.
   #stacktrace [enable|disable]
@@ -97,6 +100,7 @@ FSharpApiSearch.Console interactive mode directive:
     | OptionSetting "#respect-name-difference" RespectNameDifference arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#greedy-matching" GreedyMatching arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#ignore-param-style" IgnoreParameterStyle arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
+    | OptionSetting "#ignore-case" IgnoreCase arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#xmldoc" ShowXmlDocument arg newArg -> loop client newArg
     | OptionSetting "#stacktrace" StackTrace arg newArg -> loop client newArg
     | "#help" ->
@@ -124,8 +128,11 @@ options:
       Enables or disables the greedy matching.
       The default is disabled.
   --ignore-param-style[+|-]
-      Enables of disables to ignore the difference of the parameter style.
+      Enables or disables to ignore the difference of the parameter style.
       The parameter style refers to curried parameter, multi parameter and tuple parameter.
+      The default is enabled.
+  --ignore-case[+|-]
+      Enables or disables to use ignore case matching.
       The default is enabled.
   --target:<assembly>, -t:<assembly>
       Specifies the assembly name of the searching target.

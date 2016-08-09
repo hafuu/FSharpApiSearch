@@ -21,9 +21,11 @@ let variableA = variable "A"
 let variableB = variable "B"
 
 let unit = typeAbbreviation SpecialTypes.LowType.Unit (createType "Microsoft.FSharp.Core.unit" [])
-let int = typeAbbreviation (createType "System.Int32" []) (createType "Microsoft.FSharp.Core.int" [])
 let Int32 = createType "System.Int32" []
+let int = typeAbbreviation Int32 (createType "Microsoft.FSharp.Core.int" [])
 let list t = typeAbbreviation (createType "Microsoft.FSharp.Collections.List<'t>" [ t ]) (createType "Microsoft.FSharp.Collections.list<'t>" [ t ])
+
+let csharpList t = createType "System.Collections.Generic.List<'t>" [ t ]
 
 let curriedMethod = curriedMethod "method" [ typeA; typeB ] typeA
 let nonCurriedMethod = method' "method" [ typeA; typeB ] typeA
@@ -55,6 +57,18 @@ let respectNameDifferenceInequalitiesTest =
     do! eqs.Inequalities |> assertEquals [ (queryVariable "a", queryVariable "b"); (Wildcard (Some "a"), Wildcard (Some "b")) ]
   }
 
+let matchTest trace abbTable (options, query, name, target, expected) = test {
+  use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
+  do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
+  try
+    let targetApi: Api = { Name = name; Signature = target; TypeConstraints = []; Document = None }
+    let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = [||]; TypeAbbreviations = Array.append TestHelper.fsharpAbbreviationTable abbTable }
+    let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.length = 1
+    do! actual |> assertEquals expected
+  finally
+    do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
+}
+
 let nameMatchTest =
   let createMap m = moduleFunction [ (arrow [ variableA; variableB ]); (m variableA); (m variableB) ]
   let listMap = createMap list
@@ -75,12 +89,44 @@ let nameMatchTest =
       "* : _", Name.displayNameOfString "A", listMap, true
       "* : _", Name.displayNameOfString "B", listMap, true
     ]
-    run (fun (query, targetName, targetSig, expected) -> test {
-      let target: Api = { Name = targetName; Signature = targetSig; TypeConstraints = []; Document = None }
-      let dummyDict = { AssemblyName = "dummy"; Api = [| target |]; TypeDefinitions = [||]; TypeAbbreviations = [||] }
-      let actual = Matcher.search Array.empty SearchOptions.defaultOptions [ dummyDict ] query |> Seq.length = 1
-      do! actual |> assertEquals expected
-    })
+    run (fun (query, targetName, targetSig, expected) -> matchTest false [||] (SearchOptions.defaultOptions, query, targetName, targetSig, expected))
+  }
+
+let ignoreCaseMatchTest =
+  let dummyName = Name.displayNameOfString "dummy"
+
+  let cases = [
+    "b : _", Name.displayNameOfString "A.B", moduleValue typeA, WhenEnabled true
+    "a.B : _", Name.displayNameOfString "A.B", moduleValue typeA, WhenEnabled true
+
+    "a", dummyName, moduleValue typeA, WhenEnabled true
+    "test.A", dummyName, moduleValue typeA, WhenEnabled true
+
+    "int", dummyName, moduleValue int, Always true
+    "Int", dummyName, moduleValue int, Always false
+    "int32", dummyName, moduleValue Int32, WhenEnabled true
+    "int32", dummyName, moduleValue int, WhenEnabled true
+
+    // "List<'t>" and "list<'t>" are same as ignore case. 
+    "List<'a>", dummyName, moduleValue (csharpList variableA), Always true
+    "List<'a>", dummyName, moduleValue (list variableA), Always true
+
+    "list<'a>", dummyName, moduleValue (csharpList variableA), Always false
+    "list<'a>", dummyName, moduleValue (list variableA), Always true
+
+    "LIST<'a>", dummyName, moduleValue (csharpList variableA), WhenEnabled true
+    "LIST<'a>", dummyName, moduleValue (list variableA), WhenEnabled true
+  ]
+
+  parameterize {
+    source [
+      for opt in [ Enabled; Disabled ] do
+        for (query, targetName, targetSig, expected) in cases do
+          let options = { SearchOptions.defaultOptions with IgnoreCase = opt }
+          let expected = expectedValue opt expected
+          yield (options, query, targetName, targetSig, expected)
+    ]
+    run (fun (options, query, targetName, targetSig, expected) -> matchTest false [||] (options, query, targetName, targetSig, expected))
   }
 
 let assemblyNameTest =
@@ -91,24 +137,12 @@ let assemblyNameTest =
     do! actual |> assertEquals [ { AssemblyName = "dummyAssembly"; Api = api; Distance = 0 } ]
   }
 
-let matchTest trace abbTable (options, query, target, expected) = test {
-  use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
-  do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
-  try
-    let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
-    let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = [||]; TypeAbbreviations = Array.append TestHelper.fsharpAbbreviationTable abbTable }
-    let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.length = 1
-    do! actual |> assertEquals expected
-  finally
-    do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
-}
-
 let greedyMatchingTest trace abbTable greedyOpt cases = parameterize {
   source (seq {
     for respectNameDiffOpt in [ Enabled; Disabled ] do
       for (query, target, expected) in cases do
         let options = { SearchOptions.defaultOptions with GreedyMatching = greedyOpt; RespectNameDifference = respectNameDiffOpt }
-        yield (options, query, target, expectedValue respectNameDiffOpt expected)
+        yield (options, query, Name.displayNameOfString "test", target, expectedValue respectNameDiffOpt expected)
   })
   run (matchTest trace abbTable)
 }
@@ -118,7 +152,7 @@ let functionParamStyleTest trace cases = parameterize {
       for opt in [ Enabled; Disabled ] do
       for (query, target, expected) in cases do
         let options = { SearchOptions.defaultOptions with IgnoreParameterStyle = opt }
-        yield (options, query, target, expectedValue opt expected)
+        yield (options, query, Name.displayNameOfString "test", target, expectedValue opt expected)
   })
   run (matchTest trace [||])
 }
@@ -336,7 +370,7 @@ module GreedyTest =
     run (fun (query, target, expected) -> test {
       let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
       let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
-      let options = { GreedyMatching = Enabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; Parallel = Disabled }
+      let options = { GreedyMatching = Enabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled; Parallel = Disabled }
       let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.head
       do! actual.Distance |> assertEquals expected
     })
@@ -469,7 +503,7 @@ module IgnoreParameterStyleTest =
     run (fun (query, target, expected) -> test {
       let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
       let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
-      let options = { GreedyMatching = Disabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; Parallel = Disabled }
+      let options = { GreedyMatching = Disabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled; Parallel = Disabled }
       let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.head
       do! actual.Distance |> assertEquals expected
     })
@@ -934,7 +968,7 @@ module TypeConstraintTest =
       dictionary
     |]
 
-    let options = { GreedyMatching = Enabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; Parallel = Disabled }
+    let options = { GreedyMatching = Enabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled; Parallel = Disabled }
     let dummyDict = { AssemblyName = "dummy"; Api = [| targetApi |]; TypeDefinitions = [||]; TypeAbbreviations = [||] }
     let actual = Matcher.search dictionaries options [ dummyDict ] query |> Seq.length = 1
     do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
