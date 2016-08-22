@@ -9,6 +9,18 @@ module internal OptionModule =
 
   let option = OptionBuilder()
 
+module internal Seq =
+  let foldOptionMapping f xs =
+    xs
+    |> Seq.fold (fun acc x ->
+      option {
+        let! acc = acc
+        let! result = f x
+        return result :: acc
+      }
+    ) (Some [])
+    |> Option.map Seq.rev
+
 module internal String =
   open System
   let equalsWithComparer (cmp: StringComparer) x y = cmp.Compare(x, y) = 0

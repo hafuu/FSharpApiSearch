@@ -38,6 +38,15 @@ module Rules =
       lowTypeMatcher.Test left right ctx
     | _ -> Continue ctx
 
+  let arrowQueryAndDelegateRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
+    match left, right with
+    | SignatureQuery.Signature (Arrow _ as left), ApiSignature.ModuleValue (Delegate (_, xs)) ->
+      let right = Arrow xs
+      Debug.WriteLine("arrow query and delegate rule.")
+      lowTypeMatcher.Test left right ctx
+      |> MatchingResult.mapMatched (Context.addDistance 1)
+    | _ -> Continue ctx
+
   let activePatternRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
     | SignatureQuery.Signature (Arrow _ as left), ApiSignature.ActivePatten (_, right) ->
@@ -245,6 +254,8 @@ let instance (options: SearchOptions) =
         yield Rules.instanceMemberRule
         yield Rules.arrowAndInstanceMemberRule
         
+      yield Rules.arrowQueryAndDelegateRule
+
       yield Rule.terminator
     ]
   { new IApiMatcher with

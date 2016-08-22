@@ -25,6 +25,10 @@ let Int32 = createType "System.Int32" []
 let int = typeAbbreviation Int32 (createType "Microsoft.FSharp.Core.int" [])
 let list t = typeAbbreviation (createType "Microsoft.FSharp.Collections.List<'t>" [ t ]) (createType "Microsoft.FSharp.Collections.list<'t>" [ t ])
 
+let func2 t tresult = delegate' (createType "System.Func<'T, 'TResult>" [ t; tresult ]) [ t; tresult ]
+let func3 t1 t2 tresult = delegate' (createType "System.Func<'T1, 'T2, 'TResult>" [ t1; t2; tresult]) [ t1; t2; tresult ]
+let action0 = delegate' (createType "System.Action" []) [ unit; unit ]
+
 let csharpList t = createType "System.Collections.Generic.List<'t>" [ t ]
 
 let curriedMethod = curriedMethod "method" [ typeA; typeB ] typeA
@@ -484,6 +488,31 @@ module IgnoreParameterStyleTest =
       "A -> B -> C<A>", moduleFunction [ typeB; typeA; typeC typeA ], Always false
     ]
 
+  let delegateTest =
+    matchTest [
+      "A -> A", moduleValue (func2 typeA typeA), Always true
+      "A -> B", moduleValue (func2 typeA typeA), Always false
+
+      "A -> A -> B", moduleValue (func3 typeA typeA typeB), Always true
+      "A * A -> B", moduleValue (func3 typeA typeA typeB), WhenEnabled true
+      "A -> A -> B", moduleValue (func2 typeA typeB), Always false
+
+      "Func<A, A>", moduleValue (func2 typeA typeA), Always true
+      "Func<A, B>", moduleValue (func2 typeA typeA), Always false
+      "Func<A, B>", moduleValue (func3 typeA typeA typeB), Always false
+      "Function<A, A>", moduleValue (func2 typeA typeA), Always false
+      
+      "Action", moduleValue (action0), Always true
+      "unit -> unit", moduleValue (action0), Always true
+
+      "list<A> -> Func<A, B> -> list<B>", moduleFunction [list typeA; func2 typeA typeB; list typeB], Always true
+      "list<A> -> (A -> B) -> list<B>", moduleFunction [list typeA; func2 typeA typeB; list typeB], Always true
+      "list<A> -> (A -> A) -> list<B>", moduleFunction [list typeA; func2 typeA typeB; list typeB], Always false
+
+      "list<A> -> (A -> int -> B) -> list<B>", moduleFunction [list typeA; func3 typeA int typeB; list typeB], Always true
+      "list<A> -> (A * int -> B) -> list<B>", moduleFunction [list typeA; func3 typeA int typeB; list typeB], WhenEnabled true
+    ]
+
   let distanceTest = parameterize {
     source [
       "A -> B -> A", staticMember typeA curriedMethod, 0
@@ -498,6 +527,14 @@ module IgnoreParameterStyleTest =
       "A => B -> C<A>", moduleFunction [ typeB; typeA; typeC typeA ], 1
 
       "A -> A", instanceMember typeA property, 1
+
+      "Func<A, A, B>", moduleValue (func3 typeA typeA typeB), 0
+      "A -> A -> B", moduleValue (func3 typeA typeA typeB), 1
+      "A * A -> B", moduleValue (func3 typeA typeA typeB), 2
+
+      "list<A> -> Func<A, int, B> -> list<B>", moduleFunction [list typeA; func3 typeA int typeB; list typeB], 0
+      "list<A> -> (A -> int -> B) -> list<B>", moduleFunction [list typeA; func3 typeA int typeB; list typeB], 1
+      "list<A> -> (A * int -> B) -> list<B>", moduleFunction [list typeA; func3 typeA int typeB; list typeB], 2
     ]
 
     run (fun (query, target, expected) -> test {

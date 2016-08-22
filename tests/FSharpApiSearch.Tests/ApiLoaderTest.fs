@@ -56,6 +56,11 @@ let unit =
   let unit = createType "Microsoft.FSharp.Core.unit" [] |> updateAssembly fscore
   typeAbbreviation Unit unit
 
+let bool =
+  let Boolean = createType "System.Boolean" [] |> updateAssembly mscorlib
+  let bool = createType "Microsoft.FSharp.Core.bool" [] |> updateAssembly fscore
+  typeAbbreviation Boolean bool
+
 let ienumerable t = createType "System.Collections.Generic.IEnumerable<'T>" [ t ] |> updateAssembly mscorlib
 let seq t =
   let seq = createType "Microsoft.FSharp.Collections.seq<'T>" [ t ] |> updateAssembly fscore
@@ -638,6 +643,23 @@ module FSharp =
         (DisplayName.ofOperatorString "Operators.A.( - )"), [ staticMember t (method' "op_Subtraction" [ t; t ] t) ]
       ]
       run testApi  
+    }
+
+  let delegateTest =
+    let testDelegate = delegate' (createType "Delegate.TestDelegate" [] |> updateAssembly fsharpAssemblyName) [ int; int; bool ] |> updateAssembly fsharpAssemblyName
+    let genericDelegate a b = delegate' (createType "Delegate.GenericDelegate<'a, 'b>" [ a; b ] |> updateAssembly fsharpAssemblyName) [ a; b; bool ] |> updateAssembly fsharpAssemblyName
+    let func t tresult = delegate' (createType "System.Func<'T, 'TResult>" [ t; tresult ] |> updateAssembly mscorlib) [ t; tresult ] |> updateAssembly mscorlib
+    parameterize {
+      source [
+        "Delegate.f1", [ moduleValue testDelegate ]
+        "Delegate.f2", [ moduleFunction [ variable "a"; testDelegate; int ] ]
+
+        "Delegate.f3", [ moduleFunction [ genericDelegate (variable "a") (variable "b"); int ] ]
+        "Delegate.f4", [ moduleFunction [ genericDelegate int string; int ] ]
+
+        "Delegate.f5", [ moduleFunction [ func int (variable "a"); bool ] ]
+      ]
+      run testApi
     }
 
 module SpecialType =

@@ -38,6 +38,8 @@ module DSL =
 
   let arrow xs = Arrow xs
 
+  let delegate' t xs = Delegate (t, xs)
+
   let member' name kind parameters returnType = { Name = name; Kind = kind; GenericParameters = []; Parameters = parameters; IsCurried = false; ReturnType = returnType }
   let property' name kind parameters returnType = { Name = name; Kind = MemberKind.Property kind; GenericParameters = []; Parameters = parameters; IsCurried = false; ReturnType = returnType }
   let method' name parameters returnType = member' name MemberKind.Method parameters returnType

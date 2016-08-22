@@ -16,6 +16,7 @@ module LowType =
     | Tuple xs -> List.collect collectVariableOrWildcardGroup xs
     | Generic (id, args) -> List.collect collectVariableOrWildcardGroup (id :: args)
     | TypeAbbreviation t -> collectVariableOrWildcardGroup t.Original
+    | Delegate (t, _) -> collectVariableOrWildcardGroup t
 
 module Equations =
   let sortTerm x y = if x < y then (x, y) else (y, x)
@@ -149,16 +150,19 @@ module Rules =
       lowTypeMatcher.Test abbreviation.Original other ctx
     | _ -> Continue ctx
 
+  let testIdentity nameEquality leftIdentity rightIdentity ctx =
+    if nameEquality leftIdentity rightIdentity then
+      Debug.WriteLine("There are same identities.")
+      Matched ctx
+    else
+      Debug.WriteLine("There are deferent identities.")
+      Failure
+
   let identityRule nameEquality _ left right ctx =
     match left, right with
     | Identity leftIdentity, Identity rightIdentity ->
       Debug.WriteLine("identity rule.")
-      if nameEquality leftIdentity rightIdentity then
-        Debug.WriteLine("There are same identities.")
-        Matched ctx
-      else
-        Debug.WriteLine("There are deferent identities.")
-        Failure
+      testIdentity nameEquality leftIdentity rightIdentity ctx
     | _ -> Continue ctx
 
   let variableRule lowTypeMatcher left right ctx =
@@ -180,6 +184,7 @@ module Rules =
     | Tuple _ -> 1
     | Generic _ -> 1
     | TypeAbbreviation x -> distanceFromVariable x.Original
+    | Delegate _ -> 1
   and seqDistance xs = xs |> Seq.sumBy (distanceFromVariable >> max 1)
 
   let greedyVariableRule lowTypeMatcher left right ctx =
@@ -202,31 +207,36 @@ module Rules =
       testAll lowTypeMatcher leftElems rightElems ctx
     | _ -> Continue ctx
 
+  let testArrow lowTypeMatcher leftElems rightElems ctx = testAll lowTypeMatcher leftElems rightElems ctx
+
   let arrowRule lowTypeMatcher left right ctx =
     match left, right with
     | Arrow leftElems, Arrow rightElems ->
       Debug.WriteLine("arrow rule.")
-      testAll lowTypeMatcher leftElems rightElems ctx
+      testArrow lowTypeMatcher leftElems rightElems ctx
     | _ -> Continue ctx
+
+  let testArrow_IgnoreParameterStyle lowTypeMatcher leftElems rightElems ctx =
+    match leftElems, rightElems with
+    | [ Tuple _; _ ], [ Tuple _; _ ]
+    | [ Wildcard _; _ ], _
+    | _, [ Wildcard _; _ ] ->
+      testAll lowTypeMatcher leftElems rightElems ctx
+    | [ Tuple leftArgs; leftRet ], _ ->
+      let leftElems = seq { yield! leftArgs; yield leftRet }
+      testAll lowTypeMatcher leftElems rightElems ctx
+      |> MatchingResult.mapMatched (Context.addDistance 1)
+    | _, [ Tuple rightArgs; rightRet ] ->
+      let rightElems = seq { yield! rightArgs; yield rightRet }
+      testAll lowTypeMatcher leftElems rightElems ctx
+      |> MatchingResult.mapMatched (Context.addDistance 1)
+    | _, _ -> testAll lowTypeMatcher leftElems rightElems ctx 
 
   let arrowRule_IgnoreParameterStyle lowTypeMatcher left right ctx =
     match left, right with
     | Arrow leftElems, Arrow rightElems ->
       Debug.WriteLine("arrow rule (ignore parameter style).")
-      match leftElems, rightElems with
-      | [ Tuple _; _ ], [ Tuple _; _ ]
-      | [ Wildcard _; _ ], _
-      | _, [ Wildcard _; _ ] ->
-        testAll lowTypeMatcher leftElems rightElems ctx
-      | [ Tuple leftArgs; leftRet ], _ ->
-        let leftElems = seq { yield! leftArgs; yield leftRet }
-        testAll lowTypeMatcher leftElems rightElems ctx
-        |> MatchingResult.mapMatched (Context.addDistance 1)
-      | _, [ Tuple rightArgs; rightRet ] ->
-        let rightElems = seq { yield! rightArgs; yield rightRet }
-        testAll lowTypeMatcher leftElems rightElems ctx
-        |> MatchingResult.mapMatched (Context.addDistance 1)
-      | _, _ -> testAll lowTypeMatcher leftElems rightElems ctx 
+      testArrow_IgnoreParameterStyle lowTypeMatcher leftElems rightElems ctx
     | _ -> Continue ctx
 
   let genericRule lowTypeMatcher left right ctx =
@@ -256,6 +266,38 @@ module Rules =
         testVariableEquality lowTypeMatcher left right ctx
     | _ -> Continue ctx
 
+  let delegateRule nameEquality lowTypeMatcher left right ctx =
+    match left, right with
+    | Delegate (Identity leftId, _), Delegate (Identity rightId, _)
+    | Delegate (Identity leftId, _), Identity rightId
+    | Identity leftId, Delegate (Identity rightId, _) ->
+      Debug.WriteLine("deligate rule.")
+      testIdentity nameEquality leftId rightId ctx
+    | Delegate (Generic (leftId, leftArgs), _), Delegate (Generic (rightId, rightArgs), _)
+    | Delegate (Generic (leftId, leftArgs), _), Generic (rightId, rightArgs)
+    | Generic (leftId, leftArgs), Delegate (Generic (rightId, rightArgs), _) ->
+      Debug.WriteLine("generic delegate rule.")
+      testAll lowTypeMatcher (leftId :: leftArgs) (rightId :: rightArgs) ctx
+    | _ -> Continue ctx
+
+  let delegateAndArrowRule lowTypeMatcher left right ctx =
+    match left, right with
+    | Delegate (_, leftElems), Arrow rightElems
+    | Arrow leftElems, Delegate (_, rightElems) ->
+      Debug.WriteLine("delegate and arrow rule.")
+      testArrow lowTypeMatcher leftElems rightElems ctx
+      |> MatchingResult.mapMatched (Context.addDistance 1)
+    | _ -> Continue ctx
+
+  let delegateAndArrowRule_IgnoreParameterStyle lowTypeMatcher left right ctx =
+    match left, right with
+    | Delegate (_, leftElems), Arrow rightElems
+    | Arrow leftElems, Delegate (_, rightElems) ->
+      Debug.WriteLine("delegate and arrow rule (ignore parameter style).")
+      testArrow_IgnoreParameterStyle lowTypeMatcher leftElems rightElems ctx
+      |> MatchingResult.mapMatched (Context.addDistance 1)
+    | _ -> Continue ctx
+
 let instance options =
   let nameEquality =
     match options.IgnoreCase with
@@ -280,6 +322,11 @@ let instance options =
       | Enabled -> yield Rules.arrowRule_IgnoreParameterStyle
       | Disabled -> yield Rules.arrowRule
         
+      yield Rules.delegateRule nameEquality
+      match options.IgnoreParameterStyle with
+      | Enabled -> yield Rules.delegateAndArrowRule_IgnoreParameterStyle
+      | Disabled -> yield Rules.delegateAndArrowRule
+
       yield Rule.terminator
     ]
   { new ILowTypeMatcher with member this.Test left right ctx = Rule.run rule this left right ctx }

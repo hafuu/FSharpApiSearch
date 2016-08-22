@@ -118,27 +118,48 @@ module internal Impl =
     elif t.HasTypeDefinition then
       let signature =
         match Hack.genericArguments t with
-        | [] ->
-          option {
-            let! id = t.TryIdentity
-            return id
-          }
+        | [] -> t.TryIdentity
         | xs -> 
           option {
             let! xs = listLowType xs
             let! id = t.TryIdentity
             return Generic (id, xs)
           }
-      option {
-        let! signature = signature
-        if Hack.isAbbreviation t then
+      if t.TypeDefinition.IsDelegate then
+        option {
+          let! arrow = delegateArrow t
+          let! t = signature
+          return Delegate (t, arrow)
+        }
+      elif Hack.isAbbreviation t then
+        option {
+          let! signature = signature
           let! original = abbreviationRoot t
           return TypeAbbreviation { Abbreviation = signature; Original = original }
-        else
-          return signature
-      }
+        }
+      else
+        signature
     else
       None
+  and delegateArrow (t: FSharpType) =
+    let td = t.TypeDefinition
+    option {
+      let! invokeMethod = td.MembersFunctionsAndValues |> Seq.tryFind (fun m -> m.DisplayName = "Invoke")
+      let! arrow = option {
+        let! genericArguments = t.GenericArguments |> listLowType
+        let replacements = Seq.zip (genericParameters td) genericArguments |> Map.ofSeq
+        let! methodParameters =
+          [
+            for xs in invokeMethod.CurriedParameterGroups do
+              for x in xs do
+                yield x.Type
+            yield invokeMethod.ReturnParameter.Type
+          ]
+          |> listLowType
+        return LowType.applyVariableToTargetList VariableSource.Target replacements methodParameters
+      }
+      return arrow
+    }
   and abbreviationRoot (t: FSharpType) =
     if t.IsAbbreviation then
       abbreviationRoot t.AbbreviatedType
@@ -166,14 +187,7 @@ module internal Impl =
         return [ xSig; ySig ]
       }
     | _ -> None
-  and listLowType (ts: FSharpType seq) =
-    let f (t: FSharpType) (acc: LowType list option) =
-      option {
-        let! acc = acc
-        let! signature = fsharpTypeToLowType t
-        return signature :: acc
-      }
-    Seq.foldBack f ts (Some [])
+  and listLowType (ts: FSharpType seq) = ts |> Seq.foldOptionMapping fsharpTypeToLowType |> Option.map Seq.toList
   and fsharpEntityToLowType (x: FSharpEntity) =
     let identity = x.Identity
     let args = x |> genericParameters |> List.map (fun v -> Variable (VariableSource.Target, v))
@@ -803,10 +817,7 @@ module internal Impl =
     let rec resolve_LowType cache = function
       | Wildcard _ as w -> w
       | Variable _ as v -> v
-      | Identity i ->
-        match i with
-        | PartialIdentity _ -> Identity i
-        | FullIdentity full -> Identity (FullIdentity { full with Name = resolve_Name cache full.Name })
+      | Identity i -> Identity (resolve_Identity cache i)
       | Arrow xs -> Arrow (List.map (resolve_LowType cache) xs)
       | Tuple xs -> Tuple (List.map (resolve_LowType cache) xs)
       | Generic (id, args) ->
@@ -814,6 +825,13 @@ module internal Impl =
         let args = List.map (resolve_LowType cache) args
         Generic (id, args)
       | TypeAbbreviation a -> TypeAbbreviation { Abbreviation = resolve_LowType cache a.Abbreviation; Original = resolve_LowType cache a.Original }
+      | Delegate (t, arrow) ->
+        let t = resolve_LowType cache t
+        let arrow = List.map (resolve_LowType cache) arrow
+        Delegate (t, arrow)
+    and resolve_Identity cache = function
+      | PartialIdentity _ as i -> i
+      | FullIdentity full -> FullIdentity { full with Name = resolve_Name cache full.Name }
 
     let resolve_Member cache (member': Member) =
       { member' with

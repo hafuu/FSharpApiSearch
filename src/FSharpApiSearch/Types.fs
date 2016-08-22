@@ -67,10 +67,12 @@ type LowType =
   | Wildcard of string option
   | Variable of VariableSource * TypeVariable
   | Identity of Identity
-  | Arrow of LowType list
+  | Arrow of Arrow
   | Tuple of LowType list
   | Generic of LowType * LowType list
   | TypeAbbreviation of TypeAbbreviation
+  | Delegate of delegateType: LowType * Arrow
+and Arrow = LowType list
 and TypeAbbreviation = {
   Abbreviation: LowType
   Original: LowType
@@ -444,10 +446,12 @@ module internal Print =
           sprintf "(%s)" (printLowType isDebug elem)
         | _ -> printLowType isDebug elem
       paramPart + name
-    | Generic (id, args) ->
-      let args = args |> Seq.map (printLowType isDebug) |> String.concat ", "
-      sprintf "%s<%s>" (printLowType isDebug id) args
+    | Generic (id, args) -> printGeneric isDebug id args
     | TypeAbbreviation t -> printLowType isDebug t.Abbreviation
+    | Delegate (t, _) -> printLowType isDebug t
+  and printGeneric isDebug id args =
+    let args = args |> Seq.map (printLowType isDebug) |> String.concat ", "
+    sprintf "%s<%s>" (printLowType isDebug id) args
   and printArrow isDebug xs =
     xs
     |> Seq.map (function
@@ -607,13 +611,17 @@ module internal LowType =
       | None -> oldValue
     | Generic (baseType, args) ->
       let baseType = applyVariable source replacements baseType
-      let args = replaceTargetVariablesList source replacements args
+      let args = applyVariableToTargetList source replacements args
       Generic (baseType, args)
-    | Tuple xs -> Tuple (replaceTargetVariablesList source replacements xs)
-    | Arrow xs -> Arrow (replaceTargetVariablesList source replacements xs)
+    | Tuple xs -> Tuple (applyVariableToTargetList source replacements xs)
+    | Arrow xs -> Arrow (applyVariableToTargetList source replacements xs)
     | TypeAbbreviation t -> TypeAbbreviation { Abbreviation = applyVariable source replacements t.Abbreviation; Original = applyVariable source replacements t.Original }
+    | Delegate (t, xs) ->
+      let delegateType = applyVariable source replacements t
+      let xs = applyVariableToTargetList source replacements xs
+      Delegate (delegateType, xs)
     | other -> other
-  and private replaceTargetVariablesList source replacements xs = xs |> List.map (applyVariable source replacements)
+  and applyVariableToTargetList source replacements xs = xs |> List.map (applyVariable source replacements)
 
   let collectVariables x =
     let rec f = function
@@ -622,6 +630,7 @@ module internal LowType =
       | Tuple xs -> List.collect f xs
       | Generic (id, args) -> List.concat [ f id; List.collect f args ]
       | TypeAbbreviation t -> List.append (f t.Abbreviation) (f t.Original)
+      | Delegate (t, _) -> f t
       | _ -> []
     f x |> List.distinct
 
