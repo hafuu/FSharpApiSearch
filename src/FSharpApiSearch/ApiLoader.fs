@@ -213,21 +213,25 @@ module internal Impl =
             let data = c.MemberConstraintData
             let modifier = if data.MemberIsStatic then MemberModifier.Static else MemberModifier.Instance
             let! returnType = fsharpTypeToLowType data.MemberReturnType
-            let! args = listLowType data.MemberArgumentTypes
-            let args =
-              if data.MemberIsStatic then
-                if args.Length = 0 then
-                  [ LowType.unit ] // Core.Unit is removed if the argument is only Core.Unit.
+            let returnParam = Parameter.ofLowType returnType
+            let! parameters = listLowType data.MemberArgumentTypes
+            let parameters =
+              let ps =
+                if data.MemberIsStatic then
+                  if parameters.Length = 0 then
+                    [ LowType.unit ] // Core.Unit is removed if the argument is only Core.Unit.
+                  else
+                    parameters
                 else
-                  args
-              else
-                if args.Length = 1 then
-                  [ LowType.unit ] // Core.Unit is removed if the argument is only Core.Unit.
-                else
-                  List.tail args // instance member contains receiver
+                  if parameters.Length = 1 then
+                    [ LowType.unit ] // Core.Unit is removed if the argument is only Core.Unit.
+                  else
+                    List.tail parameters // instance member contains receiver
+              [ List.map Parameter.ofLowType ps ]
+              
             let variables = data.MemberSources |> Seq.map (fun x -> x.GenericParameter.Name) |> Seq.toList
             let name = data.MemberName
-            let member' = { Name = name; Kind = MemberKind.Method; Parameters = args; ReturnType = returnType; IsCurried = false; GenericParameters = [] }
+            let member' = { Name = name; Kind = MemberKind.Method; Parameters = parameters; ReturnParameter = returnParam; GenericParameters = [] }
             return { Variables = variables; Constraint = MemberConstraints (modifier, member') }
           }
         elif c.IsNonNullableValueTypeConstraint then
@@ -261,45 +265,69 @@ module internal Impl =
     ]
     listLowType xs
 
+  let curriedParameterGroups (t: FSharpMemberOrFunctionOrValue) =
+    seq {
+      for group in t.CurriedParameterGroups do
+        if Seq.length group > 0 then
+          let group = seq {
+              for p in group do
+                yield option {
+                  let! t = fsharpTypeToLowType p.Type
+                  return { Name = p.Name; Type = t }
+                }
+            }
+          yield Seq.foldOptionMapping id group |> Option.map Seq.toList
+        else
+          ()
+    }
+    |> Seq.foldOptionMapping id
+    |> Option.map Seq.toList
+
+  let complementUnitParameter (x: FSharpMemberOrFunctionOrValue) ps =
+    if Hack.isUnitOnlyParameter x then
+      [ [ Parameter.ofLowType LowType.unit ] ]
+    else
+      ps
+
   let methodMember (x: FSharpMemberOrFunctionOrValue) =
     option {
       let name = x.GetDisplayName
-      let! parameters =
-        if x.CurriedParameterGroups.Count = 1 && x.CurriedParameterGroups.[0].Count = 0 then
-          fsharpTypeToLowType x.FullType.GenericArguments.[0] |> Option.map List.singleton
-        else
-          parameterSignature x
-
+      let! parameters = curriedParameterGroups x
+      let parameters = complementUnitParameter x parameters
       let! returnType = fsharpTypeToLowType x.ReturnParameter.Type
-      let isCurried = x.CurriedParameterGroups.Count >= 2
+      let returnParam = Parameter.ofLowType returnType
       let genericParams = x.GenericParametersAsTypeVariable
-      let member' = { Name = name.InternalFSharpName; Kind = MemberKind.Method; GenericParameters = genericParams; Parameters = parameters; IsCurried = isCurried; ReturnType = returnType }
+      let member' = { Name = name.InternalFSharpName; Kind = MemberKind.Method; GenericParameters = genericParams; Parameters = parameters; ReturnParameter = returnParam }
       return (name, member')
     }
 
   let propertyMember (x: FSharpMemberOrFunctionOrValue) =
     option {
-      let memberKind = MemberKind.Property x.PropertyKind
-      let! parameters = parameterSignature x
-      let! returnType = fsharpTypeToLowType x.ReturnParameter.Type
-      let genericParams = x.GenericParametersAsTypeVariable
       let name = x.GetDisplayName
-      let member' = { Name = name.InternalFSharpName; Kind = memberKind; GenericParameters = genericParams; Parameters = parameters; IsCurried = false; ReturnType = returnType }
+      let! parameters = curriedParameterGroups x
+      let! returnType = fsharpTypeToLowType x.ReturnParameter.Type
+      let returnParam = Parameter.ofLowType returnType
+      let genericParams = x.GenericParametersAsTypeVariable
+      let memberKind = MemberKind.Property x.PropertyKind
+      let member' = { Name = name.InternalFSharpName; Kind = memberKind; GenericParameters = genericParams; Parameters = parameters; ReturnParameter = returnParam }
       return (name, member')
     }
 
   let toModuleValue xml (declaringModuleName: DisplayName) (x: FSharpMemberOrFunctionOrValue) =
     option {
       let name = x.GetDisplayName :: declaringModuleName
-      let! signature = (fsharpTypeToLowType x.FullType)
+      let! parameters = curriedParameterGroups x
+      let! returnType = fsharpTypeToLowType x.ReturnParameter.Type
+      let returnParam = Parameter.ofLowType returnType
+      let arrow = [ yield! parameters; yield [ returnParam ] ]
       let target =
         if x.IsActivePattern then
           let kind = if x.DisplayName.Contains("|_|") then ActivePatternKind.PartialActivePattern else ActivePatternKind.ActivePattern
-          ApiSignature.ActivePatten (kind, signature)
+          ApiSignature.ActivePatten (kind, arrow)
         else
-          match signature with
-          | Arrow xs -> ApiSignature.ModuleFunction xs
-          | x -> ApiSignature.ModuleValue x
+          match arrow with
+          | [ [ value ] ] -> ApiSignature.ModuleValue value.Type
+          | _ -> ApiSignature.ModuleFunction arrow
       return { Name = DisplayName name; Signature = target; TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
     }
 
@@ -336,10 +364,10 @@ module internal Impl =
     else
       toModuleValue xml declaringModuleName x
 
-  let constructorSignature xml (declaringSignatureName: DisplayName) declaringSignature (x: FSharpMemberOrFunctionOrValue) =
+  let constructorSignature xml (declaringSignatureName: DisplayName) (declaringSignature: LowType) (x: FSharpMemberOrFunctionOrValue) =
     option {
       let! _, target = methodMember x
-      let target = { target with Name = declaringSignatureName.Head.FSharpName; ReturnType = declaringSignature }
+      let target = { target with Name = declaringSignatureName.Head.FSharpName; ReturnParameter = Parameter.ofLowType declaringSignature }
       return { Name = DisplayName declaringSignatureName; Signature = ApiSignature.Constructor (declaringSignature, target); TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
     }
 
@@ -364,7 +392,8 @@ module internal Impl =
   let toFieldApi xml (accessPath: DisplayName) (declaringEntity: FSharpEntity) (declaringSignature: LowType) (field: FSharpField) =
     option {
       let! returnType = fsharpTypeToLowType field.FieldType
-      let member' = { Name = field.Name; Kind = MemberKind.Field; GenericParameters = []; Parameters = []; IsCurried = false; ReturnType = returnType }
+      let returnParam = Parameter.ofLowType returnType
+      let member' = { Name = field.Name; Kind = MemberKind.Field; GenericParameters = []; Parameters = []; ReturnParameter = returnParam }
       let apiName =
         let name = field.Name
         { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = [] } :: accessPath
@@ -454,7 +483,7 @@ module internal Impl =
   let hasDefaultConstructor (xs: Member seq) =
     xs
     |> Seq.exists (function
-      | { Parameters = [ LowType.Patterns.Unit ] } -> true
+      | { Parameters = [ [ { Type = LowType.Patterns.Unit } ] ] } -> true
       | _ -> false)
 
   type EqualityAndComparisonLoaderBuilder = {
@@ -718,6 +747,7 @@ module internal Impl =
       | ApiSignature.InstanceMember (declaringType, member') ->
         let apply = LowType.applyVariable VariableSource.Target replacements
         let declaringType = apply declaringType
+        let applyParam p = { p with Type = apply p.Type }
         let genericParameters =
           member'.GenericParameters
           |> List.map (fun p ->
@@ -728,8 +758,8 @@ module internal Impl =
         let member' =
           { member' with
               GenericParameters = genericParameters
-              Parameters = member'.Parameters |> List.map apply
-              ReturnType = member'.ReturnType |> apply
+              Parameters = member'.Parameters |> List.map (List.map applyParam)
+              ReturnParameter = member'.ReturnParameter |> applyParam
           }
         ApiSignature.InstanceMember (declaringType, member')
       | _ -> failwith "It is not interface member."
@@ -833,10 +863,13 @@ module internal Impl =
       | PartialIdentity _ as i -> i
       | FullIdentity full -> FullIdentity { full with Name = resolve_Name cache full.Name }
 
+    let resolve_Parameter cache (p: Parameter) = { p with Type = resolve_LowType cache p.Type }
+    let resolve_ParameterGroups cache (groups: ParameterGroups) = List.map (List.map (resolve_Parameter cache)) groups
+
     let resolve_Member cache (member': Member) =
       { member' with
-          Parameters = List.map (resolve_LowType cache) member'.Parameters
-          ReturnType = resolve_LowType cache member'.ReturnType
+          Parameters = resolve_ParameterGroups cache member'.Parameters
+          ReturnParameter = resolve_Parameter cache member'.ReturnParameter
       }
 
     let resolve_TypeExtension cache (typeExtension: TypeExtension) =
@@ -870,10 +903,12 @@ module internal Impl =
           Original = resolve_LowType cache abbDef.Original
       }
 
+    let resolve_Function cache fn = resolve_ParameterGroups cache fn
+
     let resolve_Signature cache = function
       | ApiSignature.ModuleValue x -> ApiSignature.ModuleValue (resolve_LowType cache x)
-      | ApiSignature.ModuleFunction xs -> ApiSignature.ModuleFunction (List.map (resolve_LowType cache) xs)
-      | ApiSignature.ActivePatten (kind, x) -> ApiSignature.ActivePatten (kind, resolve_LowType cache x)
+      | ApiSignature.ModuleFunction fn -> ApiSignature.ModuleFunction (resolve_Function cache fn)
+      | ApiSignature.ActivePatten (kind, fn) -> ApiSignature.ActivePatten (kind, resolve_Function cache fn)
       | ApiSignature.InstanceMember (d, m) -> ApiSignature.InstanceMember (resolve_LowType cache d, resolve_Member cache m)
       | ApiSignature.StaticMember (d, m) -> ApiSignature.StaticMember (resolve_LowType cache d, resolve_Member cache m)
       | ApiSignature.Constructor (d, m) -> ApiSignature.Constructor (resolve_LowType cache d, resolve_Member cache m)

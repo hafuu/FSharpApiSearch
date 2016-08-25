@@ -40,19 +40,33 @@ module DSL =
 
   let delegate' t xs = Delegate (t, xs)
 
-  let member' name kind parameters returnType = { Name = name; Kind = kind; GenericParameters = []; Parameters = parameters; IsCurried = false; ReturnType = returnType }
-  let property' name kind parameters returnType = { Name = name; Kind = MemberKind.Property kind; GenericParameters = []; Parameters = parameters; IsCurried = false; ReturnType = returnType }
+  let ptype t (x: Parameter) = { x with Type = t }
+  let pname n (x: Parameter) = { x with Name = Some n }
+
+  let createFunction fn = (List.map (List.map (fun f -> f { Name = None; Type = SpecialTypes.LowType.unit })) fn)
+
+  let member' name kind parameters returnType =
+    { Name = name; Kind = kind; GenericParameters = []; Parameters = (createFunction parameters); ReturnParameter = Parameter.ofLowType returnType }
+
+  let property' name kind parameters returnType = member' name (MemberKind.Property kind) parameters returnType
   let method' name parameters returnType = member' name MemberKind.Method parameters returnType
-  let curriedMethod name parameters returnType = { method' name parameters returnType with IsCurried = true }
-  let field name returnType = { Name = name; Kind = MemberKind.Field; GenericParameters = []; Parameters = []; IsCurried = false; ReturnType = returnType }
+  let field name returnType = member' name MemberKind.Field [] returnType
 
   let private memberGenericParameters (declaring: LowType) (member': Member) =
     let toTypeVariable = function Variable (_, v) -> v | _ -> failwith "it is not variable."
     let declaringVariables = LowType.collectVariables declaring |> List.map toTypeVariable |> Set.ofList
-    let memberVariables = (member'.ReturnType :: member'.Parameters) |> List.collect LowType.collectVariables |> List.map toTypeVariable |> List.distinct |> Set.ofList
+    let memberVariables =
+      [
+        yield member'.ReturnParameter.Type
+
+        for group in member'.Parameters do
+          for p in group do
+            yield p.Type
+      ]
+      |> List.collect LowType.collectVariables |> List.map toTypeVariable |> List.distinct |> Set.ofList
     (memberVariables - declaringVariables) |> Set.toList
 
-  let moduleFunction xs = ApiSignature.ModuleFunction xs
+  let moduleFunction' fn = ApiSignature.ModuleFunction (createFunction fn)
   let moduleValue x = ApiSignature.ModuleValue x
   let instanceMember receiver member' =
     let genericParams = memberGenericParameters receiver member'
@@ -66,8 +80,9 @@ module DSL =
     let genericParams = memberGenericParameters declaringSignature member'
     let m = { member' with GenericParameters = genericParams }
     ApiSignature.Constructor (declaringSignature, m)
-  let activePattern xs = ApiSignature.ActivePatten (ActivePatternKind.ActivePattern, Arrow xs)
-  let partialActivePattern xs = ApiSignature.ActivePatten (ActivePatternKind.PartialActivePattern, Arrow xs)
+
+  let activePattern xs = ApiSignature.ActivePatten (ActivePatternKind.ActivePattern, createFunction xs)
+  let partialActivePattern xs = ApiSignature.ActivePatten (ActivePatternKind.PartialActivePattern, createFunction xs)
 
   let typeExtension existingType declaration modifier member' = ApiSignature.TypeExtension { ExistingType = existingType; Declaration = declaration; MemberModifier = modifier; Member = member' }
   let extensionMember member' = ApiSignature.ExtensionMember member'

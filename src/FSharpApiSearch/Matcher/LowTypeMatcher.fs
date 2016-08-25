@@ -218,9 +218,7 @@ module Rules =
 
   let testArrow_IgnoreParameterStyle lowTypeMatcher leftElems rightElems ctx =
     match leftElems, rightElems with
-    | [ Tuple _; _ ], [ Tuple _; _ ]
-    | [ Wildcard _; _ ], _
-    | _, [ Wildcard _; _ ] ->
+    | [ _; _ ], [ _; _ ] ->
       testAll lowTypeMatcher leftElems rightElems ctx
     | [ Tuple leftArgs; leftRet ], _ ->
       let leftElems = seq { yield! leftArgs; yield leftRet }
@@ -329,4 +327,14 @@ let instance options =
 
       yield Rule.terminator
     ]
-  { new ILowTypeMatcher with member this.Test left right ctx = Rule.run rule this left right ctx }
+  { new ILowTypeMatcher with
+      member this.Test left right ctx =
+        Debug.WriteLine(sprintf "Test \"%s\" and \"%s\". Equations: %s"
+          (left.Debug())
+          (right.Debug())
+          (Equations.debug ctx.Equations))
+        Debug.Indent()
+        let result = Rule.run rule this left right ctx
+        Debug.Unindent()
+        result
+      member this.TestAll left right ctx = Rules.testAll this left right ctx  }

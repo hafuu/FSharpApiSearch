@@ -4,7 +4,9 @@ let nonGenericFunction (x: int) (y: int) = 3
 
 let genericFunction (x: 'a) (y : 'b) = y
 
-let tupleFunction (x: 'a, y: 'b, z: 'c) = x
+let multiParamFunction (x: 'a, y: 'b, z: 'c) = x
+
+let unitParamFunction () = 0
 
 let listmap (f: 'a -> 'b) (xs: 'a list) = List.map f xs
 

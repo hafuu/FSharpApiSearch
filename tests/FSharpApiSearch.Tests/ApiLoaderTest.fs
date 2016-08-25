@@ -94,7 +94,7 @@ let istructuralComparable = createType "System.IStructuralComparable" [] |> upda
 
 let valuetype = createType "System.ValueType" [] |> updateAssembly mscorlib
 
-let testApi' (assembly: TestCase<ApiDictionary>) nameConverter (name, expected) = test {
+let testApiWithoutParameterName (assembly: TestCase<ApiDictionary>) nameConverter (name, expected) = test {
   let! apiDict = assembly
   let name = nameConverter name
   let actual =
@@ -128,24 +128,25 @@ let testConstraints (assembly: TestCase<ApiDictionary>) (name, expectedTarget, e
 }
 
 module FSharp =
-  let testApi = testApi' fsharpAssemblyApi Name.displayNameOfString
+  let testApi = testApiWithoutParameterName fsharpAssemblyApi Name.displayNameOfString
   let testConstraints = testConstraints fsharpAssemblyApi
 
   let loadModuleMemberTest = parameterize {
     source [
-      "PublicModule.nonGenericFunction", [ moduleFunction [ int; int; int ] ]
-      "PublicModule.genericFunction", [ moduleFunction [ variable "a"; variable "b"; variable "b" ] ]
-      "PublicModule.tupleFunction", [ moduleFunction [ tuple [ variable "a"; variable "b"; variable "c" ]; variable "a" ] ]
+      "PublicModule.nonGenericFunction", [ moduleFunction' [ [ pname "x" >> ptype int ]; [ pname "y" >> ptype int ]; [ ptype int ] ] ]
+      "PublicModule.genericFunction", [ moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ pname "y" >> ptype (variable "b") ]; [ ptype (variable "b") ] ] ]
+      "PublicModule.multiParamFunction", [ moduleFunction' [ [ pname "x" >> ptype (variable "a"); pname "y" >> ptype (variable "b"); pname "z" >> ptype (variable "c") ]; [ ptype (variable "a") ] ] ]
+      "PublicModule.unitParamFunction", [ moduleFunction' [ [ ptype unit ]; [ ptype int ] ] ]
       "PublicModule.value", [ moduleValue int ]
-      "PublicModule.NestedModule.publicFunction", [ moduleFunction [ int; int ] ]
-      "PublicModule.listmap", [ moduleFunction [ arrow [ variable "a"; variable "b" ]; list (variable "a"); list (variable "b") ] ]
-      "PublicModule.partialGenericMap", [ moduleFunction [ map int (variable "a"); variable "a" ] ]
-      "PublicModule.floatReturnType", [ moduleFunction [ int; float ] ]
+      "PublicModule.NestedModule.publicFunction", [ moduleFunction' [ [ pname "x" >> ptype int ]; [ ptype int] ] ]
+      "PublicModule.listmap", [ moduleFunction' [ [ pname "f" >> ptype (arrow [ variable "a"; variable "b" ]) ]; [ pname "xs" >> ptype (list (variable "a")) ]; [ ptype (list (variable "b")) ] ] ]
+      "PublicModule.partialGenericMap", [ moduleFunction' [ [ pname "x" >> ptype (map int (variable "a")) ]; [ ptype (variable "a") ] ] ]
+      "PublicModule.floatReturnType", [ moduleFunction' [ [ pname "x" >> ptype int ]; [ ptype float ] ] ]
       "PublicModule.array", [ moduleValue (array int) ]
       "PublicModule.array2d", [ moduleValue (array2D int) ]
       "PublicModule.nestedArray", [ moduleValue (array (array2D int)) ]
-      "PublicModule.( |ActivePattern| )", [ activePattern [ int; string ] ]
-      "PublicModule.( |PartialActivePattern|_| )", [ partialActivePattern [ variable "a"; variable "a"; option (variable "a") ] ]
+      "PublicModule.( |ActivePattern| )", [ activePattern [ [ pname "x" >> ptype int ]; [ ptype string ] ] ]
+      "PublicModule.( |PartialActivePattern|_| )", [ partialActivePattern [ [ pname "y" >> ptype (variable "a") ]; [ pname "x" >> ptype (variable "a") ]; [ ptype (option (variable "a")) ] ] ]
     ]
     run testApi
   }
@@ -154,21 +155,21 @@ module FSharp =
     let t = createType "TopLevelNamespace.StaticMemberClass" [] |> updateAssembly fsharpAssemblyName
     parameterize {
       source [
-        "TopLevelNamespace.StaticMemberClass.NoParameterMethod", [ staticMember t (method' "NoParameterMethod" [ unit ] int) ]
-        "TopLevelNamespace.StaticMemberClass.OneParameterMethod", [ staticMember t (method' "OneParameterMethod" [ int ] int) ]
-        "TopLevelNamespace.StaticMemberClass.NonCurriedMethod", [ staticMember t (method' "NonCurriedMethod" [ int; string ] int) ]
-        "TopLevelNamespace.StaticMemberClass.CurriedMethod", [ staticMember t (curriedMethod "CurriedMethod" [ int; string ] int) ]
-        "TopLevelNamespace.StaticMemberClass.TupleMethod", [ staticMember t (method' "TupleMethod" [ tuple [ int; string ] ] int) ]
-        "TopLevelNamespace.StaticMemberClass.InferredFloat", [ staticMember t (method' "InferredFloat" [ float ] float) ]
-        "TopLevelNamespace.StaticMemberClass.AnnotatedFloat", [ staticMember t (method' "AnnotatedFloat" [ float ] float) ]
-        "TopLevelNamespace.StaticMemberClass", [ constructor' t (method' "StaticMemberClass" [ unit ] t); constructor' t (method' "StaticMemberClass" [ int ] t) ]
-        "TopLevelNamespace.StaticMemberClass.OverloadMethod", [ staticMember t (method' "OverloadMethod" [ int ] int); staticMember t (method' "OverloadMethod" [ string; int ] string) ]
+        "TopLevelNamespace.StaticMemberClass.NoParameterMethod", [ staticMember t (method' "NoParameterMethod" [ [ ptype unit ] ] int) ]
+        "TopLevelNamespace.StaticMemberClass.OneParameterMethod", [ staticMember t (method' "OneParameterMethod" [ [ pname "x" >> ptype int ] ] int) ]
+        "TopLevelNamespace.StaticMemberClass.NonCurriedMethod", [ staticMember t (method' "NonCurriedMethod" [ [ pname "x" >> ptype int; pname "y" >> ptype string ] ] int) ]
+        "TopLevelNamespace.StaticMemberClass.CurriedMethod", [ staticMember t (method' "CurriedMethod" [ [ pname "x" >> ptype int ]; [ pname "y" >> ptype string ] ] int) ]
+        "TopLevelNamespace.StaticMemberClass.TupleMethod", [ staticMember t (method' "TupleMethod" [ [ pname "x" >> ptype (tuple [ int; string ]) ] ] int) ]
+        "TopLevelNamespace.StaticMemberClass.InferredFloat", [ staticMember t (method' "InferredFloat" [ [ pname "x" >> ptype float ] ] float) ]
+        "TopLevelNamespace.StaticMemberClass.AnnotatedFloat", [ staticMember t (method' "AnnotatedFloat" [ [ pname "x" >> ptype float ] ] float) ]
+        "TopLevelNamespace.StaticMemberClass", [ constructor' t (method' "StaticMemberClass" [ [ ptype unit ] ] t); constructor' t (method' "StaticMemberClass" [ [ pname "x" >> ptype int ] ] t) ]
+        "TopLevelNamespace.StaticMemberClass.OverloadMethod", [ staticMember t (method' "OverloadMethod" [ [ pname "x" >> ptype int ] ] int); staticMember t (method' "OverloadMethod" [ [ pname "x" >> ptype string; pname "y" >> ptype int ] ] string) ]
         "TopLevelNamespace.StaticMemberClass.Getter", [ staticMember t (property' "Getter" PropertyKind.Get [] string) ]
         "TopLevelNamespace.StaticMemberClass.Setter", [ staticMember t (property' "Setter" PropertyKind.Set [] int) ]
         "TopLevelNamespace.StaticMemberClass.GetterSetter", [ staticMember t (property' "GetterSetter" PropertyKind.GetSet [] float) ]
-        "TopLevelNamespace.StaticMemberClass.IndexedGetter", [ staticMember t (property' "IndexedGetter" PropertyKind.Get [ int ] string) ]
-        "TopLevelNamespace.StaticMemberClass.IndexedSetter", [ staticMember t (property' "IndexedSetter" PropertyKind.Set [ int ] string) ]
-        "TopLevelNamespace.StaticMemberClass.IndexedGetterSetter", [ staticMember t (property' "IndexedGetterSetter" PropertyKind.GetSet [ string ] int) ]
+        "TopLevelNamespace.StaticMemberClass.IndexedGetter", [ staticMember t (property' "IndexedGetter" PropertyKind.Get [ [ ptype int ] ] string) ]
+        "TopLevelNamespace.StaticMemberClass.IndexedSetter", [ staticMember t (property' "IndexedSetter" PropertyKind.Set [ [ ptype int ] ] string) ]
+        "TopLevelNamespace.StaticMemberClass.IndexedGetterSetter", [ staticMember t (property' "IndexedGetterSetter" PropertyKind.GetSet [ [ ptype string ] ] int) ]
       ]
       run testApi
     }
@@ -177,18 +178,18 @@ module FSharp =
     let t = createType "TopLevelNamespace.InstanceMemberClass" [] |> updateAssembly fsharpAssemblyName
     parameterize {
       source [
-        "TopLevelNamespace.InstanceMemberClass.NoParameterMethod", [ instanceMember t (method' "NoParameterMethod" [ unit ] int) ]
-        "TopLevelNamespace.InstanceMemberClass.OneParameterMethod", [ instanceMember t (method' "OneParameterMethod" [ int ] int) ]
-        "TopLevelNamespace.InstanceMemberClass.NonCurriedMethod", [ instanceMember t (method' "NonCurriedMethod" [ int; string ] int) ]
-        "TopLevelNamespace.InstanceMemberClass.CurriedMethod", [ instanceMember t (curriedMethod "CurriedMethod" [ int; string ] int) ]
-        "TopLevelNamespace.InstanceMemberClass.TupleMethod", [ instanceMember t (method' "TupleMethod" [ tuple [ int; string ] ] int) ]
-        "TopLevelNamespace.InstanceMemberClass.OverloadMethod", [ instanceMember t (method' "OverloadMethod" [ int ] int); instanceMember t (method' "OverloadMethod" [ string; int ] string) ]
+        "TopLevelNamespace.InstanceMemberClass.NoParameterMethod", [ instanceMember t (method' "NoParameterMethod" [ [ ptype unit ] ] int) ]
+        "TopLevelNamespace.InstanceMemberClass.OneParameterMethod", [ instanceMember t (method' "OneParameterMethod" [ [ pname "x" >> ptype int ] ] int) ]
+        "TopLevelNamespace.InstanceMemberClass.NonCurriedMethod", [ instanceMember t (method' "NonCurriedMethod" [ [ pname "x" >> ptype int; pname "y" >> ptype string ] ] int) ]
+        "TopLevelNamespace.InstanceMemberClass.CurriedMethod", [ instanceMember t (method' "CurriedMethod" [ [ pname "x" >> ptype int ]; [ pname "y" >> ptype string ] ] int) ]
+        "TopLevelNamespace.InstanceMemberClass.TupleMethod", [ instanceMember t (method' "TupleMethod" [ [ pname "x" >> ptype (tuple [ int; string ]) ] ] int) ]
+        "TopLevelNamespace.InstanceMemberClass.OverloadMethod", [ instanceMember t (method' "OverloadMethod" [ [ pname "x" >> ptype int ] ] int); instanceMember t (method' "OverloadMethod" [ [ pname "x" >> ptype string; pname "y" >> ptype int ] ] string) ]
         "TopLevelNamespace.InstanceMemberClass.Getter", [ instanceMember t (property' "Getter" PropertyKind.Get [] string) ]
         "TopLevelNamespace.InstanceMemberClass.Setter", [ instanceMember t (property' "Setter" PropertyKind.Set [] int) ]
         "TopLevelNamespace.InstanceMemberClass.GetterSetter", [ instanceMember t (property' "GetterSetter" PropertyKind.GetSet [] float) ]
-        "TopLevelNamespace.InstanceMemberClass.IndexedGetter", [ instanceMember t (property' "IndexedGetter" PropertyKind.Get [ int ] string) ]
-        "TopLevelNamespace.InstanceMemberClass.IndexedSetter", [ instanceMember t (property' "IndexedSetter" PropertyKind.Set [ int ] string) ]
-        "TopLevelNamespace.InstanceMemberClass.IndexedGetterSetter", [ instanceMember t (property' "IndexedGetterSetter" PropertyKind.GetSet [ string ] int) ]
+        "TopLevelNamespace.InstanceMemberClass.IndexedGetter", [ instanceMember t (property' "IndexedGetter" PropertyKind.Get [ [ ptype int ] ] string) ]
+        "TopLevelNamespace.InstanceMemberClass.IndexedSetter", [ instanceMember t (property' "IndexedSetter" PropertyKind.Set [ [ ptype int ] ] string) ]
+        "TopLevelNamespace.InstanceMemberClass.IndexedGetterSetter", [ instanceMember t (property' "IndexedGetterSetter" PropertyKind.GetSet [ [ ptype string ] ] int) ]
       ]
       run testApi
     }
@@ -197,8 +198,8 @@ module FSharp =
     let t = createType "TopLevelNamespace.GenericClass<'a>" [ variable "a" ] |> updateAssembly fsharpAssemblyName
     parameterize {
       source [
-        "TopLevelNamespace.GenericClass<'a>.Method", [ instanceMember t (method' "Method" [ variable "a" ] int) ]
-        "TopLevelNamespace.GenericClass<'a>", [ constructor' t (method' "GenericClass" [ unit ] t) ]
+        "TopLevelNamespace.GenericClass<'a>.Method", [ instanceMember t (method' "Method" [ [ pname "x" >> ptype (variable "a") ] ] int) ]
+        "TopLevelNamespace.GenericClass<'a>", [ constructor' t (method' "GenericClass" [ [ ptype unit ] ] t) ]
       ]
       run testApi
     }
@@ -209,9 +210,9 @@ module FSharp =
       source [
         "OtherTypes.Record.FieldA", [ instanceMember t (field "FieldA" int) ]
         "OtherTypes.Record.FieldB", [ instanceMember t (field "FieldB" string) ]
-        "OtherTypes.Record.InstanceMethod", [ instanceMember t (method' "InstanceMethod" [ unit ] int) ]
+        "OtherTypes.Record.InstanceMethod", [ instanceMember t (method' "InstanceMethod" [ [ ptype unit ] ] int) ]
         "OtherTypes.Record.InstanceProperty", [ instanceMember t (property' "InstanceProperty" PropertyKind.GetSet [] int) ]
-        "OtherTypes.Record.StaticMethod", [ staticMember t (method' "StaticMethod" [ unit ] string) ]
+        "OtherTypes.Record.StaticMethod", [ staticMember t (method' "StaticMethod" [ [ ptype unit ] ] string) ]
       ]
       run testApi  
     }
@@ -229,7 +230,7 @@ module FSharp =
     let t = createType "OtherTypes.Union" [] |> updateAssembly fsharpAssemblyName
     parameterize {
       source [
-        "OtherTypes.Union.InstanceMethod", [ instanceMember t (method' "InstanceMethod" [ unit ] int) ]
+        "OtherTypes.Union.InstanceMethod", [ instanceMember t (method' "InstanceMethod" [ [ ptype unit ] ] int) ]
       ]
       run testApi
     }
@@ -240,7 +241,7 @@ module FSharp =
       source [
         "OtherTypes.Struct.A", [ instanceMember t (field "A" int) ]
         "OtherTypes.Struct.B", [ instanceMember t (field "B" string) ]
-        "OtherTypes.Struct.InstanceMethod", [ instanceMember t (method' "InstanceMethod" [ unit ] int) ]
+        "OtherTypes.Struct.InstanceMethod", [ instanceMember t (method' "InstanceMethod" [ [ ptype unit ] ] int) ]
       ]
       run testApi
     }
@@ -259,7 +260,7 @@ module FSharp =
     let t = createType "TopLevelNamespace.Interface" [] |> updateAssembly fsharpAssemblyName
     parameterize {
       source [
-        "TopLevelNamespace.Interface.Method", [ instanceMember t (method' "Method" [ int; string] int ) ]
+        "TopLevelNamespace.Interface.Method", [ instanceMember t (method' "Method" [ [ ptype int; ptype string ] ] int ) ]
         "TopLevelNamespace.Interface.Property", [ instanceMember t (property' "Property" PropertyKind.GetSet [] string ) ]
       ]
       run testApi
@@ -272,13 +273,13 @@ module FSharp =
     let confrict = createType "InterfaceInheritance.ConflictParameterInterface<'b>" [ variable "b" ] |> updateAssembly fsharpAssemblyName
     parameterize {
       source [
-        "InterfaceInheritance.ChildInterface.ChildMethod", [ instanceMember child (method' "ChildMethod" [ unit ] float) ]
-        "InterfaceInheritance.ChildInterface.ParentMethod", [ instanceMember child (method' "ParentMethod" [ unit] string) ]
-        "InterfaceInheritance.ChildInterface.GrandParentMethod", [ instanceMember child (method' "GrandParentMethod" [ unit ] int) ]
-        "InterfaceInheritance.GenericChildInterface<'a>.ParentMethod", [ instanceMember genericChild (method' "ParentMethod" [ variable "a" ] (variable "b")) ]
-        "InterfaceInheritance.GenericChildInterface<'a>.GrandParentMethod", [ instanceMember genericChild (method' "GrandParentMethod" [ variable "a" ] (variable "u")) ]
-        "InterfaceInheritance.ConflictParameterInterface<'b>.ParentMethod", [ instanceMember confrict (method' "ParentMethod" [ variable "b" ] (variable "b1")) ]
-        "InterfaceInheritance.IntChildInterface.ParentMethod", [ instanceMember intChild (method' "ParentMethod" [ int ] (variable "b")) ]
+        "InterfaceInheritance.ChildInterface.ChildMethod", [ instanceMember child (method' "ChildMethod" [ [ ptype unit ] ] float) ]
+        "InterfaceInheritance.ChildInterface.ParentMethod", [ instanceMember child (method' "ParentMethod" [ [ ptype unit ] ] string) ]
+        "InterfaceInheritance.ChildInterface.GrandParentMethod", [ instanceMember child (method' "GrandParentMethod" [ [ ptype unit ] ] int) ]
+        "InterfaceInheritance.GenericChildInterface<'a>.ParentMethod", [ instanceMember genericChild (method' "ParentMethod" [ [ ptype (variable "a") ] ] (variable "b")) ]
+        "InterfaceInheritance.GenericChildInterface<'a>.GrandParentMethod", [ instanceMember genericChild (method' "GrandParentMethod" [ [ pname "a" >> ptype (variable "a") ] ] (variable "u")) ]
+        "InterfaceInheritance.ConflictParameterInterface<'b>.ParentMethod", [ instanceMember confrict (method' "ParentMethod" [ [ ptype (variable "b") ] ] (variable "b1")) ]
+        "InterfaceInheritance.IntChildInterface.ParentMethod", [ instanceMember intChild (method' "ParentMethod" [ [ ptype int ] ] (variable "b")) ]
       ]
       run testApi
     }
@@ -313,10 +314,10 @@ module FSharp =
       source [
         // subtype
         ("TypeConstraints.subtypeConFunction",
-          (moduleFunction [ variable "Tseq"; unit ]),
+          (moduleFunction' [ [ pname "x" >> ptype (variable "Tseq") ]; [ ptype unit ] ]),
           [ constraint' [ "Tseq"] (SubtypeConstraints (seq int)) ])
         ("TypeConstraints.SubTypeClass<'a>.Method",
-          (staticMember subtypeClass (method' "Method" [ variable "a"; variable "b" ] unit)),
+          (staticMember subtypeClass (method' "Method" [ [ pname "x" >> ptype (variable "a"); pname "y" >> ptype (variable "b") ] ] unit)),
           [ constraint' [ "a" ] (SubtypeConstraints (seq int)); constraint' [ "b" ] (SubtypeConstraints (seq string)) ])
         ("TypeConstraints.SubTypeRecord<'a>.Field",
           (instanceMember subtypeRecord (field "Field" (variable "a"))),
@@ -324,98 +325,98 @@ module FSharp =
 
         // nullness
         ("TypeConstraints.nullnessFunction",
-          (moduleFunction [ variable "a"; unit ]),
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
           [ constraint' [ "a"] NullnessConstraints ])
 
         // member
         ("TypeConstraints.memberConstraint_instanceMethod1",
-          (moduleFunction [ variable "a"; unit ]),
-          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "Method" MemberKind.Method [ int; int ] int)) ])
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
+          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "Method" MemberKind.Method [ [ ptype int; ptype int ] ] int)) ])
         ("TypeConstraints.memberConstraint_instanceMethod2",
-          (moduleFunction [ variable "a"; unit ]),
-          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "Method" MemberKind.Method [ int; int ] int)) ])
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
+          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "Method" MemberKind.Method [ [ ptype int; ptype int ] ] int)) ])
         ("TypeConstraints.memberConstraint_tupleMethod",
-          (moduleFunction [ variable "a"; unit ]),
-          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "Method" MemberKind.Method [ tuple [ int; int ] ] int)) ])
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
+          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "Method" MemberKind.Method [ [ ptype (tuple [ int; int ]) ] ] int)) ])
         ("TypeConstraints.memberConstraint_staticMember",
-          (moduleFunction [ variable "a"; unit ]),
-          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Static, member' "Method" MemberKind.Method [ int ] int)) ])
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
+          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Static, member' "Method" MemberKind.Method [ [ ptype int ] ] int)) ])
         ("TypeConstraints.memberConstraint_or",
-          (moduleFunction [ variable "a"; variable "b"; unit ]),
-          [ constraint' [ "a"; "b" ] (MemberConstraints (MemberModifier.Static, member' "Method" MemberKind.Method [ int ] int)) ])
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ pname "y" >> ptype (variable "b") ]; [ ptype unit ] ]),
+          [ constraint' [ "a"; "b" ] (MemberConstraints (MemberModifier.Static, member' "Method" MemberKind.Method [ [ ptype int ] ] int)) ])
         ("TypeConstraints.memberConstraint_noArgumentMember", // no argument means get property
-          (moduleFunction [ variable "a"; unit ]),
-          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "get_Method" MemberKind.Method [ unit ] int)) ])
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
+          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "get_Method" MemberKind.Method [ [ ptype unit ] ] int)) ])
         ("TypeConstraints.memberConstraint_unitMethod",
-          (moduleFunction [ variable "a"; unit ]),
-          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "Method" MemberKind.Method [ unit ] int)) ])
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
+          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "Method" MemberKind.Method [ [ ptype unit ] ] int)) ])
         ("TypeConstraints.memberConstraint_unitIntMethod",
-          (moduleFunction [ variable "a"; unit ]),
-          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "Method" MemberKind.Method [ unit; int ] int)) ])
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
+          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "Method" MemberKind.Method [ [ ptype unit; ptype int ] ] int)) ])
         ("TypeConstraints.memberConstraint_getterMethod",
-          (moduleFunction [ variable "a"; unit ]),
-          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "get_Property" MemberKind.Method [ unit ] int)) ])
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
+          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "get_Property" MemberKind.Method [ [ ptype unit ] ] int)) ])
         ("TypeConstraints.memberConstraint_setterMethod",
-          (moduleFunction [ variable "a"; unit ]),
-          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "set_Property" MemberKind.Method [ int ] unit)) ])
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
+          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "set_Property" MemberKind.Method [ [ ptype int ] ] unit)) ])
         ("TypeConstraints.memberConstraint_getProperty",
-          (moduleFunction [ variable "a"; unit ]),
-          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "get_Property" MemberKind.Method [ unit ] int)) ])
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
+          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "get_Property" MemberKind.Method [ [ ptype unit ] ] int)) ])
         ("TypeConstraints.memberConstraint_setProperty",
-          (moduleFunction [ variable "a"; unit ]),
-          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "set_Property" MemberKind.Method [ int ] unit)) ])
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
+          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "set_Property" MemberKind.Method [ [ ptype int ] ] unit)) ])
         ("TypeConstraints.memberConstraint_indexedGetProperty",
-          (moduleFunction [ variable "a"; unit ]),
-          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "get_Property" MemberKind.Method [ int ] int)) ])
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
+          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "get_Property" MemberKind.Method [ [ ptype int ] ] int)) ])
         ("TypeConstraints.memberConstraint_indexedSetProperty",
-          (moduleFunction [ variable "a"; unit ]),
-          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "set_Property" MemberKind.Method [ int; int ] unit)) ])
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
+          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "set_Property" MemberKind.Method [ [ ptype int; ptype int ] ] unit)) ])
         ("TypeConstraints.memberConstraint_staticNoArgumentMember", // no argument means get property
-          (moduleFunction [ variable "a"; unit ]),
-          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Static, member' "get_Method" MemberKind.Method [ unit ] int)) ])
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
+          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Static, member' "get_Method" MemberKind.Method [ [ ptype unit ] ] int)) ])
         ("TypeConstraints.memberConstraint_staticUnitMethod",
-          (moduleFunction [ variable "a"; unit ]),
-          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Static, member' "Method" MemberKind.Method [ unit ] int)) ])
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
+          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Static, member' "Method" MemberKind.Method [ [ ptype unit ] ] int)) ])
         ("TypeConstraints.memberConstraint_staticGetterMethod",
-          (moduleFunction [ variable "a"; unit ]),
-          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Static, member' "get_Property" MemberKind.Method [ unit ] int)) ])
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
+          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Static, member' "get_Property" MemberKind.Method [ [ ptype unit ] ] int)) ])
         ("TypeConstraints.memberConstraint_staticSetterMethod",
-          (moduleFunction [ variable "a"; unit ]),
-          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Static, member' "set_Property" MemberKind.Method [ int ] unit)) ])
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
+          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Static, member' "set_Property" MemberKind.Method [ [ ptype int ] ] unit)) ])
         ("TypeConstraints.memberConstraint_staticGetProperty",
-          (moduleFunction [ variable "a"; unit ]),
-          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Static, member' "get_Property" MemberKind.Method [ unit ] int)) ])
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
+          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Static, member' "get_Property" MemberKind.Method [ [ ptype unit ] ] int)) ])
         ("TypeConstraints.memberConstraint_staticSetProperty",
-          (moduleFunction [ variable "a"; unit ]),
-          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Static, member' "set_Property" MemberKind.Method [ int ] unit)) ])
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
+          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Static, member' "set_Property" MemberKind.Method [ [ ptype int ] ] unit)) ])
         ("TypeConstraints.memberConstraint_generic",
-          (moduleFunction [ variable "a"; unit ]),
-          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "Method" MemberKind.Method [ variable "b" ] unit)) ])
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
+          [ constraint' [ "a"] (MemberConstraints (MemberModifier.Instance, member' "Method" MemberKind.Method [ [ ptype (variable "b") ] ] unit)) ])
         ("TypeConstraints.memberConstraint_operator",
-          (moduleFunction [ variable "a"; variable "b"; unit ]),
-          [ constraint' [ "a"; "b"; ] (MemberConstraints (MemberModifier.Static, member' "op_Addition" MemberKind.Method [ variable "a"; variable "b" ] (variable "c"))) ])
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ pname "y" >> ptype (variable "b") ]; [ ptype unit ] ]),
+          [ constraint' [ "a"; "b"; ] (MemberConstraints (MemberModifier.Static, member' "op_Addition" MemberKind.Method [ [ ptype (variable "a"); ptype (variable "b") ] ] (variable "c"))) ])
 
         // value, reference
         ("TypeConstraints.valueTypeConstraint",
-          (moduleFunction [ variable "a"; unit ]),
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
           [ constraint' [ "a"; ] ValueTypeConstraints ])
         ("TypeConstraints.referenceTypeConstraint",
-          (moduleFunction [ variable "a"; unit ]),
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
           [ constraint' [ "a"; ] ReferenceTypeConstraints ])
 
         // default constructor
         ("TypeConstraints.defaultConstructorConstraint",
-          (moduleFunction [ variable "a"; unit ]),
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
           [ constraint' [ "a"; ] DefaultConstructorConstraints ])
 
         // equality
         ("TypeConstraints.equalityConstraint",
-          (moduleFunction [ variable "a"; unit ]),
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
           [ constraint' [ "a"; ] EqualityConstraints ])
 
         // comparison
         ("TypeConstraints.comparisonConstraint",
-          (moduleFunction [ variable "a"; unit ]),
+          (moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ ptype unit ] ]),
           [ constraint' [ "a"; ] ComparisonConstraints ])
       ]
       run testConstraints
@@ -521,12 +522,12 @@ module FSharp =
         BaseType = Some obj
         StaticMembers =
           [
-            method' "StaticMethod" [ unit ] int
-            method' "op_Addition" [ memberClassId; int ] memberClassId
+            method' "StaticMethod" [ [ ptype unit ] ] int
+            method' "op_Addition" [ [ pname "x" >> ptype memberClassId; pname "y" >> ptype int ] ] memberClassId
           ]
         InstanceMembers =
           [
-            method' "InstanceMethod" [ int ] int
+            method' "InstanceMethod" [ [ ptype int ] ] int
             property' "Property" PropertyKind.Get [] int
           ]
         DefaultConstructor = Satisfy
@@ -635,12 +636,12 @@ module FSharp =
 
 
   let operatorTest =
-    let testApi = testApi' fsharpAssemblyApi DisplayName
+    let testApi = testApiWithoutParameterName fsharpAssemblyApi DisplayName
     let t = createType "Operators.A" [] |> updateAssembly fsharpAssemblyName
     parameterize {
       source [
-        (DisplayName.ofOperatorString "Operators.( + )"), [ moduleFunction [ int; int; int ] ]
-        (DisplayName.ofOperatorString "Operators.A.( - )"), [ staticMember t (method' "op_Subtraction" [ t; t ] t) ]
+        (DisplayName.ofOperatorString "Operators.( + )"), [ moduleFunction' [ [ pname "x" >> ptype int ]; [ pname "y" >> ptype int ]; [ ptype int ] ] ]
+        (DisplayName.ofOperatorString "Operators.A.( - )"), [ staticMember t (method' "op_Subtraction" [ [ pname "x" >> ptype t; pname "y" >> ptype t ] ] t) ]
       ]
       run testApi  
     }
@@ -652,12 +653,12 @@ module FSharp =
     parameterize {
       source [
         "Delegate.f1", [ moduleValue testDelegate ]
-        "Delegate.f2", [ moduleFunction [ variable "a"; testDelegate; int ] ]
+        "Delegate.f2", [ moduleFunction' [ [ pname "x" >> ptype (variable "a") ]; [ pname "f" >> ptype testDelegate ]; [ ptype int ] ] ]
 
-        "Delegate.f3", [ moduleFunction [ genericDelegate (variable "a") (variable "b"); int ] ]
-        "Delegate.f4", [ moduleFunction [ genericDelegate int string; int ] ]
+        "Delegate.f3", [ moduleFunction' [ [ pname "f" >> ptype (genericDelegate (variable "a") (variable "b")) ]; [ ptype int ] ] ]
+        "Delegate.f4", [ moduleFunction' [ [ pname "f" >> ptype (genericDelegate int string) ]; [ ptype int ] ] ]
 
-        "Delegate.f5", [ moduleFunction [ func int (variable "a"); bool ] ]
+        "Delegate.f5", [ moduleFunction' [ [ pname "f" >> ptype (func int (variable "a")) ]; [ ptype bool ] ] ]
       ]
       run testApi
     }
@@ -724,20 +725,20 @@ module TypeAbbreviation =
   let functionWithFunctionAbbreviationTest =
     let t = { Abbreviation = createType "TypeAbbreviations.FunctionAbbreviation" [] |> updateAssembly fsharpAssemblyName
               Original = arrow [ int; int ] }
-    testApi' fsharpAssemblyApi Name.displayNameOfString ("TypeAbbreviations.functionWithFunctionAbbreviation", [ moduleFunction [ TypeAbbreviation t; TypeAbbreviation t ] ])
+    testApiWithoutParameterName fsharpAssemblyApi Name.displayNameOfString ("TypeAbbreviations.functionWithFunctionAbbreviation", [ moduleFunction' [ [ pname "x" >> ptype (TypeAbbreviation t) ]; [ ptype (TypeAbbreviation t) ] ] ])
 
 module TypeExtension =
-  let testApi_net40 = testApi' net40AssemblyApi Name.displayNameOfString
-  let testApi = testApi' fsharpAssemblyApi Name.displayNameOfString
+  let testApi_net40 = testApiWithoutParameterName net40AssemblyApi Name.displayNameOfString
+  let testApi = testApiWithoutParameterName fsharpAssemblyApi Name.displayNameOfString
   
   let testModule = DisplayName.ofString "TypeExtensions"
   let fsharpList_t = fsharpList (variable "T")
 
   let typeExtensionTest = parameterize {
     source [
-      "System.Int32.Method", [ typeExtension int32 testModule MemberModifier.Instance (method' "Method" [ int ] unit) ]
-      "System.Int32.CurriedMethod", [ typeExtension int32 testModule MemberModifier.Instance (curriedMethod "CurriedMethod" [ int; string ] int) ]
-      "System.Int32.NoncurriedMethod", [ typeExtension int32 testModule MemberModifier.Instance (method' "NoncurriedMethod" [ int; string ] string) ]
+      "System.Int32.Method", [ typeExtension int32 testModule MemberModifier.Instance (method' "Method" [ [ pname "x" >> ptype int ] ] unit) ]
+      "System.Int32.CurriedMethod", [ typeExtension int32 testModule MemberModifier.Instance (method' "CurriedMethod" [ [ pname "x" >> ptype int ]; [ pname "y" >> ptype string ] ] int) ]
+      "System.Int32.NoncurriedMethod", [ typeExtension int32 testModule MemberModifier.Instance (method' "NoncurriedMethod" [ [ pname "x" >> ptype int; pname "y" >> ptype string ] ] string) ]
 
       "System.Int32.GetterProperty", [ typeExtension int32 testModule MemberModifier.Instance (property' "GetterProperty" PropertyKind.Get [] int) ]
       "System.Int32.SetterProperty", [ typeExtension int32 testModule MemberModifier.Instance (property' "SetterProperty" PropertyKind.Set [] string) ]
@@ -746,16 +747,16 @@ module TypeExtension =
           typeExtension int32 testModule MemberModifier.Instance (property' "GetterSetterProperty" PropertyKind.Set [] string) 
         ]
 
-      "System.Int32.GetterIndexedProperty", [ typeExtension int32 testModule MemberModifier.Instance (property' "GetterIndexedProperty" PropertyKind.Get [ int ] string) ]
-      "System.Int32.SetterIndexedProperty", [ typeExtension int32 testModule MemberModifier.Instance (property' "SetterIndexedProperty" PropertyKind.Set [ int ] string) ]
+      "System.Int32.GetterIndexedProperty", [ typeExtension int32 testModule MemberModifier.Instance (property' "GetterIndexedProperty" PropertyKind.Get [ [ ptype int ] ] string) ]
+      "System.Int32.SetterIndexedProperty", [ typeExtension int32 testModule MemberModifier.Instance (property' "SetterIndexedProperty" PropertyKind.Set [ [ ptype int ] ] string) ]
       "System.Int32.GetterSetterIndexedProperty", [
-          typeExtension int32 testModule MemberModifier.Instance (property' "GetterSetterIndexedProperty" PropertyKind.Get [ string ] int)
-          typeExtension int32 testModule MemberModifier.Instance (property' "GetterSetterIndexedProperty" PropertyKind.Set [ string ] int) 
+          typeExtension int32 testModule MemberModifier.Instance (property' "GetterSetterIndexedProperty" PropertyKind.Get [ [ ptype string ] ] int)
+          typeExtension int32 testModule MemberModifier.Instance (property' "GetterSetterIndexedProperty" PropertyKind.Set [ [ ptype string ] ] int) 
         ]
 
-      "Microsoft.FSharp.Collections.List<'T>.Method", [ typeExtension fsharpList_t testModule MemberModifier.Static (method' "Method" [ variable "T" ] unit) ]
-      "Microsoft.FSharp.Collections.List<'T>.CurriedMethod", [ typeExtension fsharpList_t testModule MemberModifier.Static { curriedMethod "CurriedMethod" [ int; variable "b" ] (variable "b") with GenericParameters = [ "b" ] } ]
-      "Microsoft.FSharp.Collections.List<'T>.NoncurriedMethod", [ typeExtension fsharpList_t testModule MemberModifier.Static { method' "NoncurriedMethod" [ int; variable "b" ] int with GenericParameters = [ "b" ] } ]
+      "Microsoft.FSharp.Collections.List<'T>.Method", [ typeExtension fsharpList_t testModule MemberModifier.Static (method' "Method" [ [ ptype (variable "T") ] ] unit) ]
+      "Microsoft.FSharp.Collections.List<'T>.CurriedMethod", [ typeExtension fsharpList_t testModule MemberModifier.Static { method' "CurriedMethod" [ [ pname "x" >> ptype int ]; [ pname "y" >> ptype (variable "b") ] ] (variable "b") with GenericParameters = [ "b" ] } ]
+      "Microsoft.FSharp.Collections.List<'T>.NoncurriedMethod", [ typeExtension fsharpList_t testModule MemberModifier.Static { method' "NoncurriedMethod" [ [ pname "x" >> ptype int; pname "y" >> ptype (variable "b") ] ] int with GenericParameters = [ "b" ] } ]
 
       "Microsoft.FSharp.Collections.List<'T>.GetterProperty", [ typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterProperty" PropertyKind.Get [] int) ]
       "Microsoft.FSharp.Collections.List<'T>.SetterProperty", [ typeExtension fsharpList_t testModule MemberModifier.Static (property' "SetterProperty" PropertyKind.Set [] string) ]
@@ -764,11 +765,11 @@ module TypeExtension =
           typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterSetterProperty" PropertyKind.Set [] string)
         ]
 
-      "Microsoft.FSharp.Collections.List<'T>.GetterIndexedProperty", [ typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterIndexedProperty" PropertyKind.Get [ int ] string) ]
-      "Microsoft.FSharp.Collections.List<'T>.SetterIndexedProperty", [ typeExtension fsharpList_t testModule MemberModifier.Static (property' "SetterIndexedProperty" PropertyKind.Set [ int ] string) ]
+      "Microsoft.FSharp.Collections.List<'T>.GetterIndexedProperty", [ typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterIndexedProperty" PropertyKind.Get [ [ ptype int ] ] string) ]
+      "Microsoft.FSharp.Collections.List<'T>.SetterIndexedProperty", [ typeExtension fsharpList_t testModule MemberModifier.Static (property' "SetterIndexedProperty" PropertyKind.Set [ [ ptype int ] ] string) ]
       "Microsoft.FSharp.Collections.List<'T>.GetterSetterIndexedProperty", [
-          typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterSetterIndexedProperty" PropertyKind.Get [ string ] int)
-          typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterSetterIndexedProperty" PropertyKind.Set [ string ] int) 
+          typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterSetterIndexedProperty" PropertyKind.Get [ [ ptype string ] ] int)
+          typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterSetterIndexedProperty" PropertyKind.Set [ [ ptype string ] ] int) 
         ]
     ]
     run testApi
@@ -776,32 +777,32 @@ module TypeExtension =
 
   let extensionMemberTest = parameterize {
     source [
-      "TypeExtensions.TestExtensions.ExtensionMethod", [ extensionMember (method' "ExtensionMethod" [ int ] int) ]
-      "TypeExtensions.TestExtensions.ExtensionMethod2", [ extensionMember (method' "ExtensionMethod2" [ int; int; string ] unit) ]
+      "TypeExtensions.TestExtensions.ExtensionMethod", [ extensionMember (method' "ExtensionMethod" [ [ pname "x" >> ptype int ] ] int) ]
+      "TypeExtensions.TestExtensions.ExtensionMethod2", [ extensionMember (method' "ExtensionMethod2" [ [ pname "x" >> ptype int; pname "y" >> ptype int; pname "z" >> ptype string ] ] unit) ]
     ]
     run testApi
   }
 
   let net40ExtensionMemberTest = parameterize {
     source[
-      "Net40Assembly.TestExtensions.ExtensionMethod", [ extensionMember (method' "ExtensionMethod" [ int ] int) ]
+      "Net40Assembly.TestExtensions.ExtensionMethod", [ extensionMember (method' "ExtensionMethod" [ [ pname "x" >> ptype int ] ] int) ]
     ]
     run testApi_net40
   }
 
 module CSharp =
-  let testApi = testApi' csharpAssemblyApi Name.displayNameOfString
+  let testApi = testApiWithoutParameterName csharpAssemblyApi Name.displayNameOfString
   let testConstraints = testConstraints csharpAssemblyApi
 
   let loadStaticMemberTest =
     let t = createType "CSharpLoadTestAssembly.StaticMemberClass" [] |> updateAssembly csharpAssemblyName
     parameterize {
       source [
-        "CSharpLoadTestAssembly.StaticMemberClass.NoParameterMethod", [ staticMember t (method' "NoParameterMethod" [ unit ] int) ]
-        "CSharpLoadTestAssembly.StaticMemberClass.NonCurriedMethod", [ staticMember t (method' "NonCurriedMethod" [ int; string ] unit) ]
-        "CSharpLoadTestAssembly.StaticMemberClass.TupleMethod", [ staticMember t (method' "TupleMethod" [ tuple [ int; string ] ] unit) ]
-        "CSharpLoadTestAssembly.StaticMemberClass", [ constructor' t (method' "StaticMemberClass" [ unit ] t); constructor' t (method' "StaticMemberClass" [ string; string ] t) ]
-        "CSharpLoadTestAssembly.StaticMemberClass.OverloadMethod", [ staticMember t (method' "OverloadMethod" [ int ] int); staticMember t (method' "OverloadMethod" [ string ] string) ]
+        "CSharpLoadTestAssembly.StaticMemberClass.NoParameterMethod", [ staticMember t (method' "NoParameterMethod" [ [ ptype unit ] ] int) ]
+        "CSharpLoadTestAssembly.StaticMemberClass.NonCurriedMethod", [ staticMember t (method' "NonCurriedMethod" [ [ pname "x" >> ptype int; pname "y" >> ptype string ] ] unit) ]
+        "CSharpLoadTestAssembly.StaticMemberClass.TupleMethod", [ staticMember t (method' "TupleMethod" [ [ pname "x" >> ptype (tuple [ int; string ]) ] ] unit) ]
+        "CSharpLoadTestAssembly.StaticMemberClass", [ constructor' t (method' "StaticMemberClass" [ [ ptype unit ] ] t); constructor' t (method' "StaticMemberClass" [ [ pname "x" >> ptype string; pname "y" >> ptype string ] ] t) ]
+        "CSharpLoadTestAssembly.StaticMemberClass.OverloadMethod", [ staticMember t (method' "OverloadMethod" [ [ pname "x" >> ptype int ] ] int); staticMember t (method' "OverloadMethod" [ [ pname "x" >> ptype string ] ] string) ]
         "CSharpLoadTestAssembly.StaticMemberClass.Getter", [ staticMember t (property' "Getter" PropertyKind.Get [] string) ]
         "CSharpLoadTestAssembly.StaticMemberClass.Setter", [ staticMember t (property' "Setter" PropertyKind.Set [] string) ]
         "CSharpLoadTestAssembly.StaticMemberClass.GetterSetter", [ staticMember t (property' "GetterSetter" PropertyKind.GetSet [] string) ]
@@ -813,9 +814,9 @@ module CSharp =
     let t = createType "CSharpLoadTestAssembly.StaticMemberClass" [] |> updateAssembly csharpAssemblyName
     parameterize {
       source [
-        "CSharpLoadTestAssembly.StaticMemberClass.ArrayMethod", [ staticMember t (method' "ArrayMethod" [ unit ] (array int)) ]
-        "CSharpLoadTestAssembly.StaticMemberClass.Array2dMethod", [ staticMember t (method' "Array2dMethod" [ unit ] (array2D int)) ]
-        "CSharpLoadTestAssembly.StaticMemberClass.NestedArrayMethod", [ staticMember t (method' "NestedArrayMethod" [ unit ] (array2D (array int))) ] // defined as int[,][] in C#
+        "CSharpLoadTestAssembly.StaticMemberClass.ArrayMethod", [ staticMember t (method' "ArrayMethod" [ [ ptype unit ] ] (array int)) ]
+        "CSharpLoadTestAssembly.StaticMemberClass.Array2dMethod", [ staticMember t (method' "Array2dMethod" [ [ ptype unit ] ] (array2D int)) ]
+        "CSharpLoadTestAssembly.StaticMemberClass.NestedArrayMethod", [ staticMember t (method' "NestedArrayMethod" [ [ ptype unit ] ] (array2D (array int))) ] // defined as int[,][] in C#
       ]
       run testApi
     }
@@ -824,10 +825,10 @@ module CSharp =
     let t = createType "CSharpLoadTestAssembly.InstanceMemberClass" [] |> updateAssembly csharpAssemblyName
     parameterize {
       source [
-        "CSharpLoadTestAssembly.InstanceMemberClass.NoParameterMethod", [ instanceMember t (method' "NoParameterMethod" [ unit ] int) ]
-        "CSharpLoadTestAssembly.InstanceMemberClass.NonCurriedMethod", [ instanceMember t (method' "NonCurriedMethod" [ int; string ] unit) ]
-        "CSharpLoadTestAssembly.InstanceMemberClass.TupleMethod", [ instanceMember t (method' "TupleMethod" [ tuple [ int; string ] ] unit) ]
-        "CSharpLoadTestAssembly.InstanceMemberClass.OverloadMethod", [ instanceMember t (method' "OverloadMethod" [ int ] int); instanceMember t (method' "OverloadMethod" [ string ] string) ]
+        "CSharpLoadTestAssembly.InstanceMemberClass.NoParameterMethod", [ instanceMember t (method' "NoParameterMethod" [ [ ptype unit ] ] int) ]
+        "CSharpLoadTestAssembly.InstanceMemberClass.NonCurriedMethod", [ instanceMember t (method' "NonCurriedMethod" [ [ pname "x" >> ptype int; pname "y" >> ptype string ] ] unit) ]
+        "CSharpLoadTestAssembly.InstanceMemberClass.TupleMethod", [ instanceMember t (method' "TupleMethod" [ [ pname "x" >> ptype (tuple [ int; string ]) ] ] unit) ]
+        "CSharpLoadTestAssembly.InstanceMemberClass.OverloadMethod", [ instanceMember t (method' "OverloadMethod" [ [ pname "x" >> ptype int ] ] int); instanceMember t (method' "OverloadMethod" [ [ pname "x" >> ptype string ] ] string) ]
         "CSharpLoadTestAssembly.InstanceMemberClass.Getter", [ instanceMember t (property' "Getter" PropertyKind.Get [] string) ]
         "CSharpLoadTestAssembly.InstanceMemberClass.Setter", [ instanceMember t (property' "Setter" PropertyKind.Set [] string) ]
         "CSharpLoadTestAssembly.InstanceMemberClass.GetterSetter", [ instanceMember t (property' "GetterSetter" PropertyKind.GetSet [] string) ]
@@ -841,9 +842,9 @@ module CSharp =
     let gettersetter = createType "CSharpLoadTestAssembly.IndexedGetterSetter" [] |> updateAssembly csharpAssemblyName
     parameterize {
       source [
-        "CSharpLoadTestAssembly.IndexedGetter.Item", [ instanceMember getter (property' "Item" PropertyKind.Get [ int ] int) ]
-        "CSharpLoadTestAssembly.IndexedSetter.Item", [ instanceMember setter (property' "Item" PropertyKind.Set [ int ] int) ]
-        "CSharpLoadTestAssembly.IndexedGetterSetter.Item", [ instanceMember gettersetter (property' "Item" PropertyKind.GetSet [ int ] int) ]
+        "CSharpLoadTestAssembly.IndexedGetter.Item", [ instanceMember getter (property' "Item" PropertyKind.Get [ [ ptype int ] ] int) ]
+        "CSharpLoadTestAssembly.IndexedSetter.Item", [ instanceMember setter (property' "Item" PropertyKind.Set [ [ ptype int ] ] int) ]
+        "CSharpLoadTestAssembly.IndexedGetterSetter.Item", [ instanceMember gettersetter (property' "Item" PropertyKind.GetSet [ [ ptype int ] ] int) ]
       ]
       run testApi
     }
@@ -857,13 +858,13 @@ module CSharp =
 
     parameterize {
       source [
-        "CSharpLoadTestAssembly.OuterClass", [ constructor' outer (method' "OuterClass" [ unit ] outer) ]
-        "CSharpLoadTestAssembly.OuterClass.InnerClass", [ constructor' inner (method' "InnerClass" [ unit ] inner) ]
-        "CSharpLoadTestAssembly.OuterClass.InnerClass.StaticMethod", [ staticMember inner (method' "StaticMethod" [ unit ] int) ]
+        "CSharpLoadTestAssembly.OuterClass", [ constructor' outer (method' "OuterClass" [ [ ptype unit ] ] outer) ]
+        "CSharpLoadTestAssembly.OuterClass.InnerClass", [ constructor' inner (method' "InnerClass" [ [ ptype unit ] ] inner) ]
+        "CSharpLoadTestAssembly.OuterClass.InnerClass.StaticMethod", [ staticMember inner (method' "StaticMethod" [ [ ptype unit ] ] int) ]
 
-        "CSharpLoadTestAssembly.GenericOuterClass<'T>", [ constructor' genericOuter (method' "GenericOuterClass" [ unit ] genericOuter) ]
-        "CSharpLoadTestAssembly.GenericOuterClass<'T>.GenericInnerClass<'T, 'U>", [ constructor' genericInner (method' "GenericInnerClass" [ unit ] genericInner) ]
-        "CSharpLoadTestAssembly.GenericOuterClass<'T>.GenericInnerClass<'T, 'U>.Method", [ staticMember genericInner (method' "Method" [ variable "T"; variable "U" ] unit) ]
+        "CSharpLoadTestAssembly.GenericOuterClass<'T>", [ constructor' genericOuter (method' "GenericOuterClass" [ [ ptype unit ] ] genericOuter) ]
+        "CSharpLoadTestAssembly.GenericOuterClass<'T>.GenericInnerClass<'T, 'U>", [ constructor' genericInner (method' "GenericInnerClass" [ [ ptype unit ] ] genericInner) ]
+        "CSharpLoadTestAssembly.GenericOuterClass<'T>.GenericInnerClass<'T, 'U>.Method", [ staticMember genericInner (method' "Method" [ [ pname "x" >> ptype (variable "T"); pname "y" >> ptype (variable "U") ] ] unit) ]
       ]
       run testApi
     }
@@ -873,9 +874,9 @@ module CSharp =
     let gi = createType "CSharpLoadTestAssembly.GenericInterface<'T>" [ variable "T" ] |> updateAssembly csharpAssemblyName
     parameterize {
       source [
-        "CSharpLoadTestAssembly.Interface.Method", [ instanceMember i (method' "Method" [ int; string ] int) ]
+        "CSharpLoadTestAssembly.Interface.Method", [ instanceMember i (method' "Method" [ [ pname "x" >> ptype int; pname "y" >> ptype string ] ] int) ]
         "CSharpLoadTestAssembly.Interface.Property", [ instanceMember i (property' "Property" PropertyKind.GetSet [] int) ]
-        "CSharpLoadTestAssembly.GenericInterface<'T>.Method", [ instanceMember gi (method' "Method" [ variable "T" ] int) ]
+        "CSharpLoadTestAssembly.GenericInterface<'T>.Method", [ instanceMember gi (method' "Method" [ [ pname "x" >> ptype (variable "T") ] ] int) ]
         "CSharpLoadTestAssembly.GenericInterface<'T>.Property", [ instanceMember gi (property' "Property" PropertyKind.Set [] (variable "T")) ]
       ]
       run testApi
@@ -897,31 +898,31 @@ module CSharp =
     parameterize {
       source[
         ("CSharpLoadTestAssembly.TypeConstraints.Struct",
-          (staticMember t (method' "Struct" [ variable "T" ] unit)),
+          (staticMember t (method' "Struct" [ [ pname "x" >> ptype (variable "T") ] ] unit)),
           [ constraint' [ "T" ] (SubtypeConstraints valuetype); constraint' [ "T" ] DefaultConstructorConstraints; constraint' [ "T" ] ValueTypeConstraints ])
         ("CSharpLoadTestAssembly.TypeConstraints.Class",
-          (staticMember t (method' "Class" [ variable "T" ] unit)),
+          (staticMember t (method' "Class" [ [ pname "x" >> ptype (variable "T") ] ] unit)),
           [ constraint' [ "T" ] ReferenceTypeConstraints ])
         ("CSharpLoadTestAssembly.TypeConstraints.New",
-          (staticMember t (method' "New" [ variable "T" ] unit)),
+          (staticMember t (method' "New" [ [ pname "x" >> ptype (variable "T") ] ] unit)),
           [ constraint' [ "T" ] DefaultConstructorConstraints ])
         ("CSharpLoadTestAssembly.TypeConstraints.Subtype",
-          (staticMember t (method' "Subtype" [ variable "T" ] unit)),
+          (staticMember t (method' "Subtype" [ [ pname "x" >> ptype (variable "T") ] ] unit)),
           [ constraint' [ "T" ] (SubtypeConstraints icomparable) ])
         ("CSharpLoadTestAssembly.TypeConstraints.VariableSubtype",
-          (staticMember t (method' "VariableSubtype" [ variable "T"; variable "U" ] unit)),
+          (staticMember t (method' "VariableSubtype" [ [ pname "x" >> ptype (variable "T"); pname "y" >> ptype (variable "U") ] ] unit)),
           [ constraint' [ "T" ] (SubtypeConstraints (variable "U")) ])
       ]
       run testConstraints
     }
 
   let operatorTest =
-    let testApi = testApi' csharpAssemblyApi DisplayName
+    let testApi = testApiWithoutParameterName csharpAssemblyApi DisplayName
     let t = createType "CSharpLoadTestAssembly.Operators" [] |> updateAssembly csharpAssemblyName
     parameterize {
       source [
-        (DisplayName.ofString "CSharpLoadTestAssembly.Operators.op_Addition"), [ staticMember t (method' "op_Addition" [ t; t ] t) ]
-        (DisplayName.ofString "CSharpLoadTestAssembly.Operators.op_Implicit"), [ staticMember t (method' "op_Implicit" [ string ] t) ]
+        (DisplayName.ofString "CSharpLoadTestAssembly.Operators.op_Addition"), [ staticMember t (method' "op_Addition" [ [ pname "x" >> ptype t; pname "y" >> ptype t ] ] t) ]
+        (DisplayName.ofString "CSharpLoadTestAssembly.Operators.op_Implicit"), [ staticMember t (method' "op_Implicit" [ [ pname "x" >> ptype string ] ] t) ]
       ]
       run testApi  
     }

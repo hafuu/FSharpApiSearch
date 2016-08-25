@@ -37,8 +37,8 @@ module PrintTest =
   let variableA = variable "a"
   let variableB = variable "b"
 
-  let memberMethod = method' "test" [ variableA; typeB ] typeC
-  let memberCurriedMethod = curriedMethod "test" [ variableA; typeB ] typeC
+  let memberMethod = method' "test" [ [ ptype variableA; ptype typeB ] ] typeC
+  let memberCurriedMethod = method' "test" [ [ ptype variableA ]; [ ptype typeB ] ] typeC
   let memberProperty = member' "test" (MemberKind.Property PropertyKind.Get) [] typeA
 
   let printLowTypeTest = parameterize {
@@ -66,8 +66,12 @@ module PrintTest =
   let printApiSignatureTest = parameterize {
     source [
       moduleValue typeA, "a"
-      moduleFunction [ typeA; typeB ], "a -> b"
-      moduleFunction [ arrow [ typeA; typeB ]; typeC], "(a -> b) -> c"
+      moduleFunction' [ [ ptype typeA ]; [ ptype typeB ] ], "a -> b"
+      moduleFunction' [ [ ptype (arrow [ typeA; typeB ]) ]; [ ptype typeC ] ], "(a -> b) -> c"
+
+      moduleFunction' [ [ pname "x" >> ptype typeA; pname "y" >> ptype typeB ]; [ ptype typeB ] ], "x:a * y:b -> b"
+      moduleFunction' [ [ pname "x" >> ptype typeA ]; [ pname "y" >> ptype typeB ]; [ ptype typeB ] ], "x:a -> y:b -> b"
+
       moduleValue variableA, "'a"
       moduleValue (array typeA), "a[]"
       moduleValue (array (array2D typeA)), "a[,][]"

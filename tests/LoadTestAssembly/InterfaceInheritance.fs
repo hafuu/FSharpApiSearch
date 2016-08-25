@@ -15,7 +15,7 @@ type ChildInterface =
   abstract member ChildMethod: unit -> float
 
 type GenericGrandParentInterface<'t> = interface
-  abstract member GrandParentMethod: 't -> 'u
+  abstract member GrandParentMethod: a:'t -> 'u
 end
 
 type GenericParentInterface<'a> =

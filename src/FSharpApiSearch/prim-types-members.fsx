@@ -91,10 +91,12 @@ file
         parameters
         |> List.collect (fun x -> x.Split('*') |> Array.toList)
         |> List.map (fun x -> x.Trim())
-        |> List.map (fun x -> sprintf "LowType.%s" (getName x))
-        |> String.concat "; "
+        |> List.map (fun x -> sprintf "Parameter.%s" (getName x))
+        |> function
+          | [] -> ""
+          | xs -> String.concat "; " xs |> sprintf "[ %s ]"
         |> sprintf "[ %s ]"
-      sprintf """            { Name = %s; Kind = %s; GenericParameters = []; Parameters = %s; IsCurried = false; ReturnType = LowType.%s }""" memberName kind parameters ret
+      sprintf """            { Name = %s; Kind = %s; GenericParameters = []; Parameters = %s; ReturnParameter = Parameter.%s }""" memberName kind parameters ret
     )
     |> String.concat "\r\n"
   printfn "    (FullIdentity.%s, " typeName

@@ -16,3 +16,6 @@ let isFloat (t: FSharpType) = t.HasTypeDefinition && t.TypeDefinition.TryFullNam
 let isAbbreviation (t: FSharpType) = t.IsAbbreviation || isFloat t // HACK: IsAbbreviation of Inferred float is false.
 
 let isMeasure (t: FSharpType) = t.HasTypeDefinition && t.TypeDefinition.IsMeasure // HACK: The herz measure is infinit loop of type abbreviation. 
+
+let isUnitOnlyParameter (x: FSharpMemberOrFunctionOrValue) = // CurriedParameterGroups of the parameter is unit only (`member _.X : unit -> int`) is [ [] ]
+  Seq.length x.CurriedParameterGroups = 1 && Seq.length (Seq.item 0 x.CurriedParameterGroups) = 0

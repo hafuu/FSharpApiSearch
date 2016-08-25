@@ -67,12 +67,11 @@ type LowType =
   | Wildcard of string option
   | Variable of VariableSource * TypeVariable
   | Identity of Identity
-  | Arrow of Arrow
+  | Arrow of LowType list
   | Tuple of LowType list
   | Generic of LowType * LowType list
   | TypeAbbreviation of TypeAbbreviation
-  | Delegate of delegateType: LowType * Arrow
-and Arrow = LowType list
+  | Delegate of delegateType: LowType * LowType list
 and TypeAbbreviation = {
   Abbreviation: LowType
   Original: LowType
@@ -95,14 +94,51 @@ type MemberKind =
 [<RequireQualifiedAccess>]
 type MemberModifier = Instance | Static
 
+type Parameter = {
+  Type: LowType
+  Name: string option
+}
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module internal Parameter =
+  let ofLowType t = { Name = None; Type = t }
+
+type ParameterGroups = Parameter list list
+type Function = Parameter list list
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module internal Function =
+  let toLowTypeList (fn: Parameter list list) =
+    [
+      for ps in fn do
+        match ps with
+        | [] -> ()
+        | [ one ] -> yield one.Type
+        | many -> yield Tuple (List.map (fun x -> x.Type) many)
+    ]
+  let toArrow (fn: Parameter list list) =
+    let xs = toLowTypeList fn
+    match xs with
+    | [ one ] -> one
+    | xs -> Arrow xs
+
 type Member = {
   Name: string
   Kind: MemberKind
   GenericParameters: TypeVariable list
-  Parameters: LowType list
-  IsCurried: bool
-  ReturnType: LowType
+  Parameters: ParameterGroups
+  ReturnParameter: Parameter
 }
+with
+  member this.IsCurried = List.length this.Parameters > 1
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module internal Member =
+  let toArrow m = Function.toArrow [ yield! m.Parameters; yield [ m.ReturnParameter ] ]
+  let toFunction m =
+    match m.Parameters with
+    | [] -> [ [ m.ReturnParameter ] ]
+    | _ -> [ yield! m.Parameters; yield [ m.ReturnParameter ] ]
 
 type Constraint =
   | SubtypeConstraints of LowType
@@ -200,8 +236,8 @@ type ActivePatternKind =
 [<RequireQualifiedAccess>]
 type ApiSignature =
   | ModuleValue of LowType
-  | ModuleFunction of LowType list
-  | ActivePatten of ActivePatternKind * LowType
+  | ModuleFunction of Function
+  | ActivePatten of ActivePatternKind * Function
   | InstanceMember of LowType * Member
   | StaticMember of LowType * Member
   | Constructor of LowType * Member
@@ -239,8 +275,8 @@ type ApiDictionary = {
 
 [<RequireQualifiedAccess>]
 type ActivePatternSignature =
-  | AnyParameter of LowType * LowType
-  | Specified of LowType
+  | AnyParameter of LowType * LowType // (||) => ... -> a -> b
+  | Specified of LowType // (||) => a -> b
 [<RequireQualifiedAccess>]
 type ActivePatternQuery = {
   Kind: ActivePatternKind
@@ -465,19 +501,31 @@ module internal Print =
       | x -> printLowType isDebug x)
     |> String.concat " * "
 
+  let printParameter tupleParen isDebug (p: Parameter) =
+    let namePart =
+      match p.Name with
+      | Some name -> sprintf "%s:" name
+      | None -> ""
+    let sigPart =
+      match p with
+      | { Type = Tuple _ } when tupleParen -> sprintf "(%s)" (printLowType isDebug p.Type)
+      | { Type = Arrow _ } -> sprintf "(%s)" (printLowType isDebug p.Type)
+      | _ -> printLowType isDebug p.Type
+    namePart + sigPart
+
+  let printParameterGroups tupleParen isDebug (f: Parameter list list) =
+    f
+    |> Seq.map (fun ps ->
+      ps
+      |> Seq.map (printParameter tupleParen isDebug)
+      |> String.concat " * "
+    )
+    |> String.concat " -> "
+
   let printMember isDebug (m: Member) =
-    let argPart =
-      match m.Parameters with
-      | [ Tuple _ as t ] -> Some (sprintf "(%s)" (printLowType isDebug t))
-      | [] -> None
-      | args ->
-        if m.IsCurried then
-          Some (printLowType isDebug (Arrow args))
-        else
-          Some (printLowType isDebug (Tuple args))
-    match argPart with
-    | Some argPart -> sprintf "%s -> %s" argPart (printLowType isDebug m.ReturnType)
-    | None -> printLowType isDebug m.ReturnType
+    match m.Parameters with
+    | [] -> printLowType isDebug m.ReturnParameter.Type
+    | _ -> sprintf "%s -> %s" (printParameterGroups true isDebug m.Parameters) (printLowType isDebug m.ReturnParameter.Type)
 
   let printConstraint isDebug (c: TypeConstraint) =
     let variableSource = VariableSource.Target
@@ -517,8 +565,8 @@ module internal Print =
 
   let printApiSignature isDebug = function
     | ApiSignature.ModuleValue t -> printLowType isDebug t
-    | ApiSignature.ModuleFunction xs -> printLowType isDebug (Arrow xs)
-    | ApiSignature.ActivePatten (_, t) -> printLowType isDebug t
+    | ApiSignature.ModuleFunction fn -> printParameterGroups false isDebug fn
+    | ApiSignature.ActivePatten (_, fn) -> printParameterGroups false isDebug fn
     | ApiSignature.InstanceMember (declaringType, m) ->
       if isDebug then
         sprintf "%s => %s" (printLowType isDebug declaringType) (printMember isDebug m)

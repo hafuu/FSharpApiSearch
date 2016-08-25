@@ -45,6 +45,7 @@ module MatchingResult =
 
 type ILowTypeMatcher =
   abstract Test: LowType -> LowType -> Context -> MatchingResult
+  abstract TestAll: LowType seq -> LowType seq -> Context -> MatchingResult
 
 type IApiMatcher =
   abstract Name: string

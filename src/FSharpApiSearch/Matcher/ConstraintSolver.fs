@@ -123,26 +123,25 @@ let addGenericMemberReplacements (m: Member) replacements =
   ) replacements
 
 let normalizeGetterMethod (m: Member) =
-  let args =
+  let indexOrUnit =
     match m.Parameters with
-    | [] -> [ LowType.Unit ]
-    | args -> args
-  Arrow [ yield! args; yield m.ReturnType ]
+    | [] -> LowType.Unit
+    | [ propertyIndex ] -> Tuple (List.map (fun x -> x.Type) propertyIndex)
+    | _ -> failwith "Curried getter is invalid."
+  Arrow [ indexOrUnit; m.ReturnParameter.Type ]
 
 let normalizeSetterMethod (m: Member) =
-  let args = [
-    yield! m.Parameters
-    yield m.ReturnType
-  ]
-  Arrow [ yield! args; yield LowType.Unit ]
+  let parameters =
+    match m.Parameters with
+    | [] -> m.ReturnParameter.Type
+    | [ propertyIndex ] -> [ yield! propertyIndex; yield m.ReturnParameter ] |> List.map (fun x -> x.Type) |> Tuple
+    | _ -> failwith "Curried setter is invalid."
+  Arrow [ parameters; LowType.Unit ]
 
-let normalizeMethod (m: Member) =
-  Arrow [ yield! m.Parameters; yield m.ReturnType ]
+let normalizeMethod (m: Member) = Member.toArrow m
 
 let testMemberConstraint (lowTypeMatcher: ILowTypeMatcher) modifier (expectedMember: Member) =
-  let normalizedExpectedMember  =
-    let xs = [ yield! expectedMember.Parameters; yield expectedMember.ReturnType ]
-    Arrow xs
+  let normalizedExpectedMember = Member.toArrow expectedMember
 
   createConstraintSolver
     "member constraints"

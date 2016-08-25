@@ -31,17 +31,17 @@ let action0 = delegate' (createType "System.Action" []) [ unit; unit ]
 
 let csharpList t = createType "System.Collections.Generic.List<'t>" [ t ]
 
-let curriedMethod = curriedMethod "method" [ typeA; typeB ] typeA
-let nonCurriedMethod = method' "method" [ typeA; typeB ] typeA
-let tupleMethod = method' "method" [ tuple [ typeA; typeB ] ] typeA
-let unitArgmentMethod = method' "method" [ unit ] typeA
+let curriedMethod = method' "method" [ [ ptype typeA] ; [ ptype typeB ] ] typeA
+let nonCurriedMethod = method' "method" [ [ ptype typeA; ptype typeB ] ] typeA
+let tupleMethod = method' "method" [ [ ptype (tuple [ typeA; typeB ]) ] ] typeA
+let unitArgmentMethod = method' "method" [ [ ptype unit ] ] typeA
 
-let typeA_constructor = method' "A" [ typeB ] typeA
-let typeA_tuple_constructor = method' "A" [ tuple [ typeB; typeB ] ] typeA
-let typeA_2arg_constructor = method' "A" [ typeB; typeB ] typeA
+let typeA_constructor = method' "A" [ [ ptype typeB ] ] typeA
+let typeA_tuple_constructor = method' "A" [ [ ptype (tuple [ typeB; typeB ]) ] ] typeA
+let typeA_2arg_constructor = method' "A" [ [ ptype typeB; ptype typeB ] ] typeA
 
 let property = member' "property" (MemberKind.Property PropertyKind.GetSet) [] typeA
-let indexedProperty = member' "property" (MemberKind.Property PropertyKind.GetSet) [ typeB ] typeA
+let indexedProperty = member' "property" (MemberKind.Property PropertyKind.GetSet) [ [ ptype typeB ] ] typeA
 
 type Expected =
   | Always of bool
@@ -62,7 +62,7 @@ let respectNameDifferenceInequalitiesTest =
   }
 
 let matchTest trace abbTable (options, query, name, target, expected) = test {
-  use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
+  use listener = if trace then new System.Diagnostics.TextWriterTraceListener(System.Console.Out) else null
   do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
   try
     let targetApi: Api = { Name = name; Signature = target; TypeConstraints = []; Document = None }
@@ -74,7 +74,7 @@ let matchTest trace abbTable (options, query, name, target, expected) = test {
 }
 
 let nameMatchTest =
-  let createMap m = moduleFunction [ (arrow [ variableA; variableB ]); (m variableA); (m variableB) ]
+  let createMap m = moduleFunction' [ [ ptype (arrow [ variableA; variableB ]) ]; [ ptype (m variableA) ]; [ ptype (m variableB) ] ]
   let listMap = createMap list
   let cMap = createMap typeC
   
@@ -161,7 +161,7 @@ let functionParamStyleTest trace cases = parameterize {
   run (matchTest trace [||])
 }
 
-module NongreedyTest =
+module RespectNameDifferenceTest_WithNonGreedy =
   let matchTest cases = greedyMatchingTest false [||] Disabled cases
   let trace cases = greedyMatchingTest true [||] Disabled cases
 
@@ -182,8 +182,8 @@ module NongreedyTest =
       "'A", moduleValue variableB, Always true
       "'A", moduleValue (tuple [ typeA; typeB ]), Always false
       "A * B", moduleValue variableA, Always false
-      "'A", moduleFunction [ typeA; typeA ], Always false
-      "'A -> 'B", moduleFunction [ variableA; variableA ], WhenEnabled false
+      "'A", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ] ], Always false
+      "'A -> 'B", moduleFunction' [ [ ptype variableA ]; [ ptype variableA ] ], WhenEnabled false
     ]
 
   let tupleTest =
@@ -195,14 +195,14 @@ module NongreedyTest =
 
   let arrowTest =
     matchTest [
-      "A -> A", moduleFunction [ typeA; typeA ], Always true
-      "A -> B", moduleFunction [ typeA; typeA ], Always false
-      "A -> A -> A", moduleFunction [ typeA; typeA ], Always false
-      "(A -> A) -> A", moduleFunction [ arrow [ typeA; typeA ]; typeA ], Always true
-      "A -> A -> A", moduleFunction [ arrow [ typeA; typeA ]; typeA ], Always false
+      "A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ] ], Always true
+      "A -> B", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ] ], Always false
+      "A -> A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ] ], Always false
+      "(A -> A) -> A", moduleFunction' [ [ ptype (arrow [ typeA; typeA ]) ]; [ ptype typeA ] ], Always true
+      "A -> A -> A", moduleFunction' [ [ ptype (arrow [ typeA; typeA ]) ]; [ ptype typeA ] ], Always false
 
-      "A -> A -> A", moduleFunction [ typeA; typeA; typeA ], Always true
-      "A * A -> A", moduleFunction [ tuple [ typeA; typeA ]; typeA ], Always true
+      "A -> A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ]; [ ptype typeA ] ], Always true
+      "A * A -> A", moduleFunction' [ [ ptype (tuple [ typeA; typeA ]) ]; [ ptype typeA ] ], Always true
     ]
 
   let genericTest =
@@ -230,11 +230,11 @@ module NongreedyTest =
   let wildcardTest =
     matchTest [
       "?", moduleValue typeA, Always true
-      "?", moduleFunction [ typeA; typeA ], Always false
+      "?", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ] ], Always false
       "?", moduleValue variableA, Always true
-      "? -> ?", moduleFunction [ typeA; typeB ], Always true
+      "? -> ?", moduleFunction' [ [ ptype typeA ]; [ ptype typeB ] ], Always true
       "? -> ?", moduleValue typeA, Always false
-      "? -> ?", moduleFunction [ arrow [ typeA; typeB ]; typeB ], Always true
+      "? -> ?", moduleFunction' [ [ ptype (arrow [ typeA; typeB ]) ]; [ ptype typeB ] ], Always true
 
       "?<A>", moduleValue typeA, Always false
       "?<A>", moduleValue (typeC typeA), Always true
@@ -244,11 +244,11 @@ module NongreedyTest =
   let wildcardGroupTest =
     matchTest [
       "?a", moduleValue typeA, Always true
-      "?a -> ?a", moduleFunction [ typeA; typeA ], Always true
-      "?a -> ?a", moduleFunction [ typeA; typeB ], Always false
-      "?a -> ?a", moduleFunction [ typeA; variableA ], Always false
-      "?a -> ?b", moduleFunction [ typeA; typeB ], Always true
-      "?a -> ?b", moduleFunction [ typeA; typeA ], WhenEnabled false
+      "?a -> ?a", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ] ], Always true
+      "?a -> ?a", moduleFunction' [ [ ptype typeA ]; [ ptype typeB ] ], Always false
+      "?a -> ?a", moduleFunction' [ [ ptype typeA ]; [ ptype variableA ] ], Always false
+      "?a -> ?b", moduleFunction' [ [ ptype typeA ]; [ ptype typeB ] ], Always true
+      "?a -> ?b", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ] ], WhenEnabled false
     ]
 
   let typeAbbreviationTest =
@@ -277,11 +277,11 @@ module NongreedyTest =
     let matchTest = greedyMatchingTest false table Disabled
     matchTest [
       "Parser<'a, 'b>", moduleValue parser, Always true
-      "Parser<'a, 'b>", moduleFunction [ charStream; reply ], Always true
+      "Parser<'a, 'b>", moduleFunction' [ [ ptype charStream ]; [ ptype reply ] ], Always true
       "CharStream<'a> -> Reply<'b>", moduleValue parser, Always true
-      "CharStream<'a> -> Reply<'b>", moduleFunction [ charStream; reply ], Always true
-      "Parser<'a, 'b> -> Parser<'a, 'b>", moduleFunction [ parser; parser ], Always true
-      "(CharStream<'a> -> Reply<'b>) -> Parser<'a, 'b>", moduleFunction [ parser; parser ], Always true
+      "CharStream<'a> -> Reply<'b>", moduleFunction' [ [ ptype charStream ]; [ ptype reply ] ], Always true
+      "Parser<'a, 'b> -> Parser<'a, 'b>", moduleFunction' [ [ ptype parser ]; [ ptype parser ] ], Always true
+      "(CharStream<'a> -> Reply<'b>) -> Parser<'a, 'b>", moduleFunction' [ [ ptype parser ]; [ ptype parser ] ], Always true
     ]
 
   let privateTypeAbbreviationTest =
@@ -304,7 +304,7 @@ module NongreedyTest =
       "GenericOuter.GenericInner<'T, 'U>", moduleValue genericInner, Always true
     ]
 
-module GreedyTest =
+module RespectNameDifferenceTest_WithGreedy =
   let matchTest cases = greedyMatchingTest false [||] Enabled cases
   let trace cases = greedyMatchingTest true [||] Enabled cases
 
@@ -320,21 +320,21 @@ module GreedyTest =
   // bug #12 recursive and circular generic type
   let recursiveAndCircularTest =
     matchTest [
-      "'a -> 'a", moduleFunction [ typeC variableA; variableA ], Always false // nativeptr<'T> -> 'T
-      "('a -> 'b) -> C<'a> -> C<'b>", moduleFunction [ (arrow [ variableA; typeC variableB ]); typeC variableA; typeC variableB ], Always false // ('a -> 'b option) -> 'a option -> 'b option
-      "('a -> 'b) -> 'a 'm -> 'b 'm", moduleFunction [ (arrow [ variableA; typeC variableB ]); typeD1 variableA; variableB ], Always false // ('T -> option<'U>) -> seq<'T> -> 'U
+      "'a -> 'a", moduleFunction' [ [ ptype (typeC variableA) ]; [ ptype variableA ] ], Always false // nativeptr<'T> -> 'T
+      "('a -> 'b) -> C<'a> -> C<'b>", moduleFunction' [ [ ptype (arrow [ variableA; typeC variableB ]) ]; [ ptype (typeC variableA) ]; [ ptype (typeC variableB) ] ], Always false // ('a -> 'b option) -> 'a option -> 'b option
+      "('a -> 'b) -> 'a 'm -> 'b 'm", moduleFunction' [ [ ptype (arrow [ variableA; typeC variableB ]) ]; [ ptype (typeD1 variableA) ]; [ ptype variableB ] ], Always false // ('T -> option<'U>) -> seq<'T> -> 'U
     ]
 
   let arrowTest =
     matchTest [
-      "'a -> 'b", moduleFunction [ variableA; variableB ], Always true
-      "A -> B", moduleFunction [ typeA; typeB ], Always true
+      "'a -> 'b", moduleFunction' [ [ ptype variableA ]; [ ptype variableB ] ], Always true
+      "A -> B", moduleFunction' [ [ ptype typeA ]; [ ptype typeB ] ], Always true
 
-      "'a -> 'b", moduleFunction [ typeA; typeB ], Always true
-      "'a -> 'b", moduleFunction [ typeA; typeA ], WhenEnabled false
+      "'a -> 'b", moduleFunction' [ [ ptype typeA ]; [ ptype typeB ] ], Always true
+      "'a -> 'b", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ] ], WhenEnabled false
 
-      "A -> B", moduleFunction [ variableA; variableB ], Always true
-      "A -> A", moduleFunction [ variableA; variableB ], Always true
+      "A -> B", moduleFunction' [ [ ptype variableA ]; [ ptype variableB ] ], Always true
+      "A -> A", moduleFunction' [ [ ptype variableA ]; [ ptype variableB ] ], Always true
     ]
 
   let typeAbbreviationTest =
@@ -346,29 +346,29 @@ module GreedyTest =
       "list<A>", moduleValue (list typeB), Always false
 
       // bug #68
-      "(int -> string) -> ?<int> -> ?<string>", moduleFunction [ arrow [ variableA; variableB]; list variableA; list variableB ], Always true
-      "(Int -> String) -> ?<Int> -> ?<String>", moduleFunction [ arrow [ variableA; variableB]; list variableA; list variableB ], Always true
+      "(int -> string) -> ?<int> -> ?<string>", moduleFunction' [ [ ptype (arrow [ variableA; variableB]) ]; [ ptype (list variableA) ]; [ ptype (list variableB) ] ], Always true
+      "(Int -> String) -> ?<Int> -> ?<String>", moduleFunction' [ [ ptype (arrow [ variableA; variableB]) ]; [ ptype (list variableA) ]; [ ptype (list variableB) ] ], Always true
     ]
 
   let distanceTest = parameterize {
     source [
       "A", moduleValue typeA, 0
       "'a", moduleValue typeA, 1
-      "A -> B", moduleFunction [ variableA; variableB ], 2
-      "? -> 'a", moduleFunction [ typeA; variableA ], 0
-      "? -> 'a", moduleFunction [ typeA; typeC typeA ], 1
-      "? -> 'a", moduleFunction [ typeA; arrow [ typeA; typeB] ], 2
-      "? -> 'a", moduleFunction [ typeA; arrow [ typeA; typeA; typeA ] ], 3
-      "? -> 'a", moduleFunction [ typeA; arrow [ (arrow [ typeA; typeA ]); typeA; typeA ] ], 4
-      "('a -> 'b) -> C<'a> -> C<'b>", moduleFunction [ arrow [ variableA; variableB ]; typeC variableA; typeC variableB ], 0
-      "('a -> 'b) -> C<'a> -> C<'b>", moduleFunction [ arrow [ variableA; variableB ]; typeC variableA; variableA ], 1
+      "A -> B", moduleFunction' [ [ ptype variableA ]; [ ptype variableB ] ], 2
+      "? -> 'a", moduleFunction' [ [ ptype typeA ]; [ ptype variableA ] ], 0
+      "? -> 'a", moduleFunction' [ [ ptype typeA ]; [ ptype (typeC typeA) ] ], 1
+      "? -> 'a", moduleFunction' [ [ ptype typeA ]; [ ptype (arrow [ typeA; typeB]) ] ], 2
+      "? -> 'a", moduleFunction' [ [ ptype typeA ]; [ ptype (arrow [ typeA; typeA; typeA ]) ] ], 3
+      "? -> 'a", moduleFunction' [ [ ptype typeA ]; [ ptype (arrow [ (arrow [ typeA; typeA ]); typeA; typeA ]) ] ], 4
+      "('a -> 'b) -> C<'a> -> C<'b>", moduleFunction' [ [ ptype (arrow [ variableA; variableB ]) ]; [ ptype (typeC variableA) ]; [ ptype (typeC variableB) ] ], 0
+      "('a -> 'b) -> C<'a> -> C<'b>", moduleFunction' [ [ ptype (arrow [ variableA; variableB ]) ]; [ ptype (typeC variableA) ]; [ ptype variableA ] ], 1
 
-      "? -> ?", moduleFunction [ variableA; variableB ], 0
-      "? -> A", moduleFunction [ variableA; variableB ], 1
+      "? -> ?", moduleFunction' [ [ ptype variableA ]; [ ptype variableB ] ], 0
+      "? -> A", moduleFunction' [ [ ptype variableA ]; [ ptype variableB ] ], 1
 
       // bug #16
-      "('a * A) -> A", moduleFunction [ tuple [ variableA; variableB ]; variableB ], 1
-      "('a * A) -> A", moduleFunction [ tuple [ variableA; variableB ]; variableA ], 2
+      "('a * A) -> A", moduleFunction' [ [ ptype (tuple [ variableA; variableB ]) ]; [ ptype variableB ] ], 1
+      "('a * A) -> A", moduleFunction' [ [ ptype (tuple [ variableA; variableB ]) ]; [ ptype variableA ] ], 2
     ]
 
     run (fun (query, target, expected) -> test {
@@ -381,17 +381,29 @@ module GreedyTest =
   }
 
 module IgnoreParameterStyleTest =
-  let matchTest = functionParamStyleTest false
+  let matchTest cases = functionParamStyleTest false cases
+  let trace cases = functionParamStyleTest true cases
 
   let arrowTest =
     matchTest [
-      "A -> A -> A", moduleFunction [ typeA; typeA; typeA ], Always true
-      "A -> A -> A", moduleFunction [ tuple [ typeA; typeA ]; typeA ], WhenEnabled true
-      "A * A -> A", moduleFunction [ tuple [ typeA; typeA ]; typeA ], Always true
-      "A * A -> A", moduleFunction [ typeA; typeA; typeA ], WhenEnabled true
+      "A -> A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ]; [ ptype typeA ] ], Always true
+      "A -> A -> A", moduleFunction' [ [ ptype (tuple [ typeA; typeA ]) ]; [ ptype typeA ] ], WhenEnabled true
+      "A -> A -> A", moduleFunction' [ [ ptype typeA; ptype typeA ]; [ ptype typeA ] ], WhenEnabled true
+      "A * A -> A", moduleFunction' [ [ ptype (tuple [ typeA; typeA ]) ]; [ ptype typeA ] ], Always true
+      "A * A -> A", moduleFunction' [ [ ptype typeA; ptype typeA ]; [ ptype typeA ] ], Always true
+      "A * A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ]; [ ptype typeA ] ], WhenEnabled true
 
-      "? -> A", moduleFunction [ typeA; typeA; typeA ], Always false
-      "? -> A", moduleFunction [ tuple [ typeA; typeA ]; typeA ], Always true
+      "? -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ]; [ ptype typeA ] ], Always false
+      "? -> A", moduleFunction' [ [ ptype (tuple [ typeA; typeA ]) ]; [ ptype typeA ] ], Always true
+      "? -> A", moduleFunction' [ [ ptype typeA; ptype typeA ]; [ ptype typeA ] ], Always false
+
+      "A -> ? -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ]; [ ptype typeA ] ], Always true
+      "A -> ? -> A", moduleFunction' [ [ ptype typeA ]; [ ptype (tuple [ typeB; typeB ]) ]; [ ptype typeA ] ], Always true
+      "A -> ? -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeA; ptype typeB ]; [ ptype typeA ] ], Always true
+
+      "A -> B * A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeB; ptype typeA ]; [ ptype typeA ] ], Always true
+      "A -> B * A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype (tuple [ typeB; typeA ]) ]; [ ptype typeA ] ], Always true
+      "A -> (B -> A) -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeB; ptype typeA ]; [ ptype typeA ] ], Always false
     ]
 
   let staticMemberTest =
@@ -478,14 +490,15 @@ module IgnoreParameterStyleTest =
       "A -> B -> A", instanceMember typeA indexedProperty, Always true
     ]
 
-  let instanceMemberSperialRuleTest =
+  let instanceMemberSpetialRuleTest =
     matchTest [
       "A => A", instanceMember typeA unitArgmentMethod, Always true
-      "A => B -> C<A>", moduleFunction [ typeB; typeA; typeC typeA ], Always true
-      "A => B -> C<A>", moduleFunction [ tuple [ typeB; typeA ]; typeC typeA ], Always false
+      "A => B -> C<A>", moduleFunction' [ [ ptype typeB ]; [ ptype typeA ]; [ ptype (typeC typeA) ] ], Always true
+      "A => B -> C<A>", moduleFunction' [ [ ptype typeB; ptype typeA ]; [ ptype (typeC typeA) ] ], Always false
+      "A => B -> C<A>", moduleFunction' [ [ ptype (tuple [ typeB; typeA ]) ]; [ ptype (typeC typeA) ] ], Always false
 
       "A -> A", instanceMember typeA unitArgmentMethod, Always false
-      "A -> B -> C<A>", moduleFunction [ typeB; typeA; typeC typeA ], Always false
+      "A -> B -> C<A>", moduleFunction' [ [ ptype typeB ]; [ ptype typeA ]; [ ptype (typeC typeA) ] ], Always false
     ]
 
   let delegateTest =
@@ -505,12 +518,12 @@ module IgnoreParameterStyleTest =
       "Action", moduleValue (action0), Always true
       "unit -> unit", moduleValue (action0), Always true
 
-      "list<A> -> Func<A, B> -> list<B>", moduleFunction [list typeA; func2 typeA typeB; list typeB], Always true
-      "list<A> -> (A -> B) -> list<B>", moduleFunction [list typeA; func2 typeA typeB; list typeB], Always true
-      "list<A> -> (A -> A) -> list<B>", moduleFunction [list typeA; func2 typeA typeB; list typeB], Always false
+      "list<A> -> Func<A, B> -> list<B>", moduleFunction' [ [ ptype (list typeA) ]; [ ptype (func2 typeA typeB) ]; [ ptype (list typeB) ]], Always true
+      "list<A> -> (A -> B) -> list<B>", moduleFunction' [ [ ptype (list typeA) ]; [ ptype (func2 typeA typeB) ]; [ ptype (list typeB) ] ], Always true
+      "list<A> -> (A -> A) -> list<B>", moduleFunction' [ [ ptype (list typeA) ]; [ ptype (func2 typeA typeB) ]; [ ptype (list typeB) ] ], Always false
 
-      "list<A> -> (A -> int -> B) -> list<B>", moduleFunction [list typeA; func3 typeA int typeB; list typeB], Always true
-      "list<A> -> (A * int -> B) -> list<B>", moduleFunction [list typeA; func3 typeA int typeB; list typeB], WhenEnabled true
+      "list<A> -> (A -> int -> B) -> list<B>", moduleFunction' [ [ ptype (list typeA) ]; [ ptype (func3 typeA int typeB) ]; [ ptype (list typeB) ] ], Always true
+      "list<A> -> (A * int -> B) -> list<B>", moduleFunction' [ [ ptype (list typeA) ]; [ ptype (func3 typeA int typeB) ] ; [ ptype (list typeB) ] ], WhenEnabled true
     ]
 
   let distanceTest = parameterize {
@@ -524,7 +537,7 @@ module IgnoreParameterStyleTest =
       "A", staticMember typeA property, 0
 
       "A => A", instanceMember typeA unitArgmentMethod, 1
-      "A => B -> C<A>", moduleFunction [ typeB; typeA; typeC typeA ], 1
+      "A => B -> C<A>", moduleFunction' [ [ ptype typeB ]; [ ptype typeA ]; [ ptype (typeC typeA) ] ], 1
 
       "A -> A", instanceMember typeA property, 1
 
@@ -532,9 +545,9 @@ module IgnoreParameterStyleTest =
       "A -> A -> B", moduleValue (func3 typeA typeA typeB), 1
       "A * A -> B", moduleValue (func3 typeA typeA typeB), 2
 
-      "list<A> -> Func<A, int, B> -> list<B>", moduleFunction [list typeA; func3 typeA int typeB; list typeB], 0
-      "list<A> -> (A -> int -> B) -> list<B>", moduleFunction [list typeA; func3 typeA int typeB; list typeB], 1
-      "list<A> -> (A * int -> B) -> list<B>", moduleFunction [list typeA; func3 typeA int typeB; list typeB], 2
+      "list<A> -> Func<A, int, B> -> list<B>", moduleFunction' [ [ ptype (list typeA) ]; [ ptype (func3 typeA int typeB) ]; [ ptype (list typeB) ] ], 0
+      "list<A> -> (A -> int -> B) -> list<B>", moduleFunction' [ [ ptype (list typeA) ]; [ ptype (func3 typeA int typeB) ]; [ ptype (list typeB) ] ], 1
+      "list<A> -> (A * int -> B) -> list<B>", moduleFunction' [ [ ptype (list typeA) ]; [ ptype (func3 typeA int typeB) ]; [ ptype (list typeB) ] ], 2
     ]
 
     run (fun (query, target, expected) -> test {
@@ -835,14 +848,14 @@ module TypeConstraintTest =
       BaseType = Some (instantiate Object [])
       StaticMembers =
         [
-          method' "StaticMethod" [ int ] int
+          method' "StaticMethod" [ [ ptype int ] ] int
           property' "Property" PropertyKind.GetSet [] int
-          method' "Overload" [ unit ] typeA
-          method' "Overload" [ int ] typeA
+          method' "Overload" [ [ ptype unit ] ] typeA
+          method' "Overload" [ [ ptype int ] ] typeA
         ]
       InstanceMembers =
         [
-          method' "InstanceMethod" [ unit ] unit
+          method' "InstanceMethod" [ [ ptype unit ] ] unit
         ]
   }
 
@@ -854,8 +867,8 @@ module TypeConstraintTest =
       GenericParameters = [ "T" ]
       StaticMembers =
         [
-          { method' "Method1" [ variable "a" ] int with GenericParameters = [ "a" ] }
-          method' "Method2" [ variable "T" ] int
+          { method' "Method1" [ [ ptype (variable "a") ] ] int with GenericParameters = [ "a" ] }
+          method' "Method2" [ [ ptype (variable "T") ] ] int
         ]
   }
 
@@ -866,11 +879,11 @@ module TypeConstraintTest =
       BaseType = Some (instantiate Object [])
       ImplicitInstanceMembers =
         [
-          method' "InstanceMethod" [ unit ] unit
+          method' "InstanceMethod" [ [ ptype unit ] ] unit
         ]
       ImplicitStaticMembers =
         [
-          method' "StaticMethod" [ unit ] unit
+          method' "StaticMethod" [ [ ptype unit ] ] unit
         ]
   }
 
@@ -1056,15 +1069,15 @@ module TypeConstraintTest =
         false)
       // Foo.X implements only IA, and Bar.X implements only IB. These have same name 'X'.
       ("X -> X",
-        moduleFunction [ variable "t"; variable "u" ], // #IA -> #IA
+        moduleFunction' [ [ ptype (variable "t") ]; [ ptype (variable "u") ] ], // #IA -> #IA
         [ subtypeCon "t" IA; subtypeCon "u" IA ],
         true)
       ("X -> X",
-        moduleFunction [ variable "t"; variable "u" ], // #IA -> #IB
+        moduleFunction' [ [ ptype (variable "t") ]; [ ptype (variable "u") ] ], // #IA -> #IB
         [ subtypeCon "t" IA; subtypeCon "u" IB ],
         false)
       ("X -> X",
-        moduleFunction [ variable "t"; variable "u" ], // #IB -> #IA
+        moduleFunction' [ [ ptype (variable "t") ]; [ ptype (variable "u") ] ], // #IB -> #IA
         [ subtypeCon "t" IB; subtypeCon "u" IA ],
         false)
       // Type abbreviation base type
@@ -1086,28 +1099,28 @@ module TypeConstraintTest =
         true)
       // indirect
       ("'t -> 't",
-        moduleFunction [ variable "a"; Identity (FullIdentity Object.FullIdentity) ],
+        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (Identity (FullIdentity Object.FullIdentity)) ] ],
         [ subtypeCon "a" Parent ],
         false)
       ("'t -> 't",
-        moduleFunction [ variable "a"; Identity (FullIdentity Parent.FullIdentity) ],
+        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (Identity (FullIdentity Parent.FullIdentity)) ] ],
         [ subtypeCon "a" Parent ],
         true)
       ("'t -> 't",
-        moduleFunction [ variable "a"; Identity (FullIdentity Child.FullIdentity) ],
+        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (Identity (FullIdentity Child.FullIdentity)) ] ],
         [ subtypeCon "a" Parent ],
         true)
       // variable
       ("Foo.X -> Bar.X",
-        moduleFunction [ variable "a"; variable "b" ],
+        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (variable "b") ] ],
         [ subtypeCon_variable "a" "b" ],
         false)
       ("Foo.X -> System.Object",
-        moduleFunction [ variable "a"; variable "b" ],
+        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (variable "b") ] ],
         [ subtypeCon_variable "a" "b" ],
         false)
       ("Foo.X -> Foo.X",
-        moduleFunction [ variable "a"; variable "b" ],
+        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (variable "b") ] ],
         [ subtypeCon_variable "a" "b" ],
         true)
     ]
@@ -1136,105 +1149,105 @@ module TypeConstraintTest =
     source [
       ("MemberTestType",
         moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "StaticMethod" [ int ] int) ],
+        [ memberCon [ "a" ] MemberModifier.Static (method' "StaticMethod" [ [ ptype int ] ] int) ],
         true)
       ("MemberTestType",
         moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "Nonexistence" [ int ] int) ],
+        [ memberCon [ "a" ] MemberModifier.Static (method' "Nonexistence" [ [ ptype int ] ] int) ],
         false)
       ("MemberTestType",
         moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "StaticMethod" [ int ] unit) ], // signature not matched.
+        [ memberCon [ "a" ] MemberModifier.Static (method' "StaticMethod" [ [ ptype int ] ] unit) ], // signature not matched.
         false)
       ("MemberTestType",
         moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "get_Property" [ unit ] int) ],
+        [ memberCon [ "a" ] MemberModifier.Static (method' "get_Property" [ [ ptype unit ] ] int) ],
         true)
       ("MemberTestType",
         moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "set_Property" [ int ] unit) ],
+        [ memberCon [ "a" ] MemberModifier.Static (method' "set_Property" [ [ ptype int ] ] unit) ],
         true)
       ("MemberTestType",
         moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "Overload" [ unit ] typeA) ],
+        [ memberCon [ "a" ] MemberModifier.Static (method' "Overload" [ [ ptype unit ] ] typeA) ],
         true)
       ("MemberTestType",
         moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "Overload" [ int ] typeA) ],
+        [ memberCon [ "a" ] MemberModifier.Static (method' "Overload" [ [ ptype int ] ] typeA) ],
         true)
       ("MemberTestType",
         moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "Overload" [ typeB ] typeA) ],
+        [ memberCon [ "a" ] MemberModifier.Static (method' "Overload" [ [ ptype typeB ] ] typeA) ],
         false)
       ("MemberTestType",
         moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Instance (method' "InstanceMethod" [ unit ] unit) ],
+        [ memberCon [ "a" ] MemberModifier.Instance (method' "InstanceMethod" [ [ ptype unit ] ] unit) ],
         true)
       ("MemberTestType",
         moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Instance (method' "StaticMethod" [ int ] int) ],
+        [ memberCon [ "a" ] MemberModifier.Instance (method' "StaticMethod" [ [ ptype int ] ] int) ],
         false)
 
       // Generic
       ("GenericMemberTestType<'X>",
         moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "Method1" [ variable "b" ] int) ],
+        [ memberCon [ "a" ] MemberModifier.Static (method' "Method1" [ [ ptype (variable "b") ] ] int) ],
         true)
       ("GenericMemberTestType<'X>",
         moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ variable "b" ] int) ],
+        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ [ ptype (variable "b") ] ] int) ],
         true)
       ("GenericMemberTestType<'X>",
         moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ int ] int) ],
+        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ [ ptype int ] ] int) ],
         true)
       ("GenericMemberTestType<'X> -> 'X",
-        moduleFunction [ variable "a"; typeA ],
-        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ int ] int) ],
+        moduleFunction' [ [ ptype (variable "a") ]; [ ptype typeA ] ],
+        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ [ ptype int ] ] int) ],
         false)
       ("GenericMemberTestType<A>",
         moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ variable "b" ] int) ],
+        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ [ ptype (variable "b") ] ] int) ],
         true)
       ("GenericMemberTestType<A>",
         moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ typeA ] int) ],
+        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ [ ptype typeA ] ] int) ],
         true)
       ("GenericMemberTestType<A>",
         moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ unit ] int) ],
+        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ [ ptype unit ] ] int) ],
         false)
 
       // or
       ("MemberTestType -> Object",
-        moduleFunction [ variable "a"; variable "b" ],
-        [ memberCon [ "a"; "b" ] MemberModifier.Instance (method' "InstanceMethod" [ unit ] unit) ],
+        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (variable "b") ] ],
+        [ memberCon [ "a"; "b" ] MemberModifier.Instance (method' "InstanceMethod" [ [ ptype unit ] ] unit) ],
         true)
       ("Object -> MemberTestType",
-        moduleFunction [ variable "a"; variable "b" ],
-        [ memberCon [ "a"; "b" ] MemberModifier.Instance (method' "InstanceMethod" [ unit ] unit) ],
+        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (variable "b") ] ],
+        [ memberCon [ "a"; "b" ] MemberModifier.Instance (method' "InstanceMethod" [ [ ptype unit ] ] unit) ],
         true)
       ("MemberTestType -> MemberTestType",
-        moduleFunction [ variable "a"; variable "b" ],
-        [ memberCon [ "a"; "b" ] MemberModifier.Instance (method' "InstanceMethod" [ unit ] unit) ],
+        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (variable "b") ] ],
+        [ memberCon [ "a"; "b" ] MemberModifier.Instance (method' "InstanceMethod" [ [ ptype unit ] ] unit) ],
         true)
       ("Object -> Object",
-        moduleFunction [ variable "a"; variable "b" ],
-        [ memberCon [ "a"; "b" ] MemberModifier.Instance (method' "InstanceMethod" [ unit ] unit) ],
+        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (variable "b") ] ],
+        [ memberCon [ "a"; "b" ] MemberModifier.Instance (method' "InstanceMethod" [ [ ptype unit ] ] unit) ],
         false)
 
       // implicit
       ("ImplicitMemberType",
         moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Instance (method' "InstanceMethod" [ unit ] unit) ],
+        [ memberCon [ "a" ] MemberModifier.Instance (method' "InstanceMethod" [ [ ptype unit ] ] unit) ],
         true)
       ("ImplicitMemberType",
         moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "StaticMethod" [ unit ] unit) ],
+        [ memberCon [ "a" ] MemberModifier.Static (method' "StaticMethod" [ [ ptype unit ] ] unit) ],
         true)
       ("ImplicitMemberType",
         moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "MissingMethod" [ unit ] unit) ],
+        [ memberCon [ "a" ] MemberModifier.Static (method' "MissingMethod" [ [ ptype unit ] ] unit) ],
         false)
     ]
 
@@ -1288,7 +1301,7 @@ module TypeConstraintTest =
         [ equalityCon "a" ],
         false)
       ("(EqualityType -> EqualityType) -> 'x",
-        moduleFunction [ variable "a"; variable "b" ],
+        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (variable "b") ] ],
         [ equalityCon "a" ],
         false)
       ("DependenceEqualityType1<EqualityType>",
@@ -1363,7 +1376,7 @@ module TypeConstraintTest =
         [ comparisonCon "a" ],
         false)
       ("(ComparisonType -> ComparisonType) -> 'x",
-        moduleFunction [ variable "a"; variable "b" ],
+        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (variable "b") ] ],
         [ comparisonCon "a" ],
         false)
       ("DependenceComparisonType<ComparisonType>",
@@ -1414,31 +1427,32 @@ module ActivePatternTest =
 
   let activePatternTest = parameterize {
     source [
-      "(||) : ... -> A -> ?", activePattern [ typeA; typeB ], true
-      "(||) : ... -> A -> ?", activePattern [ typeB; typeA; typeB ], true
-      "(||) : ... -> A -> ?", activePattern [ typeB; typeA ], false
+      "(||) : ... -> A -> ?", activePattern [ [ ptype typeA ]; [ ptype typeB ] ], true
+      "(||) : ... -> A -> ?", activePattern [ [ ptype typeB ]; [ ptype typeA ]; [ ptype typeB ] ], true
+      "(||) : ... -> A -> ?", activePattern [ [ ptype typeB ]; [ ptype typeA ] ], false
 
-      "(||) : A -> ?", activePattern [ typeA; typeB ], true
-      "(||) : A -> ?", activePattern [ typeB; typeA; typeB ], false
+      "(||) : A -> ?", activePattern [ [ ptype typeA ]; [ ptype typeB ] ], true
+      "(||) : A -> ?", activePattern [ [ ptype typeB ]; [ ptype typeA ]; [ ptype typeB ] ], false
 
-      "(||) : ? -> A -> ?", activePattern [ typeA; typeA; typeB ], true
-      "(||) : ? -> A -> ?", activePattern [ typeA; typeB ], false
+      "(||) : ? -> A -> ?", activePattern [ [ ptype typeA ]; [ ptype typeA ]; [ ptype typeB ] ], true
+      "(||) : ? -> A -> ?", activePattern [ [ ptype typeA ]; [ ptype typeB ] ], false
 
-      "(|_|) : ... -> A -> ?", partialActivePattern [ typeA; typeB ], true
-      "(|_|) : ... -> A -> ?", activePattern [ typeA; typeB ], false
+      "(|_|) : ... -> A -> ?", partialActivePattern [ [ ptype typeA ]; [ ptype typeB ] ], true
+      "(|_|) : ... -> A -> ?", activePattern [ [ ptype typeA ]; [ ptype typeB ] ], false
     ]
     run (testActivePattern false)
   }
 
   let arrowAndActivePatternTest = parameterize {
     source [
-      "A -> B", activePattern [ typeA; typeB ], true
+      "A -> B", activePattern [ [ ptype typeA ]; [ ptype typeB ] ], true
     ]
     run (testActivePattern false)
   }
 
 module TypeExtensionTest =
   let matchTest cases = functionParamStyleTest false cases
+  let trace cases = functionParamStyleTest true cases
   let testModule = DisplayName.ofString "test"
 
   let instanceMemberTest =
@@ -1446,48 +1460,48 @@ module TypeExtensionTest =
       "A => B", typeExtension typeA testModule MemberModifier.Instance (property' "test" PropertyKind.Get [] typeB), Always true
       "B => B", typeExtension typeA testModule MemberModifier.Instance (property' "test" PropertyKind.Get [] typeB), Always false
 
-      "A => A -> B", typeExtension typeA testModule MemberModifier.Instance (property' "test" PropertyKind.Get [ typeA ] typeB), Always true
-      "A => A -> A", typeExtension typeA testModule MemberModifier.Instance (property' "test" PropertyKind.Get [ typeA ] typeB), Always false
+      "A => A -> B", typeExtension typeA testModule MemberModifier.Instance (property' "test" PropertyKind.Get [ [ ptype typeA ] ] typeB), Always true
+      "A => A -> A", typeExtension typeA testModule MemberModifier.Instance (property' "test" PropertyKind.Get [ [ ptype typeA ] ] typeB), Always false
 
-      "A => A * B -> A", typeExtension typeA testModule MemberModifier.Instance (method' "test" [ typeA; typeB ] typeA), Always true
-      "A => A -> B -> A", typeExtension typeA testModule MemberModifier.Instance (method' "test" [ typeA; typeB ] typeA), WhenEnabled true
+      "A => A * B -> A", typeExtension typeA testModule MemberModifier.Instance (method' "test" [ [ ptype typeA; ptype typeB ] ] typeA), Always true
+      "A => A -> B -> A", typeExtension typeA testModule MemberModifier.Instance (method' "test" [ [ ptype typeA; ptype typeB ] ] typeA), WhenEnabled true
 
-      "A => B", typeExtension typeA testModule MemberModifier.Instance (method' "test" [ unit ] typeB), Always true
+      "A => B", typeExtension typeA testModule MemberModifier.Instance (method' "test" [ [ ptype unit ] ] typeB), Always true
 
       "A => B", typeExtension typeA testModule MemberModifier.Static (property' "test" PropertyKind.Set [] typeB), Always false
     ]
 
   let staticMemberTest =
     matchTest [
-      "A -> B", typeExtension typeA testModule MemberModifier.Static (method' "test" [ typeA ] typeB), Always true
-      "A -> A", typeExtension typeA testModule MemberModifier.Static (method' "test" [ typeA ] typeB), Always false
+      "A -> B", typeExtension typeA testModule MemberModifier.Static (method' "test" [ [ ptype typeA ] ] typeB), Always true
+      "A -> A", typeExtension typeA testModule MemberModifier.Static (method' "test" [ [ ptype typeA ] ] typeB), Always false
 
       "A", typeExtension typeA testModule MemberModifier.Static (property' "test" PropertyKind.Get [] typeA), Always true
       "A", typeExtension typeA testModule MemberModifier.Static (property' "test" PropertyKind.Get [] typeB), Always false
 
-      "A -> B", typeExtension typeA testModule MemberModifier.Static (property' "test" PropertyKind.Get [ typeA ] typeB), Always true
-      "A -> B", typeExtension typeA testModule MemberModifier.Static (property' "test" PropertyKind.Get [ typeA ] typeA), Always false
+      "A -> B", typeExtension typeA testModule MemberModifier.Static (property' "test" PropertyKind.Get [ [ ptype typeA ] ] typeB), Always true
+      "A -> B", typeExtension typeA testModule MemberModifier.Static (property' "test" PropertyKind.Get [ [ ptype typeA ] ] typeA), Always false
 
 
-      "A * A -> B", typeExtension typeA testModule MemberModifier.Static (method' "test" [ typeA; typeA ] typeB), Always true
-      "A -> A -> B", typeExtension typeA testModule MemberModifier.Static (method' "test" [ typeA; typeA ] typeB), WhenEnabled true
+      "A * A -> B", typeExtension typeA testModule MemberModifier.Static (method' "test" [ [ ptype typeA; ptype typeA ] ] typeB), Always true
+      "A -> A -> B", typeExtension typeA testModule MemberModifier.Static (method' "test" [ [ ptype typeA; ptype typeA ] ] typeB), WhenEnabled true
 
-      "A -> B", typeExtension typeA testModule MemberModifier.Instance (method' "test" [ typeA ] typeB), Always false
+      "A -> B", typeExtension typeA testModule MemberModifier.Instance (method' "test" [ [ ptype typeA ] ] typeB), Always false
     ]
 
   let extensionMemberTest =
     matchTest [
-      "A => B", extensionMember (method' "test" [ typeA ] typeB), Always true
-      "A => B", extensionMember (method' "test" [ typeA ] typeA), Always false
-      "A => B", extensionMember (method' "test" [ typeB ] typeA), Always false
+      "A => B", extensionMember (method' "test" [ [ ptype typeA ] ] typeB), Always true
+      "A => B", extensionMember (method' "test" [ [ ptype typeA ] ] typeA), Always false
+      "A => B", extensionMember (method' "test" [ [ ptype typeA ] ] typeA), Always false
 
-      "A => A -> B", extensionMember (method' "test" [ typeA; typeA ] typeB), Always true
-      "A => A -> A -> B", extensionMember (method' "test" [ typeA; typeA; typeA ] typeB), WhenEnabled true
+      "A => A -> B", extensionMember (method' "test" [ [ ptype typeA; ptype typeA ] ] typeB), Always true
+      "A => A -> A -> B", extensionMember (method' "test" [ [ ptype typeA; ptype typeA; ptype typeA ] ] typeB), WhenEnabled true
 
-      "A => B", extensionMember (method' "test" [ typeA; unit ] typeB), Always true
+      "A => B", extensionMember (method' "test" [ [ ptype typeA; ptype unit ] ] typeB), Always true
 
       // extension member as static method
-      "A -> B", extensionMember (method' "test" [ typeA ] typeB), Always true
-      "A -> B", extensionMember (method' "test" [ typeA ] typeA), Always false
-      "A -> B -> A", extensionMember (method' "test" [ typeA; typeB ] typeA), WhenEnabled true
+      "A -> B", extensionMember (method' "test" [ [ ptype typeA ] ] typeB), Always true
+      "A -> B", extensionMember (method' "test" [ [ ptype typeA ] ] typeA), Always false
+      "A -> B -> A", extensionMember (method' "test" [ [ ptype typeA; ptype typeB ] ] typeA), WhenEnabled true
     ]

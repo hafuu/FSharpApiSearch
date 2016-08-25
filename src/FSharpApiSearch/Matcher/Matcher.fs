@@ -30,7 +30,6 @@ let search (dictionaries: ApiDictionary[]) (options: SearchOptions) (targets: Ap
   let lowTypeMatcher, apiMatchers = MatcherInitializer.matchers options
   let query = QueryParser.parse queryStr |> MatcherInitializer.initializeQuery dictionaries
   let initialContext = MatcherInitializer.initializeContext dictionaries options query
-
   seq {
     for dic in targets do
     for api in dic.Api do
