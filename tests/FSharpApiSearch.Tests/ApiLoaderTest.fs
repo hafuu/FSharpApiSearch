@@ -663,6 +663,16 @@ module FSharp =
       run testApi
     }
 
+  let optionalParameterTest =
+    let t = createType "OptionalParameters.X" [] |> updateAssembly fsharpAssemblyName
+    parameterize {
+      source [
+        "OptionalParameters.X.F", [ instanceMember t (method' "F" [ [ pname "x" >> ptype int; popt >> pname "y" >> ptype string ] ] int) ]
+        "OptionalParameters.X.G", [ instanceMember t (method' "G" [ [ pname "x" >> ptype (option string); popt >> pname "y" >> ptype (option int) ] ] (option string))]
+      ]
+      run testApi
+    }
+
 module SpecialType =
   let tupleName = Name.displayNameOfString "System.Tuple<'T1, 'T2>"
   let tupleNullnessTest =
@@ -925,6 +935,16 @@ module CSharp =
         (DisplayName.ofString "CSharpLoadTestAssembly.Operators.op_Implicit"), [ staticMember t (method' "op_Implicit" [ [ pname "x" >> ptype string ] ] t) ]
       ]
       run testApi  
+    }
+
+  let optionalParameterTest =
+    let t = createType "CSharpLoadTestAssembly.OptinalParameters" [] |> updateAssembly csharpAssemblyName
+    parameterize {
+      source [
+        "CSharpLoadTestAssembly.OptinalParameters.F", [ staticMember t (method' "F" [ [ popt >> pname "x" >> ptype int ] ] unit) ]
+        "CSharpLoadTestAssembly.OptinalParameters.G", [ staticMember t (method' "G" [ [ popt >> pname "x" >> ptype (fsharpOption int) ] ] unit) ]
+      ]
+      run testApi
     }
 
 module XmlDocTest =

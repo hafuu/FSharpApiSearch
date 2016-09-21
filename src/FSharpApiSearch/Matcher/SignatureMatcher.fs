@@ -18,8 +18,26 @@ module Rules =
     | Variable _ -> Some ()
     | _ -> None
 
+  let trimOptionalParameters (leftElems: LowType list) (rightElems: Parameter list list) =
+    match rightElems with
+    | [ nonCurriedParameters; [ ret ] ] ->
+      let leftLength = (leftElems |> List.sumBy (function Tuple xs -> xs.Length | _ -> 1)) - 1 // subtract return parameter (1)
+      let rightLength = nonCurriedParameters.Length
+      if leftLength < rightLength then
+        let trimedParameters, extraParameters = List.splitAt leftLength nonCurriedParameters
+        if List.forall (fun x -> x.IsOptional) extraParameters then
+          Debug.WriteLine(sprintf "trimed %d parameters." (rightLength - leftLength))
+          [ trimedParameters; [ ret ] ]
+        else
+          rightElems
+      else
+        rightElems
+    | _ ->
+      rightElems
+
   let testArrow (lowTypeMatcher: ILowTypeMatcher) (leftElems: LowType list) (rightElems: Parameter list list) ctx =
     Debug.WriteLine("test arrow.")
+    let rightElems = trimOptionalParameters leftElems rightElems
     let test ctx = lowTypeMatcher.TestAll leftElems (Function.toLowTypeList rightElems) ctx
     match leftElems, rightElems with
     | [ WildcardOrVariable; _ ], [ [ _ ]; _ ] -> test ctx
@@ -28,6 +46,7 @@ module Rules =
 
   let testArrow_IgnoreParamStyle (lowTypeMatcher: ILowTypeMatcher) (leftElems: LowType list) (rightElems: Parameter list list) ctx =
     Debug.WriteLine("test arrow (ignore parameter style).")
+    let rightElems = trimOptionalParameters leftElems rightElems
     match leftElems, rightElems with
     // a and A
     | [ left ], [ [ rightRet ] ] -> lowTypeMatcher.Test left rightRet.Type ctx

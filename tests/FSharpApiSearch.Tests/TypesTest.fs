@@ -38,6 +38,7 @@ module PrintTest =
   let variableB = variable "b"
 
   let memberMethod = method' "test" [ [ ptype variableA; ptype typeB ] ] typeC
+  let memberOptArgMethod = method' "test" [ [ popt >> pname "x" >> ptype variableA; ptype typeB ] ] typeC
   let memberCurriedMethod = method' "test" [ [ ptype variableA ]; [ ptype typeB ] ] typeC
   let memberProperty = member' "test" (MemberKind.Property PropertyKind.Get) [] typeA
 
@@ -80,6 +81,7 @@ module PrintTest =
       moduleValue (tuple [ typeA; variableB; typeC ]), "a * 'b * c"
       moduleValue (tuple [ typeA; (tuple [ typeB; typeC ]) ]), "a * (b * c)"
       instanceMember typeA memberMethod, "'a * b -> c"
+      instanceMember typeA memberOptArgMethod, "?x:'a * b -> c"
       instanceMember typeA memberCurriedMethod, "'a -> b -> c"
       instanceMember typeA memberProperty, "a"
       staticMember typeA memberMethod, "'a * b -> c"

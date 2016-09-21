@@ -30,6 +30,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="FSharp.Core, Version=4.4.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -45,6 +46,7 @@
     <Compile Include="Class.cs" />
     <Compile Include="NestedClass.cs" />
     <Compile Include="Operators.cs" />
+    <Compile Include="OptinalParameters.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TypeConstraints.cs" />
   </ItemGroup>

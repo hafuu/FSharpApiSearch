@@ -97,11 +97,12 @@ type MemberModifier = Instance | Static
 type Parameter = {
   Type: LowType
   Name: string option
+  IsOptional: bool
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module internal Parameter =
-  let ofLowType t = { Name = None; Type = t }
+  let ofLowType t = { Name = None; Type = t; IsOptional = false }
 
 type ParameterGroups = Parameter list list
 type Function = Parameter list list
@@ -502,6 +503,10 @@ module internal Print =
     |> String.concat " * "
 
   let printParameter tupleParen isDebug (p: Parameter) =
+    let optPart =
+      match p.IsOptional with
+      | true -> "?"
+      | false -> ""
     let namePart =
       match p.Name with
       | Some name -> sprintf "%s:" name
@@ -511,7 +516,7 @@ module internal Print =
       | { Type = Tuple _ } when tupleParen -> sprintf "(%s)" (printLowType isDebug p.Type)
       | { Type = Arrow _ } -> sprintf "(%s)" (printLowType isDebug p.Type)
       | _ -> printLowType isDebug p.Type
-    namePart + sigPart
+    optPart + namePart + sigPart
 
   let printParameterGroups tupleParen isDebug (f: Parameter list list) =
     f

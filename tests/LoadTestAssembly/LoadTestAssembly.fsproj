@@ -66,6 +66,7 @@
     <Compile Include="XmlDoc.fs" />
     <Compile Include="Operators.fs" />
     <Compile Include="Delegate.fs" />
+    <Compile Include="OptionalParameters.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

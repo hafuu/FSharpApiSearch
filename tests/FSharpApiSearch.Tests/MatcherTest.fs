@@ -526,6 +526,21 @@ module IgnoreParameterStyleTest =
       "list<A> -> (A * int -> B) -> list<B>", moduleFunction' [ [ ptype (list typeA) ]; [ ptype (func3 typeA int typeB) ] ; [ ptype (list typeB) ] ], WhenEnabled true
     ]
 
+  let optionalParameterTest =
+    matchTest [
+      "A -> A * A -> A", instanceMember typeA (method' "test" [ [ ptype typeA; popt >> ptype typeA ] ] typeA), Always true
+      "A => A * A -> A", instanceMember typeA (method' "test" [ [ ptype typeA; popt >> ptype typeA ] ] typeA), Always true
+      "A -> A -> A", instanceMember typeA (method' "test" [ [ ptype typeA; popt >> ptype typeA ] ] typeA), Always true
+      "A => A -> A", instanceMember typeA (method' "test" [ [ ptype typeA; popt >> ptype typeA ] ] typeA), Always true
+
+      "A -> A -> A -> A", instanceMember typeA (method' "test" [ [ ptype typeA; ptype typeA; popt >> ptype typeA ] ] typeA), WhenEnabled true
+      "A => A -> A -> A", instanceMember typeA (method' "test" [ [ ptype typeA; ptype typeA; popt >> ptype typeA ] ] typeA), WhenEnabled true
+
+      "A * A -> A", staticMember typeA (method' "test" [ [ ptype typeA; popt >> ptype typeA ] ] typeA), Always true
+      "A -> A -> A", staticMember typeA (method' "test" [ [ ptype typeA; ptype typeA; popt >> ptype typeA ] ] typeA), WhenEnabled true
+      "A -> A", staticMember typeA (method' "test" [ [ ptype typeA; popt >> ptype typeA ] ] typeA), Always true
+    ]
+
   let distanceTest = parameterize {
     source [
       "A -> B -> A", staticMember typeA curriedMethod, 0

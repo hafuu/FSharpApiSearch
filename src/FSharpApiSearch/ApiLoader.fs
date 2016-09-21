@@ -265,7 +265,21 @@ module internal Impl =
     ]
     listLowType xs
 
-  let curriedParameterGroups (t: FSharpMemberOrFunctionOrValue) =
+  let private (|Fs_option|_|) = function
+    | Generic (Identity (FullIdentity { AssemblyName = "FSharp.Core"; Name = LoadingName ("FSharp.Core", "Microsoft.FSharp.Core.option`1", []); GenericParameterCount = 1 }), [ p ]) -> Some p
+    | _ -> None
+  let private (|Fs_Option|_|) = function
+    | Generic (Identity (FullIdentity { AssemblyName = "FSharp.Core"; Name = LoadingName ("FSharp.Core", "Microsoft.FSharp.Core.FSharpOption`1", []); GenericParameterCount = 1 }), [ p ]) -> Some p
+    | _ -> None
+  let private (|IsOption|_|) = function
+    | TypeAbbreviation { Abbreviation = Fs_option _; Original = Fs_Option p } -> Some p
+    | Fs_Option p -> Some p
+    | _ -> None
+  let unwrapFsOptionalParameter = function
+    | IsOption p -> p
+    | p -> p
+
+  let curriedParameterGroups isFSharp (t: FSharpMemberOrFunctionOrValue) =
     seq {
       for group in t.CurriedParameterGroups do
         if Seq.length group > 0 then
@@ -273,7 +287,12 @@ module internal Impl =
               for p in group do
                 yield option {
                   let! t = fsharpTypeToLowType p.Type
-                  return { Name = p.Name; Type = t }
+                  let t =
+                    if isFSharp && p.IsOptionalArg then
+                      unwrapFsOptionalParameter t
+                    else
+                      t
+                  return { Name = p.Name; Type = t; IsOptional = p.IsOptionalArg }
                 }
             }
           yield Seq.foldOptionMapping id group |> Option.map Seq.toList
@@ -289,10 +308,10 @@ module internal Impl =
     else
       ps
 
-  let methodMember (x: FSharpMemberOrFunctionOrValue) =
+  let methodMember isFSharp (x: FSharpMemberOrFunctionOrValue) =
     option {
       let name = x.GetDisplayName
-      let! parameters = curriedParameterGroups x
+      let! parameters = curriedParameterGroups isFSharp x
       let parameters = complementUnitParameter x parameters
       let! returnType = fsharpTypeToLowType x.ReturnParameter.Type
       let returnParam = Parameter.ofLowType returnType
@@ -301,10 +320,10 @@ module internal Impl =
       return (name, member')
     }
 
-  let propertyMember (x: FSharpMemberOrFunctionOrValue) =
+  let propertyMember isFSharp (x: FSharpMemberOrFunctionOrValue) =
     option {
       let name = x.GetDisplayName
-      let! parameters = curriedParameterGroups x
+      let! parameters = curriedParameterGroups isFSharp x
       let! returnType = fsharpTypeToLowType x.ReturnParameter.Type
       let returnParam = Parameter.ofLowType returnType
       let genericParams = x.GenericParametersAsTypeVariable
@@ -313,10 +332,10 @@ module internal Impl =
       return (name, member')
     }
 
-  let toModuleValue xml (declaringModuleName: DisplayName) (x: FSharpMemberOrFunctionOrValue) =
+  let toModuleValue isFSharp xml (declaringModuleName: DisplayName) (x: FSharpMemberOrFunctionOrValue) =
     option {
       let name = x.GetDisplayName :: declaringModuleName
-      let! parameters = curriedParameterGroups x
+      let! parameters = curriedParameterGroups isFSharp x
       let! returnType = fsharpTypeToLowType x.ReturnParameter.Type
       let returnParam = Parameter.ofLowType returnType
       let arrow = [ yield! parameters; yield [ returnParam ] ]
@@ -331,7 +350,7 @@ module internal Impl =
       return { Name = DisplayName name; Signature = target; TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
     }
 
-  let toTypeExtension xml (declaringModuleName: DisplayName) (x: FSharpMemberOrFunctionOrValue) =
+  let toTypeExtension isFSharp xml (declaringModuleName: DisplayName) (x: FSharpMemberOrFunctionOrValue) =
     option {
       let existingType = fsharpEntityToLowType x.LogicalEnclosingEntity
       let modifier = x.MemberModifier
@@ -340,11 +359,11 @@ module internal Impl =
         if x.IsPropertyGetterMethod || x.IsPropertySetterMethod then
           None
         elif x.IsProperty then
-          propertyMember x
+          propertyMember isFSharp x
         else
           let existingTypeParameters = x.LogicalEnclosingEntity.GenericParameters |> Seq.map (fun x -> x.DisplayName) |> Seq.toArray
           let removeExistingTypeParameters xs = xs |> List.filter (fun p -> existingTypeParameters |> Array.exists ((=)p) = false)
-          methodMember x
+          methodMember isFSharp x
           |> Option.map (fun (n, m) -> (n, { m with GenericParameters = removeExistingTypeParameters m.GenericParameters }))
 
       let signature = ApiSignature.TypeExtension { ExistingType = existingType; Declaration = declaringModuleName; MemberModifier = modifier; Member = member' }
@@ -358,15 +377,15 @@ module internal Impl =
       return { Name = name; Signature = signature; TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
     }
 
-  let toFSharpApi xml (declaringModuleName: DisplayName) (x: FSharpMemberOrFunctionOrValue) =
+  let toFSharpApi isFSharp xml (declaringModuleName: DisplayName) (x: FSharpMemberOrFunctionOrValue) =
     if x.IsExtensionMember then
-      toTypeExtension xml declaringModuleName x
+      toTypeExtension isFSharp xml declaringModuleName x
     else
-      toModuleValue xml declaringModuleName x
+      toModuleValue isFSharp xml declaringModuleName x
 
-  let constructorSignature xml (declaringSignatureName: DisplayName) (declaringSignature: LowType) (x: FSharpMemberOrFunctionOrValue) =
+  let constructorSignature isFSharp xml (declaringSignatureName: DisplayName) (declaringSignature: LowType) (x: FSharpMemberOrFunctionOrValue) =
     option {
-      let! _, target = methodMember x
+      let! _, target = methodMember isFSharp x
       let target = { target with Name = declaringSignatureName.Head.FSharpName; ReturnParameter = Parameter.ofLowType declaringSignature }
       return { Name = DisplayName declaringSignatureName; Signature = ApiSignature.Constructor (declaringSignature, target); TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
     }
@@ -380,12 +399,13 @@ module internal Impl =
     }
 
   let toTypeMemberApi xml (declaringSignatureName: DisplayName) (declaringEntity: FSharpEntity) (declaringSignature: LowType) (x: FSharpMemberOrFunctionOrValue) =
+    let isFSharp = declaringEntity.IsFSharp
     if x.IsConstructor then
-      constructorSignature xml declaringSignatureName declaringSignature x
+      constructorSignature isFSharp xml declaringSignatureName declaringSignature x
     elif x.IsMethod then
-      memberSignature xml methodMember declaringSignatureName declaringEntity declaringSignature x
+      memberSignature xml (methodMember isFSharp) declaringSignatureName declaringEntity declaringSignature x
     elif x.IsProperty then
-      memberSignature xml propertyMember declaringSignatureName declaringEntity declaringSignature x
+      memberSignature xml (propertyMember isFSharp) declaringSignatureName declaringEntity declaringSignature x
     else
       None
 
@@ -713,7 +733,7 @@ module internal Impl =
     seq {
       yield! e.MembersFunctionsAndValues
               |> Seq.filter (fun x -> x.Accessibility.IsPublic)
-              |> Seq.choose (toFSharpApi xml moduleName)
+              |> Seq.choose (toFSharpApi e.IsFSharp xml moduleName)
       yield! collectFromNestedEntities xml moduleName e
     }
   and collectFromType xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
