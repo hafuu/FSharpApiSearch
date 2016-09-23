@@ -48,6 +48,9 @@ module internal Impl =
       else
         None
 
+  type FSharpGenericParameter with
+    member this.TypeVariable: TypeVariable = { Name = this.DisplayName; IsSolveAtCompileTime = this.IsSolveAtCompileTime }
+
   type FSharpMemberOrFunctionOrValue with
     member this.IsStaticMember = not this.IsInstanceMember
     member this.IsMethod = this.FullType.IsFunctionType && not this.IsPropertyGetterMethod && not this.IsPropertySetterMethod
@@ -71,7 +74,7 @@ module internal Impl =
       else
         ApiSignature.InstanceMember (declaringType, member')
     member this.GenericParametersAsTypeVariable =
-      this.GenericParameters |> Seq.map (fun x -> x.DisplayName : TypeVariable) |> Seq.toList
+      this.GenericParameters |> Seq.map (fun x -> x.TypeVariable) |> Seq.toList
     member this.GetDisplayName =
       let dn = this.DisplayName
       let isOperator =
@@ -89,7 +92,7 @@ module internal Impl =
         ApiSignature.InstanceMember (declaringType, member')
 
   let genericParameters (e: FSharpEntity) =
-    e.GenericParameters |> Seq.map (fun p -> p.DisplayName : TypeVariable) |> Seq.toList
+    e.GenericParameters |> Seq.map (fun p -> p.TypeVariable) |> Seq.toList
 
   let accessibility (e: FSharpEntity) =
     let a = e.Accessibility
@@ -107,7 +110,7 @@ module internal Impl =
         return Arrow xs
       }
     elif t.IsGenericParameter then
-      Some (Variable (VariableSource.Target, t.GenericParameter.Name))
+      Some (Variable (VariableSource.Target, t.GenericParameter.TypeVariable))
     elif t.IsTupleType then
       option {
         let! args = listLowType t.GenericArguments
@@ -198,7 +201,7 @@ module internal Impl =
   let collectTypeConstraints (genericParamters: seq<FSharpGenericParameter>): TypeConstraint list =
     genericParamters
     |> Seq.collect (fun p ->
-      let variable = p.Name
+      let variable = p.TypeVariable
       p.Constraints
       |> Seq.choose (fun c -> 
         if c.IsCoercesToConstraint then
@@ -229,7 +232,7 @@ module internal Impl =
                     List.tail parameters // instance member contains receiver
               [ List.map Parameter.ofLowType ps ]
               
-            let variables = data.MemberSources |> Seq.map (fun x -> x.GenericParameter.Name) |> Seq.toList
+            let variables = data.MemberSources |> Seq.map (fun x -> x.GenericParameter.TypeVariable) |> Seq.toList
             let name = data.MemberName
             let member' = { Name = name; Kind = MemberKind.Method; Parameters = parameters; ReturnParameter = returnParam; GenericParameters = [] }
             return { Variables = variables; Constraint = MemberConstraints (modifier, member') }
@@ -361,7 +364,7 @@ module internal Impl =
         elif x.IsProperty then
           propertyMember isFSharp x
         else
-          let existingTypeParameters = x.LogicalEnclosingEntity.GenericParameters |> Seq.map (fun x -> x.DisplayName) |> Seq.toArray
+          let existingTypeParameters = x.LogicalEnclosingEntity.GenericParameters |> Seq.map (fun x -> x.TypeVariable) |> Seq.toArray
           let removeExistingTypeParameters xs = xs |> List.filter (fun p -> existingTypeParameters |> Array.exists ((=)p) = false)
           methodMember isFSharp x
           |> Option.map (fun (n, m) -> (n, { m with GenericParameters = removeExistingTypeParameters m.GenericParameters }))
@@ -423,11 +426,11 @@ module internal Impl =
   let resolveConflictGenericArgumnet (replacementVariables: LowType list) (m: FSharpMemberOrFunctionOrValue) =
     m.GenericParameters
     |> Seq.choose (fun p ->
-      let name = p.Name.TrimStart(''')
+      let name = p.TypeVariable
       let isConflict = replacementVariables |> List.exists (function Variable (VariableSource.Target, n) -> n = name | _ -> false)
       if isConflict then
         let confrictVariable = name
-        let newVariable = Variable (VariableSource.Target, name + "1")
+        let newVariable = Variable (VariableSource.Target, { confrictVariable with Name = confrictVariable.Name + "1" })
         Some (confrictVariable, newVariable)
       else None
     )
@@ -437,7 +440,7 @@ module internal Impl =
     Seq.zip t.TypeDefinition.GenericParameters t.GenericArguments
     |> Seq.choose (fun (parameter, arg) -> option {
       let! s = fsharpTypeToLowType arg
-      let v = parameter.Name.TrimStart(''')
+      let v = parameter.TypeVariable
       return v, s
     })
     |> Seq.toList
@@ -470,7 +473,7 @@ module internal Impl =
         FullName = e.TypeAbbreviationFullName
         AssemblyName = e.Assembly.SimpleName
         Accessibility = accessibility e
-        GenericParameters = e.GenericParameters |> Seq.map (fun p -> p.Name) |> Seq.toList
+        GenericParameters = e.GenericParameters |> Seq.map (fun p -> p.TypeVariable) |> Seq.toList
         Abbreviated = abbreviated
         Original = original
       }
@@ -522,7 +525,7 @@ module internal Impl =
           x.Attributes
           |> Seq.exists (fun attr -> attr.AttributeType.FullName = builder.ConditionalAttrName)
         )
-        |> Seq.map (fun p -> p.DisplayName)
+        |> Seq.map (fun p -> p.TypeVariable)
         |> Seq.toList
       match vs with
       | [] -> Satisfy
@@ -548,14 +551,14 @@ module internal Impl =
         elif builder.SatisfyTypes |> Seq.exists (Some >> ((=) fullName)) then
           updateCache cache Satisfy
         elif e.IsTuple then
-          let vs = e.GenericParameters |> Seq.map (fun p -> p.DisplayName) |> Seq.toList
+          let vs = e.GenericParameters |> Seq.map (fun p -> p.TypeVariable) |> Seq.toList
           let eq =
             match vs with
             | [] -> Satisfy
             | _ -> Dependence vs
           updateCache cache eq
         elif e.IsArrayType then
-          let v = e.GenericParameters |> Seq.map (fun p -> p.DisplayName) |> Seq.toList
+          let v = e.GenericParameters |> Seq.map (fun p -> p.TypeVariable) |> Seq.toList
           updateCache cache (Dependence v)
         else
           match updateCache cache (loadBasic e) with
@@ -566,7 +569,7 @@ module internal Impl =
             | cache, _ -> updateCache cache NotSatisfy
     and loadBasic (e: FSharpEntity) =
       if e.IsFSharp && (e.IsFSharpRecord || e.IsFSharpUnion || e.IsValueType) then
-        let vs = e.GenericParameters |> Seq.map (fun p -> p.DisplayName) |> Seq.toList
+        let vs = e.GenericParameters |> Seq.map (fun p -> p.TypeVariable) |> Seq.toList
         match vs with
         | [] -> Satisfy
         | _ -> Dependence vs
@@ -620,7 +623,7 @@ module internal Impl =
           | Dependence dependenceVariables ->
             let testArgs =
               root.TypeDefinition.GenericParameters
-              |> Seq.map (fun x -> x.DisplayName)
+              |> Seq.map (fun x -> x.TypeVariable)
               |> Seq.zip root.GenericArguments
               |> Seq.choose (fun (t, v) -> if Seq.exists ((=)v) dependenceVariables then Some t else None)
             foldFsharpType cache testArgs

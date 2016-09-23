@@ -18,7 +18,7 @@ module FSharpSignatureParser =
   let fsharpSignature, fsharpSignatureRef = createParserForwardedToRef()
 
   let identity = partialName |>> (function name -> Identity (PartialIdentity { Name = name; GenericParameterCount = 0 })) |> trim <?> "identity"
-  let variable = pchar ''' >>. pidentifier |>> (function name -> Variable (VariableSource.Query, name)) |> trim <?> "variable"
+  let variable = pchar ''' >>. pidentifier |>> (function name -> Variable (VariableSource.Query, { Name = name; IsSolveAtCompileTime = false })) |> trim <?> "variable"
   let wildcard = pchar '?' >>. opt pidentifier |>> Wildcard |> trim <?> "wildcard"
 
   let genericId =
@@ -36,7 +36,7 @@ module FSharpSignatureParser =
         let newName =
           match p.Name with
           | [] -> []
-          | n :: tail -> { n with GenericParametersForDisplay = List.init parameterCount (sprintf "T%d") } :: tail
+          | n :: tail -> { n with GenericParametersForDisplay = List.init parameterCount (fun n -> { Name = sprintf "T%d" n; IsSolveAtCompileTime = false }) } :: tail
         Identity (PartialIdentity { p with Name = newName; GenericParameterCount = parameterCount })
       | other -> other
     Generic (id, parameters)
@@ -52,7 +52,9 @@ module FSharpSignatureParser =
       wildcard
     ]
   
-  let arraySymbol = regex arrayRegexPattern |> trim |>> (fun array -> Identity (PartialIdentity { Name = [ { FSharpName = array; InternalFSharpName = array; GenericParametersForDisplay = [ "T" ] } ]; GenericParameterCount = 1 }))
+  let arraySymbol =
+    let t = { Name = "T"; IsSolveAtCompileTime = false }
+    regex arrayRegexPattern |> trim |>> (fun array -> Identity (PartialIdentity { Name = [ { FSharpName = array; InternalFSharpName = array; GenericParametersForDisplay = [ t ] } ]; GenericParameterCount = 1 }))
   let maybeArray t =
     t
     .>>. many arraySymbol

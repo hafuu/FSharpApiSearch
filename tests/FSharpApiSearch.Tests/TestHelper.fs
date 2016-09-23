@@ -17,9 +17,12 @@ module DSL =
 
   let typeAbbreviation abbreviated abbreviation = TypeAbbreviation { Abbreviation = abbreviation; Original = abbreviated; }
 
+  let tv v = TypeVariable.ofString v
+  let tv' vs = List.map tv vs
+
   let identity name = Identity (PartialIdentity { Name = DisplayName.ofString name; GenericParameterCount = 0 })
-  let variable name = Variable (VariableSource.Target, name)
-  let queryVariable name = Variable (VariableSource.Query, name)
+  let variable name = Variable (VariableSource.Target, tv name)
+  let queryVariable name = Variable (VariableSource.Query, tv name)
 
   let wildcard = Wildcard None
   let wildcardGroup name = Wildcard (Some name)
@@ -31,7 +34,7 @@ module DSL =
       let name =
         match id.Name with
         | [] -> []
-        | n :: tail -> { n with GenericParametersForDisplay = List.init parameterCount (sprintf "T%d") } :: tail
+        | n :: tail -> { n with GenericParametersForDisplay = List.init parameterCount (fun n -> { Name = sprintf "T%d" n; IsSolveAtCompileTime = false }) } :: tail
       let id = { id with Name = name; GenericParameterCount = parameterCount }
       Generic (Identity (PartialIdentity id), args)
     | _ -> Generic (id, args)
@@ -88,7 +91,7 @@ module DSL =
   let typeExtension existingType declaration modifier member' = ApiSignature.TypeExtension { ExistingType = existingType; Declaration = declaration; MemberModifier = modifier; Member = member' }
   let extensionMember member' = ApiSignature.ExtensionMember member'
 
-  let constraint' vs c = { Variables = vs; Constraint = c }
+  let constraint' vs c = { Variables = List.map tv vs; Constraint = c }
 
   let arrayType = "Microsoft.FSharp.Core.[]<'T>"
   let array2DType = "Microsoft.FSharp.Core.[,]<'T>"
@@ -126,6 +129,6 @@ let fsharpAbbreviationTable: TypeAbbreviationDefinition[] = [|
     typeAbbreviationDef "Microsoft.FSharp.Core.single" (createType "System.Single" [])
     typeAbbreviationDef "Microsoft.FSharp.Core.string" (createType "System.String" [])
     typeAbbreviationDef "Microsoft.FSharp.Core.unit" SpecialTypes.LowType.Unit
-    typeAbbreviationDef "Microsoft.FSharp.Collections.list<'a>" (createType "Microsoft.FSharp.Collections.List<'a>" [ variable "a" ])
-    typeAbbreviationDef "Microsoft.FSharp.Core.option<'a>" (createType "Microsoft.FSharp.Core.Option<'a>" [ variable "a" ])
+    typeAbbreviationDef "Microsoft.FSharp.Collections.list<'a>" (createType "Microsoft.FSharp.Collections.List<'a>" [ variable "'a" ])
+    typeAbbreviationDef "Microsoft.FSharp.Core.option<'a>" (createType "Microsoft.FSharp.Core.Option<'a>" [ variable "'a" ])
   |]

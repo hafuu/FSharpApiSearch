@@ -1,6 +1,15 @@
 ﻿namespace FSharpApiSearch
 
-type TypeVariable = string
+type TypeVariable = {
+  Name: string
+  IsSolveAtCompileTime: bool
+}
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module TypeVariable =
+  let ofString (v: string) =
+    if List.exists (fun prefix -> v.StartsWith(prefix)) [ "'"; "^" ] = false then failwithf "wrong variable name: %s" v
+    { Name = v.TrimStart(''', '^'); IsSolveAtCompileTime = v.StartsWith("^") }
 
 type NameItem = {
   FSharpName: string
@@ -22,7 +31,7 @@ module internal DisplayName =
       if n.Contains("<") then
         let xs = n.Split([| '<' |], 2)
         let name = xs.[0]
-        let args = [ for m in Regex.Matches(xs.[1], @"'(\w+)") -> m.Groups.[1].Value ]
+        let args = [ for m in Regex.Matches(xs.[1], @"(['^]\w+)") -> TypeVariable.ofString m.Groups.[1].Value ]
         { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = args }
       else
         { FSharpName = n; InternalFSharpName = n; GenericParametersForDisplay = [] })
@@ -350,7 +359,9 @@ module internal SpecialTypes =
       { AssemblyName = t.Assembly.GetName().Name; Name = Name.displayNameOfString t.FullName; GenericParameterCount = 0 }
 
     let tupleName n =
-      let name = { FSharpName = "Tuple"; InternalFSharpName = "Tuple"; GenericParametersForDisplay = List.init n (sprintf "T%d") } :: { FSharpName = "System"; InternalFSharpName = "System"; GenericParametersForDisplay = [] } :: []
+      let name =
+        let genericParams = List.init n (fun n -> { Name = sprintf "T%d" n; IsSolveAtCompileTime = false })
+        { FSharpName = "Tuple"; InternalFSharpName = "Tuple"; GenericParametersForDisplay = genericParams } :: { FSharpName = "System"; InternalFSharpName = "System"; GenericParametersForDisplay = [] } :: []
       DisplayName name
 
   module Identity =
@@ -426,13 +437,15 @@ module internal Print =
     | ApiKind.TypeExtension (modifier, memberKind) -> sprintf "%s %s" (printMemberModifier modifier) (printMemberKind memberKind)
     | ApiKind.ExtensionMember -> "extension member"
 
+  let typeVariablePrefix (v: TypeVariable) = if v.IsSolveAtCompileTime then "^" else "'"
+
   let printDisplayName = function
     | [] -> "<empty>"
     | ns ->
       let print (x: NameItem) =
         match x.GenericParametersForDisplay with
         | [] -> x.FSharpName
-        | args -> sprintf "%s<%s>" x.FSharpName (args |> List.map (sprintf "'%s") |> String.concat ", ")
+        | args -> sprintf "%s<%s>" x.FSharpName (args |> List.map (fun a -> typeVariablePrefix a +  a.Name) |> String.concat ", ")
       ns |> Seq.map print |> Seq.rev |> String.concat "."
 
   let printName = function
@@ -463,9 +476,9 @@ module internal Print =
 
   let printVariable isDebug source v =
     if isDebug then
-      sprintf "'%s_%s" (printVariableSource source) v
+      sprintf "%s%s_%s" (typeVariablePrefix v) (printVariableSource source) v.Name
     else
-      sprintf "'%s" v
+      typeVariablePrefix v + v.Name
 
   let rec printLowType isDebug = function
     | Wildcard name ->

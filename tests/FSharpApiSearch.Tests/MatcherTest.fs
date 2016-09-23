@@ -17,8 +17,8 @@ let typeD1 arg  = createType "Test.D<'a>" [ arg ]
 
 let typeD2 arg1 arg2  = createType "Test.D<'a, 'b>" [ arg1; arg2 ]
 
-let variableA = variable "A"
-let variableB = variable "B"
+let variableA = variable "'A"
+let variableB = variable "'B"
 
 let unit = typeAbbreviation SpecialTypes.LowType.Unit (createType "Microsoft.FSharp.Core.unit" [])
 let Int32 = createType "System.Int32" []
@@ -58,7 +58,7 @@ let respectNameDifferenceInequalitiesTest =
     let query = QueryParser.parse "?a -> ?b -> 'a -> 'b"
     let opt = SearchOptions.defaultOptions
     let eqs = MatcherTypes.Equations.empty |> MatcherInitializer.initialEquations opt query
-    do! eqs.Inequalities |> assertEquals [ (queryVariable "a", queryVariable "b"); (Wildcard (Some "a"), Wildcard (Some "b")) ]
+    do! eqs.Inequalities |> assertEquals [ (queryVariable "'a", queryVariable "'b"); (Wildcard (Some "a"), Wildcard (Some "b")) ]
   }
 
 let matchTest trace abbTable (options, query, name, target, expected) = test {
@@ -258,18 +258,18 @@ module RespectNameDifferenceTest_WithNonGreedy =
       "Int32", moduleValue int, Always true
       "Int32", moduleValue Int32, Always true
 
-      "list<'a>", moduleValue (list (variable "t")), Always true
+      "list<'a>", moduleValue (list (variable "'t")), Always true
       "list<int>", moduleValue (list int), Always true
-      "list<int>", moduleValue (list (variable "t")), Always false
+      "list<int>", moduleValue (list (variable "'t")), Always false
 
       "float", moduleValue int, Always false
       "float", moduleValue Int32, Always false
     ]
 
   let functionTypeAbbreviationTest =
-    let charStream = createType "CharStream<'TResult>" [ variable "TResult" ]
-    let reply = createType "Reply<'TUserState>" [ variable "TUserState" ]
-    let parser = typeAbbreviation (arrow [ charStream; reply ]) (createType "Parser<'TResult, 'TUserState>" [ variable "TResult"; variable "TUserState" ])
+    let charStream = createType "CharStream<'TResult>" [ variable "'TResult" ]
+    let reply = createType "Reply<'TUserState>" [ variable "'TUserState" ]
+    let parser = typeAbbreviation (arrow [ charStream; reply ]) (createType "Parser<'TResult, 'TUserState>" [ variable "'TResult"; variable "'TUserState" ])
 
     let table = [|
       typeAbbreviationDef "Parser<'TResult, 'TUserState>" (arrow [ charStream; reply ])
@@ -297,8 +297,8 @@ module RespectNameDifferenceTest_WithNonGreedy =
     ]
 
   let nestedClassTest =
-    let genericOuter = createType "Test.GenericOuter<'T>" [ variable "T" ]
-    let genericInner = createType "Test.GenericOuter<'T>.GenericInner<'T, 'U>" [ variable "T"; variable "U" ]
+    let genericOuter = createType "Test.GenericOuter<'T>" [ variable "'T" ]
+    let genericInner = createType "Test.GenericOuter<'T>.GenericInner<'T, 'U>" [ variable "'T"; variable "'U" ]
     matchTest [
       "GenericInner<'T, 'U>", moduleValue genericInner, Always true
       "GenericOuter.GenericInner<'T, 'U>", moduleValue genericInner, Always true
@@ -587,27 +587,27 @@ module TypeConstraintTest =
     | _ -> Generic (def.LowType, args)
 
   let subtypeCon v (parent: FullTypeDefinition) =
-    { Variables = [ v ]; Constraint = SubtypeConstraints parent.LowType }
+    { Variables = [ tv v ]; Constraint = SubtypeConstraints parent.LowType }
   let subtypeCon_abbreviation v (parent: TypeAbbreviationDefinition) =
-    { Variables = [ v ]; Constraint = SubtypeConstraints (TypeAbbreviation parent.TypeAbbreviation) }
+    { Variables = [ tv v ]; Constraint = SubtypeConstraints (TypeAbbreviation parent.TypeAbbreviation) }
   let genericSubtypeCon v (parent: FullTypeDefinition) args =
-    { Variables = [ v ]; Constraint = SubtypeConstraints (Generic (parent.LowType, args)) }
+    { Variables = [ tv v ]; Constraint = SubtypeConstraints (Generic (parent.LowType, args)) }
   let subtypeCon_variable v parent =
-    { Variables = [ v ]; Constraint = SubtypeConstraints (variable parent) }
+    { Variables = [ tv v ]; Constraint = SubtypeConstraints (variable parent) }
   let nullnessCon v =
-    { Variables = [ v ]; Constraint = NullnessConstraints }
+    { Variables = [ tv v ]; Constraint = NullnessConstraints }
   let memberCon vs modifier member' =
-    { Variables = vs; Constraint = MemberConstraints (modifier, member') }
+    { Variables = List.map tv vs; Constraint = MemberConstraints (modifier, member') }
   let valueTypeCon v =
-    { Variables = [ v ]; Constraint = ValueTypeConstraints }
+    { Variables = [ tv v ]; Constraint = ValueTypeConstraints }
   let refTypeCon v =
-    { Variables = [ v ]; Constraint = ReferenceTypeConstraints }
+    { Variables = [ tv v ]; Constraint = ReferenceTypeConstraints }
   let defaultConstructorCon v =
-    { Variables = [ v ]; Constraint = DefaultConstructorConstraints }
+    { Variables = [ tv v ]; Constraint = DefaultConstructorConstraints }
   let equalityCon v =
-    { Variables = [ v ]; Constraint = EqualityConstraints }
+    { Variables = [ tv v ]; Constraint = EqualityConstraints }
   let comparisonCon v =
-    { Variables = [ v ]; Constraint = ComparisonConstraints }
+    { Variables = [ tv v ]; Constraint = ComparisonConstraints }
 
   let empty: FullTypeDefinition = {
     Name = []
@@ -646,14 +646,14 @@ module TypeConstraintTest =
       FullName = "System.Tuple`2"
       AssemblyName = "mscorlib"
       BaseType = Some (instantiate Object [])
-      GenericParameters = [ "T1"; "T2" ]
+      GenericParameters = [ tv "'T1"; tv "'T2" ]
       InstanceMembers =
         [
-          member' "Item1" (MemberKind.Property PropertyKind.Get) [] (variable "T1")
-          member' "Item2" (MemberKind.Property PropertyKind.Get) [] (variable "T2")
+          member' "Item1" (MemberKind.Property PropertyKind.Get) [] (variable "'T1")
+          member' "Item2" (MemberKind.Property PropertyKind.Get) [] (variable "'T2")
         ]
-      Equality = Dependence [ "T1"; "T2" ]
-      Comparison = Dependence [ "T1"; "T2" ]
+      Equality = Dependence [ tv "'T1"; tv "'T2" ]
+      Comparison = Dependence [ tv "'T1"; tv "'T2" ]
   }
 
   let Tuple3 = {
@@ -662,15 +662,15 @@ module TypeConstraintTest =
       FullName = "System.Tuple`3"
       AssemblyName = "mscorlib"
       BaseType = Some (instantiate Object [])
-      GenericParameters = [ "T1"; "T2"; "T3" ]
+      GenericParameters = [ tv "'T1"; tv "'T2"; tv "'T3" ]
       InstanceMembers =
         [
-          member' "Item1" (MemberKind.Property PropertyKind.Get) [] (variable "T1")
-          member' "Item2" (MemberKind.Property PropertyKind.Get) [] (variable "T2")
-          member' "Item3" (MemberKind.Property PropertyKind.Get) [] (variable "T3")
+          member' "Item1" (MemberKind.Property PropertyKind.Get) [] (variable "'T1")
+          member' "Item2" (MemberKind.Property PropertyKind.Get) [] (variable "'T2")
+          member' "Item3" (MemberKind.Property PropertyKind.Get) [] (variable "'T3")
         ]
-      Equality = Dependence [ "T1"; "T2"; "T3" ]
-      Comparison = Dependence [ "T1"; "T2"; "T3" ]
+      Equality = Dependence [ tv "'T1"; tv "'T2"; tv "'T3" ]
+      Comparison = Dependence [ tv "'T1"; tv "'T2"; tv "'T3" ]
   }
 
   let Array' = {
@@ -698,9 +698,9 @@ module TypeConstraintTest =
       FullName = "Microsoft.FSharp.Core.[]`1"
       AssemblyName = "FSharp.Core"
       BaseType = Some (instantiate Array' [])
-      GenericParameters = [ "a" ]
-      Equality = Dependence [ "a" ]
-      Comparison = Dependence [ "a" ]
+      GenericParameters = [ tv "'a" ]
+      Equality = Dependence [ tv "'a" ]
+      Comparison = Dependence [ tv "'a" ]
   }
 
   let fscoreLib = {
@@ -731,7 +731,7 @@ module TypeConstraintTest =
     empty with
       Name = DisplayName.ofString "Test.GenericParent<'a, 'b>"
       FullName = "Test.GenericParent`2"
-      GenericParameters = [ "a"; "b" ]
+      GenericParameters = [ tv "'a"; tv "'b" ]
       BaseType = Some (instantiate Object [])
   }
 
@@ -739,15 +739,15 @@ module TypeConstraintTest =
     empty with
       Name = DisplayName.ofString "Test.GenericChild<'a, 'b>"
       FullName = "Test.GenericChild`2"
-      GenericParameters = [ "a"; "b" ]
-      BaseType = Some (instantiate GenericParent [ variable "a"; variable "b" ])
+      GenericParameters = [ tv "'a"; tv "'b" ]
+      BaseType = Some (instantiate GenericParent [ variable "'a"; variable "'b" ])
   }
 
   let AnotherGeneric = {
     empty with
       Name = DisplayName.ofString "Test.AnotherGeneric<'a, 'b>"
       FullName = "Test.AnotherGeneric`2"
-      GenericParameters = [ "a"; "b" ]
+      GenericParameters = [ tv "'a"; tv "'b" ]
       BaseType = Some (instantiate Object [])
   }
 
@@ -805,7 +805,7 @@ module TypeConstraintTest =
     empty with
       Name = DisplayName.ofString "Test.GenericInterface"
       FullName = "Test.GenericInterface`1"
-      GenericParameters = [ "a" ]
+      GenericParameters = [ tv "'a" ]
   }
 
   let GenericInterfaceImplement = {
@@ -879,11 +879,11 @@ module TypeConstraintTest =
       Name = DisplayName.ofString "Test.GenericMemberTestType<'T>"
       FullName = "Test.GenericMemberTestType`1"
       BaseType = Some (instantiate Object [])
-      GenericParameters = [ "T" ]
+      GenericParameters = [ tv "'T" ]
       StaticMembers =
         [
-          { method' "Method1" [ [ ptype (variable "a") ] ] int with GenericParameters = [ "a" ] }
-          method' "Method2" [ [ ptype (variable "T") ] ] int
+          { method' "Method1" [ [ ptype (variable "'a") ] ] int with GenericParameters = [ tv "'a" ] }
+          method' "Method2" [ [ ptype (variable "'T") ] ] int
         ]
   }
 
@@ -957,8 +957,8 @@ module TypeConstraintTest =
       Name = DisplayName.ofString "Test.DependenceEqualityType1<'a>"
       FullName = "Test.DependenceEqualityType1`1"
       BaseType = Some (instantiate Object [])
-      GenericParameters = [ "a" ]
-      Equality = Dependence [ "a" ]
+      GenericParameters = [ tv "'a" ]
+      Equality = Dependence [ tv "'a" ]
   }
 
   let DependenceEqualityType2 = {
@@ -966,8 +966,8 @@ module TypeConstraintTest =
       Name = DisplayName.ofString "Test.DependenceEqualityType2<'a, 'b>"
       FullName = "Test.DependenceEqualityType2`2"
       BaseType = Some (instantiate Object [])
-      GenericParameters = [ "a"; "b" ]
-      Equality = Dependence [ "a"; "b" ]
+      GenericParameters = [ tv "'a"; tv "'b" ]
+      Equality = Dependence [ tv "'a"; tv "'b" ]
   }
 
   let DependenceEqualityType3 = {
@@ -975,8 +975,8 @@ module TypeConstraintTest =
       Name = DisplayName.ofString "Test.DependenceEqualityType3<'a, 'b>"
       FullName = "Test.DependenceEqualityType3`2"
       BaseType = Some (instantiate Object [])
-      GenericParameters = [ "a"; "b" ]
-      Equality = Dependence [ "b" ]
+      GenericParameters = [ tv "'a"; tv "'b" ]
+      Equality = Dependence [ tv "'b" ]
   }
 
   let ComparisonType = {
@@ -1000,8 +1000,8 @@ module TypeConstraintTest =
       Name = DisplayName.ofString "Test.DependenceComparisonType<'a>"
       FullName = "Test.DependenceComparisonType`1"
       BaseType = Some (instantiate Object [])
-      GenericParameters = [ "a" ]
-      Comparison = Dependence [ "a" ]
+      GenericParameters = [ tv "'a" ]
+      Comparison = Dependence [ tv "'a" ]
   }
 
   let dictionary = {
@@ -1043,100 +1043,100 @@ module TypeConstraintTest =
   let subtypeConstraintsTest = parameterize {
     source [
       ("Child",
-        moduleValue (variable "a"),
-        [ subtypeCon "a" Parent ],
+        moduleValue (variable "'a"),
+        [ subtypeCon "'a" Parent ],
         true)
       ("Parent",
-        moduleValue (variable "a"),
-        [ subtypeCon "a" Parent ],
+        moduleValue (variable "'a"),
+        [ subtypeCon "'a" Parent ],
         true)
       ("Object",
-        moduleValue (variable "a"),
-        [ subtypeCon "a" Parent ],
+        moduleValue (variable "'a"),
+        [ subtypeCon "'a" Parent ],
         false)
       ("GenericChild<'a, 'b>",
-        moduleValue (variable "t"), // #GenericParent<'a, 'b>
-        [ genericSubtypeCon "t" GenericParent [ variable "a"; variable "b" ] ],
+        moduleValue (variable "'t"), // #GenericParent<'a, 'b>
+        [ genericSubtypeCon "'t" GenericParent [ variable "'a"; variable "'b" ] ],
         true)
       ("GenericChild<'a, 'b>",
-        moduleValue (variable "t"), // #AnotherGeneric<'a, 'b>
-        [ genericSubtypeCon "t" AnotherGeneric [ variable "a"; variable "b" ] ],
+        moduleValue (variable "'t"), // #AnotherGeneric<'a, 'b>
+        [ genericSubtypeCon "'t" AnotherGeneric [ variable "'a"; variable "'b" ] ],
         false)
       ("GenericChild<A, B>",
-        moduleValue (variable "t"), // #GenericParent<B, B>
-        [ genericSubtypeCon "t" GenericParent [ typeB; typeB ] ],
+        moduleValue (variable "'t"), // #GenericParent<B, B>
+        [ genericSubtypeCon "'t" GenericParent [ typeB; typeB ] ],
         false)
       ("GenericInterfaceImplement", // #GenericInterface<ImplA>
-        moduleValue (variable "a"),
-        [ genericSubtypeCon "a" GenericInterface [ ImplA.LowType ] ],
+        moduleValue (variable "'a"),
+        [ genericSubtypeCon "'a" GenericInterface [ ImplA.LowType ] ],
         true)
       ("GenericInterfaceImplement", // #GenericInterface<#IA>
-        moduleValue (variable "a"),
-        [ genericSubtypeCon "a" GenericInterface [ variable "b" ]; subtypeCon "b" IA ],
+        moduleValue (variable "'a"),
+        [ genericSubtypeCon "'a" GenericInterface [ variable "'b" ]; subtypeCon "'b" IA ],
         true)
       ("GenericInterfaceImplement", // #GenericInterface<'b>
-        moduleValue (variable "a"),
-        [ genericSubtypeCon "a" GenericInterface [ variable "b" ] ],
+        moduleValue (variable "'a"),
+        [ genericSubtypeCon "'a" GenericInterface [ variable "'b" ] ],
         true)
       ("GenericInterfaceImplement", // #GenericInterface<Child>
-        moduleValue (variable "a"),
-        [ genericSubtypeCon "a" GenericInterface [ Child.LowType] ],
+        moduleValue (variable "'a"),
+        [ genericSubtypeCon "'a" GenericInterface [ Child.LowType] ],
         false)
       // Foo.X implements only IA, and Bar.X implements only IB. These have same name 'X'.
       ("X -> X",
-        moduleFunction' [ [ ptype (variable "t") ]; [ ptype (variable "u") ] ], // #IA -> #IA
-        [ subtypeCon "t" IA; subtypeCon "u" IA ],
+        moduleFunction' [ [ ptype (variable "'t") ]; [ ptype (variable "'u") ] ], // #IA -> #IA
+        [ subtypeCon "'t" IA; subtypeCon "'u" IA ],
         true)
       ("X -> X",
-        moduleFunction' [ [ ptype (variable "t") ]; [ ptype (variable "u") ] ], // #IA -> #IB
-        [ subtypeCon "t" IA; subtypeCon "u" IB ],
+        moduleFunction' [ [ ptype (variable "'t") ]; [ ptype (variable "'u") ] ], // #IA -> #IB
+        [ subtypeCon "'t" IA; subtypeCon "'u" IB ],
         false)
       ("X -> X",
-        moduleFunction' [ [ ptype (variable "t") ]; [ ptype (variable "u") ] ], // #IB -> #IA
-        [ subtypeCon "t" IB; subtypeCon "u" IA ],
+        moduleFunction' [ [ ptype (variable "'t") ]; [ ptype (variable "'u") ] ], // #IB -> #IA
+        [ subtypeCon "'t" IB; subtypeCon "'u" IA ],
         false)
       // Type abbreviation base type
       ("AbbreviationImplement",
-        moduleValue (variable "a"),
-        [ subtypeCon "a" OriginalTypeAbbreviatedInterface ],
+        moduleValue (variable "'a"),
+        [ subtypeCon "'a" OriginalTypeAbbreviatedInterface ],
         true)
       ("AbbreviationImplement",
-        moduleValue (variable "a"),
-        [ subtypeCon_abbreviation "a" TypeAbbreviationInterface ],
+        moduleValue (variable "'a"),
+        [ subtypeCon_abbreviation "'a" TypeAbbreviationInterface ],
         true)
       ("TypeAbbreviationInterface",
-        moduleValue (variable "a"),
-        [ subtypeCon "a" OriginalTypeAbbreviatedInterface ],
+        moduleValue (variable "'a"),
+        [ subtypeCon "'a" OriginalTypeAbbreviatedInterface ],
         true)
       ("TypeAbbreviationInterface",
-        moduleValue (variable "a"),
-        [ subtypeCon_abbreviation "a" TypeAbbreviationInterface ],
+        moduleValue (variable "'a"),
+        [ subtypeCon_abbreviation "'a" TypeAbbreviationInterface ],
         true)
       // indirect
       ("'t -> 't",
-        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (Identity (FullIdentity Object.FullIdentity)) ] ],
-        [ subtypeCon "a" Parent ],
+        moduleFunction' [ [ ptype (variable "'a") ]; [ ptype (Identity (FullIdentity Object.FullIdentity)) ] ],
+        [ subtypeCon "'a" Parent ],
         false)
       ("'t -> 't",
-        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (Identity (FullIdentity Parent.FullIdentity)) ] ],
-        [ subtypeCon "a" Parent ],
+        moduleFunction' [ [ ptype (variable "'a") ]; [ ptype (Identity (FullIdentity Parent.FullIdentity)) ] ],
+        [ subtypeCon "'a" Parent ],
         true)
       ("'t -> 't",
-        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (Identity (FullIdentity Child.FullIdentity)) ] ],
-        [ subtypeCon "a" Parent ],
+        moduleFunction' [ [ ptype (variable "'a") ]; [ ptype (Identity (FullIdentity Child.FullIdentity)) ] ],
+        [ subtypeCon "'a" Parent ],
         true)
       // variable
       ("Foo.X -> Bar.X",
-        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (variable "b") ] ],
-        [ subtypeCon_variable "a" "b" ],
+        moduleFunction' [ [ ptype (variable "'a") ]; [ ptype (variable "'b") ] ],
+        [ subtypeCon_variable "'a" "'b" ],
         false)
       ("Foo.X -> System.Object",
-        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (variable "b") ] ],
-        [ subtypeCon_variable "a" "b" ],
+        moduleFunction' [ [ ptype (variable "'a") ]; [ ptype (variable "'b") ] ],
+        [ subtypeCon_variable "'a" "'b" ],
         false)
       ("Foo.X -> Foo.X",
-        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (variable "b") ] ],
-        [ subtypeCon_variable "a" "b" ],
+        moduleFunction' [ [ ptype (variable "'a") ]; [ ptype (variable "'b") ] ],
+        [ subtypeCon_variable "'a" "'b" ],
         true)
     ]
     run (testConstraint false)
@@ -1145,16 +1145,16 @@ module TypeConstraintTest =
   let nullnessConstraintTest = parameterize {
     source [
       ("NullableType",
-        moduleValue (variable "a"),
-        [ nullnessCon "a" ],
+        moduleValue (variable "'a"),
+        [ nullnessCon "'a" ],
         true)
       ("NonNullableType",
-        moduleValue (variable "a"),
-        [ nullnessCon "a" ],
+        moduleValue (variable "'a"),
+        [ nullnessCon "'a" ],
         false)
       ("'a * 'b",
-        moduleValue (variable "a"),
-        [ nullnessCon "a" ],
+        moduleValue (variable "'a"),
+        [ nullnessCon "'a" ],
         false)
     ]
     run (testConstraint false)
@@ -1163,106 +1163,106 @@ module TypeConstraintTest =
   let memberConstraintTest = parameterize {
     source [
       ("MemberTestType",
-        moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "StaticMethod" [ [ ptype int ] ] int) ],
+        moduleValue (variable "^a"),
+        [ memberCon [ "^a" ] MemberModifier.Static (method' "StaticMethod" [ [ ptype int ] ] int) ],
         true)
       ("MemberTestType",
-        moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "Nonexistence" [ [ ptype int ] ] int) ],
+        moduleValue (variable "^a"),
+        [ memberCon [ "^a" ] MemberModifier.Static (method' "Nonexistence" [ [ ptype int ] ] int) ],
         false)
       ("MemberTestType",
-        moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "StaticMethod" [ [ ptype int ] ] unit) ], // signature not matched.
+        moduleValue (variable "^a"),
+        [ memberCon [ "^a" ] MemberModifier.Static (method' "StaticMethod" [ [ ptype int ] ] unit) ], // signature not matched.
         false)
       ("MemberTestType",
-        moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "get_Property" [ [ ptype unit ] ] int) ],
+        moduleValue (variable "^a"),
+        [ memberCon [ "^a" ] MemberModifier.Static (method' "get_Property" [ [ ptype unit ] ] int) ],
         true)
       ("MemberTestType",
-        moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "set_Property" [ [ ptype int ] ] unit) ],
+        moduleValue (variable "^a"),
+        [ memberCon [ "'a" ] MemberModifier.Static (method' "set_Property" [ [ ptype int ] ] unit) ],
         true)
       ("MemberTestType",
-        moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "Overload" [ [ ptype unit ] ] typeA) ],
+        moduleValue (variable "^a"),
+        [ memberCon [ "^a" ] MemberModifier.Static (method' "Overload" [ [ ptype unit ] ] typeA) ],
         true)
       ("MemberTestType",
-        moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "Overload" [ [ ptype int ] ] typeA) ],
+        moduleValue (variable "^a"),
+        [ memberCon [ "^a" ] MemberModifier.Static (method' "Overload" [ [ ptype int ] ] typeA) ],
         true)
       ("MemberTestType",
-        moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "Overload" [ [ ptype typeB ] ] typeA) ],
+        moduleValue (variable "^a"),
+        [ memberCon [ "^a" ] MemberModifier.Static (method' "Overload" [ [ ptype typeB ] ] typeA) ],
         false)
       ("MemberTestType",
-        moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Instance (method' "InstanceMethod" [ [ ptype unit ] ] unit) ],
+        moduleValue (variable "^a"),
+        [ memberCon [ "^a" ] MemberModifier.Instance (method' "InstanceMethod" [ [ ptype unit ] ] unit) ],
         true)
       ("MemberTestType",
-        moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Instance (method' "StaticMethod" [ [ ptype int ] ] int) ],
+        moduleValue (variable "^a"),
+        [ memberCon [ "^a" ] MemberModifier.Instance (method' "StaticMethod" [ [ ptype int ] ] int) ],
         false)
 
       // Generic
       ("GenericMemberTestType<'X>",
-        moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "Method1" [ [ ptype (variable "b") ] ] int) ],
+        moduleValue (variable "^a"),
+        [ memberCon [ "^a" ] MemberModifier.Static (method' "Method1" [ [ ptype (variable "'b") ] ] int) ],
         true)
       ("GenericMemberTestType<'X>",
-        moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ [ ptype (variable "b") ] ] int) ],
+        moduleValue (variable "^a"),
+        [ memberCon [ "^a" ] MemberModifier.Static (method' "Method2" [ [ ptype (variable "'b") ] ] int) ],
         true)
       ("GenericMemberTestType<'X>",
-        moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ [ ptype int ] ] int) ],
+        moduleValue (variable "^a"),
+        [ memberCon [ "^a" ] MemberModifier.Static (method' "Method2" [ [ ptype int ] ] int) ],
         true)
       ("GenericMemberTestType<'X> -> 'X",
-        moduleFunction' [ [ ptype (variable "a") ]; [ ptype typeA ] ],
-        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ [ ptype int ] ] int) ],
+        moduleFunction' [ [ ptype (variable "^a") ]; [ ptype typeA ] ],
+        [ memberCon [ "^a" ] MemberModifier.Static (method' "Method2" [ [ ptype int ] ] int) ],
         false)
       ("GenericMemberTestType<A>",
-        moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ [ ptype (variable "b") ] ] int) ],
+        moduleValue (variable "^a"),
+        [ memberCon [ "^a" ] MemberModifier.Static (method' "Method2" [ [ ptype (variable "'b") ] ] int) ],
         true)
       ("GenericMemberTestType<A>",
-        moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ [ ptype typeA ] ] int) ],
+        moduleValue (variable "^a"),
+        [ memberCon [ "^a" ] MemberModifier.Static (method' "Method2" [ [ ptype typeA ] ] int) ],
         true)
       ("GenericMemberTestType<A>",
-        moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "Method2" [ [ ptype unit ] ] int) ],
+        moduleValue (variable "^a"),
+        [ memberCon [ "^a" ] MemberModifier.Static (method' "Method2" [ [ ptype unit ] ] int) ],
         false)
 
       // or
       ("MemberTestType -> Object",
-        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (variable "b") ] ],
-        [ memberCon [ "a"; "b" ] MemberModifier.Instance (method' "InstanceMethod" [ [ ptype unit ] ] unit) ],
+        moduleFunction' [ [ ptype (variable "^a") ]; [ ptype (variable "^b") ] ],
+        [ memberCon [ "^a"; "^b" ] MemberModifier.Instance (method' "InstanceMethod" [ [ ptype unit ] ] unit) ],
         true)
       ("Object -> MemberTestType",
-        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (variable "b") ] ],
-        [ memberCon [ "a"; "b" ] MemberModifier.Instance (method' "InstanceMethod" [ [ ptype unit ] ] unit) ],
+        moduleFunction' [ [ ptype (variable "^a") ]; [ ptype (variable "^b") ] ],
+        [ memberCon [ "^a"; "^b" ] MemberModifier.Instance (method' "InstanceMethod" [ [ ptype unit ] ] unit) ],
         true)
       ("MemberTestType -> MemberTestType",
-        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (variable "b") ] ],
-        [ memberCon [ "a"; "b" ] MemberModifier.Instance (method' "InstanceMethod" [ [ ptype unit ] ] unit) ],
+        moduleFunction' [ [ ptype (variable "^a") ]; [ ptype (variable "^b") ] ],
+        [ memberCon [ "^a"; "^b" ] MemberModifier.Instance (method' "InstanceMethod" [ [ ptype unit ] ] unit) ],
         true)
       ("Object -> Object",
-        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (variable "b") ] ],
-        [ memberCon [ "a"; "b" ] MemberModifier.Instance (method' "InstanceMethod" [ [ ptype unit ] ] unit) ],
+        moduleFunction' [ [ ptype (variable "^a") ]; [ ptype (variable "^b") ] ],
+        [ memberCon [ "^a"; "^b" ] MemberModifier.Instance (method' "InstanceMethod" [ [ ptype unit ] ] unit) ],
         false)
 
       // implicit
       ("ImplicitMemberType",
-        moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Instance (method' "InstanceMethod" [ [ ptype unit ] ] unit) ],
+        moduleValue (variable "^a"),
+        [ memberCon [ "^a" ] MemberModifier.Instance (method' "InstanceMethod" [ [ ptype unit ] ] unit) ],
         true)
       ("ImplicitMemberType",
-        moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "StaticMethod" [ [ ptype unit ] ] unit) ],
+        moduleValue (variable "^a"),
+        [ memberCon [ "^a" ] MemberModifier.Static (method' "StaticMethod" [ [ ptype unit ] ] unit) ],
         true)
       ("ImplicitMemberType",
-        moduleValue (variable "a"),
-        [ memberCon [ "a" ] MemberModifier.Static (method' "MissingMethod" [ [ ptype unit ] ] unit) ],
+        moduleValue (variable "^a"),
+        [ memberCon [ "^a" ] MemberModifier.Static (method' "MissingMethod" [ [ ptype unit ] ] unit) ],
         false)
     ]
 
@@ -1272,20 +1272,20 @@ module TypeConstraintTest =
   let valueAndReferenceTypeConstraintTest = parameterize {
     source [
       ("ValueType",
-        moduleValue (variable "a"),
-        [ valueTypeCon "a" ],
+        moduleValue (variable "'a"),
+        [ valueTypeCon "'a" ],
         true)
       ("ValueType",
-        moduleValue (variable "a"),
-        [ refTypeCon "a" ],
+        moduleValue (variable "'a"),
+        [ refTypeCon "'a" ],
         false)
       ("ReferenceType",
-        moduleValue (variable "a"),
-        [ valueTypeCon "a" ],
+        moduleValue (variable "'a"),
+        [ valueTypeCon "'a" ],
         false)
       ("ReferenceType",
-        moduleValue (variable "a"),
-        [ refTypeCon "a" ],
+        moduleValue (variable "'a"),
+        [ refTypeCon "'a" ],
         true)
     ]
     run (testConstraint false)
@@ -1294,12 +1294,12 @@ module TypeConstraintTest =
   let defaultConstructorConstraintTest = parameterize {
     source [
       ("WithDefaultConstructor",
-        moduleValue (variable "a"),
-        [ defaultConstructorCon "a" ],
+        moduleValue (variable "'a"),
+        [ defaultConstructorCon "'a" ],
         true)
       ("WithoutDefaultConstructor",
-        moduleValue (variable "a"),
-        [ defaultConstructorCon "a" ],
+        moduleValue (variable "'a"),
+        [ defaultConstructorCon "'a" ],
         false)
     ]
     run (testConstraint false)
@@ -1308,73 +1308,73 @@ module TypeConstraintTest =
   let equalityConstraintTest = parameterize {
     source [
       ("EqualityType",
-        moduleValue (variable "a"),
-        [ equalityCon "a" ],
+        moduleValue (variable "'a"),
+        [ equalityCon "'a" ],
         true)
       ("NoEqualityType",
-        moduleValue (variable "a"),
-        [ equalityCon "a" ],
+        moduleValue (variable "'a"),
+        [ equalityCon "'a" ],
         false)
       ("(EqualityType -> EqualityType) -> 'x",
-        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (variable "b") ] ],
-        [ equalityCon "a" ],
+        moduleFunction' [ [ ptype (variable "'a") ]; [ ptype (variable "'b") ] ],
+        [ equalityCon "'a" ],
         false)
       ("DependenceEqualityType1<EqualityType>",
-        moduleValue (variable "a"),
-        [ equalityCon "a" ],
+        moduleValue (variable "'a"),
+        [ equalityCon "'a" ],
         true)
       ("DependenceEqualityType1<NoEqualityType>",
-        moduleValue (variable "a"),
-        [ equalityCon "a" ],
+        moduleValue (variable "'a"),
+        [ equalityCon "'a" ],
         false)
       ("DependenceEqualityType1<EqualityType -> EqualityType>",
-        moduleValue (variable "a"),
-        [ equalityCon "a" ],
+        moduleValue (variable "'a"),
+        [ equalityCon "'a" ],
         false)
       ("DependenceEqualityType2<EqualityType, EqualityType>",
-        moduleValue (variable "a"),
-        [ equalityCon "a" ],
+        moduleValue (variable "'a"),
+        [ equalityCon "'a" ],
         true)
       ("DependenceEqualityType2<NoEqualityType, EqualityType>",
-        moduleValue (variable "a"),
-        [ equalityCon "a" ],
+        moduleValue (variable "'a"),
+        [ equalityCon "'a" ],
         false)
       ("DependenceEqualityType3<EqualityType, EqualityType>",
-        moduleValue (variable "a"),
-        [ equalityCon "a" ],
+        moduleValue (variable "'a"),
+        [ equalityCon "'a" ],
         true)
       ("DependenceEqualityType3<NoEqualityType, EqualityType>",
-        moduleValue (variable "a"),
-        [ equalityCon "a" ],
+        moduleValue (variable "'a"),
+        [ equalityCon "'a" ],
         true)
       ("DependenceEqualityType3<EqualityType, NoEqualityType>",
-        moduleValue (variable "a"),
-        [ equalityCon "a" ],
+        moduleValue (variable "'a"),
+        [ equalityCon "'a" ],
         false)
       ("EqualityType * EqualityType",
-        moduleValue (variable "a"),
-        [ equalityCon "a" ],
+        moduleValue (variable "'a"),
+        [ equalityCon "'a" ],
         true)
       ("'a * 'b",
-        moduleValue (variable "a"),
-        [ equalityCon "a" ],
+        moduleValue (variable "'a"),
+        [ equalityCon "'a" ],
         true)
       ("EqualityType * NoEqualityType",
-        moduleValue (variable "a"),
-        [ equalityCon "a" ],
+        moduleValue (variable "'a"),
+        [ equalityCon "'a" ],
         false)
       ("EqualityType[]",
-        moduleValue (variable "a"),
-        [ equalityCon "a" ],
+        moduleValue (variable "'a"),
+        [ equalityCon "'a" ],
         true)
       ("NoEqualityType[]",
-        moduleValue (variable "a"),
-        [ equalityCon "a" ],
+        moduleValue (variable "'a"),
+        [ equalityCon "'a" ],
         false)
       // bug #59
       ("?[]",
-        moduleValue (variable "a"),
-        [ equalityCon "a" ],
+        moduleValue (variable "'a"),
+        [ equalityCon "'a" ],
         true)
     ]
     run (testConstraint false)
@@ -1383,44 +1383,44 @@ module TypeConstraintTest =
   let comparisonConstraintTest = parameterize {
     source [
       ("ComparisonType",
-        moduleValue (variable "a"),
-        [ comparisonCon "a" ],
+        moduleValue (variable "'a"),
+        [ comparisonCon "'a" ],
         true)
       ("NoComparisonType",
-        moduleValue (variable "a"),
-        [ comparisonCon "a" ],
+        moduleValue (variable "'a"),
+        [ comparisonCon "'a" ],
         false)
       ("(ComparisonType -> ComparisonType) -> 'x",
-        moduleFunction' [ [ ptype (variable "a") ]; [ ptype (variable "b") ] ],
-        [ comparisonCon "a" ],
+        moduleFunction' [ [ ptype (variable "'a") ]; [ ptype (variable "'b") ] ],
+        [ comparisonCon "'a" ],
         false)
       ("DependenceComparisonType<ComparisonType>",
-        moduleValue (variable "a"),
-        [ comparisonCon "a" ],
+        moduleValue (variable "'a"),
+        [ comparisonCon "'a" ],
         true)
       ("DependenceComparisonType<NoComparisonType>",
-        moduleValue (variable "a"),
-        [ comparisonCon "a" ],
+        moduleValue (variable "'a"),
+        [ comparisonCon "'a" ],
         false)
       ("ComparisonType * ComparisonType",
-        moduleValue (variable "a"),
-        [ comparisonCon "a" ],
+        moduleValue (variable "'a"),
+        [ comparisonCon "'a" ],
         true)
       ("'a * 'b",
-        moduleValue (variable "a"),
-        [ comparisonCon "a" ],
+        moduleValue (variable "'a"),
+        [ comparisonCon "'a" ],
         true)
       ("ComparisonType * NoComparisonType",
-        moduleValue (variable "a"),
-        [ comparisonCon "a" ],
+        moduleValue (variable "'a"),
+        [ comparisonCon "'a" ],
         false)
       ("ComparisonType[]",
-        moduleValue (variable "a"),
-        [ comparisonCon "a" ],
+        moduleValue (variable "'a"),
+        [ comparisonCon "'a" ],
         true)
       ("NoComparisonType[]",
-        moduleValue (variable "a"),
-        [ comparisonCon "a" ],
+        moduleValue (variable "'a"),
+        [ comparisonCon "'a" ],
         false)
     ]
     run (testConstraint false)

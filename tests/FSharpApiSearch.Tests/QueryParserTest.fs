@@ -21,7 +21,7 @@ module BySignature =
       "a_'2", (identity "a_'2")
       "a.b", (identity "a.b")
       "a.b.c", (identity "a.b.c")
-      "'a", (queryVariable "a")
+      "'a", (queryVariable "'a")
     ]
     run runSignatureTest
   }
@@ -39,8 +39,8 @@ module BySignature =
   let arrowParseTest = parameterize {
     source [
       "a -> a", (arrow [ identity "a"; identity "a" ])
-      "('a -> 'b) -> 'c", (arrow [ (arrow [ queryVariable "a"; queryVariable "b" ]); queryVariable "c" ])
-      "('a -> 'b)", (arrow [ queryVariable "a"; queryVariable "b" ])
+      "('a -> 'b) -> 'c", (arrow [ (arrow [ queryVariable "'a"; queryVariable "'b" ]); queryVariable "'c" ])
+      "('a -> 'b)", (arrow [ queryVariable "'a"; queryVariable "'b" ])
     ]
     run runSignatureTest
   }
@@ -48,7 +48,7 @@ module BySignature =
   let dotNetGenericParseTest = parameterize {
     source [
       "a<b, c>", (generic (identity "a") [ identity "b"; identity "c" ])
-      "'a -> b<c, d> -> d", (arrow [ queryVariable "a"; generic (identity "b") [ identity "c"; identity "d" ]; identity "d" ])
+      "'a -> b<c, d> -> d", (arrow [ queryVariable "'a"; generic (identity "b") [ identity "c"; identity "d" ]; identity "d" ])
       "?<b, c>", (generic wildcard [ identity "b"; identity "c" ])
       "?a<b, c>", (generic (wildcardGroup "a") [ identity "b"; identity "c" ])
     ]
@@ -108,8 +108,8 @@ module BySignature =
 
 module ByName =
   let parseTest =
-    let alpha = queryVariable "a"
-    let beta = queryVariable "b"
+    let alpha = queryVariable "'a"
+    let beta = queryVariable "'b"
     let option_alpha = generic (identity "option") [ alpha ]
     let option_beta = generic (identity "option") [ beta ]
     parameterize {
@@ -135,11 +135,11 @@ module ByActivePattern =
   let parseTest =
     parameterize {
       source [
-        "(||) : ... -> 'a -> ?", QueryMethod.ByActivePattern { Kind = ActivePatternKind.ActivePattern; Signature = ActivePatternSignature.AnyParameter (queryVariable "a", wildcard) }
-        "(||) : 'a -> ?", QueryMethod.ByActivePattern { Kind = ActivePatternKind.ActivePattern; Signature = ActivePatternSignature.Specified (arrow [ queryVariable "a"; wildcard ]) }
-        "(||) : 'a -> 'b -> ?", QueryMethod.ByActivePattern { Kind = ActivePatternKind.ActivePattern; Signature = ActivePatternSignature.Specified (arrow [ queryVariable "a"; queryVariable "b"; wildcard ]) }
+        "(||) : ... -> 'a -> ?", QueryMethod.ByActivePattern { Kind = ActivePatternKind.ActivePattern; Signature = ActivePatternSignature.AnyParameter (queryVariable "'a", wildcard) }
+        "(||) : 'a -> ?", QueryMethod.ByActivePattern { Kind = ActivePatternKind.ActivePattern; Signature = ActivePatternSignature.Specified (arrow [ queryVariable "'a"; wildcard ]) }
+        "(||) : 'a -> 'b -> ?", QueryMethod.ByActivePattern { Kind = ActivePatternKind.ActivePattern; Signature = ActivePatternSignature.Specified (arrow [ queryVariable "'a"; queryVariable "'b"; wildcard ]) }
 
-        "(|_|) : ... -> 'a -> ?", QueryMethod.ByActivePattern { Kind = ActivePatternKind.PartialActivePattern; Signature = ActivePatternSignature.AnyParameter (queryVariable "a", wildcard) }
+        "(|_|) : ... -> 'a -> ?", QueryMethod.ByActivePattern { Kind = ActivePatternKind.PartialActivePattern; Signature = ActivePatternSignature.AnyParameter (queryVariable "'a", wildcard) }
       ]
       run (fun (input, expected) -> test {
         let actual = QueryParser.parse input
