@@ -26,6 +26,8 @@ type StaticMemberClass() =
   static member private PrivateMethod() = 0
   static member internal InternalMethod() = 0
 
+  static member GenericMethod(x: 'a) = x
+
 type InstanceMemberClass() =
   member this.NoParameterMethod () = 3
   member this.OneParameterMethod (x: int) = 3
@@ -52,8 +54,10 @@ type internal InternalClass() =
 
 type GenericClass<'a>() =
   member this.Method(x: 'a) = 3
+  member this.GenericMethod(x: 'b) = x
 
 type Interface = interface
   abstract member Method: int * string -> int
   abstract member Property: string with get, set
+  abstract member GenericMethod: 'a -> 'a
 end

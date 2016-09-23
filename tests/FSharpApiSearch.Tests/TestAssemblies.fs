@@ -42,6 +42,11 @@ let apiDictionary = test {
 
 let fsharpAssemblyApi = test {
   let! apiDictionary = apiDictionary
+  do
+    let sb = System.Text.StringBuilder()
+    let api = apiDictionary |> Array.find (fun x -> x.AssemblyName = fsharpAssemblyName)
+    api.Api |> Seq.iter (fun a -> Printf.bprintf sb "%A" a)
+    File.WriteAllText("dump.txt", sb.ToString())
   return apiDictionary |> Array.find (fun x -> x.AssemblyName = fsharpAssemblyName)
 }
 

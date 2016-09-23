@@ -72,6 +72,7 @@
     <Compile Include="MatcherTest.fs" />
     <Compile Include="ApiLoaderTest.fs" />
     <Compile Include="FSharpApiSearchClientTest.fs" />
+    <Compile Include="LinkGeneratorTest.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CSharpLoadTestAssembly\CSharpLoadTestAssembly.csproj">

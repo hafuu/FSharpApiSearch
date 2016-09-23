@@ -253,7 +253,9 @@ type ApiSignature =
   | Constructor of LowType * Member
   | FullTypeDefinition of FullTypeDefinition
   | TypeAbbreviation of TypeAbbreviationDefinition
+  /// F# Type Extension
   | TypeExtension of TypeExtension
+  /// C# Extension Member
   | ExtensionMember of Member
 
 type Api = {
@@ -442,11 +444,15 @@ module internal Print =
   let printDisplayName = function
     | [] -> "<empty>"
     | ns ->
-      let print (x: NameItem) =
-        match x.GenericParametersForDisplay with
-        | [] -> x.FSharpName
-        | args -> sprintf "%s<%s>" x.FSharpName (args |> List.map (fun a -> typeVariablePrefix a +  a.Name) |> String.concat ", ")
-      ns |> Seq.map print |> Seq.rev |> String.concat "."
+      seq {
+        yield ns.Head.FSharpName
+        for path in ns.Tail do
+          match path.GenericParametersForDisplay with
+          | [] -> yield path.FSharpName
+          | args -> yield sprintf "%s<%s>" path.FSharpName (args |> List.map (fun a -> typeVariablePrefix a +  a.Name) |> String.concat ", ")
+      }
+      |> Seq.rev
+      |> String.concat "."
 
   let printName = function
     | LoadingName (_, n1, n2) ->
@@ -474,7 +480,7 @@ module internal Print =
     | VariableSource.Query -> "q"
     | VariableSource.Target -> "t"
 
-  let printVariable isDebug source v =
+  let printTypeVariable isDebug source v =
     if isDebug then
       sprintf "%s%s_%s" (typeVariablePrefix v) (printVariableSource source) v.Name
     else
@@ -485,7 +491,7 @@ module internal Print =
       match name with
       | Some n -> sprintf "?%s" n
       | None -> "?"
-    | Variable (source, v) -> printVariable isDebug source v
+    | Variable (source, v) -> printTypeVariable isDebug source v
     | Identity i -> printIdentity i
     | Arrow xs -> printArrow isDebug xs
     | Tuple xs -> printTuple isDebug xs
@@ -549,8 +555,8 @@ module internal Print =
     let variableSource = VariableSource.Target
     let variablePart =
       match c.Variables with
-      | [ v ] -> printVariable isDebug variableSource v
-      | vs -> sprintf "(%s)" (List.map (printVariable isDebug variableSource) vs |> String.concat " or ")
+      | [ v ] -> printTypeVariable isDebug variableSource v
+      | vs -> sprintf "(%s)" (List.map (printTypeVariable isDebug variableSource) vs |> String.concat " or ")
     let constraintPart =
       match c.Constraint with
       | Constraint.SubtypeConstraints s -> sprintf ":> %s" (printLowType isDebug s)
@@ -561,7 +567,7 @@ module internal Print =
           | MemberModifier.Static -> "static member"
           | MemberModifier.Instance -> "member"
         sprintf ": (%s %s : %s)" modifierPart member'.Name (printMember isDebug member')
-      | Constraint.DefaultConstructorConstraints -> let v = printVariable isDebug variableSource (c.Variables.Head) in sprintf ": (new : unit -> %s)" v
+      | Constraint.DefaultConstructorConstraints -> let v = printTypeVariable isDebug variableSource (c.Variables.Head) in sprintf ": (new : unit -> %s)" v
       | Constraint.ValueTypeConstraints -> ": struct"
       | Constraint.ReferenceTypeConstraints -> ": not struct"
       | Constraint.EnumerationConstraints -> ": enum"
@@ -574,12 +580,12 @@ module internal Print =
   let printFullTypeDefinition isDebug (x: FullTypeDefinition) =
     match x.GenericParameters with
     | [] -> sprintf "%s.%s" x.AssemblyName (printDisplayName x.Name)
-    | args -> sprintf "%s.%s<%s>" x.AssemblyName (printDisplayName x.Name) (args |> Seq.map (printVariable isDebug VariableSource.Target) |> String.concat ", ")
+    | args -> sprintf "%s.%s<%s>" x.AssemblyName (printDisplayName x.Name) (args |> Seq.map (printTypeVariable isDebug VariableSource.Target) |> String.concat ", ")
 
   let pringTypeAbbreviation isDebug (x: TypeAbbreviationDefinition) =
     match x.GenericParameters with
     | [] -> sprintf "%s.%s" x.AssemblyName (printDisplayName x.Name)
-    | args -> sprintf "%s.%s<%s>" x.AssemblyName (printDisplayName x.Name) (args |> Seq.map (printVariable isDebug VariableSource.Target) |> String.concat ", ")
+    | args -> sprintf "%s.%s<%s>" x.AssemblyName (printDisplayName x.Name) (args |> Seq.map (printTypeVariable isDebug VariableSource.Target) |> String.concat ", ")
 
   let printApiSignature isDebug = function
     | ApiSignature.ModuleValue t -> printLowType isDebug t
@@ -600,6 +606,9 @@ module internal Print =
       else
         printMember isDebug t.Member
     | ApiSignature.ExtensionMember m -> printMember isDebug m
+
+type TypeVariable with
+  member this.Print() = Print.printTypeVariable false VariableSource.Target this
 
 type Name with
   member this.Print() = Print.printName this

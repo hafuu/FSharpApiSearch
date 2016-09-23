@@ -77,12 +77,13 @@ module internal Impl =
       this.GenericParameters |> Seq.map (fun x -> x.TypeVariable) |> Seq.toList
     member this.GetDisplayName =
       let dn = this.DisplayName
+      let genericParameters = this.GenericParameters |> Seq.map (fun p -> p.TypeVariable) |> Seq.toList
       let isOperator =
         dn.StartsWith("(") && dn.EndsWith(")") && this.CompiledName.StartsWith("op_")
       if isOperator then
-        { FSharpName = dn; InternalFSharpName = this.CompiledName; GenericParametersForDisplay = [] }
+        { FSharpName = dn; InternalFSharpName = this.CompiledName; GenericParametersForDisplay = genericParameters }
       else
-        { FSharpName = dn; InternalFSharpName = dn; GenericParametersForDisplay = [] }
+        { FSharpName = dn; InternalFSharpName = dn; GenericParametersForDisplay = genericParameters }
 
   type FSharpField with
     member this.TargetSignatureConstructor = fun declaringType member' ->
@@ -719,10 +720,8 @@ module internal Impl =
         yield! collectFromModule xml accessPath e
       elif e.IsFSharpAbbreviation && not e.IsMeasure then
         yield! collectTypeAbbreviationDefinition xml accessPath e
-      elif e.IsClass || e.IsValueType || e.IsFSharpRecord || e.IsFSharpUnion || e.IsArrayType || e.IsDelegate then
+      elif e.IsClass || e.IsInterface || e.IsValueType || e.IsFSharpRecord || e.IsFSharpUnion || e.IsArrayType || e.IsDelegate then
         yield! collectFromType xml accessPath e
-      elif e.IsInterface then
-        yield! collectFromInterface xml accessPath e
       elif e.IsOpaque || e.HasAssemblyCodeRepresentation then
         yield! collectFromType xml accessPath e
     }
@@ -764,60 +763,6 @@ module internal Impl =
         yield! fields
       | None -> ()
       yield! collectFromNestedEntities xml typeName e
-    }
-  and collectInterfaceMembers xml (declaringSignatureName: DisplayName) (inheritArgs: (TypeVariable * LowType) list) (e: FSharpEntity): Api seq =
-    let replaceVariable replacements = function
-      | ApiSignature.InstanceMember (declaringType, member') ->
-        let apply = LowType.applyVariable VariableSource.Target replacements
-        let declaringType = apply declaringType
-        let applyParam p = { p with Type = apply p.Type }
-        let genericParameters =
-          member'.GenericParameters
-          |> List.map (fun p ->
-            match replacements |> Map.tryFind p with
-            | Some (Variable (_, replacement)) -> replacement
-            | Some _ -> failwith "Generic parameter replacement should be variable."
-            | None -> p)
-        let member' =
-          { member' with
-              GenericParameters = genericParameters
-              Parameters = member'.Parameters |> List.map (List.map applyParam)
-              ReturnParameter = member'.ReturnParameter |> applyParam
-          }
-        ApiSignature.InstanceMember (declaringType, member')
-      | _ -> failwith "It is not interface member."
-  
-    seq {
-      let declaringSignature = fsharpEntityToLowType e
-      let replacementVariables = inheritArgs |> List.map snd |> List.collect LowType.collectVariables
-      yield! e.MembersFunctionsAndValues
-              |> Seq.filter (fun x -> x.Accessibility.IsPublic && not x.IsCompilerGenerated)
-              |> Seq.choose (fun member' -> option {
-                let! api = toTypeMemberApi xml declaringSignatureName e declaringSignature member'
-                let variableReplacements =
-                  List.append (resolveConflictGenericArgumnet replacementVariables member') inheritArgs
-                  |> Map.ofList
-                let api = { api with Signature = replaceVariable variableReplacements api.Signature }
-                return api
-              })
-
-      for parentInterface in e.DeclaredInterfaces |> Seq.filter (fun x -> x.TypeDefinition.Accessibility.IsPublic) do
-        let inheritArgs = genericParametersAndArguments parentInterface
-        yield! collectInterfaceMembers xml declaringSignatureName inheritArgs parentInterface.TypeDefinition
-                |> Seq.map (updateInterfaceDeclaringType declaringSignatureName declaringSignature)
-    }
-  and collectFromInterface xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
-    let interfaceName =
-      let name = e.DisplayName
-      { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = genericParameters e } :: accessPath
-    seq {
-      let members = collectInterfaceMembers xml interfaceName [] e |> Seq.cache
-
-      match fullTypeDef xml interfaceName e members with
-      | Some d ->
-        yield d
-        yield! members
-      | None -> ()
     }
 
   let collectTypeAbbreviations (xs: Api seq) =
