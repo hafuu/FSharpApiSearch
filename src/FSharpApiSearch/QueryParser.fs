@@ -7,15 +7,19 @@ open FSharpApiSearch.SpecialTypes
 let inline trim p = spaces >>. p .>> spaces
 let inline pcharAndTrim c = pchar c |> trim
 
+let pidentifier =
+  let head = letter <|> pchar '_'
+  let tail = letter <|> digit <|> anyOf "_'"
+  head .>>. manyChars tail |>> (fun (h, t) -> string h + t) <?> "identifier"
+
 module FSharpSignatureParser =
-  let name = regex @"\w+" <?> "name"
-  let partialName = sepBy1 name (pchar '.') |>> (List.map (fun n -> { FSharpName = n; InternalFSharpName = n; GenericParametersForDisplay = [] } ) >> List.rev)
+  let partialName = sepBy1 pidentifier (pchar '.') |>> (List.map (fun n -> { FSharpName = n; InternalFSharpName = n; GenericParametersForDisplay = [] } ) >> List.rev)
 
   let fsharpSignature, fsharpSignatureRef = createParserForwardedToRef()
 
   let identity = partialName |>> (function name -> Identity (PartialIdentity { Name = name; GenericParameterCount = 0 })) |> trim <?> "identity"
-  let variable = pchar ''' >>. name |>> (function name -> Variable (VariableSource.Query, name)) |> trim <?> "variable"
-  let wildcard = pchar '?' >>. opt name |>> Wildcard |> trim <?> "wildcard"
+  let variable = pchar ''' >>. pidentifier |>> (function name -> Variable (VariableSource.Query, name)) |> trim <?> "variable"
+  let wildcard = pchar '?' >>. opt pidentifier |>> Wildcard |> trim <?> "wildcard"
 
   let genericId =
     choice [
@@ -102,13 +106,13 @@ let activePattern = FSharpSignatureParser.fsharpSignature |>> ActivePatternSigna
 let activePatternQuery = trim activePatternKind .>> skipString ":" .>>. (attempt allPatterns <|> activePattern) |>> (fun (kind, sig') -> QueryMethod.ByActivePattern { Kind = kind; Signature = sig' })
 
 let opName = trim (skipChar '(') >>. many1Chars (anyOf "!%&*+-./<=>?@^|~:[]")  .>> trim (skipChar ')') |>> Microsoft.FSharp.Compiler.PrettyNaming.CompileOpName
-let memberName = many1Chars (letter <|> anyOf "_'") |> trim
+let memberName = pidentifier
 let signatureWildcard = pstring "_" |> trim >>% SignatureQuery.Wildcard
-let nameWildcard = pstring "*" |> trim
+let nameWildcard = pstring "*"
 
 let anyOrSignature = attempt signatureWildcard <|> (FSharpSignatureParser.extendedFsharpSignature)
 let nameQuery =
-  let name = memberName <|> opName <|> nameWildcard
+  let name = trim (memberName <|> opName <|> nameWildcard)
   sepBy1 name (pchar '.') .>> pstring ":" .>>. anyOrSignature |>> (fun (name, sigPart) -> QueryMethod.ByName (List.rev name, sigPart))
 
 let signatureQuery = FSharpSignatureParser.extendedFsharpSignature |>> QueryMethod.BySignature

@@ -1,3 +1,6 @@
+### 1.0.1 - 2016/9/26
+* Allow digit, _ and ' in the name search query (#92)
+
 ### 1.0.0 - 2016/7/29
 * Add the assembly name to the result
 * Add the namespace searching (#9)
