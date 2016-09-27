@@ -388,10 +388,12 @@ module internal Impl =
       toModuleValue isFSharp xml declaringModuleName x
 
   let constructorSignature isFSharp xml (declaringSignatureName: DisplayName) (declaringSignature: LowType) (x: FSharpMemberOrFunctionOrValue) =
+    let constructorName = "new"
     option {
+      let name = { FSharpName = constructorName; InternalFSharpName = constructorName; GenericParametersForDisplay = [] } :: declaringSignatureName
       let! _, target = methodMember isFSharp x
-      let target = { target with Name = declaringSignatureName.Head.FSharpName; ReturnParameter = Parameter.ofLowType declaringSignature }
-      return { Name = DisplayName declaringSignatureName; Signature = ApiSignature.Constructor (declaringSignature, target); TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
+      let target = { target with Name = constructorName; ReturnParameter = Parameter.ofLowType declaringSignature }
+      return { Name = DisplayName name; Signature = ApiSignature.Constructor (declaringSignature, target); TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
     }
 
   let memberSignature xml (loadMember: FSharpMemberOrFunctionOrValue -> (NameItem * Member) option) (declaringSignatureName: DisplayName) (declaringEntity: FSharpEntity) declaringSignature (x: FSharpMemberOrFunctionOrValue) =

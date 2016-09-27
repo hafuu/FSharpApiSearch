@@ -162,7 +162,7 @@ module FSharp =
         "TopLevelNamespace.StaticMemberClass.TupleMethod", [ staticMember t (method' "TupleMethod" [ [ pname "x" >> ptype (tuple [ int; string ]) ] ] int) ]
         "TopLevelNamespace.StaticMemberClass.InferredFloat", [ staticMember t (method' "InferredFloat" [ [ pname "x" >> ptype float ] ] float) ]
         "TopLevelNamespace.StaticMemberClass.AnnotatedFloat", [ staticMember t (method' "AnnotatedFloat" [ [ pname "x" >> ptype float ] ] float) ]
-        "TopLevelNamespace.StaticMemberClass", [ constructor' t (method' "StaticMemberClass" [ [ ptype unit ] ] t); constructor' t (method' "StaticMemberClass" [ [ pname "x" >> ptype int ] ] t) ]
+        "TopLevelNamespace.StaticMemberClass.new", [ constructor' t (method' "new" [ [ ptype unit ] ] t); constructor' t (method' "new" [ [ pname "x" >> ptype int ] ] t) ]
         "TopLevelNamespace.StaticMemberClass.OverloadMethod", [ staticMember t (method' "OverloadMethod" [ [ pname "x" >> ptype int ] ] int); staticMember t (method' "OverloadMethod" [ [ pname "x" >> ptype string; pname "y" >> ptype int ] ] string) ]
         "TopLevelNamespace.StaticMemberClass.Getter", [ staticMember t (property' "Getter" PropertyKind.Get [] string) ]
         "TopLevelNamespace.StaticMemberClass.Setter", [ staticMember t (property' "Setter" PropertyKind.Set [] int) ]
@@ -201,7 +201,7 @@ module FSharp =
       source [
         "TopLevelNamespace.GenericClass<'a>.Method", [ instanceMember t (method' "Method" [ [ pname "x" >> ptype (variable "'a") ] ] int) ]
         "TopLevelNamespace.GenericClass<'a>.GenericMethod<'b>", [ instanceMember t (method' "GenericMethod" [ [ pname "x" >> ptype (variable "'b") ] ] (variable "'b")) ]
-        "TopLevelNamespace.GenericClass<'a>", [ constructor' t (method' "GenericClass" [ [ ptype unit ] ] t) ]
+        "TopLevelNamespace.GenericClass<'a>.new", [ constructor' t (method' "new" [ [ ptype unit ] ] t) ]
       ]
       run testApi
     }
@@ -796,7 +796,7 @@ module CSharp =
         "CSharpLoadTestAssembly.StaticMemberClass.NoParameterMethod", [ staticMember t (method' "NoParameterMethod" [ [ ptype unit ] ] int) ]
         "CSharpLoadTestAssembly.StaticMemberClass.NonCurriedMethod", [ staticMember t (method' "NonCurriedMethod" [ [ pname "x" >> ptype int; pname "y" >> ptype string ] ] unit) ]
         "CSharpLoadTestAssembly.StaticMemberClass.TupleMethod", [ staticMember t (method' "TupleMethod" [ [ pname "x" >> ptype (tuple [ int; string ]) ] ] unit) ]
-        "CSharpLoadTestAssembly.StaticMemberClass", [ constructor' t (method' "StaticMemberClass" [ [ ptype unit ] ] t); constructor' t (method' "StaticMemberClass" [ [ pname "x" >> ptype string; pname "y" >> ptype string ] ] t) ]
+        "CSharpLoadTestAssembly.StaticMemberClass.new", [ constructor' t (method' "new" [ [ ptype unit ] ] t); constructor' t (method' "new" [ [ pname "x" >> ptype string; pname "y" >> ptype string ] ] t) ]
         "CSharpLoadTestAssembly.StaticMemberClass.OverloadMethod", [ staticMember t (method' "OverloadMethod" [ [ pname "x" >> ptype int ] ] int); staticMember t (method' "OverloadMethod" [ [ pname "x" >> ptype string ] ] string) ]
         "CSharpLoadTestAssembly.StaticMemberClass.Getter", [ staticMember t (property' "Getter" PropertyKind.Get [] string) ]
         "CSharpLoadTestAssembly.StaticMemberClass.Setter", [ staticMember t (property' "Setter" PropertyKind.Set [] string) ]
@@ -853,12 +853,12 @@ module CSharp =
 
     parameterize {
       source [
-        "CSharpLoadTestAssembly.OuterClass", [ constructor' outer (method' "OuterClass" [ [ ptype unit ] ] outer) ]
-        "CSharpLoadTestAssembly.OuterClass.InnerClass", [ constructor' inner (method' "InnerClass" [ [ ptype unit ] ] inner) ]
+        "CSharpLoadTestAssembly.OuterClass.new", [ constructor' outer (method' "new" [ [ ptype unit ] ] outer) ]
+        "CSharpLoadTestAssembly.OuterClass.InnerClass.new", [ constructor' inner (method' "new" [ [ ptype unit ] ] inner) ]
         "CSharpLoadTestAssembly.OuterClass.InnerClass.StaticMethod", [ staticMember inner (method' "StaticMethod" [ [ ptype unit ] ] int) ]
 
-        "CSharpLoadTestAssembly.GenericOuterClass<'T>", [ constructor' genericOuter (method' "GenericOuterClass" [ [ ptype unit ] ] genericOuter) ]
-        "CSharpLoadTestAssembly.GenericOuterClass<'T>.GenericInnerClass<'T, 'U>", [ constructor' genericInner (method' "GenericInnerClass" [ [ ptype unit ] ] genericInner) ]
+        "CSharpLoadTestAssembly.GenericOuterClass<'T>.new", [ constructor' genericOuter (method' "new" [ [ ptype unit ] ] genericOuter) ]
+        "CSharpLoadTestAssembly.GenericOuterClass<'T>.GenericInnerClass<'T, 'U>.new", [ constructor' genericInner (method' "new" [ [ ptype unit ] ] genericInner) ]
         "CSharpLoadTestAssembly.GenericOuterClass<'T>.GenericInnerClass<'T, 'U>.Method", [ staticMember genericInner (method' "Method" [ [ pname "x" >> ptype (variable "'T"); pname "y" >> ptype (variable "'U") ] ] unit) ]
       ]
       run testApi
