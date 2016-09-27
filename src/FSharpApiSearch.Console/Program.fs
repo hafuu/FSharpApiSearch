@@ -42,11 +42,6 @@ let createClient (targets: string list) (databasePath: string) =
         raise loadFailure
 
 module Interactive =
-  type Lens<'a, 'b> = {
-    Get: 'a -> 'b
-    Set: 'b -> 'a -> 'a
-  }
-
   let tryParseOptionStatus (x: string) =
     match x.ToLower() with
     | "enable" -> Some Enabled
@@ -64,10 +59,6 @@ module Interactive =
       Some target
     | _ -> None
 
-  let RespectNameDifference = { Get = (fun x -> x.RespectNameDifference ); Set = (fun value x -> { x with RespectNameDifference = value }) }
-  let GreedyMatching = { Get = (fun x -> x.GreedyMatching ); Set = (fun value x -> { x with GreedyMatching = value }) }
-  let IgnoreParameterStyle = { Get = (fun x -> x.IgnoreParameterStyle); Set = (fun value x -> { x with IgnoreParameterStyle = value }) }
-  let IgnoreCase = { Get = (fun x -> x.IgnoreCase); Set = (fun value x -> { x with IgnoreCase = value }) }
   let ShowXmlDocument = { Get = (fun x -> x.ShowXmlDocument); Set = (fun value x -> { x with ShowXmlDocument = value }) }
   let StackTrace = { Get = (fun x -> x.StackTrace); Set = (fun value x -> { x with StackTrace = value }) }
 
@@ -97,10 +88,10 @@ FSharpApiSearch.Console interactive mode directive:
     printf "> "
     match Console.ReadLine().TrimEnd(';') with
     | "#q" -> arg
-    | OptionSetting "#respect-name-difference" RespectNameDifference arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
-    | OptionSetting "#greedy-matching" GreedyMatching arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
-    | OptionSetting "#ignore-param-style" IgnoreParameterStyle arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
-    | OptionSetting "#ignore-case" IgnoreCase arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
+    | OptionSetting "#respect-name-difference" SearchOptions.RespectNameDifference arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
+    | OptionSetting "#greedy-matching" SearchOptions.GreedyMatching arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
+    | OptionSetting "#ignore-param-style" SearchOptions.IgnoreParameterStyle arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
+    | OptionSetting "#ignore-case" SearchOptions.IgnoreCase arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#xmldoc" ShowXmlDocument arg newArg -> loop client newArg
     | OptionSetting "#stacktrace" StackTrace arg newArg -> loop client newArg
     | "#help" ->

@@ -1,5 +1,10 @@
 ﻿namespace FSharpApiSearch
 
+type Lens<'a, 'b> = {
+  Get: 'a -> 'b
+  Set: 'b -> 'a -> 'a
+}
+
 [<AutoOpen>]
 module internal OptionModule =
   type OptionBuilder() =

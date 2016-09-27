@@ -19,16 +19,16 @@ module Args =
   open FSharpApiSearch.CommandLine
 
   let empty =
-    let defaultOpt = { SearchOptions.defaultOptions with Parallel = Enabled }
+    let defaultOpt = SearchOptions.defaultOptions |> SearchOptions.Parallel.Set Enabled
     { Query = None; Targets = []; SearchOptions = defaultOpt; ShowXmlDocument = Disabled; StackTrace = Disabled; Help = false }
 
   let boolToOptionStatus = function true -> Enabled | false -> Disabled
 
   let rec parse arg = function
-    | Status "--respect-name-difference" v :: rest -> parse { arg with SearchOptions = { arg.SearchOptions with RespectNameDifference = boolToOptionStatus v } } rest
-    | Status "--greedy-matching" v :: rest -> parse { arg with SearchOptions = { arg.SearchOptions with GreedyMatching = boolToOptionStatus v } } rest
-    | Status "--ignore-param-style" v :: rest -> parse { arg with SearchOptions = { arg.SearchOptions with IgnoreParameterStyle = boolToOptionStatus v } } rest
-    | Status "--ignore-case" v :: rest -> parse { arg with SearchOptions = { arg.SearchOptions with IgnoreCase = boolToOptionStatus v } } rest
+    | Status "--respect-name-difference" v :: rest -> parse { arg with SearchOptions = SearchOptions.RespectNameDifference.Set (boolToOptionStatus v) arg.SearchOptions } rest
+    | Status "--greedy-matching" v :: rest -> parse { arg with SearchOptions = SearchOptions.GreedyMatching.Set (boolToOptionStatus v) arg.SearchOptions } rest
+    | Status "--ignore-param-style" v :: rest -> parse { arg with SearchOptions = SearchOptions.IgnoreParameterStyle.Set (boolToOptionStatus v) arg.SearchOptions } rest
+    | Status "--ignore-case" v :: rest -> parse { arg with SearchOptions = SearchOptions.IgnoreCase.Set (boolToOptionStatus v) arg.SearchOptions } rest
     | (KeyValue "--target" t | KeyValue "-t" t) :: rest -> parse { arg with Targets = t :: arg.Targets } rest
     | Status "--xmldoc" v :: rest -> parse { arg with ShowXmlDocument = boolToOptionStatus v } rest
     | Status "--stacktrace" v :: rest -> parse { arg with StackTrace = boolToOptionStatus v } rest
