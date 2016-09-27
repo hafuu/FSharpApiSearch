@@ -240,11 +240,32 @@ type ApiKind =
   | Member of MemberModifier * MemberKind
   | TypeExtension of MemberModifier * MemberKind
   | ExtensionMember
+  | UnionCase
 
 [<RequireQualifiedAccess>]
 type ActivePatternKind =
   | ActivePattern
   | PartialActivePattern
+
+[<RequireQualifiedAccess>]
+type UnionCaseField = {
+  Name: string option
+  Type: LowType
+}
+
+[<RequireQualifiedAccess>]
+type UnionCase = {
+  DeclaringType: LowType
+  Name: string
+  Fields: UnionCaseField list
+}
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module UnionCase =
+  let toFunction (uc: UnionCase) =
+    let fields = uc.Fields |> List.map (fun field -> { Name = field.Name; Type = field.Type; IsOptional = false })
+    let ret = Parameter.ofLowType uc.DeclaringType |> List.singleton
+    [ fields; ret ]
 
 [<RequireQualifiedAccess>]
 type ApiSignature =
@@ -260,6 +281,7 @@ type ApiSignature =
   | TypeExtension of TypeExtension
   /// C# Extension Member
   | ExtensionMember of Member
+  | UnionCase of UnionCase
 
 type Api = {
   Name: Name
@@ -280,6 +302,7 @@ with
     | ApiSignature.TypeAbbreviation _ -> failwith "not implemeneted"
     | ApiSignature.TypeExtension t -> ApiKind.Member (t.MemberModifier, t.Member.Kind)
     | ApiSignature.ExtensionMember _ -> ApiKind.ExtensionMember
+    | ApiSignature.UnionCase _ -> ApiKind.UnionCase
 
 type ApiDictionary = {
   AssemblyName: string
@@ -447,6 +470,7 @@ module internal Print =
     | ApiKind.Member (modifier, memberKind) -> sprintf "%s %s" (printMemberModifier modifier) (printMemberKind memberKind)
     | ApiKind.TypeExtension (modifier, memberKind) -> sprintf "%s %s" (printMemberModifier modifier) (printMemberKind memberKind)
     | ApiKind.ExtensionMember -> "extension member"
+    | ApiKind.UnionCase -> "union case"
 
   let typeVariablePrefix (v: TypeVariable) = if v.IsSolveAtCompileTime then "^" else "'"
 
@@ -596,6 +620,18 @@ module internal Print =
     | [] -> sprintf "%s.%s" x.AssemblyName (printDisplayName x.Name)
     | args -> sprintf "%s.%s<%s>" x.AssemblyName (printDisplayName x.Name) (args |> Seq.map (printTypeVariable isDebug VariableSource.Target) |> String.concat ", ")
 
+  let printUnionCaseField isDebug (uc: UnionCaseField) =
+    match uc.Name with
+    | Some name -> sprintf "%s:%s" name (printLowType isDebug uc.Type)
+    | None -> printLowType isDebug uc.Type
+
+  let printUnionCase isDebug (uc: UnionCase) =
+    if uc.Fields.IsEmpty then
+      printLowType isDebug uc.DeclaringType
+    else
+      UnionCase.toFunction uc
+      |> printParameterGroups true isDebug
+
   let printApiSignature isDebug = function
     | ApiSignature.ModuleValue t -> printLowType isDebug t
     | ApiSignature.ModuleFunction fn -> printParameterGroups false isDebug fn
@@ -615,6 +651,7 @@ module internal Print =
       else
         printMember isDebug t.Member
     | ApiSignature.ExtensionMember m -> printMember isDebug m
+    | ApiSignature.UnionCase uc -> printUnionCase isDebug uc
 
 type TypeVariable with
   member this.Print() = Print.printTypeVariable false VariableSource.Target this

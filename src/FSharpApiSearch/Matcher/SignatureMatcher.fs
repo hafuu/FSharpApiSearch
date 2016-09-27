@@ -198,6 +198,18 @@ module Rules =
       |> MatchingResult.mapMatched (Context.addDistance 1)
     | _ -> Continue ctx
 
+  let unionCaseRule testArrow (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
+    match left, right with
+    | SignatureQuery.Signature (Arrow leftElems), ApiSignature.UnionCase uc
+    | SignatureQuery.Signature (LowType.Patterns.AbbreviationRoot (Arrow leftElems)), ApiSignature.UnionCase uc when uc.Fields.IsEmpty = false ->
+      Debug.WriteLine("union case rule.")
+      let caseAsFunc = UnionCase.toFunction uc
+      testArrow lowTypeMatcher leftElems caseAsFunc ctx
+    | SignatureQuery.Signature left, ApiSignature.UnionCase { DeclaringType = right; Fields = [] } ->
+      Debug.WriteLine("union case rule.")
+      lowTypeMatcher.Test left right ctx
+    | _ -> Continue ctx
+
 let tryGetSignatureQuery = function
   | QueryMethod.BySignature s -> Some s
   | QueryMethod.ByName (_, s) -> Some s
@@ -223,6 +235,8 @@ let instance (options: SearchOptions) =
       yield Rules.arrowAndInstanceMemberRule testArrow
         
       yield Rules.arrowQueryAndDelegateRule
+
+      yield Rules.unionCaseRule testArrow
 
       yield Rule.terminator
     ]

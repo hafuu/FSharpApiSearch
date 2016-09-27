@@ -91,6 +91,11 @@ module DSL =
   let typeExtension existingType declaration modifier member' = ApiSignature.TypeExtension { ExistingType = existingType; Declaration = declaration; MemberModifier = modifier; Member = member' }
   let extensionMember member' = ApiSignature.ExtensionMember member'
 
+  let unionCase declaration name fields =
+    let fields = fields |> List.map (fun (name, t) -> { Name = name; Type = t } : UnionCaseField)
+    let uc = { DeclaringType = declaration; Name = name; Fields = fields } : UnionCase
+    ApiSignature.UnionCase uc
+
   let constraint' vs c = { Variables = List.map tv vs; Constraint = c }
 
   let arrayType = "Microsoft.FSharp.Core.[]<'T>"

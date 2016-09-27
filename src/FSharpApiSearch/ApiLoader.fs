@@ -426,6 +426,25 @@ module internal Impl =
       return { Name = DisplayName apiName; Signature = field.TargetSignatureConstructor declaringSignature member'; TypeConstraints = collectTypeConstraints declaringEntity.GenericParameters; Document = tryGetXmlDoc xml field }
     }
 
+  let toUnionCaseField length (n, field: FSharpField) = option {
+    let name =
+      if length = 1 && field.Name = "Item" then None
+      elif field.Name = sprintf "Item%d" n then None
+      else Some field.Name
+    let! t = fsharpTypeToLowType field.FieldType
+    return ({ Name = name; Type = t } : UnionCaseField)
+  }
+
+  let toUnionCaseApi xml (accessPath: DisplayName) (declaringEntity: FSharpEntity) (declaringSignature: LowType) (unionCase: FSharpUnionCase) =
+    option {
+      let returnType = declaringSignature
+      let caseName = unionCase.Name
+      let! fields = unionCase.UnionCaseFields |> Seq.mapi (fun i field -> (i + 1, field)) |> Seq.foldOptionMapping (toUnionCaseField unionCase.UnionCaseFields.Count)
+      let signature = { DeclaringType = returnType; Name = caseName; Fields = List.ofSeq fields } : UnionCase
+      let apiName = { FSharpName = caseName; InternalFSharpName = caseName; GenericParametersForDisplay = [] } :: accessPath
+      return { Name = DisplayName apiName; Signature = ApiSignature.UnionCase signature; TypeConstraints = collectTypeConstraints declaringEntity.GenericParameters; Document = tryGetXmlDoc xml unionCase }
+    }
+
   let resolveConflictGenericArgumnet (replacementVariables: LowType list) (m: FSharpMemberOrFunctionOrValue) =
     m.GenericParameters
     |> Seq.choose (fun p ->
@@ -758,11 +777,19 @@ module internal Impl =
         |> Seq.filter (fun x -> x.Accessibility.IsPublic && not x.IsCompilerGenerated)
         |> Seq.choose (toFieldApi xml typeName e declaringSignature)
         |> Seq.cache
+
+      let unionCases =
+        e.UnionCases
+        |> Seq.filter (fun x -> x.Accessibility.IsPublic)
+        |> Seq.choose (toUnionCaseApi xml typeName e declaringSignature)
+        |> Seq.cache
+
       match fullTypeDef xml typeName e (Seq.append members fields) with
       | Some d ->
         yield d
         yield! members
         yield! fields
+        yield! unionCases
       | None -> ()
       yield! collectFromNestedEntities xml typeName e
     }
@@ -875,6 +902,14 @@ module internal Impl =
 
     let resolve_Function cache fn = resolve_ParameterGroups cache fn
 
+    let resolve_UnionCaseField cache (field: UnionCaseField) = { field with Type = resolve_LowType cache field.Type }
+
+    let resolve_UnionCase cache (uc: UnionCase) =
+      { uc with
+          DeclaringType = resolve_LowType cache uc.DeclaringType
+          Fields = List.map (resolve_UnionCaseField cache) uc.Fields
+      }
+      
     let resolve_Signature cache = function
       | ApiSignature.ModuleValue x -> ApiSignature.ModuleValue (resolve_LowType cache x)
       | ApiSignature.ModuleFunction fn -> ApiSignature.ModuleFunction (resolve_Function cache fn)
@@ -886,6 +921,7 @@ module internal Impl =
       | ApiSignature.TypeAbbreviation a -> ApiSignature.TypeAbbreviation (resolve_TypeAbbreviationDefinition cache a)
       | ApiSignature.TypeExtension e -> ApiSignature.TypeExtension (resolve_TypeExtension cache e)
       | ApiSignature.ExtensionMember m -> ApiSignature.ExtensionMember (resolve_Member cache m)
+      | ApiSignature.UnionCase uc -> ApiSignature.UnionCase (resolve_UnionCase cache uc)
 
     let resolve_Api cache (api: Api) =
       { api with

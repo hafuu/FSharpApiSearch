@@ -277,6 +277,18 @@ module FSharp =
     do! existsITuple |> assertEquals false
   }
 
+  let loadUnionCaseTest =
+    let t = createType "OtherTypes.Union" [] |> updateAssembly fsharpAssemblyName
+    parameterize {
+      source [
+        "OtherTypes.Union.A", [ unionCase t "A" [] ]
+        "OtherTypes.Union.B", [ unionCase t "B" [ (None, int); (Some "field2", string) ] ]
+        "OtherTypes.Union.C", [ unionCase t "C" [ (None, int) ] ]
+        "OtherTypes.Union.D", [ unionCase t "D" [ (Some "field", int) ] ]
+      ]
+      run testApi
+    }
+
   let nonloadedTest =
     parameterize {
       source[

@@ -13,7 +13,7 @@ type GenericRecord<'a> = {
   Field: 'a
 }
 
-type Union = A | B of int * string
+type Union = A | B of int * field2:string | C of int | D of field:int
 with
   member this.InstanceMethod() = 0
 

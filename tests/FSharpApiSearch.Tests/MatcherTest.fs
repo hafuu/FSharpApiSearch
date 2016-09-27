@@ -541,6 +541,18 @@ module IgnoreParameterStyleTest =
       "A -> A", staticMember typeA (method' "test" [ [ ptype typeA; popt >> ptype typeA ] ] typeA), Always true
     ]
 
+  let unionCaseTest =
+    matchTest [
+      "A", unionCase typeA "test" [], Always true
+      "int -> A", unionCase typeA "test" [ (None, int) ], Always true
+      "string -> A", unionCase typeA "test" [ (None, int) ], Always false
+
+      "int * B -> A", unionCase typeA "test" [ (None, int); (None, typeB) ], Always true
+      "int * int -> A", unionCase typeA "test" [ (None, int); (None, typeB) ], Always false
+
+      "int -> B -> A", unionCase typeA "test" [ (None, int); (None, typeB) ], WhenEnabled true
+    ]
+
   let distanceTest = parameterize {
     source [
       "A -> B -> A", staticMember typeA curriedMethod, 0

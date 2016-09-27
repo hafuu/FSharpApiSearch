@@ -90,6 +90,14 @@ module PrintTest =
 
       moduleValue (array (tuple [ typeA; typeB ])), "(a * b)[]"
       moduleValue (array (arrow [ typeA; typeB ])), "(a -> b)[]"
+
+      unionCase typeA "Case" [], "a"
+      unionCase typeA "Case" [ (None, typeB) ], "b -> a"
+      unionCase typeA "Case" [ (Some "value1", typeB); (Some "value2", typeA) ], "value1:b * value2:a -> a"
+      unionCase typeA "Case" [ (None, tuple [ typeA; typeB ]) ], "(a * b) -> a"
+      unionCase typeA "Case" [ (Some "value1", tuple [ typeA; typeB ]) ], "value1:(a * b) -> a"
+      unionCase typeA "Case" [ (None, arrow [ typeA; typeB ]) ], "(a -> b) -> a"
+      unionCase typeA "Case" [ (Some "value1", arrow [ typeA; typeB ]) ], "value1:(a -> b) -> a"
     ]
     run (fun (input, expected) -> test {
       let actual = ApiSignature.print input
