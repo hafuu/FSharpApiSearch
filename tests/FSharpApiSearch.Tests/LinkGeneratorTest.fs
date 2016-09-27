@@ -21,3 +21,18 @@ let fsharpTest = parameterize {
     do! actual |> assertEquals (Some expected)
   })
 }
+
+let msdnTest = parameterize {
+  source [
+    "System.Random", None
+    "System.Random.Next", Some "system.random.next.aspx"
+    "System.Random.NextBytes", Some "system.random.nextbytes.aspx"
+    "System.Lazy<'T>.Value", None
+  ]
+  run (fun (name, expected) -> test {
+    let! apiDict = mscorlibApi
+    let api = apiDict.Api |> Array.find (fun a -> a.Name.Print() = name)
+    let actual = LinkGenerator.Msdn.generate api
+    do! actual |> assertEquals expected
+  })
+}

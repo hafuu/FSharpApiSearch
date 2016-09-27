@@ -53,6 +53,9 @@ module internal Name =
   let displayNameOfOperatorString (name: string) = DisplayName (DisplayName.ofOperatorString name)
 
   let loadingNameError() = failwith "Loading name at run time is invalid data."
+  let displayName = function
+    | LoadingName _ -> loadingNameError()
+    | DisplayName ns -> ns
 
 type PartialIdentity = {
   Name: DisplayName

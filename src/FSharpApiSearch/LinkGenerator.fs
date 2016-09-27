@@ -6,10 +6,7 @@ type LinkGenerator = Api -> string option
 module LinkGenerator =
   open System.Web
 
-  let internal genericParameters (api: Api) =
-    match api.Name with
-    | LoadingName _ -> Name.loadingNameError()
-    | DisplayName ns -> ns |> Seq.rev |> Seq.collect (fun x -> x.GenericParametersForDisplay) |> Seq.distinct |> Seq.toList
+  let internal genericParameters (api: Api) = api.Name |> Name.displayName |> Seq.rev |> Seq.collect (fun x -> x.GenericParametersForDisplay) |> Seq.distinct |> Seq.toList
 
   let toLower (str: string) = str.ToLower()
   let urlEncode (str: string) = HttpUtility.UrlEncode(str)
@@ -53,10 +50,7 @@ module LinkGenerator =
         "[-" + replaced + "-]"
 
     let internal generate (api: Api) = option {
-      let ns =
-        match api.Name with
-        | Name.DisplayName ns -> ns
-        | Name.LoadingName _ -> Name.loadingNameError()
+      let ns = Name.displayName api.Name
       let namePart =
         let name =
           let name = ns.Head.FSharpName
@@ -98,4 +92,32 @@ module LinkGenerator =
       return sprintf "%s%s-%s-[fsharp]" namePart genericParamsPart kindPart |> toLower |> urlEncode
     }
 
+  module Msdn =
+    let isGeneric api = api.Name |> Name.displayName |> List.exists (fun n -> List.isEmpty n.GenericParametersForDisplay = false)
+    let canGenerate (api: Api) =
+      match api.Signature with
+      | ApiSignature.ActivePatten _
+      | ApiSignature.ModuleValue _
+      | ApiSignature.ModuleFunction _
+      | ApiSignature.Constructor _
+      | ApiSignature.FullTypeDefinition _
+      | ApiSignature.TypeAbbreviation _
+      | ApiSignature.TypeExtension _
+      | ApiSignature.ExtensionMember _ -> false
+
+      | ApiSignature.InstanceMember _
+      | ApiSignature.StaticMember _ -> true
+
+    let generate (api: Api) =
+      if isGeneric api then
+        None
+      elif canGenerate api = false then
+        None
+      else
+        (Name.displayName api.Name |> Seq.rev |> Seq.map (fun n -> n.FSharpName) |> String.concat ".") + ".aspx"
+        |> toLower
+        |> Some
+        
+
   let fsharp baseUrl: LinkGenerator = fun api -> FSharp.generate api |> Option.map (fun apiUrl -> baseUrl + apiUrl)
+  let msdn baseUrl: LinkGenerator = fun api -> Msdn.generate api |> Option.map (fun apiUrl -> baseUrl + apiUrl)
