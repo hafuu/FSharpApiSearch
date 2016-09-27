@@ -13,6 +13,7 @@ let fsharpTest = parameterize {
     "Microsoft.FSharp.Core.Operators.incr", "operators.incr-function-%5bfsharp%5d"
     "Microsoft.FSharp.Control.Async.Start", "async.start-method-%5bfsharp%5d"
     "Microsoft.FSharp.Control.Async.CancellationToken", "async.cancellationtoken-property-%5bfsharp%5d"
+    "Microsoft.FSharp.Collections.Map<'Key, 'Value>.new", "collections.map%5b%27key%2c%27value%5d-constructor-%5bfsharp%5d"
   ]
   run (fun (name, expected) -> test {
     let! apiDict = fscoreApi

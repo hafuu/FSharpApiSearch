@@ -50,7 +50,11 @@ module LinkGenerator =
         "[-" + replaced + "-]"
 
     let internal generate (api: Api) = option {
-      let ns = Name.displayName api.Name
+      let ns =
+        let ns = Name.displayName api.Name
+        match api.Signature with
+        | ApiSignature.Constructor _ -> ns.Tail // skip "new"
+        | _ -> ns
       let namePart =
         let name =
           let name = ns.Head.FSharpName
