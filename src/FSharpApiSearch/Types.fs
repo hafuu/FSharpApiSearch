@@ -201,6 +201,13 @@ type FullTypeDefinition = {
 }
 with
   member internal this.FullIdentity = { AssemblyName = this.AssemblyName; Name = DisplayName this.Name; GenericParameterCount = this.GenericParameters.Length }
+  member internal this.LowType =
+    match this.GenericParameters with
+    | [] -> Identity (FullIdentity this.FullIdentity)
+    | gps ->
+      let gps = gps |> List.map (fun v -> Variable (VariableSource.Target, v))
+      let id = Identity (FullIdentity this.FullIdentity)
+      Generic (id, gps) 
 
 type TypeAbbreviationDefinition = {
   Name: DisplayName
@@ -241,6 +248,7 @@ type ApiKind =
   | TypeExtension of MemberModifier * MemberKind
   | ExtensionMember
   | UnionCase
+  | TypeDefinition
 
 [<RequireQualifiedAccess>]
 type ActivePatternKind =
@@ -298,7 +306,7 @@ with
     | ApiSignature.Constructor _ -> ApiKind.Constructor
     | ApiSignature.InstanceMember (_, m) -> ApiKind.Member (MemberModifier.Instance, m.Kind)
     | ApiSignature.StaticMember (_, m) -> ApiKind.Member (MemberModifier.Static, m.Kind)
-    | ApiSignature.FullTypeDefinition _ -> failwith "not implemented"
+    | ApiSignature.FullTypeDefinition _ -> ApiKind.TypeDefinition
     | ApiSignature.TypeAbbreviation _ -> failwith "not implemeneted"
     | ApiSignature.TypeExtension t -> ApiKind.Member (t.MemberModifier, t.Member.Kind)
     | ApiSignature.ExtensionMember _ -> ApiKind.ExtensionMember
@@ -471,6 +479,7 @@ module internal Print =
     | ApiKind.TypeExtension (modifier, memberKind) -> sprintf "%s %s" (printMemberModifier modifier) (printMemberKind memberKind)
     | ApiKind.ExtensionMember -> "extension member"
     | ApiKind.UnionCase -> "union case"
+    | ApiKind.TypeDefinition -> "type"
 
   let typeVariablePrefix (v: TypeVariable) = if v.IsSolveAtCompileTime then "^" else "'"
 
@@ -612,8 +621,8 @@ module internal Print =
     
   let printFullTypeDefinition isDebug (x: FullTypeDefinition) =
     match x.GenericParameters with
-    | [] -> sprintf "%s.%s" x.AssemblyName (printDisplayName x.Name)
-    | args -> sprintf "%s.%s<%s>" x.AssemblyName (printDisplayName x.Name) (args |> Seq.map (printTypeVariable isDebug VariableSource.Target) |> String.concat ", ")
+    | [] -> sprintf "type %s" x.Name.Head.FSharpName
+    | args -> sprintf "type %s<%s>" x.Name.Head.FSharpName (args |> Seq.map (printTypeVariable isDebug VariableSource.Target) |> String.concat ", ")
 
   let pringTypeAbbreviation isDebug (x: TypeAbbreviationDefinition) =
     match x.GenericParameters with

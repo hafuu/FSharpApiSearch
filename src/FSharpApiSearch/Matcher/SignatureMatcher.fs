@@ -210,6 +210,15 @@ module Rules =
       lowTypeMatcher.Test left right ctx
     | _ -> Continue ctx
 
+  let typeDefRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
+    match left, right with
+    | SignatureQuery.Signature (Arrow _), ApiSignature.FullTypeDefinition _ -> Continue ctx
+    | SignatureQuery.Signature left, ApiSignature.FullTypeDefinition typeDef ->
+      Debug.WriteLine("type def rule.")
+      let right = typeDef.LowType
+      lowTypeMatcher.Test left right ctx
+    | _ -> Continue ctx
+
 let tryGetSignatureQuery = function
   | QueryMethod.BySignature s -> Some s
   | QueryMethod.ByName (_, s) -> Some s
@@ -237,6 +246,8 @@ let instance (options: SearchOptions) =
       yield Rules.arrowQueryAndDelegateRule
 
       yield Rules.unionCaseRule testArrow
+
+      yield Rules.typeDefRule
 
       yield Rule.terminator
     ]

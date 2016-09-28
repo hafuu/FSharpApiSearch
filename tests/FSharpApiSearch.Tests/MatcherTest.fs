@@ -133,6 +133,23 @@ let ignoreCaseMatchTest =
     run (fun (options, query, targetName, targetSig, expected) -> matchTest false [||] (options, query, targetName, targetSig, expected))
   }
 
+let matchTypeDefTest =
+  parameterize {
+    source [
+      "Option : _", true
+      "UnknownType : _", false
+      "Option<'t>", true
+      "Option<'t, 'u>", false
+      "UnknownType", false
+    ]
+    run (fun (query, expected) -> test {
+      let! apiDict = TestAssemblies.fscoreApi
+      let! dictionaries = TestAssemblies.apiDictionary
+      let actual = Matcher.search dictionaries SearchOptions.defaultOptions [| apiDict |] query |> Seq.filter (fun result -> match result.Api.Kind with ApiKind.TypeDefinition -> true | _ -> false)
+      do! Seq.length actual = 1 |> assertEquals expected
+    })
+  }
+
 let assemblyNameTest =
   test {
     let api: Api = { Name = Name.displayNameOfString "test"; Signature = moduleValue int; TypeConstraints = []; Document = None }
@@ -587,23 +604,20 @@ module IgnoreParameterStyleTest =
   }
 
 module TypeConstraintTest =
-  type FullTypeDefinition with
-    member this.LowType = Identity (FullIdentity this.FullIdentity)
-  
   type TypeAbbreviationDefinition with
     member this.LowType = TypeAbbreviation this.TypeAbbreviation
 
   let instantiate (def: FullTypeDefinition) args =
-    match args with
-    | [] -> def.LowType
-    | _ -> Generic (def.LowType, args)
+    match def.LowType with
+    | Generic (id, _) -> Generic (id, args)
+    | x -> x
 
   let subtypeCon v (parent: FullTypeDefinition) =
     { Variables = [ tv v ]; Constraint = SubtypeConstraints parent.LowType }
   let subtypeCon_abbreviation v (parent: TypeAbbreviationDefinition) =
     { Variables = [ tv v ]; Constraint = SubtypeConstraints (TypeAbbreviation parent.TypeAbbreviation) }
   let genericSubtypeCon v (parent: FullTypeDefinition) args =
-    { Variables = [ tv v ]; Constraint = SubtypeConstraints (Generic (parent.LowType, args)) }
+    { Variables = [ tv v ]; Constraint = SubtypeConstraints (instantiate parent args) }
   let subtypeCon_variable v parent =
     { Variables = [ tv v ]; Constraint = SubtypeConstraints (variable parent) }
   let nullnessCon v =

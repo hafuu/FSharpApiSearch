@@ -5,7 +5,6 @@ open FSharpApiSearch.MatcherTypes
 
 let test (api: Api) ctx =
   match api.Signature with
-  | ApiSignature.FullTypeDefinition _ -> Failure
   | ApiSignature.TypeAbbreviation _ -> Failure
   | _ -> Matched ctx
 
