@@ -7,7 +7,6 @@ let matchers options =
   let lowTypeMatcher = LowTypeMatcher.instance options
   let apiMatchers =
     [
-      PublishedApiFilter.instance
       NameMatcher.instance
       SignatureMatcher.instance
       ActivePatternMatcher.instance

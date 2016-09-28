@@ -69,7 +69,6 @@
     <Compile Include="QueryParser.fs" />
     <Compile Include="Matcher\MatcherTypes.fs" />
     <Compile Include="Matcher\LowTypeMatcher.fs" />
-    <Compile Include="Matcher\PublishedApiFilter.fs" />
     <Compile Include="Matcher\NameMatcher.fs" />
     <Compile Include="Matcher\SignatureMatcher.fs" />
     <Compile Include="Matcher\ActivePatternMatcher.fs" />

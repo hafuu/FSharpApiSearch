@@ -136,17 +136,39 @@ let ignoreCaseMatchTest =
 let matchTypeDefTest =
   parameterize {
     source [
-      "Option : _", true
+      "Record : _", true
       "UnknownType : _", false
-      "Option<'t>", true
-      "Option<'t, 'u>", false
+      "GenericRecord<'t>", true
+      "GenericRecord<'t, 'u>", false
       "UnknownType", false
     ]
     run (fun (query, expected) -> test {
-      let! apiDict = TestAssemblies.fscoreApi
+      let! apiDict = TestAssemblies.fsharpAssemblyApi
       let! dictionaries = TestAssemblies.apiDictionary
       let actual = Matcher.search dictionaries SearchOptions.defaultOptions [| apiDict |] query |> Seq.filter (fun result -> match result.Api.Kind with ApiKind.TypeDefinition -> true | _ -> false)
       do! Seq.length actual = 1 |> assertEquals expected
+    })
+  }
+
+let matchTypeAbbreviationTest =
+  parameterize {
+    source [
+      "GenericTypeAbbreviation : _", true
+      "Original : _", false
+      "UnknownType : _", false
+
+      "Original<'t>", true
+      "GenericTypeAbbreviation<'t>", true
+      "SpecializedTypeAbbreviation", true
+      "NestedTypeAbbreviation", true
+
+      "UnknownType", false
+    ]
+    run (fun (query, expected) -> test {
+      let! apiDict = TestAssemblies.fsharpAssemblyApi
+      let! dictionaries = TestAssemblies.apiDictionary
+      let actual = Matcher.search dictionaries SearchOptions.defaultOptions [| apiDict |] query |> Seq.filter (fun result -> match result.Api.Kind with ApiKind.TypeAbbreviation -> true | _ -> false)
+      do! Seq.length actual >= 1 |> assertEquals expected
     })
   }
 

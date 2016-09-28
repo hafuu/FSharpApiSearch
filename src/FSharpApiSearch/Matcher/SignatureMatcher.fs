@@ -219,6 +219,15 @@ module Rules =
       lowTypeMatcher.Test left right ctx
     | _ -> Continue ctx
 
+  let typeAbbreviationRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
+    match left, right with
+    | SignatureQuery.Signature (Arrow _), ApiSignature.TypeAbbreviation _ -> Continue ctx
+    | SignatureQuery.Signature left, ApiSignature.TypeAbbreviation abbreviationDef ->
+      Debug.WriteLine("type abbreviation rule.")
+      let right = TypeAbbreviation abbreviationDef.TypeAbbreviation
+      lowTypeMatcher.Test left right ctx
+    | _ -> Continue ctx
+
 let tryGetSignatureQuery = function
   | QueryMethod.BySignature s -> Some s
   | QueryMethod.ByName (_, s) -> Some s
@@ -248,6 +257,7 @@ let instance (options: SearchOptions) =
       yield Rules.unionCaseRule testArrow
 
       yield Rules.typeDefRule
+      yield Rules.typeAbbreviationRule
 
       yield Rule.terminator
     ]

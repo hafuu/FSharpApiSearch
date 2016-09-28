@@ -249,6 +249,7 @@ type ApiKind =
   | ExtensionMember
   | UnionCase
   | TypeDefinition
+  | TypeAbbreviation
 
 [<RequireQualifiedAccess>]
 type ActivePatternKind =
@@ -307,7 +308,7 @@ with
     | ApiSignature.InstanceMember (_, m) -> ApiKind.Member (MemberModifier.Instance, m.Kind)
     | ApiSignature.StaticMember (_, m) -> ApiKind.Member (MemberModifier.Static, m.Kind)
     | ApiSignature.FullTypeDefinition _ -> ApiKind.TypeDefinition
-    | ApiSignature.TypeAbbreviation _ -> failwith "not implemeneted"
+    | ApiSignature.TypeAbbreviation _ -> ApiKind.TypeAbbreviation
     | ApiSignature.TypeExtension t -> ApiKind.Member (t.MemberModifier, t.Member.Kind)
     | ApiSignature.ExtensionMember _ -> ApiKind.ExtensionMember
     | ApiSignature.UnionCase _ -> ApiKind.UnionCase
@@ -480,6 +481,7 @@ module internal Print =
     | ApiKind.ExtensionMember -> "extension member"
     | ApiKind.UnionCase -> "union case"
     | ApiKind.TypeDefinition -> "type"
+    | ApiKind.TypeAbbreviation -> "type abbreviation"
 
   let typeVariablePrefix (v: TypeVariable) = if v.IsSolveAtCompileTime then "^" else "'"
 
@@ -619,15 +621,9 @@ module internal Print =
       | Constraint.ComparisonConstraints -> ": comparison"
     sprintf "%s %s" variablePart constraintPart
     
-  let printFullTypeDefinition isDebug (x: FullTypeDefinition) =
-    match x.GenericParameters with
-    | [] -> sprintf "type %s" x.Name.Head.FSharpName
-    | args -> sprintf "type %s<%s>" x.Name.Head.FSharpName (args |> Seq.map (printTypeVariable isDebug VariableSource.Target) |> String.concat ", ")
+  let printFullTypeDefinition isDebug (x: FullTypeDefinition) = sprintf "type %s" (printLowType isDebug x.LowType)
 
-  let pringTypeAbbreviation isDebug (x: TypeAbbreviationDefinition) =
-    match x.GenericParameters with
-    | [] -> sprintf "%s.%s" x.AssemblyName (printDisplayName x.Name)
-    | args -> sprintf "%s.%s<%s>" x.AssemblyName (printDisplayName x.Name) (args |> Seq.map (printTypeVariable isDebug VariableSource.Target) |> String.concat ", ")
+  let pringTypeAbbreviation isDebug (x: TypeAbbreviationDefinition) = sprintf "type %s = %s" (printLowType isDebug x.TypeAbbreviation.Abbreviation) (printLowType isDebug x.Abbreviated)
 
   let printUnionCaseField isDebug (uc: UnionCaseField) =
     match uc.Name with
