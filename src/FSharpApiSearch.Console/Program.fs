@@ -6,8 +6,9 @@ open System
 open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
-let searchAndShowResult (client: FSharpApiSearchClient) (query: string) args =
+let searchAndShowResult (client: Lazy<FSharpApiSearchClient>) (query: string) args =
   let opt = args.SearchOptions
+  let client = client.Value
   let results =
     client.Search(query, opt)
     |> client.Sort
@@ -25,21 +26,31 @@ let searchAndShowResult (client: FSharpApiSearchClient) (query: string) args =
   )
   Console.WriteLine()
 
+exception InitializeFailed of Msg:string * Cause:exn option
+
 let showException (arg: Args) (ex: exn) =
-  match arg.StackTrace with
-  | Enabled -> printfn "%A" ex
-  | Disabled -> printfn "%s" ex.Message
+  match ex with
+  | :? InitializeFailed as ex ->
+    printfn "%s" ex.Msg
+    match arg.StackTrace, ex.Cause with
+    | Enabled, Some cause -> printfn "%A" cause
+    | _ -> ()
+  | ex ->
+    match arg.StackTrace with
+    | Enabled -> printfn "%A" ex
+    | Disabled -> printfn "%s" ex.Message
 
 let createClient (targets: string list) (databasePath: string) =
-  if File.Exists(databasePath) = false then
-    failwith @"The database is not found. Create the database by executing ""FSharpApiSearch.Database.exe""."
-  else
-    try
-      FSharpApiSearchClient(targets, ApiLoader.loadFromFile databasePath)
-    with
-      ex ->
-        let loadFailure = Exception(@"It failed to load the database. Create the database by executing ""FSharpApiSearch.Database.exe"".", ex)
-        raise loadFailure
+  lazy (
+    if File.Exists(databasePath) = false then
+      raise (InitializeFailed (@"The database is not found. Create the database by executing ""FSharpApiSearch.Database.exe"".", None))
+    else
+      try
+        FSharpApiSearchClient(targets, ApiLoader.loadFromFile databasePath)
+      with
+        ex ->
+          raise (InitializeFailed (@"It failed to load the database. Create the database by executing ""FSharpApiSearch.Database.exe"".", Some ex))
+  )
 
 module Interactive =
   let tryParseOptionStatus (x: string) =
@@ -64,6 +75,8 @@ module Interactive =
 
   let helpMessage = """
 FSharpApiSearch.Console interactive mode directive:
+  #targets
+      Print target assemblies.
   #respect-name-difference [enable|disable]
       Enables or disables to respect the variable name difference in the query.
   #greedy-matching [enable|disable]
@@ -84,10 +97,14 @@ FSharpApiSearch.Console interactive mode directive:
 
   If ommit the option value, print the current value of the option."""
 
-  let rec loop (client: FSharpApiSearchClient) arg =
+  let rec loop (client: Lazy<FSharpApiSearchClient>) arg =
     printf "> "
     match Console.ReadLine().TrimEnd(';') with
     | "#q" -> arg
+    | "#targets" ->
+      client.Value.TargetAssemblies |> List.iter (printfn "  %s")
+      Console.WriteLine()
+      loop client arg
     | OptionSetting "#respect-name-difference" SearchOptions.RespectNameDifference arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#greedy-matching" SearchOptions.GreedyMatching arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#ignore-param-style" SearchOptions.IgnoreParameterStyle arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
@@ -104,8 +121,9 @@ FSharpApiSearch.Console interactive mode directive:
     | query ->
       try
         searchAndShowResult client query arg
-      with ex ->
-        showException arg ex
+      with
+        | :? InitializeFailed -> reraise()
+        | ex -> showException arg ex
       loop client arg
 
 let helpMessage = """usage: FSharpApiSearch.Console.exe <query> <options>
@@ -139,6 +157,10 @@ options:
       
 To print the help of interactive mode, enter '#help' in interactive mode."""
 
+let initBackground (args: Args) (client: Lazy<FSharpApiSearchClient>) =
+  async { try do client.Force() |> ignore with _ -> () }
+  |> Async.Start
+
 [<EntryPoint>]
 let main argv =
   let args = Args.parse Args.empty (List.ofArray argv)
@@ -155,8 +177,7 @@ let main argv =
   | { Query = None } ->
     try
       let client = createClient targets ApiLoader.databaseName
-      printfn "Targets the following assemblies."
-      client.TargetAssemblies |> List.iter (printfn "  %s")
+      initBackground args client
       printfn "Input query, #help to print help or #q to quit."
       Interactive.loop client args |> ignore
     with
