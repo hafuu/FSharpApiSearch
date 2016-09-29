@@ -90,6 +90,8 @@ FSharpApiSearch.Console interactive mode directive:
       Enables or disables to show xml document of API.
   #stacktrace [enable|disable]
       Enables or disables stacktrace output if an exception occurs.
+  #clear
+      Clears the console buffer.
   #help
       Print this message.
   #q
@@ -111,6 +113,9 @@ FSharpApiSearch.Console interactive mode directive:
     | OptionSetting "#ignore-case" SearchOptions.IgnoreCase arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#xmldoc" ShowXmlDocument arg newArg -> loop client newArg
     | OptionSetting "#stacktrace" StackTrace arg newArg -> loop client newArg
+    | "#clear" ->
+      Console.Clear()
+      loop client arg
     | "#help" ->
       Console.WriteLine(helpMessage)
       Console.WriteLine()
