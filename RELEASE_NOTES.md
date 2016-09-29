@@ -1,3 +1,15 @@
+### 2.0.0-beta1 - 2016/9/29
+Engine
+* Improve the display of the parameter
+* Add `--ignore-case` option
+* Add type and type abbreviation searching
+* Support union case
+* Support optional parameters
+
+Library
+* Add LinkGenerator module
+* Change the SearchOptions's accessor to function
+
 ### 1.0.1 - 2016/9/26
 * Allow digit, _ and ' in the name search query (#92)
 
