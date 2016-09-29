@@ -76,7 +76,7 @@ module Interactive =
   let helpMessage = """
 FSharpApiSearch.Console interactive mode directive:
   #targets
-      Print target assemblies.
+      Prints target assemblies.
   #respect-name-difference [enable|disable]
       Enables or disables to respect the variable name difference in the query.
   #greedy-matching [enable|disable]
@@ -93,9 +93,9 @@ FSharpApiSearch.Console interactive mode directive:
   #clear
       Clears the console buffer.
   #help
-      Print this message.
+      Prints this message.
   #q
-      Quit interactive mode.
+      Quits interactive mode.
 
   If ommit the option value, print the current value of the option."""
 
