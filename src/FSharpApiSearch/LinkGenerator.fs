@@ -8,11 +8,11 @@ module LinkGenerator =
 
   let internal genericParameters (api: Api) = api.Name |> Name.displayName |> Seq.rev |> Seq.collect (fun x -> x.GenericParametersForDisplay) |> Seq.distinct |> Seq.toList
 
-  let toLower (str: string) = str.ToLower()
-  let urlEncode (str: string) = HttpUtility.UrlEncode(str)
+  let internal toLower (str: string) = str.ToLower()
+  let internal urlEncode (str: string) = HttpUtility.UrlEncode(str)
 
-  module FSharp =
-    let internal fullOpReplaceTable =
+  module internal FSharp =
+    let fullOpReplaceTable =
       dict [
         "..", "[-..-]"
         ".. ..", "[-..-..-]"
@@ -25,7 +25,7 @@ module LinkGenerator =
         "~%", "[-zr"
       ]
 
-    let internal opReplaceTable =
+    let opReplaceTable =
       dict [
         '<', '['
         '>', ']'
@@ -39,7 +39,7 @@ module LinkGenerator =
         '?', 'q'
       ]
 
-    let internal isActivePattern (api: Api) = match api.Signature with ApiSignature.ActivePatten _ -> true | _ -> false
+    let isActivePattern (api: Api) = match api.Signature with ApiSignature.ActivePatten _ -> true | _ -> false
 
     let replaceOp (name: string) =
       let op = name.[2..(name.Length - 3)]
@@ -51,7 +51,7 @@ module LinkGenerator =
 
     let isArray (n: NameItem) = n.FSharpName.StartsWith("[")
 
-    let internal generate (api: Api) = option {
+    let generate (api: Api) = option {
       let ns =
         let ns = Name.displayName api.Name
         match api.Signature with
@@ -109,7 +109,7 @@ module LinkGenerator =
       return sprintf "%s%s-%s-[fsharp]" namePart genericParamsPart kindPart |> toLower |> urlEncode
     }
 
-  module Msdn =
+  module internal Msdn =
     let isGeneric api = api.Name |> Name.displayName |> List.exists (fun n -> List.isEmpty n.GenericParametersForDisplay = false)
     let canGenerate (api: Api) =
       match api.Signature with
