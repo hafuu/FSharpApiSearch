@@ -49,6 +49,8 @@ module LinkGenerator =
         let replaced = op |> String.map (fun s -> match opReplaceTable.TryGetValue(s) with true, r -> r | false, _ -> s)
         "[-" + replaced + "-]"
 
+    let isArray (n: NameItem) = n.FSharpName.StartsWith("[")
+
     let internal generate (api: Api) = option {
       let ns =
         let ns = Name.displayName api.Name
@@ -85,7 +87,17 @@ module LinkGenerator =
         | ApiSignature.InstanceMember (_, m) | ApiSignature.StaticMember (_, m) when m.Kind = MemberKind.Field -> None
         | ApiSignature.InstanceMember _ | ApiSignature.StaticMember _ -> Some "property"
         | ApiSignature.Constructor _ -> Some "constructor"
-        | ApiSignature.FullTypeDefinition _  -> None
+        | ApiSignature.FullTypeDefinition td  ->
+          if isArray td.Name.Head then
+            None
+          else
+            match td.Kind with
+            | TypeDefinitionKind.Class -> Some "class"
+            | TypeDefinitionKind.Interface -> Some "interface"
+            | TypeDefinitionKind.Type -> Some "type"
+            | TypeDefinitionKind.Union -> Some "union"
+            | TypeDefinitionKind.Record -> Some "record"
+            | TypeDefinitionKind.Enumeration -> Some "enumeration"
         | ApiSignature.TypeAbbreviation _ -> Some "type-abbreviation"
         | ApiSignature.TypeExtension _ ->
           match (Seq.last ns).FSharpName with

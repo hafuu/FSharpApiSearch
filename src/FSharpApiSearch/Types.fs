@@ -154,6 +154,15 @@ module internal Member =
     | [] -> [ [ m.ReturnParameter ] ]
     | _ -> [ yield! m.Parameters; yield [ m.ReturnParameter ] ]
 
+[<RequireQualifiedAccess>]
+type TypeDefinitionKind =
+  | Class
+  | Interface
+  | Type
+  | Union
+  | Record
+  | Enumeration
+
 type Constraint =
   | SubtypeConstraints of LowType
   | NullnessConstraints
@@ -182,6 +191,7 @@ type FullTypeDefinition = {
   FullName: FullName
   AssemblyName: string
   Accessibility: Accessibility
+  Kind: TypeDefinitionKind
   BaseType: LowType option
   AllInterfaces: LowType list
   GenericParameters: TypeVariable list

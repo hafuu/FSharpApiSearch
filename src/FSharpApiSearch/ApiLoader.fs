@@ -672,6 +672,20 @@ module internal Impl =
     }
     loadEqualityAndComparison builder e
 
+  let typeDefKind (e: FSharpEntity) =
+    if e.IsEnum then
+      TypeDefinitionKind.Enumeration
+    elif e.IsFSharpRecord then
+      TypeDefinitionKind.Record
+    elif e.IsFSharpUnion then
+      TypeDefinitionKind.Union
+    elif e.IsClass then
+      TypeDefinitionKind.Class
+    elif e.IsInterface then
+      TypeDefinitionKind.Interface
+    else
+      TypeDefinitionKind.Type
+
   let fullTypeDef xml (name: DisplayName) (e: FSharpEntity) members =
     option {
       let identity = { e.LoadingFullIdentity with Name = DisplayName name }
@@ -705,6 +719,7 @@ module internal Impl =
         FullName = fullName
         AssemblyName = identity.AssemblyName
         Accessibility = accessibility e
+        Kind = typeDefKind e
         BaseType = baseType
         AllInterfaces = e.DeclaredInterfaces |> Seq.filter (fun x -> x.TypeDefinition.Accessibility.IsPublic) |> Seq.choose fsharpTypeToLowType |> Seq.toList
         GenericParameters = genericParameters e

@@ -15,6 +15,7 @@ let emptyDef: FullTypeDefinition = {
   FullName = ""
   AssemblyName = ""
   Accessibility = Public
+  Kind = TypeDefinitionKind.Type
   BaseType = None
   AllInterfaces = []
   GenericParameters = []
@@ -425,6 +426,7 @@ module FSharp =
         Name = DisplayName.ofString "FullTypeDefinition.PlainClass"
         FullName = "FullTypeDefinition.PlainClass"
         AssemblyName = fsharpAssemblyName
+        Kind = TypeDefinitionKind.Class
         BaseType = Some obj
         DefaultConstructor = Satisfy
     }
@@ -434,6 +436,7 @@ module FSharp =
         Name = DisplayName.ofString "FullTypeDefinition.PlainInterface"
         FullName = "FullTypeDefinition.PlainInterface"
         AssemblyName = fsharpAssemblyName
+        Kind = TypeDefinitionKind.Interface
     }
 
     let interfaceImplClass = {
@@ -441,6 +444,7 @@ module FSharp =
         Name = DisplayName.ofString "FullTypeDefinition.InterfaceImplClass"
         FullName = "FullTypeDefinition.InterfaceImplClass"
         AssemblyName = fsharpAssemblyName
+        Kind = TypeDefinitionKind.Class
         BaseType = Some obj
         AllInterfaces = [ Identity (FullIdentity plainInterface.FullIdentity) ]
         DefaultConstructor = Satisfy
@@ -450,6 +454,7 @@ module FSharp =
       emptyDef with
         Name = DisplayName.ofString "FullTypeDefinition.InterfaceInherit"
         FullName = "FullTypeDefinition.InterfaceInherit"
+        Kind = TypeDefinitionKind.Interface
         AssemblyName = fsharpAssemblyName
         AllInterfaces = [ Identity (FullIdentity plainInterface.FullIdentity) ]
     }
@@ -459,6 +464,7 @@ module FSharp =
         Name = DisplayName.ofString "FullTypeDefinition.SupportNullClass"
         FullName = "FullTypeDefinition.SupportNullClass"
         AssemblyName = fsharpAssemblyName
+        Kind = TypeDefinitionKind.Class
         BaseType = Some obj
         SupportNull = Satisfy
         DefaultConstructor = Satisfy
@@ -469,6 +475,7 @@ module FSharp =
         Name = DisplayName.ofString "FullTypeDefinition.SupportNullSubClass"
         FullName = "FullTypeDefinition.SupportNullSubClass"
         AssemblyName = fsharpAssemblyName
+        Kind = TypeDefinitionKind.Class
         BaseType = Some (Identity (FullIdentity supportNullClass.FullIdentity))
         SupportNull = NotSatisfy
         DefaultConstructor = Satisfy
@@ -478,6 +485,7 @@ module FSharp =
       emptyDef with
         Name = DisplayName.ofString "FullTypeDefinition.SupportNullInterface"
         FullName = "FullTypeDefinition.SupportNullInterface"
+        Kind = TypeDefinitionKind.Interface
         AssemblyName = fsharpAssemblyName
         SupportNull = Satisfy
     }
@@ -487,6 +495,7 @@ module FSharp =
         Name = DisplayName.ofString "FullTypeDefinition.SupportNullSubInterface"
         FullName = "FullTypeDefinition.SupportNullSubInterface"
         AssemblyName = fsharpAssemblyName
+        Kind = TypeDefinitionKind.Interface
         AllInterfaces = [ Identity (FullIdentity supportNullInterface.FullIdentity) ]
         SupportNull = Satisfy
     }
@@ -496,6 +505,7 @@ module FSharp =
         Name = DisplayName.ofString "FullTypeDefinition.NonSupportNullSubInterface"
         FullName = "FullTypeDefinition.NonSupportNullSubInterface"
         AssemblyName = fsharpAssemblyName
+        Kind = TypeDefinitionKind.Interface
         AllInterfaces = [ Identity (FullIdentity supportNullInterface.FullIdentity) ]
         SupportNull = NotSatisfy
     }
@@ -505,6 +515,7 @@ module FSharp =
         Name = DisplayName.ofString "FullTypeDefinition.WithoutDefaultConstructor"
         FullName = "FullTypeDefinition.WithoutDefaultConstructor"
         AssemblyName = fsharpAssemblyName
+        Kind = TypeDefinitionKind.Class
         BaseType = Some obj
         DefaultConstructor = NotSatisfy
     }
@@ -516,6 +527,7 @@ module FSharp =
         Name = DisplayName.ofString "FullTypeDefinition.MemberClass"
         FullName = "FullTypeDefinition.MemberClass"
         AssemblyName = fsharpAssemblyName
+        Kind = TypeDefinitionKind.Class
         BaseType = Some obj
         StaticMembers =
           [
@@ -630,7 +642,19 @@ module FSharp =
       testFullTypeDef' fsharpAssemblyApi (fun x -> x.Accessibility) (Name.displayNameOfString name, expected))
   }
 
+  let typeDefKindTest = parameterize {
+    source [
+      fsharpAssemblyApi, "TopLevelNamespace.StaticMemberClass", TypeDefinitionKind.Class
+      fsharpAssemblyApi, "TopLevelNamespace.Interface", TypeDefinitionKind.Interface
+      fsharpAssemblyApi, "OtherTypes.Record", TypeDefinitionKind.Record
+      fsharpAssemblyApi, "OtherTypes.Union", TypeDefinitionKind.Union
+      fsharpAssemblyApi, "OtherTypes.Enum", TypeDefinitionKind.Enumeration
+      fsharpAssemblyApi, "OtherTypes.Struct", TypeDefinitionKind.Type
 
+      fscoreApi, "Microsoft.FSharp.Core.Unit", TypeDefinitionKind.Type
+    ]
+    run (fun (api, name, expected) -> testFullTypeDef' api (fun x -> x.Kind) (Name.displayNameOfString name, expected))
+  }
 
   let operatorTest =
     let testApi = testApiWithoutParameterName fsharpAssemblyApi DisplayName

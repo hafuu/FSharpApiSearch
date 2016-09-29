@@ -676,6 +676,7 @@ module TypeConstraintTest =
     FullName = ""
     AssemblyName = "test"
     Accessibility = Public
+    Kind = TypeDefinitionKind.Type
     BaseType = None
     AllInterfaces = []
     GenericParameters = []
