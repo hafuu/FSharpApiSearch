@@ -1,10 +1,12 @@
 ### 2.0.0-beta1 - 2016/9/29
 Engine
-* Improve the display of the parameter
+* Improve the display of the parameter name
 * Add `--ignore-case` option
 * Add type and type abbreviation searching
+* Add conversion between function and delegate
 * Support union case
 * Support optional parameters
+* Change the constructor name query to "new : _"
 
 Library
 * Add LinkGenerator module
