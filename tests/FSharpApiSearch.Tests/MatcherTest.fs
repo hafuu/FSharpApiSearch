@@ -141,33 +141,47 @@ let matchTypeDefTest =
       "GenericRecord<'t>", true
       "GenericRecord<'t, 'u>", false
       "UnknownType", false
+
+      "'a", false
+      "?", false
     ]
     run (fun (query, expected) -> test {
       let! apiDict = TestAssemblies.fsharpAssemblyApi
       let! dictionaries = TestAssemblies.apiDictionary
-      let actual = Matcher.search dictionaries SearchOptions.defaultOptions [| apiDict |] query |> Seq.filter (fun result -> match result.Api.Kind with ApiKind.TypeDefinition -> true | _ -> false)
-      do! Seq.length actual = 1 |> assertEquals expected
+      let opt = SearchOptions.defaultOptions |> SearchOptions.GreedyMatching.Set Enabled
+      let actual = Matcher.search dictionaries opt [| apiDict |] query |> Seq.filter (fun result -> match result.Api.Kind with ApiKind.TypeDefinition -> true | _ -> false)
+      do! Seq.length actual >= 1 |> assertEquals expected
     })
   }
 
 let matchTypeAbbreviationTest =
+  let cases = [
+    "GenericTypeAbbreviation : _", Always true
+    "Original : _", Always false
+    "UnknownType : _", Always false
+
+    "Original<'t>", Always true
+    "GenericTypeAbbreviation<'t>", Always true
+    "SpecializedTypeAbbreviation", Always true
+    "specializedtypeabbreviation", Always true
+    "NestedTypeAbbreviation", Always true
+
+    "UnknownType", WhenEnabled true
+
+    "'a", Always false
+    "?", Always false
+  ]
   parameterize {
-    source [
-      "GenericTypeAbbreviation : _", true
-      "Original : _", false
-      "UnknownType : _", false
-
-      "Original<'t>", true
-      "GenericTypeAbbreviation<'t>", true
-      "SpecializedTypeAbbreviation", true
-      "NestedTypeAbbreviation", true
-
-      "UnknownType", false
-    ]
-    run (fun (query, expected) -> test {
+    source (seq {
+      for greedyOpt in [ Enabled; Disabled ] do
+        for (query, expected) in cases do
+          let options = { SearchOptions.defaultOptions with GreedyMatching = greedyOpt; }
+          yield (options, query, expectedValue greedyOpt expected)
+    })
+    run (fun (opt, query, expected) -> test {
       let! apiDict = TestAssemblies.fsharpAssemblyApi
       let! dictionaries = TestAssemblies.apiDictionary
-      let actual = Matcher.search dictionaries SearchOptions.defaultOptions [| apiDict |] query |> Seq.filter (fun result -> match result.Api.Kind with ApiKind.TypeAbbreviation -> true | _ -> false)
+      let actual = Matcher.search dictionaries opt [| apiDict |] query |> Seq.filter (fun result -> match result.Api.Kind with ApiKind.TypeAbbreviation -> true | _ -> false)
       do! Seq.length actual >= 1 |> assertEquals expected
     })
   }

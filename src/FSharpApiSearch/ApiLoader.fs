@@ -856,6 +856,7 @@ module internal Impl =
         let t = resolve_LowType cache t
         let arrow = List.map (resolve_LowType cache) arrow
         Delegate (t, arrow)
+      | Choice (xs) -> Choice (List.map (resolve_LowType cache) xs)
     and resolve_Identity cache = function
       | PartialIdentity _ as i -> i
       | FullIdentity full -> FullIdentity { full with Name = resolve_Name cache full.Name }

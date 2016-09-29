@@ -17,6 +17,7 @@ module LowType =
     | Generic (id, args) -> List.collect collectVariableOrWildcardGroup (id :: args)
     | TypeAbbreviation t -> collectVariableOrWildcardGroup t.Original
     | Delegate (t, _) -> collectVariableOrWildcardGroup t
+    | Choice xs -> List.collect collectVariableOrWildcardGroup xs
 
 module Equations =
   let sortTerm x y = if x < y then (x, y) else (y, x)
@@ -141,6 +142,19 @@ module Rules =
         result
       ) (Matched ctx)
 
+  let choiceRule (lowTypeMatcher: ILowTypeMatcher) left right ctx =
+    match left, right with
+    | Choice choices, other
+    | other, Choice choices ->
+      Debug.WriteLine("choice rule.")
+      Debug.WriteLine(sprintf "test %A and %s" (choices |> List.map (fun x -> x.Debug())) (other.Debug()))
+      choices
+      |> List.tryPick (fun c -> match lowTypeMatcher.Test c other ctx with Matched _ as m -> Some m | _ -> None)
+      |> function
+        | Some matched -> matched
+        | None -> Failure
+    | _ -> Continue ctx
+
   let typeAbbreviationRule (lowTypeMatcher: ILowTypeMatcher) left right ctx =
     match left, right with
     | (TypeAbbreviation abbreviation), other
@@ -185,6 +199,7 @@ module Rules =
     | Generic _ -> 1
     | TypeAbbreviation x -> distanceFromVariable x.Original
     | Delegate _ -> 1
+    | Choice _ -> 1
   and seqDistance xs = xs |> Seq.sumBy (distanceFromVariable >> max 1)
 
   let greedyVariableRule lowTypeMatcher left right ctx =
@@ -304,6 +319,7 @@ let instance options =
 
   let rule =
     Rule.compose [
+      yield Rules.choiceRule
       yield Rules.typeAbbreviationRule
       yield Rules.wildcardGroupRule
       yield Rules.wildcardRule

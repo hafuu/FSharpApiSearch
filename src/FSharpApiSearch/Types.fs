@@ -84,6 +84,7 @@ type LowType =
   | Generic of LowType * LowType list
   | TypeAbbreviation of TypeAbbreviation
   | Delegate of delegateType: LowType * LowType list
+  | Choice of LowType list
 and TypeAbbreviation = {
   Abbreviation: LowType
   Original: LowType
@@ -549,6 +550,7 @@ module internal Print =
     | Generic (id, args) -> printGeneric isDebug id args
     | TypeAbbreviation t -> printLowType isDebug t.Abbreviation
     | Delegate (t, _) -> printLowType isDebug t
+    | Choice xs -> printLowType isDebug xs.Head
   and printGeneric isDebug id args =
     let args = args |> Seq.map (printLowType isDebug) |> String.concat ", "
     sprintf "%s<%s>" (printLowType isDebug id) args
