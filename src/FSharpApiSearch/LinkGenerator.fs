@@ -86,7 +86,7 @@ module LinkGenerator =
         | ApiSignature.InstanceMember _ | ApiSignature.StaticMember _ -> Some "property"
         | ApiSignature.Constructor _ -> Some "constructor"
         | ApiSignature.FullTypeDefinition _  -> None
-        | ApiSignature.TypeAbbreviation _ -> None
+        | ApiSignature.TypeAbbreviation _ -> Some "type-abbreviation"
         | ApiSignature.TypeExtension _ ->
           match (Seq.last ns).FSharpName with
           | "System" -> Some "extension-method"
