@@ -149,7 +149,7 @@ NUGET
     FSharp.Object.Diff (0.9)
     Persimmon (1.1)
     Persimmon.Console (1.1)
-    Persimmon.MuscleAssert (0.7.1)
+    Persimmon.MuscleAssert (0.7.2)
       Diff.Match.Patch (1.1)
       FSharp.Object.Diff (>= 0.9)
       Persimmon (>= 1.1)
