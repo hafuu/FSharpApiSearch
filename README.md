@@ -212,3 +212,4 @@ FSharpApiSearch.Console.exeに`--xmldoc[+|-]`オプションを付けて起動�
 * [FSharp.Compiler.Service](http://fsharp.github.io/FSharp.Compiler.Service/)
 * [FParsec](http://www.quanttec.com/fparsec/)
 * [FsPickler](https://nessos.github.io/FsPickler/)
+* [FSharp.Collections.ParallelSeq](http://fsprojects.github.io/FSharp.Collections.ParallelSeq/)
