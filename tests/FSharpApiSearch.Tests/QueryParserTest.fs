@@ -123,6 +123,9 @@ module ByName =
         "A.B : _", [ "B"; "A" ], SignatureQuery.Wildcard
         "* : _", [ "*" ], SignatureQuery.Wildcard
         "( * ) : _", [ "op_Multiply" ], SignatureQuery.Wildcard
+
+        ".ctor : _", [ ".ctor" ], SignatureQuery.Wildcard
+        "A..ctor : _", [ ".ctor"; "A" ], SignatureQuery.Wildcard
       ]
       run (fun (input, expectedName, expectedSig) -> test {
         let actual = QueryParser.parse input

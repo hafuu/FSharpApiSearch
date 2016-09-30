@@ -78,6 +78,9 @@ let nameMatchTest =
   let listMap = createMap list
   let cMap = createMap typeC
   
+  let typeAConstructorName = Name.displayNameOfString "Test.A.new"
+  let typeAConstructor = constructor' typeA (method' "new" [ [ ptype unit ] ] typeA)
+
   parameterize {
     source [
       "map : _", Name.displayNameOfString "Microsoft.FSharp.Collections.List.map", listMap, true
@@ -92,6 +95,18 @@ let nameMatchTest =
       "A.B : _", Name.displayNameOfString "B", listMap, false
       "* : _", Name.displayNameOfString "A", listMap, true
       "* : _", Name.displayNameOfString "B", listMap, true
+
+      "new : _", typeAConstructorName, typeAConstructor, true
+      "A.new : _", typeAConstructorName, typeAConstructor, true
+      "A.* : _", typeAConstructorName, typeAConstructor, true
+      "A..ctor : _", typeAConstructorName, typeAConstructor, true
+      "A : _", typeAConstructorName, typeAConstructor, true
+      "Test.* : _", typeAConstructorName, typeAConstructor, true
+
+      "B.new : _", typeAConstructorName, typeAConstructor, false
+      "B.* : _", typeAConstructorName, typeAConstructor, false
+      "B..ctor : _", typeAConstructorName, typeAConstructor, false
+      "B : _", typeAConstructorName, typeAConstructor, false
     ]
     run (fun (query, targetName, targetSig, expected) -> matchTest false [||] (SearchOptions.defaultOptions, query, targetName, targetSig, expected))
   }

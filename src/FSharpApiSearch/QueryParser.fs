@@ -8,9 +8,12 @@ let inline trim p = spaces >>. p .>> spaces
 let inline pcharAndTrim c = pchar c |> trim
 
 let pidentifier =
-  let head = letter <|> pchar '_'
-  let tail = letter <|> digit <|> anyOf "_'"
-  head .>>. manyChars tail |>> (fun (h, t) -> string h + t) <?> "identifier"
+  let pident =
+    let head = letter <|> pchar '_'
+    let tail = letter <|> digit <|> anyOf "_'"
+    head .>>. manyChars tail |>> (fun (h, t) -> string h + t)
+  let ctor = pstring ".ctor"
+  (ctor <|> pident) <?> "identifier"
 
 module FSharpSignatureParser =
   let partialName = sepBy1 pidentifier (pchar '.') |>> (List.map (fun n -> { FSharpName = n; InternalFSharpName = n; GenericParametersForDisplay = [] } ) >> List.rev)
