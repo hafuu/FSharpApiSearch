@@ -124,27 +124,88 @@ module PrintTest =
   }
 
 module QueryTest = // TODO: Matcherのテストに移動
+  let string =
+    choice [
+      typeAbbreviation (identity "String") (identity "string")
+      identity "string"
+    ]
   let replaceAbbreviationTest =  parameterize {
     source [
       "a", (identity "a")
-      "string", (typeAbbreviation (identity "String") (identity "string"))
-      "Option<string>", (generic (identity "Option") [ typeAbbreviation (identity "String") (identity "string") ])
-      "'a list", (typeAbbreviation (generic (identity "List") [ queryVariable "'a" ]) (generic (identity "list") [ queryVariable "'a" ]))
-      "'b list", (typeAbbreviation (generic (identity "List") [ queryVariable "'b" ]) (generic (identity "list") [ queryVariable "'b" ]))
-      "int list", (typeAbbreviation (generic (identity "List") [ identity "int" ]) (generic (identity "list") [ identity "int" ]))
-      "string list", (typeAbbreviation (generic (identity "List") [ (typeAbbreviation (identity "String") (identity "string")) ]) (generic (identity "list") [ identity "string" ]))
+      "string", string
+      "Option<string>", (generic (identity "Option") [ string ])
+      "'a list",
+        choice [
+          typeAbbreviation (generic (identity "List") [ queryVariable "'a" ]) (generic (identity "list") [ queryVariable "'a" ])
+          generic (identity "list") [ queryVariable "'a" ]
+        ]
+      "'b list",
+        choice [
+          typeAbbreviation (generic (identity "List") [ queryVariable "'b" ]) (generic (identity "list") [ queryVariable "'b" ])
+          generic (identity "list") [ queryVariable "'b" ]
+        ]
+      "int list",
+        choice [
+          typeAbbreviation (generic (identity "List") [ identity "int" ]) (generic (identity "list") [ identity "int" ])
+          generic (identity "list") [ identity "int" ]
+        ]
+      "string list",
+        choice [
+          typeAbbreviation (generic (identity "List") [ string ]) (generic (identity "list") [ identity "string" ])
+          generic (identity "list") [ string ]
+        ]
       "map<'a, 'b, 'c>", (generic (identity "map") [ queryVariable "'a"; queryVariable "'b"; queryVariable "'c" ])
       "list", (identity "list")
-      "intList", (typeAbbreviation (generic (identity "List") [ identity "int" ]) (identity "intList"))
-      "intKeyMap<'value>", (typeAbbreviation (generic (identity "Map") [ identity "int"; queryVariable "'value" ]) (generic (identity "intKeyMap") [ queryVariable "'value" ]))
-      "reverseArg<'front, 'end>", (typeAbbreviation (generic (identity "ReverseArg") [ queryVariable "'end"; queryVariable "'front" ]) (generic (identity "reverseArg") [ queryVariable "'front"; queryVariable "'end" ]))
-      "samemap<int>", (typeAbbreviation (generic (identity "Map") [ identity "int"; identity "int" ]) (generic (identity "samemap") [ identity "int" ]))
-      "override", (typeAbbreviation (identity "B.Override") (identity "override"))
-      "B.override", (typeAbbreviation (identity "B.Override") (identity "B.override"))
-      "A.override", (typeAbbreviation (identity "A.Hidden") (identity "A.override"))
-      "override<'a>", (typeAbbreviation (generic (identity "B.Override") [ queryVariable "'a" ]) (generic (identity "override") [ queryVariable "'a" ]))
-      "B.override<'a>", (typeAbbreviation (generic (identity "B.Override") [ queryVariable "'a" ]) (generic (identity "B.override") [ queryVariable "'a" ]))
-      "A.override<'a>", (typeAbbreviation (generic (identity "A.Hidden") [ queryVariable "'a" ]) (generic (identity "A.override") [ queryVariable "'a" ]))
+      "intList",
+        choice [
+          typeAbbreviation (generic (identity "List") [ identity "int" ]) (identity "intList")
+          identity "intList"
+        ]
+      "intKeyMap<'value>",
+        choice [
+          typeAbbreviation (generic (identity "Map") [ identity "int"; queryVariable "'value" ]) (generic (identity "intKeyMap") [ queryVariable "'value" ])
+          generic (identity "intKeyMap") [ queryVariable "'value" ]
+        ]
+      "reverseArg<'front, 'end>",
+        choice [
+          typeAbbreviation (generic (identity "ReverseArg") [ queryVariable "'end"; queryVariable "'front" ]) (generic (identity "reverseArg") [ queryVariable "'front"; queryVariable "'end" ])
+          generic (identity "reverseArg") [ queryVariable "'front"; queryVariable "'end" ]
+        ]
+      "samemap<int>",
+        choice [
+          typeAbbreviation (generic (identity "Map") [ identity "int"; identity "int" ]) (generic (identity "samemap") [ identity "int" ])
+          generic (identity "samemap") [ identity "int" ]
+        ]
+      "override",
+        choice [
+          typeAbbreviation (identity "B.Override") (identity "override")
+          identity "override"
+        ]
+      "B.override",
+        choice [
+          typeAbbreviation (identity "B.Override") (identity "B.override")
+          identity "B.override"
+        ]
+      "A.override",
+        choice [
+          typeAbbreviation (identity "A.Hidden") (identity "A.override")
+          identity "A.override"
+        ]
+      "override<'a>",
+        choice [
+          typeAbbreviation (generic (identity "B.Override") [ queryVariable "'a" ]) (generic (identity "override") [ queryVariable "'a" ])
+          generic (identity "override") [ queryVariable "'a" ]
+        ]
+      "B.override<'a>",
+        choice [
+          typeAbbreviation (generic (identity "B.Override") [ queryVariable "'a" ]) (generic (identity "B.override") [ queryVariable "'a" ])
+          generic (identity "B.override") [ queryVariable "'a" ]
+        ]
+      "A.override<'a>",
+        choice [
+          typeAbbreviation (generic (identity "A.Hidden") [ queryVariable "'a" ]) (generic (identity "A.override") [ queryVariable "'a" ])
+          generic (identity "A.override") [ queryVariable "'a" ]
+        ]
     ]
     run (fun (query, expected) -> test {
       let abbreviations: TypeAbbreviationDefinition[] = [|
@@ -161,7 +222,7 @@ module QueryTest = // TODO: Matcherのテストに移動
         typeAbbreviationDef "B.override<'a>" (generic (identity "B.Override") [ variable "'a" ])
       |]
       let dictionaries = Seq.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = Array.empty; TypeAbbreviations = abbreviations }
-      let actual = MatcherInitializer.initializeQuery dictionaries (QueryParser.parse query)
+      let actual = MatcherInitializer.initializeQuery dictionaries SearchOptions.defaultOptions (QueryParser.parse query)
       let expected: Query = { OriginalString = query; Method = QueryMethod.BySignature (SignatureQuery.Signature expected) }
       do! actual |> assertEquals expected
     })

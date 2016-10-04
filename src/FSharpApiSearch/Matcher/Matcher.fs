@@ -28,7 +28,7 @@ let private choose (options: SearchOptions) f xs=
 
 let search (dictionaries: ApiDictionary[]) (options: SearchOptions) (targets: ApiDictionary seq) (queryStr: string) =
   let lowTypeMatcher, apiMatchers = MatcherInitializer.matchers options
-  let query = QueryParser.parse queryStr |> MatcherInitializer.initializeQuery dictionaries
+  let query = QueryParser.parse queryStr |> MatcherInitializer.initializeQuery dictionaries options
   let initialContext = MatcherInitializer.initializeContext dictionaries options query
   seq {
     for dic in targets do

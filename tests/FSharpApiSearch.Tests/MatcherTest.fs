@@ -122,7 +122,7 @@ let ignoreCaseMatchTest =
     "test.A", dummyName, moduleValue typeA, WhenEnabled true
 
     "int", dummyName, moduleValue int, Always true
-    "Int", dummyName, moduleValue int, Always false
+    "Int", dummyName, moduleValue int, WhenEnabled true
     "int32", dummyName, moduleValue Int32, WhenEnabled true
     "int32", dummyName, moduleValue int, WhenEnabled true
 
@@ -130,7 +130,7 @@ let ignoreCaseMatchTest =
     "List<'a>", dummyName, moduleValue (csharpList variableA), Always true
     "List<'a>", dummyName, moduleValue (list variableA), Always true
 
-    "list<'a>", dummyName, moduleValue (csharpList variableA), Always false
+    "list<'a>", dummyName, moduleValue (csharpList variableA), WhenEnabled true
     "list<'a>", dummyName, moduleValue (list variableA), Always true
 
     "LIST<'a>", dummyName, moduleValue (csharpList variableA), WhenEnabled true

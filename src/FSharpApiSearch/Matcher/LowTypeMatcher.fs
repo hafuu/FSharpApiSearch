@@ -149,7 +149,7 @@ module Rules =
       Debug.WriteLine("choice rule.")
       Debug.WriteLine(sprintf "test %A and %s" (choices |> List.map (fun x -> x.Debug())) (other.Debug()))
       choices
-      |> List.tryPick (fun c -> match lowTypeMatcher.Test c other ctx with Matched _ as m -> Some m | _ -> None)
+      |> Seq.tryPick (fun c -> match lowTypeMatcher.Test c other ctx with Matched _ as m -> Some m | _ -> None)
       |> function
         | Some matched -> matched
         | None -> Failure
@@ -312,10 +312,7 @@ module Rules =
     | _ -> Continue ctx
 
 let instance options =
-  let nameEquality =
-    match options.IgnoreCase with
-    | Enabled -> Identity.sameNameIgnoreCase
-    | Disabled -> Identity.sameName
+  let nameEquality = Identity.equalityFromOptions options
 
   let rule =
     Rule.compose [

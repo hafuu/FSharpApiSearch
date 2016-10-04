@@ -563,7 +563,7 @@ module internal Print =
     | Generic (id, args) -> printGeneric isDebug id args
     | TypeAbbreviation t -> printLowType isDebug t.Abbreviation
     | Delegate (t, _) -> printLowType isDebug t
-    | Choice xs -> printLowType isDebug xs.Head
+    | Choice xs -> sprintf "(%s)" (List.map (printLowType isDebug) xs |> String.concat " or ")
   and printGeneric isDebug id args =
     let args = args |> Seq.map (printLowType isDebug) |> String.concat ", "
     sprintf "%s<%s>" (printLowType isDebug id) args
@@ -761,8 +761,15 @@ module internal Identity =
       left.GenericParameterCount = right.GenericParameterCount
       && testDisplayName cmp left.Name right.Name
 
+  type Equality = Identity -> Identity -> bool
+
   let sameName x y = sameName' StringComparer.InvariantCulture x y
   let sameNameIgnoreCase x y = sameName' StringComparer.InvariantCultureIgnoreCase x y
+
+  let equalityFromOptions opt : Equality =
+    match opt.IgnoreCase with
+    | Enabled -> sameNameIgnoreCase
+    | Disabled -> sameName
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module internal LowType =

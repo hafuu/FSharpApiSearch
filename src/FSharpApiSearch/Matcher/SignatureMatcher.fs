@@ -5,6 +5,25 @@ open FSharpApiSearch.MatcherTypes
 open FSharpApiSearch.SpecialTypes
 
 module Rules =
+  let choiceRule runRules (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
+    match left, right with
+    | SignatureQuery.Signature (Choice choices), _ ->
+      Debug.WriteLine("choice rule.")
+      Debug.WriteLine(sprintf "test %A" (choices |> List.map (fun x -> x.Debug())))
+      choices
+      |> Seq.map (fun c ->
+        Debug.WriteLine(sprintf "try test %s" (c.Debug()))
+        Debug.Indent()
+        let result = runRules lowTypeMatcher (SignatureQuery.Signature c) right ctx
+        Debug.Unindent()
+        result
+      )
+      |> Seq.tryPick (fun result -> match result with Matched _ as m -> Some m | _ -> None)
+      |> function
+        | Some matched -> matched
+        | None -> Failure
+    | _ -> Continue ctx
+
   let moduleValueRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
     | SignatureQuery.Signature (Arrow _), ApiSignature.ModuleValue _ -> Continue ctx
@@ -239,33 +258,39 @@ let instance (options: SearchOptions) =
     match options.IgnoreParameterStyle with
     | Enabled -> Rules.testArrow_IgnoreParamStyle
     | Disabled -> Rules.testArrow
-  let rule =
-    Rule.compose [
-      yield Rules.moduleValueRule
-      yield Rules.moduleFunctionRule testArrow
-      yield Rules.activePatternRule testArrow
 
-      yield Rules.staticMemberRule testArrow
-      yield Rules.constructorRule testArrow
+  let rec run (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
+    let rule =
+      Rule.compose [
+        yield Rules.choiceRule run
+
+        yield Rules.moduleValueRule
+        yield Rules.moduleFunctionRule testArrow
+        yield Rules.activePatternRule testArrow
+
+        yield Rules.staticMemberRule testArrow
+        yield Rules.constructorRule testArrow
         
-      yield Rules.instanceMemberUnitParameterRule
-      yield Rules.instanceMemberAndFunctionRule
-      yield Rules.instanceMemberRule testArrow
-      yield Rules.arrowAndInstanceMemberRule testArrow
+        yield Rules.instanceMemberUnitParameterRule
+        yield Rules.instanceMemberAndFunctionRule
+        yield Rules.instanceMemberRule testArrow
+        yield Rules.arrowAndInstanceMemberRule testArrow
         
-      yield Rules.arrowQueryAndDelegateRule
+        yield Rules.arrowQueryAndDelegateRule
 
-      yield Rules.unionCaseRule testArrow
+        yield Rules.unionCaseRule testArrow
 
-      yield Rules.typeDefRule
-      yield Rules.typeAbbreviationRule
+        yield Rules.typeDefRule
+        yield Rules.typeAbbreviationRule
 
-      yield Rule.terminator
-    ]
+        yield Rule.terminator
+      ]
+    Rule.run rule lowTypeMatcher left right ctx
+
   { new IApiMatcher with
       member this.Name = "Signature Matcher"
       member this.Test lowTypeMatcher query api ctx =
         match tryGetSignatureQuery query with
         | Some (SignatureQuery.Wildcard) -> Matched ctx
-        | Some s -> Rule.run rule lowTypeMatcher s api.Signature ctx
+        | Some s -> run lowTypeMatcher s api.Signature ctx
         | None -> Matched ctx }

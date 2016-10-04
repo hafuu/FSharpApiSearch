@@ -56,6 +56,8 @@ module DSL =
   let method' name parameters returnType = member' name MemberKind.Method parameters returnType
   let field name returnType = member' name MemberKind.Field [] returnType
 
+  let choice xs = Choice xs
+
   let private memberGenericParameters (declaring: LowType) (member': Member) =
     let toTypeVariable = function Variable (_, v) -> v | _ -> failwith "it is not variable."
     let declaringVariables = LowType.collectVariables declaring |> List.map toTypeVariable |> Set.ofList

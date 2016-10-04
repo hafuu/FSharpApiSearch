@@ -86,17 +86,20 @@ let initializeContext (dictionaries: ApiDictionary[]) (options: SearchOptions) (
     ApiDictionaries = dictionaries |> Seq.map (fun d -> (d.AssemblyName, d)) |> Map.ofSeq
   }
 
-let replaceTypeAbbreviation (dictionaries: ApiDictionary seq) (query: Query) =
+let replaceTypeAbbreviation nameEquality (dictionaries: ApiDictionary seq) (query: Query) =
   let table = dictionaries |> Seq.collect (fun x -> x.TypeAbbreviations) |> Seq.filter (fun t -> t.Accessibility = Public) |> Seq.map (fun t -> t.TypeAbbreviation) |> Seq.toList
   let rec replace = function
     | Identity id as i ->
-      let replacement = table |> List.tryFindBack (function { Abbreviation = Identity abbId } -> Identity.sameName abbId id | _ -> false)
+      let replacement = table |> List.tryFindBack (function { Abbreviation = Identity abbId } -> nameEquality abbId id | _ -> false)
       match replacement with
-      | Some replacement -> TypeAbbreviation { Abbreviation = i; Original = replacement.Original }
+      | Some replacement ->
+        let ta = TypeAbbreviation { Abbreviation = i; Original = replacement.Original }
+        Choice [ ta; i ]
       | None -> i
     | Generic (Identity id, args) as generic ->
       let replacedArgs = args |> List.map replace
-      let idReplacement = table |> List.tryFindBack (function { Abbreviation = Generic (Identity abbId, _) } -> Identity.sameName abbId id | _ -> false)
+      let argReplacedGeneric = Generic (Identity id, replacedArgs)
+      let idReplacement = table |> List.tryFindBack (function { Abbreviation = Generic (Identity abbId, _) } -> nameEquality abbId id | _ -> false)
       match idReplacement with
       | Some { Abbreviation = Generic (_, abbArgs); Original = original } ->
         let applyTable =
@@ -104,9 +107,10 @@ let replaceTypeAbbreviation (dictionaries: ApiDictionary seq) (query: Query) =
           |> List.map (function Variable (_, v), arg -> (v, arg) | _ -> failwith "Parameters of generic type abbreviation should be variable.")
           |> Map.ofList
         let replacedGeneric = LowType.applyVariable VariableSource.Target applyTable original
-        TypeAbbreviation { Abbreviation = generic; Original = replacedGeneric }
+        let ta = TypeAbbreviation { Abbreviation = generic; Original = replacedGeneric }
+        Choice [ ta; argReplacedGeneric ]
       | Some _ -> generic
-      | None -> Generic (Identity id, replacedArgs)
+      | None -> argReplacedGeneric
     | Generic (id, args) ->
       let replacedArgs = args |> List.map replace
       Generic (id, replacedArgs)
@@ -126,6 +130,6 @@ let replaceTypeAbbreviation (dictionaries: ApiDictionary seq) (query: Query) =
   | { Method = QueryMethod.ByActivePattern apQuery } -> { query with Method = QueryMethod.ByActivePattern { apQuery with Signature = replaceActivePatternSignature apQuery.Signature } }
           
 
-let initializeQuery (dictionaries: ApiDictionary seq) (query: Query) =
+let initializeQuery (dictionaries: ApiDictionary seq) (options: SearchOptions) (query: Query) =
   query
-  |> replaceTypeAbbreviation dictionaries
+  |> replaceTypeAbbreviation (Identity.equalityFromOptions options) dictionaries
