@@ -98,6 +98,8 @@ module PrintTest =
       unionCase typeA "Case" [ (Some "value1", tuple [ typeA; typeB ]) ], "value1:(a * b) -> a"
       unionCase typeA "Case" [ (None, arrow [ typeA; typeB ]) ], "(a -> b) -> a"
       unionCase typeA "Case" [ (Some "value1", arrow [ typeA; typeB ]) ], "value1:(a -> b) -> a"
+
+      typeAbbreviationApi (typeAbbreviationDef "FSharp.Collections.list<'a>" (generic (identity "System.Collections.Generic.List") [ variable "'a" ])), "type list<'a> = System.Collections.Generic.List<'a>"
     ]
     run (fun (input, expected) -> test {
       let actual = ApiSignature.print input

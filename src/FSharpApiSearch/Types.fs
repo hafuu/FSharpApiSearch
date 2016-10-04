@@ -496,15 +496,18 @@ module internal Print =
 
   let typeVariablePrefix (v: TypeVariable) = if v.IsSolveAtCompileTime then "^" else "'"
 
+  let printNameItem (n: NameItem) =
+    match n.GenericParametersForDisplay with
+    | [] -> n.FSharpName
+    | args -> sprintf "%s<%s>" n.FSharpName (args |> List.map (fun a -> typeVariablePrefix a +  a.Name) |> String.concat ", ")
+
   let printDisplayName = function
     | [] -> "<empty>"
     | ns ->
       seq {
         yield ns.Head.FSharpName
         for path in ns.Tail do
-          match path.GenericParametersForDisplay with
-          | [] -> yield path.FSharpName
-          | args -> yield sprintf "%s<%s>" path.FSharpName (args |> List.map (fun a -> typeVariablePrefix a +  a.Name) |> String.concat ", ")
+          yield printNameItem path
       }
       |> Seq.rev
       |> String.concat "."
@@ -577,6 +580,29 @@ module internal Print =
       | x -> printLowType isDebug x)
     |> String.concat " * "
 
+  let printAccessPath' (i: Identity) =
+    let print (name: DisplayName) =
+      List.tail name
+      |> Seq.rev
+      |> Seq.map printNameItem
+      |> String.concat "."
+    match i with
+    | PartialIdentity p -> print p.Name
+    | FullIdentity f ->
+      let name = Name.displayName f.Name
+      print name
+
+  let rec printAccessPath = function
+    | Wildcard _ -> ""
+    | Variable _ -> ""
+    | Identity i -> printAccessPath' i
+    | Arrow _ -> ""
+    | Tuple _ -> ""
+    | Generic (id, _) -> printAccessPath id
+    | TypeAbbreviation t -> printAccessPath t.Abbreviation
+    | Delegate _ -> ""
+    | Choice _ -> ""
+
   let printParameter tupleParen isDebug (p: Parameter) =
     let optPart =
       match p.IsOptional with
@@ -635,7 +661,7 @@ module internal Print =
     
   let printFullTypeDefinition isDebug (x: FullTypeDefinition) = sprintf "type %s" (printLowType isDebug x.LowType)
 
-  let pringTypeAbbreviation isDebug (x: TypeAbbreviationDefinition) = sprintf "type %s = %s" (printLowType isDebug x.TypeAbbreviation.Abbreviation) (printLowType isDebug x.Abbreviated)
+  let pringTypeAbbreviation isDebug (x: TypeAbbreviationDefinition) = sprintf "type %s = %s.%s" (printLowType isDebug x.TypeAbbreviation.Abbreviation) (printAccessPath x.Abbreviated) (printLowType isDebug x.Abbreviated)
 
   let printUnionCaseField isDebug (uc: UnionCaseField) =
     match uc.Name with

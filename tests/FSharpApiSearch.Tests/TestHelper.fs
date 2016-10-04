@@ -98,6 +98,8 @@ module DSL =
 
   let constraint' vs c = { Variables = List.map tv vs; Constraint = c }
 
+  let typeAbbreviationApi def = ApiSignature.TypeAbbreviation def
+
   let arrayType = "Microsoft.FSharp.Core.[]<'T>"
   let array2DType = "Microsoft.FSharp.Core.[,]<'T>"
   let array t = createType arrayType [ t ]
