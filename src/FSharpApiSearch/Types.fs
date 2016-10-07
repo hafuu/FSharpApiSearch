@@ -699,6 +699,9 @@ module internal Print =
 type TypeVariable with
   member this.Print() = Print.printTypeVariable false VariableSource.Target this
 
+type NameItem with
+  member this.Print() = Print.printNameItem this
+
 type Name with
   member this.Print() = Print.printName this
 
