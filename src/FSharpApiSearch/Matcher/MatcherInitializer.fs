@@ -90,27 +90,35 @@ let replaceTypeAbbreviation nameEquality (dictionaries: ApiDictionary seq) (quer
   let table = dictionaries |> Seq.collect (fun x -> x.TypeAbbreviations) |> Seq.filter (fun t -> t.Accessibility = Public) |> Seq.map (fun t -> t.TypeAbbreviation) |> Seq.toList
   let rec replace = function
     | Identity id as i ->
-      let replacement = table |> List.tryFindBack (function { Abbreviation = Identity abbId } -> nameEquality abbId id | _ -> false)
-      match replacement with
-      | Some replacement ->
-        let ta = TypeAbbreviation { Abbreviation = i; Original = replacement.Original }
-        Choice [ ta; i ]
-      | None -> i
+      let replacements = table |> List.filter (function { Abbreviation = Identity abbId } -> nameEquality abbId id | _ -> false)
+      match replacements with
+      | [] -> i
+      | _ ->
+        Choice [
+          for r in replacements do
+            yield TypeAbbreviation { Abbreviation = i; Original = r.Original }
+          yield i
+        ]
     | Generic (Identity id, args) as generic ->
       let replacedArgs = args |> List.map replace
       let argReplacedGeneric = Generic (Identity id, replacedArgs)
-      let idReplacement = table |> List.tryFindBack (function { Abbreviation = Generic (Identity abbId, _) } -> nameEquality abbId id | _ -> false)
-      match idReplacement with
-      | Some { Abbreviation = Generic (_, abbArgs); Original = original } ->
-        let applyTable =
-          List.zip abbArgs replacedArgs
-          |> List.map (function Variable (_, v), arg -> (v, arg) | _ -> failwith "Parameters of generic type abbreviation should be variable.")
-          |> Map.ofList
-        let replacedGeneric = LowType.applyVariable VariableSource.Target applyTable original
-        let ta = TypeAbbreviation { Abbreviation = generic; Original = replacedGeneric }
-        Choice [ ta; argReplacedGeneric ]
-      | Some _ -> generic
-      | None -> argReplacedGeneric
+      let idReplacements = table |> List.filter (function { Abbreviation = Generic (Identity abbId, _) } -> nameEquality abbId id | _ -> false)
+      match idReplacements with
+      | [] -> argReplacedGeneric
+      | _ ->
+        Choice [
+          for idRep in idReplacements do
+            match idRep with
+            | { Abbreviation = Generic (_, abbArgs); Original = original } ->
+              let applyTable =
+                List.zip abbArgs replacedArgs
+                |> List.map (function Variable (_, v), arg -> (v, arg) | _ -> failwith "Parameters of generic type abbreviation should be variable.")
+                |> Map.ofList
+              let replacedGeneric = LowType.applyVariable VariableSource.Target applyTable original
+              yield TypeAbbreviation { Abbreviation = generic; Original = replacedGeneric }
+            | _ -> failwith "It is not a generic type abbreviation."
+          yield argReplacedGeneric
+        ]
     | Generic (id, args) ->
       let replacedArgs = args |> List.map replace
       Generic (id, replacedArgs)

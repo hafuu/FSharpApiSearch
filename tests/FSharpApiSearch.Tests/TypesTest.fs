@@ -176,35 +176,37 @@ module QueryTest = // TODO: Matcherのテストに移動
           typeAbbreviation (generic (identity "Map") [ identity "int"; identity "int" ]) (generic (identity "samemap") [ identity "int" ])
           generic (identity "samemap") [ identity "int" ]
         ]
-      "override",
+      "conflict",
         choice [
-          typeAbbreviation (identity "B.Override") (identity "override")
-          identity "override"
+          typeAbbreviation (identity "A.NonHidden") (identity "conflict")
+          typeAbbreviation (identity "B.Type") (identity "conflict")
+          identity "conflict"
         ]
-      "B.override",
+      "B.conflict",
         choice [
-          typeAbbreviation (identity "B.Override") (identity "B.override")
-          identity "B.override"
+          typeAbbreviation (identity "B.Type") (identity "B.conflict")
+          identity "B.conflict"
         ]
-      "A.override",
+      "A.conflict",
         choice [
-          typeAbbreviation (identity "A.Hidden") (identity "A.override")
-          identity "A.override"
+          typeAbbreviation (identity "A.NonHidden") (identity "A.conflict")
+          identity "A.conflict"
         ]
-      "override<'a>",
+      "conflict<'a>",
         choice [
-          typeAbbreviation (generic (identity "B.Override") [ queryVariable "'a" ]) (generic (identity "override") [ queryVariable "'a" ])
-          generic (identity "override") [ queryVariable "'a" ]
+          typeAbbreviation (generic (identity "A.NonHidden") [ queryVariable "'a" ]) (generic (identity "conflict") [ queryVariable "'a" ])
+          typeAbbreviation (generic (identity "B.Type") [ queryVariable "'a" ]) (generic (identity "conflict") [ queryVariable "'a" ])
+          generic (identity "conflict") [ queryVariable "'a" ]
         ]
-      "B.override<'a>",
+      "B.conflict<'a>",
         choice [
-          typeAbbreviation (generic (identity "B.Override") [ queryVariable "'a" ]) (generic (identity "B.override") [ queryVariable "'a" ])
-          generic (identity "B.override") [ queryVariable "'a" ]
+          typeAbbreviation (generic (identity "B.Type") [ queryVariable "'a" ]) (generic (identity "B.conflict") [ queryVariable "'a" ])
+          generic (identity "B.conflict") [ queryVariable "'a" ]
         ]
-      "A.override<'a>",
+      "A.conflict<'a>",
         choice [
-          typeAbbreviation (generic (identity "A.Hidden") [ queryVariable "'a" ]) (generic (identity "A.override") [ queryVariable "'a" ])
-          generic (identity "A.override") [ queryVariable "'a" ]
+          typeAbbreviation (generic (identity "A.NonHidden") [ queryVariable "'a" ]) (generic (identity "A.conflict") [ queryVariable "'a" ])
+          generic (identity "A.conflict") [ queryVariable "'a" ]
         ]
     ]
     run (fun (query, expected) -> test {
@@ -216,10 +218,10 @@ module QueryTest = // TODO: Matcherのテストに移動
         typeAbbreviationDef "map<'a, 'b>" (generic (identity "Map") [ variable "'a"; variable "'b" ])
         typeAbbreviationDef "intKeyMap<'v>" (generic (identity "Map") [ identity "int"; variable "'v" ])
         typeAbbreviationDef "samemap<'a>" (generic (identity "Map") [ variable "'a"; variable "'a" ])
-        typeAbbreviationDef "A.override" (identity "A.Hidden")
-        typeAbbreviationDef "B.override" (identity "B.Override")
-        typeAbbreviationDef "A.override<'a>" (generic (identity "A.Hidden") [ variable "'a" ])
-        typeAbbreviationDef "B.override<'a>" (generic (identity "B.Override") [ variable "'a" ])
+        typeAbbreviationDef "A.conflict" (identity "A.NonHidden")
+        typeAbbreviationDef "B.conflict" (identity "B.Type")
+        typeAbbreviationDef "A.conflict<'a>" (generic (identity "A.NonHidden") [ variable "'a" ])
+        typeAbbreviationDef "B.conflict<'a>" (generic (identity "B.Type") [ variable "'a" ])
       |]
       let dictionaries = Seq.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = Array.empty; TypeAbbreviations = abbreviations }
       let actual = MatcherInitializer.initializeQuery dictionaries SearchOptions.defaultOptions (QueryParser.parse query)

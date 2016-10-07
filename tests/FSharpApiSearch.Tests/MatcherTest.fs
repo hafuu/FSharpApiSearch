@@ -352,6 +352,19 @@ module RespectNameDifferenceTest_WithNonGreedy =
       "(CharStream<'a> -> Reply<'b>) -> Parser<'a, 'b>", moduleFunction' [ [ ptype parser ]; [ ptype parser ] ], Always true
     ]
 
+  let conflictTypeAbbreviationTest =
+    let table = [|
+      typeAbbreviationDef "A.conflict" (identity "A.T1")
+      typeAbbreviationDef "B.conflict" (identity "B.T2")
+    |]
+    let matchTest = greedyMatchingTest false table Disabled
+    matchTest [
+      "conflict", moduleValue (identity "A.T1"), Always true
+      "conflict", moduleValue (identity "B.T2"), Always true
+      "A.conflict", moduleValue (identity "A.T1"), Always true
+      "A.conflict", moduleValue (identity "B.T2"), Always false
+    ]
+
   let privateTypeAbbreviationTest =
     let original = createType "Test.Original" []
     let privateTypeAbbreviation = createType "Test.PrivateTypeAbbreviation" []
