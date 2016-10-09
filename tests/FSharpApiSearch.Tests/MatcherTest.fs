@@ -111,12 +111,32 @@ let nameMatchTest =
     run (fun (query, targetName, targetSig, expected) -> matchTest false [||] (SearchOptions.defaultOptions, query, targetName, targetSig, expected))
   }
 
+let partialNameMatchTest = 
+  let createMap m = moduleFunction' [ [ ptype (arrow [ variableA; variableB ]) ]; [ ptype (m variableA) ]; [ ptype (m variableB) ] ]
+  let listMap = createMap list
+  
+  parameterize {
+    source [
+      "ma* : _", Name.displayNameOfString "map", listMap, true
+      "m*p : _", Name.displayNameOfString "map", listMap, true
+      "*ap : _", Name.displayNameOfString "map", listMap, true
+      "*ap : _", Name.displayNameOfString "mxxxxxxxxxxxxxxxxxxxxmap", listMap, true
+      "map* : _", Name.displayNameOfString "map", listMap, true
+      
+      "m*p : _", Name.displayNameOfString "list", listMap, false
+      "m*p : _", Name.displayNameOfString "mxxx", listMap, false
+      "m*p : _", Name.displayNameOfString "xxxp", listMap, false
+    ]
+    run (fun (query, targetName, targetSig, expected) -> matchTest false [||] (SearchOptions.defaultOptions, query, targetName, targetSig, expected))
+  }  
+
 let ignoreCaseMatchTest =
   let dummyName = Name.displayNameOfString "dummy"
 
   let cases = [
     "b : _", Name.displayNameOfString "A.B", moduleValue typeA, WhenEnabled true
     "a.B : _", Name.displayNameOfString "A.B", moduleValue typeA, WhenEnabled true
+    "te*t : _", Name.displayNameOfString "TEST", moduleValue typeA, WhenEnabled true
 
     "a", dummyName, moduleValue typeA, WhenEnabled true
     "test.A", dummyName, moduleValue typeA, WhenEnabled true

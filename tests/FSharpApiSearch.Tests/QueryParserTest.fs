@@ -126,6 +126,12 @@ module ByName =
 
         ".ctor : _", [ ".ctor" ], SignatureQuery.Wildcard
         "A..ctor : _", [ ".ctor"; "A" ], SignatureQuery.Wildcard
+
+        "ma* : _", [ "ma*" ], SignatureQuery.Wildcard
+        "m*p : _", [ "m*p" ], SignatureQuery.Wildcard
+        "*ap : _", [ "*ap" ], SignatureQuery.Wildcard
+        "A.ma* : _", [ "ma*"; "A" ], SignatureQuery.Wildcard
+        "A.*ap : _", [ "*ap"; "A" ], SignatureQuery.Wildcard
       ]
       run (fun (input, expectedName, expectedSig) -> test {
         let actual = QueryParser.parse input
