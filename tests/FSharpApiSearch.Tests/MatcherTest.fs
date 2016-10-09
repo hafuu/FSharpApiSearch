@@ -126,6 +126,9 @@ let partialNameMatchTest =
       "m*p : _", Name.displayNameOfString "list", listMap, false
       "m*p : _", Name.displayNameOfString "mxxx", listMap, false
       "m*p : _", Name.displayNameOfString "xxxp", listMap, false
+
+      "map : _", Name.displayNameOfString "semaphore", listMap, false
+      "*map* : _", Name.displayNameOfString "semaphore", listMap, true
     ]
     run (fun (query, targetName, targetSig, expected) -> matchTest false [||] (SearchOptions.defaultOptions, query, targetName, targetSig, expected))
   }  
