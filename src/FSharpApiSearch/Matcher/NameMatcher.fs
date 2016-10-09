@@ -10,7 +10,7 @@ let test' regexOption expectedName actualName =
   else
     Seq.zip expectedName actualName
     |> Seq.forall (fun (expected : string, actual) ->
-      let pattern = expected.Replace("*",".*")
+      let pattern = sprintf "^%s$" (expected.Replace("*",".*"))
       Regex.IsMatch(actual.InternalFSharpName, pattern, regexOption)
     )
 
