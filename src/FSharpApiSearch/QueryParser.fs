@@ -7,15 +7,12 @@ open FSharpApiSearch.SpecialTypes
 let inline trim p = spaces >>. p .>> spaces
 let inline pcharAndTrim c = pchar c |> trim
 
-let pidentifier =
-  let pident =
+module FSharpSignatureParser =
+  let pidentifier =
     let head = letter <|> pchar '_'
     let tail = letter <|> digit <|> anyOf "_'"
-    head .>>. manyChars tail |>> (fun (h, t) -> string h + t)
-  let ctor = pstring ".ctor"
-  (ctor <|> pident) <?> "identifier"
-
-module FSharpSignatureParser =
+    head .>>. manyChars tail |>> (fun (h, t) -> string h + t) <?> "identifier"
+  
   let partialName = sepBy1 pidentifier (pchar '.') |>> (List.map (fun n -> { FSharpName = n; InternalFSharpName = n; GenericParametersForDisplay = [] } ) >> List.rev)
 
   let fsharpSignature, fsharpSignatureRef = createParserForwardedToRef()
@@ -111,13 +108,19 @@ let activePattern = FSharpSignatureParser.fsharpSignature |>> ActivePatternSigna
 let activePatternQuery = trim activePatternKind .>> skipString ":" .>>. (attempt allPatterns <|> activePattern) |>> (fun (kind, sig') -> QueryMethod.ByActivePattern { Kind = kind; Signature = sig' })
 
 let opName = trim (skipChar '(') >>. many1Chars (anyOf "!%&*+-./<=>?@^|~:[]")  .>> trim (skipChar ')') |>> Microsoft.FSharp.Compiler.PrettyNaming.CompileOpName
-let memberName = pidentifier
 let signatureWildcard = pstring "_" |> trim >>% SignatureQuery.Wildcard
-let nameWildcard = pstring "*"
+
+let memberNamePartial =
+  let pident =
+    let head = letter <|> anyOf "_*" 
+    let tail = letter <|> digit <|> anyOf "_'*"
+    head .>>. manyChars tail |>> (fun (h, t) -> string h + t)
+  let ctor = pstring ".ctor"
+  (ctor <|> pident) <?> "identifier"
 
 let anyOrSignature = attempt signatureWildcard <|> (FSharpSignatureParser.extendedFsharpSignature)
 let nameQuery =
-  let name = trim (memberName <|> opName <|> nameWildcard)
+  let name = trim (memberNamePartial <|> opName)
   sepBy1 name (pchar '.') .>> pstring ":" .>>. anyOrSignature |>> (fun (name, sigPart) -> QueryMethod.ByName (List.rev name, sigPart))
 
 let signatureQuery = FSharpSignatureParser.extendedFsharpSignature |>> QueryMethod.BySignature
