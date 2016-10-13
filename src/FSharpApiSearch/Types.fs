@@ -348,8 +348,21 @@ type SignatureQuery =
   | InstanceMember of Receiver: LowType * Parameters: LowType list * ReturnType: LowType
 
 [<RequireQualifiedAccess>]
+type NameMatchMethod =
+  | StringCompare
+  | Regex
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module NameMatchMethod =
+  let ofString (str: string) =
+    if str.Contains("*") then
+      NameMatchMethod.Regex
+    else
+      NameMatchMethod.StringCompare
+
+[<RequireQualifiedAccess>]
 type QueryMethod =
-  | ByName of string list * SignatureQuery
+  | ByName of (string * NameMatchMethod) list * SignatureQuery
   | BySignature of SignatureQuery
   | ByActivePattern of ActivePatternQuery
 

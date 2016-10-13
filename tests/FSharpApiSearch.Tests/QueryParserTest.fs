@@ -112,26 +112,29 @@ module ByName =
     let beta = queryVariable "'b"
     let option_alpha = generic (identity "option") [ alpha ]
     let option_beta = generic (identity "option") [ beta ]
+
+    let Compare = NameMatchMethod.StringCompare
+    let Regex = NameMatchMethod.Regex
     parameterize {
       source [
-        "map : _", [ "map" ], SignatureQuery.Wildcard
-        "a_'3 : _", [ "a_'3" ], SignatureQuery.Wildcard
-        "bind : ('a -> 'b option) -> 'a option -> 'b option", [ "bind" ], (SignatureQuery.Signature (arrow [ (arrow [ alpha; option_beta ]); option_alpha; option_beta ]))
-        "ToString : obj => unit -> string", [ "ToString" ], (SignatureQuery.InstanceMember (identity "obj", [ identity "unit" ], identity "string"))
-        "(+) : _", [ "op_Addition" ], SignatureQuery.Wildcard
-        "( + ) : _", [ "op_Addition" ], SignatureQuery.Wildcard
-        "A.B : _", [ "B"; "A" ], SignatureQuery.Wildcard
-        "* : _", [ "*" ], SignatureQuery.Wildcard
-        "( * ) : _", [ "op_Multiply" ], SignatureQuery.Wildcard
+        "map : _", [ "map", Compare ], SignatureQuery.Wildcard
+        "a_'3 : _", [ "a_'3", Compare ], SignatureQuery.Wildcard
+        "bind : ('a -> 'b option) -> 'a option -> 'b option", [ "bind", Compare ], (SignatureQuery.Signature (arrow [ (arrow [ alpha; option_beta ]); option_alpha; option_beta ]))
+        "ToString : obj => unit -> string", [ "ToString", Compare ], (SignatureQuery.InstanceMember (identity "obj", [ identity "unit" ], identity "string"))
+        "(+) : _", [ "op_Addition", Compare ], SignatureQuery.Wildcard
+        "( + ) : _", [ "op_Addition", Compare ], SignatureQuery.Wildcard
+        "A.B : _", [ ("B", Compare); ("A", Compare) ], SignatureQuery.Wildcard
+        "* : _", [ "*", Regex ], SignatureQuery.Wildcard
+        "( * ) : _", [ "op_Multiply", Compare ], SignatureQuery.Wildcard
 
-        ".ctor : _", [ ".ctor" ], SignatureQuery.Wildcard
-        "A..ctor : _", [ ".ctor"; "A" ], SignatureQuery.Wildcard
+        ".ctor : _", [ ".ctor", Compare ], SignatureQuery.Wildcard
+        "A..ctor : _", [ (".ctor", Compare); ("A", Compare) ], SignatureQuery.Wildcard
 
-        "ma* : _", [ "ma*" ], SignatureQuery.Wildcard
-        "m*p : _", [ "m*p" ], SignatureQuery.Wildcard
-        "*ap : _", [ "*ap" ], SignatureQuery.Wildcard
-        "A.ma* : _", [ "ma*"; "A" ], SignatureQuery.Wildcard
-        "A.*ap : _", [ "*ap"; "A" ], SignatureQuery.Wildcard
+        "ma* : _", [ "ma*", Regex ], SignatureQuery.Wildcard
+        "m*p : _", [ "m*p", Regex ], SignatureQuery.Wildcard
+        "*ap : _", [ "*ap", Regex ], SignatureQuery.Wildcard
+        "A.ma* : _", [ ("ma*", Regex); ("A", Compare) ], SignatureQuery.Wildcard
+        "A.*ap : _", [ ("*ap", Regex); ("A", Compare) ], SignatureQuery.Wildcard
       ]
       run (fun (input, expectedName, expectedSig) -> test {
         let actual = QueryParser.parse input
