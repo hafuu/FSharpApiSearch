@@ -11,6 +11,7 @@ let matchers options =
       SignatureMatcher.instance
       ActivePatternMatcher.instance
       ConstraintSolver.instance
+      NonPublicFilter.instance
     ]
     |> List.map (fun f -> f options)
   (lowTypeMatcher, apiMatchers)

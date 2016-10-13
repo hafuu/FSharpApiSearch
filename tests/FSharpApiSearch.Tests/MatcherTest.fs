@@ -181,6 +181,7 @@ let matchTypeDefTest =
       "UnknownType", false
 
       "PrivateClass", false
+      "PrivateClass : _", false
 
       "'a", false
       "?", false

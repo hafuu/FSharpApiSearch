@@ -232,7 +232,7 @@ module Rules =
   let typeDefRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
     | SignatureQuery.Signature (Arrow _ | Wildcard _ | Variable _), ApiSignature.FullTypeDefinition _ -> Failure
-    | SignatureQuery.Signature left, ApiSignature.FullTypeDefinition ({ Accessibility = Accessibility.Public } as typeDef) ->
+    | SignatureQuery.Signature left, ApiSignature.FullTypeDefinition typeDef ->
       Debug.WriteLine("type def rule.")
       let right = typeDef.LowType
       lowTypeMatcher.Test left right ctx
