@@ -1,3 +1,16 @@
+### 2.0.0-beta2 - 2016/10/13
+Engine
+* Add partial matching to name searching
+* Add module searching
+* Add the namespace to the result of type abbreviation
+* Change to allow the type name and ".ctor" to the constructor
+* Improve type abbreviation matching with the ignore-case option
+* Fix to ignore private type definition
+
+Console
+* Add `#clear` command to clear the console buffer
+* Improve the startup time
+
 ### 2.0.0-beta1 - 2016/9/29
 Engine
 * Improve the display of the parameter name
