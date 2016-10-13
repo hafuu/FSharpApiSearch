@@ -180,6 +180,8 @@ let matchTypeDefTest =
       "GenericRecord<'t, 'u>", false
       "UnknownType", false
 
+      "PrivateClass", false
+
       "'a", false
       "?", false
     ]
