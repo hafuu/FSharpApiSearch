@@ -87,6 +87,7 @@ module LinkGenerator =
         | ApiSignature.InstanceMember (_, m) | ApiSignature.StaticMember (_, m) when m.Kind = MemberKind.Field -> None
         | ApiSignature.InstanceMember _ | ApiSignature.StaticMember _ -> Some "property"
         | ApiSignature.Constructor _ -> Some "constructor"
+        | ApiSignature.ModuleDefinition _ -> Some "module"
         | ApiSignature.FullTypeDefinition td  ->
           if isArray td.Name.Head then
             None
@@ -117,6 +118,7 @@ module LinkGenerator =
       | ApiSignature.ModuleValue _
       | ApiSignature.ModuleFunction _
       | ApiSignature.Constructor _
+      | ApiSignature.ModuleDefinition _
       | ApiSignature.FullTypeDefinition _
       | ApiSignature.TypeAbbreviation _
       | ApiSignature.TypeExtension _

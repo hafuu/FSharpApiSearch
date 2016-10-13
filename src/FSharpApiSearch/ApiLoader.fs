@@ -743,6 +743,10 @@ module internal Impl =
       return { Name = DisplayName name; Signature = ApiSignature.FullTypeDefinition typeDef; TypeConstraints = typeDef.TypeConstraints; Document = tryGetXmlDoc xml e }
     }
 
+  let moduleDef xml name (e: FSharpEntity) =
+    let def: ModuleDefinition = { Name = name; Accessibility = accessibility e }
+    { Name = DisplayName name; Signature = ApiSignature.ModuleDefinition def; TypeConstraints = []; Document = tryGetXmlDoc xml e }
+
   let rec collectApi xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
     seq {
       if e.IsNamespace then
@@ -769,6 +773,7 @@ module internal Impl =
       let name = e.DisplayName
       { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = [] } :: accessPath
     seq {
+      yield moduleDef xml moduleName e
       yield! e.MembersFunctionsAndValues
               |> Seq.filter (fun x -> x.Accessibility.IsPublic)
               |> Seq.choose (toFSharpApi e.IsFSharp xml moduleName)
@@ -933,6 +938,7 @@ module internal Impl =
       | ApiSignature.InstanceMember (d, m) -> ApiSignature.InstanceMember (resolve_LowType cache d, resolve_Member cache m)
       | ApiSignature.StaticMember (d, m) -> ApiSignature.StaticMember (resolve_LowType cache d, resolve_Member cache m)
       | ApiSignature.Constructor (d, m) -> ApiSignature.Constructor (resolve_LowType cache d, resolve_Member cache m)
+      | ApiSignature.ModuleDefinition m -> ApiSignature.ModuleDefinition m
       | ApiSignature.FullTypeDefinition f -> ApiSignature.FullTypeDefinition (resolve_FullTypeDefinition cache f)
       | ApiSignature.TypeAbbreviation a -> ApiSignature.TypeAbbreviation (resolve_TypeAbbreviationDefinition cache a)
       | ApiSignature.TypeExtension e -> ApiSignature.TypeExtension (resolve_TypeExtension cache e)

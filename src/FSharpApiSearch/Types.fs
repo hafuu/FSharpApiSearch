@@ -259,6 +259,7 @@ type ApiKind =
   | TypeExtension of MemberModifier * MemberKind
   | ExtensionMember
   | UnionCase
+  | ModuleDefinition
   | TypeDefinition
   | TypeAbbreviation
 
@@ -287,6 +288,13 @@ module UnionCase =
     let ret = Parameter.ofLowType uc.DeclaringType |> List.singleton
     [ fields; ret ]
 
+type ModuleDefinition = {
+  Name: DisplayName
+  Accessibility: Accessibility
+}
+with
+  member internal this.LowType = Identity (FullIdentity { Name = DisplayName this.Name; AssemblyName = "dummy assembly"; GenericParameterCount = 0 })
+
 [<RequireQualifiedAccess>]
 type ApiSignature =
   | ModuleValue of LowType
@@ -295,6 +303,7 @@ type ApiSignature =
   | InstanceMember of LowType * Member
   | StaticMember of LowType * Member
   | Constructor of LowType * Member
+  | ModuleDefinition of ModuleDefinition
   | FullTypeDefinition of FullTypeDefinition
   | TypeAbbreviation of TypeAbbreviationDefinition
   /// F# Type Extension
@@ -318,6 +327,7 @@ with
     | ApiSignature.Constructor _ -> ApiKind.Constructor
     | ApiSignature.InstanceMember (_, m) -> ApiKind.Member (MemberModifier.Instance, m.Kind)
     | ApiSignature.StaticMember (_, m) -> ApiKind.Member (MemberModifier.Static, m.Kind)
+    | ApiSignature.ModuleDefinition _ -> ApiKind.ModuleDefinition
     | ApiSignature.FullTypeDefinition _ -> ApiKind.TypeDefinition
     | ApiSignature.TypeAbbreviation _ -> ApiKind.TypeAbbreviation
     | ApiSignature.TypeExtension t -> ApiKind.Member (t.MemberModifier, t.Member.Kind)
@@ -504,6 +514,7 @@ module internal Print =
     | ApiKind.TypeExtension (modifier, memberKind) -> sprintf "%s %s" (printMemberModifier modifier) (printMemberKind memberKind)
     | ApiKind.ExtensionMember -> "extension member"
     | ApiKind.UnionCase -> "union case"
+    | ApiKind.ModuleDefinition -> "module"
     | ApiKind.TypeDefinition -> "type"
     | ApiKind.TypeAbbreviation -> "type abbreviation"
 
@@ -688,6 +699,8 @@ module internal Print =
       UnionCase.toFunction uc
       |> printParameterGroups true isDebug
 
+  let printModule (m: ModuleDefinition) = sprintf "module %s" m.Name.Head.FSharpName
+
   let printApiSignature isDebug = function
     | ApiSignature.ModuleValue t -> printLowType isDebug t
     | ApiSignature.ModuleFunction fn -> printParameterGroups false isDebug fn
@@ -699,6 +712,7 @@ module internal Print =
         printMember isDebug m
     | ApiSignature.StaticMember (_, m) -> printMember isDebug m
     | ApiSignature.Constructor (_, m) -> printMember isDebug m
+    | ApiSignature.ModuleDefinition m -> printModule m
     | ApiSignature.FullTypeDefinition x -> printFullTypeDefinition isDebug x
     | ApiSignature.TypeAbbreviation t -> pringTypeAbbreviation isDebug t
     | ApiSignature.TypeExtension t ->

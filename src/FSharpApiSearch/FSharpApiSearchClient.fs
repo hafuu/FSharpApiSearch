@@ -29,6 +29,7 @@ type FSharpApiSearchClient(targets: string seq, dictionaries: ApiDictionary seq)
     let sortKey (result: Result) =
       let kind =
         match result.Api.Kind with
+        | ApiKind.ModuleDefinition -> 0
         | ApiKind.TypeDefinition -> 0
         | ApiKind.TypeAbbreviation -> 1
         | _ -> 2

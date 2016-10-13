@@ -98,6 +98,8 @@ module DSL =
     let uc = { DeclaringType = declaration; Name = name; Fields = fields } : UnionCase
     ApiSignature.UnionCase uc
 
+  let module' name accessibility = ApiSignature.ModuleDefinition { Name = name; Accessibility = accessibility }
+
   let constraint' vs c = { Variables = List.map tv vs; Constraint = c }
 
   let typeAbbreviationApi def = ApiSignature.TypeAbbreviation def

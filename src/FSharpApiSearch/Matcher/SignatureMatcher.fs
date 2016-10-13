@@ -238,6 +238,15 @@ module Rules =
       lowTypeMatcher.Test left right ctx
     | _ -> Continue ctx
 
+  let moduleDefRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
+    match left, right with
+    | SignatureQuery.Signature (Arrow _ | Wildcard _ | Variable _), ApiSignature.ModuleDefinition _ -> Failure
+    | SignatureQuery.Signature left, ApiSignature.ModuleDefinition moduleDef ->
+      Debug.WriteLine("module def rule.")
+      let right = moduleDef.LowType
+      lowTypeMatcher.Test left right ctx
+    | _ -> Continue ctx
+
   let typeAbbreviationRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
     | SignatureQuery.Signature (Arrow _ | Wildcard _ | Variable _), ApiSignature.TypeAbbreviation _ -> Failure
@@ -281,6 +290,7 @@ let instance (options: SearchOptions) =
         yield Rules.unionCaseRule testArrow
 
         yield Rules.typeDefRule
+        yield Rules.moduleDefRule
         yield Rules.typeAbbreviationRule
 
         yield Rule.terminator

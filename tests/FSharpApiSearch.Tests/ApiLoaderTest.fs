@@ -290,6 +290,16 @@ module FSharp =
       run testApi
     }
 
+  let loadModuleTest =
+    parameterize {
+      source [
+        "PublicModule", [ module' (DisplayName.ofString "PublicModule") Public ]
+        "PublicModule.NestedModule", [ module' (DisplayName.ofString "PublicModule.NestedModule") Public ]
+        "InternalModule", [ module' (DisplayName.ofString "InternalModule") Private ]
+      ]
+      run testApi
+    }
+
   let nonloadedTest =
     parameterize {
       source[
@@ -305,6 +315,7 @@ module FSharp =
       ]
       run (fun x -> testApi (x, []))
     }
+
   let typeConstraintsTest =
     let subtypeClass = createType "TypeConstraints.SubTypeClass<'a>" [ variable "'a" ] |> updateAssembly fsharpAssemblyName
     let subtypeRecord = createType "TypeConstraints.SubTypeRecord<'a>" [ variable "'a" ] |> updateAssembly fsharpAssemblyName

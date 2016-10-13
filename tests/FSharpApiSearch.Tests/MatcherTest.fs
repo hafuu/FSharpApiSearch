@@ -171,6 +171,31 @@ let ignoreCaseMatchTest =
     run (fun (options, query, targetName, targetSig, expected) -> matchTest false [||] (options, query, targetName, targetSig, expected))
   }
 
+let matchModuleTest =
+  parameterize {
+    source [
+      "PublicModule : _", true
+      "UnknownModule : _", false
+
+      "PublicModule", true
+      "UnknownModule", false
+
+      "InternalModule : _", false
+      "InternalModule", false
+
+      "'a", false
+      "?", false
+    ]
+
+    run (fun (query, expected) -> test {
+      let! apiDict = TestAssemblies.fsharpAssemblyApi
+      let! dictionaries = TestAssemblies.apiDictionary
+      let opt = SearchOptions.defaultOptions |> SearchOptions.GreedyMatching.Set Enabled
+      let actual = Matcher.search dictionaries opt [| apiDict |] query |> Seq.filter (fun result -> match result.Api.Kind with ApiKind.ModuleDefinition -> true | _ -> false)
+      do! Seq.length actual >= 1 |> assertEquals expected
+    })
+  }
+
 let matchTypeDefTest =
   parameterize {
     source [
