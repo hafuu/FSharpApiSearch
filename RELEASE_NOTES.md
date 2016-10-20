@@ -1,3 +1,23 @@
+### 2.0.0
+Engine
+* Improve the display of the parameter name
+* Support optional parameters
+* Add `--ignore-case` option
+* Add type and type abbreviation searching
+* Add module searching
+* Add union case searching
+* Add convertion between function and delegate
+* Change the constructor name query to "T.new : _", "T..ctor : _" and "T : _" from "T : _"
+* Add partial matching to name searching
+
+Libarary
+* Add FSharpApiSearch.LinkGenerator module
+* Change SearchOption's accessors to function
+
+Console
+* Add `#clear` command to clear the console buffer
+* Improve the startup time
+
 ### 2.0.0-beta2 - 2016/10/13
 Engine
 * Add partial matching to name searching
