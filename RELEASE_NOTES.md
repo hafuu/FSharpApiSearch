@@ -1,4 +1,4 @@
-### 2.0.0
+### 2.0.0 - 2016/10/20
 Engine
 * Improve the display of the parameter name
 * Support optional parameters
@@ -16,6 +16,7 @@ Libarary
 
 Console
 * Add `#clear` command to clear the console buffer
+* Add `#targets` command to list target assemblies
 * Improve the startup time
 
 ### 2.0.0-beta2 - 2016/10/13
