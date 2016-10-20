@@ -518,12 +518,12 @@ module IgnoreParameterStyleTest =
 
   let arrowTest =
     matchTest [
-      "A -> A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ]; [ ptype typeA ] ], Always true
-      "A -> A -> A", moduleFunction' [ [ ptype (tuple [ typeA; typeA ]) ]; [ ptype typeA ] ], WhenEnabled true
-      "A -> A -> A", moduleFunction' [ [ ptype typeA; ptype typeA ]; [ ptype typeA ] ], WhenEnabled true
-      "A * A -> A", moduleFunction' [ [ ptype (tuple [ typeA; typeA ]) ]; [ ptype typeA ] ], Always true
-      "A * A -> A", moduleFunction' [ [ ptype typeA; ptype typeA ]; [ ptype typeA ] ], Always true
-      "A * A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ]; [ ptype typeA ] ], WhenEnabled true
+      "A -> A -> A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ]; [ ptype typeA ]; [ ptype typeA ] ], Always true
+      "A -> A -> A -> A", moduleFunction' [ [ ptype (tuple [ typeA; typeA; typeA ]) ]; [ ptype typeA ] ], WhenEnabled true
+      "A -> A -> A -> A", moduleFunction' [ [ ptype typeA; ptype typeA; ptype typeA ]; [ ptype typeA ] ], WhenEnabled true
+      "A * A * A -> A", moduleFunction' [ [ ptype (tuple [ typeA; typeA; typeA ]) ]; [ ptype typeA ] ], Always true
+      "A * A * A -> A", moduleFunction' [ [ ptype typeA; ptype typeA; ptype typeA ]; [ ptype typeA ] ], Always true
+      "A * A * A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ]; [ ptype typeA ]; [ ptype typeA ] ], WhenEnabled true
 
       "? -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ]; [ ptype typeA ] ], Always false
       "? -> A", moduleFunction' [ [ ptype (tuple [ typeA; typeA ]) ]; [ ptype typeA ] ], Always true
@@ -536,6 +536,13 @@ module IgnoreParameterStyleTest =
       "A -> B * A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeB; ptype typeA ]; [ ptype typeA ] ], Always true
       "A -> B * A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype (tuple [ typeB; typeA ]) ]; [ ptype typeA ] ], Always true
       "A -> (B -> A) -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeB; ptype typeA ]; [ ptype typeA ] ], Always false
+
+      "A -> A * A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ]; [ ptype typeA ]; [ ptype typeA ] ], Always false
+      "A -> A -> A -> A", moduleFunction' [ [ ptype typeA; ptype typeA ]; [ ptype typeA ]; [ ptype typeA ] ], Always false
+
+      "(A -> A -> A) -> A", moduleFunction' [ [ ptype (arrow [ typeA; typeA; typeA ]) ]; [ ptype typeA ] ], Always true
+      "(A -> A -> A) -> A", moduleFunction' [ [ ptype (arrow [ tuple [ typeA; typeA ]; typeA ]) ]; [ ptype typeA ] ], WhenEnabled true
+      "(A * A -> A) -> A", moduleFunction' [ [ ptype (arrow [ typeA; typeA; typeA ]) ]; [ ptype typeA ] ], WhenEnabled true
     ]
 
   let staticMemberTest =

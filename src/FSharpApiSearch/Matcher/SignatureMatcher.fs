@@ -63,44 +63,52 @@ module Rules =
     | [ WildcardOrVariable; _ ], [ _; _ ] -> Failure
     | _ -> test ctx
 
+  let (|Right_CurriedFunction|_|) (xs: Parameter list list) =
+    if xs |> List.forall (function [ _ ] -> true | _ -> false) then
+      Some (xs |> List.map (fun x -> x.Head.Type))
+    else
+      None
+
+  let (|Right_NonCurriedFunction|_|) (xs: Parameter list list) =
+    match xs with
+    | [ parameters; [ ret ] ] -> Some [ yield! parameters |> List.map (fun x -> x.Type); yield ret.Type ]
+    | _ -> None
+
+  let (|Right_TupleFunction|_|) (xs: Parameter list list) =
+    match xs with
+    | [ [ { Type = Tuple parameters } ]; [ { Type = ret } ] ] -> Some [ yield! parameters; yield ret ]
+    | _ -> None
+
+  let (|Left_CurriedFunction|_|) (xs: LowType list) =
+    match xs with
+    | [ Tuple _; _ ] -> None
+    | _ -> Some xs
+
+  let (|Left_NonCurriedFunction|_|) (xs: LowType list) =
+    match xs with
+    | [ Tuple parameters; ret ] -> Some [ yield! parameters; yield ret ]
+    | _ -> None
+
   let testArrow_IgnoreParamStyle (lowTypeMatcher: ILowTypeMatcher) (leftElems: LowType list) (rightElems: Parameter list list) ctx =
     Debug.WriteLine("test arrow (ignore parameter style).")
     let rightElems = trimOptionalParameters leftElems rightElems
     match leftElems, rightElems with
-    // a and A
-    | [ left ], [ [ rightRet ] ] -> lowTypeMatcher.Test left rightRet.Type ctx
-    // a and A -> B
-    | [ _ ], _ -> Failure
-    // a -> b and A -> B
-    | [ _ as leftParam; leftRet ], [ [ { Type = _ as rightParam } ]; [ rightRet ] ] ->
-      lowTypeMatcher.Test leftParam rightParam ctx
-      |> MatchingResult.bindMatched (lowTypeMatcher.Test leftRet rightRet.Type)
-    // a * b -> c and A * B -> C
-    | [ Tuple leftParams; leftRet ], [ rightParams; [ rightRet ] ] ->
-      let rightParams = List.map (fun p -> p.Type) rightParams
-      lowTypeMatcher.TestAll leftParams rightParams ctx
-      |> MatchingResult.bindMatched (lowTypeMatcher.Test leftRet rightRet.Type)
-    // a * b -> c and A -> B -> C
-    | [ Tuple leftParams; leftRet ], _ ->
-      let leftElems = [ yield! leftParams; yield leftRet ]
-      let rightElems = Function.toLowTypeList rightElems
+    | [ leftParam; leftRet ], [ [ rightParam ]; [ rightRet ] ] ->
+      Debug.WriteLine("pattern 1")
+      let leftElems = [ leftParam; leftRet ]
+      let rightElems = [ rightParam.Type; rightRet.Type ]
+      lowTypeMatcher.TestAll leftElems rightElems ctx
+    | Left_NonCurriedFunction leftElems, Right_CurriedFunction rightElems ->
+      Debug.WriteLine("pattern 2")
       lowTypeMatcher.TestAll leftElems rightElems ctx
       |> MatchingResult.mapMatched (Context.addDistance 1)
-    // a -> b -> c and (A * B) -> C
-    | _, [ [ { Type = Tuple rightParams } ]; [ rightRet ] ] ->
-      let rightElems = [ yield! rightParams; yield rightRet.Type ]
+    | Left_CurriedFunction leftElems, (Right_TupleFunction rightElems | Right_NonCurriedFunction rightElems) ->
+      Debug.WriteLine("pattern 3")
       lowTypeMatcher.TestAll leftElems rightElems ctx
       |> MatchingResult.mapMatched (Context.addDistance 1)
-    // a -> b -> c and A * B -> C
-    | _, [ rightParams; [ rightRet] ] ->
-      let rightElems = [
-        for p in rightParams do yield p.Type
-        yield rightRet.Type
-      ]
-      lowTypeMatcher.TestAll leftElems rightElems ctx
-      |> MatchingResult.mapMatched (Context.addDistance 1)
-    // a -> b -> c and A -> B -> C
-    | _, _ -> testArrow lowTypeMatcher leftElems rightElems ctx
+    | _, _ ->
+      Debug.WriteLine("pattern 4")
+      testArrow lowTypeMatcher leftElems rightElems ctx
       
   let moduleFunctionRule testArrow (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
