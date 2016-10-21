@@ -350,6 +350,11 @@ type ActivePatternQuery = {
   Kind: ActivePatternKind
   Signature: ActivePatternSignature
 }
+[<RequireQualifiedAccess>]
+type ComputationExpressionQuery = {
+  Syntaxes: string list
+  Type: LowType
+}
 
 [<RequireQualifiedAccess>]
 type SignatureQuery =
@@ -375,6 +380,7 @@ type QueryMethod =
   | ByName of (string * NameMatchMethod) list * SignatureQuery
   | BySignature of SignatureQuery
   | ByActivePattern of ActivePatternQuery
+  | ByComputationExpression of ComputationExpressionQuery
 
 [<RequireQualifiedAccess>]
 type Query = {

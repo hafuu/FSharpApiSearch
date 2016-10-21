@@ -159,3 +159,18 @@ module ByActivePattern =
         do! actual |> assertEquals expected
       })
     }
+
+module ByComputationExpression =
+  let parseTest =
+    parameterize {
+      source [
+        "{ _ } : ?", QueryMethod.ByComputationExpression { Syntaxes = []; Type = wildcard }
+        "{ use } : ?", QueryMethod.ByComputationExpression { Syntaxes = [ "use" ]; Type = wildcard }
+        "{ let!; return } : 'a", QueryMethod.ByComputationExpression { Syntaxes = [ "let!"; "return" ]; Type = queryVariable "'a" }
+      ]
+      run (fun (input, expected) -> test {
+        let actual = QueryParser.parse input
+        let expected: Query = { OriginalString = input; Method = expected }
+        do! actual |> assertEquals expected
+      })
+    }
