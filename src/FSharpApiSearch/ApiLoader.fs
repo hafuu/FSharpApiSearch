@@ -857,7 +857,7 @@ module internal Impl =
         | true, assembly ->
             match assembly.TryGetValue(fullName) with
             | true, namespace' -> DisplayName (displayName @ namespace')
-            | false, _ -> failwithf "Namespace %s is not found in %s" assemblyName assemblyName
+            | false, _ -> failwithf "Namespace %A is not found in %s" fullName assemblyName
         | false, _ -> failwithf "Assembly %s is not found" assemblyName
       | DisplayName _ as n -> n
   

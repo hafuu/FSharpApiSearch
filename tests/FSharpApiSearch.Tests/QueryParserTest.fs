@@ -164,6 +164,8 @@ module ByComputationExpression =
   let parseTest =
     parameterize {
       source [
+        "{} : ?", QueryMethod.ByComputationExpression { Syntaxes = []; Type = wildcard }
+        "{ } : ?", QueryMethod.ByComputationExpression { Syntaxes = []; Type = wildcard }
         "{ _ } : ?", QueryMethod.ByComputationExpression { Syntaxes = []; Type = wildcard }
         "{ use } : ?", QueryMethod.ByComputationExpression { Syntaxes = [ "use" ]; Type = wildcard }
         "{ let!; return } : 'a", QueryMethod.ByComputationExpression { Syntaxes = [ "let!"; "return" ]; Type = queryVariable "'a" }
@@ -172,5 +174,16 @@ module ByComputationExpression =
         let actual = QueryParser.parse input
         let expected: Query = { OriginalString = input; Method = expected }
         do! actual |> assertEquals expected
+      })
+    }
+
+  let syntaxErrorTest =
+    parameterize {
+      source [
+        "{ _; use } : ?"
+      ]
+      run (fun (input) -> test {
+        let! e = trap { it (QueryParser.parse input) }
+        do! e |> assertNotEquals null
       })
     }

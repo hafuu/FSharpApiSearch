@@ -470,6 +470,8 @@ module internal SpecialTypes =
       | TypeAbbreviation { Original = o } -> isUnit o
       | _ -> false
 
+    let Boolean = ofDotNetType typeof<Boolean>
+
     module Patterns =
       let (|Unit|_|) x = if isUnit x then Some () else None
       let (|Array|_|) x =
@@ -487,6 +489,13 @@ module internal SpecialTypes =
             | _ -> None
           | FullIdentity { Name = LoadingName _ } -> Name.loadingNameError()
         | _ -> None
+
+      let private b = Boolean
+      let (|Boolean|_|) (TypeAbbreviation { Original = t } | t ) =
+        if t = b then
+          Some ()
+        else
+          None
       let (|NonTuple|_|) x =
         match x with
         | Tuple _ -> None
