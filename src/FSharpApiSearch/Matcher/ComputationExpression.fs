@@ -42,11 +42,11 @@ module Extract =
 
 module BuilderMethod =
   let bind = function
-    | { Name = "Bind"; Parameters = [ [ _; P (Arrow [ _; _ ]) ] ]; } -> true
+    | { Name = "Bind"; Parameters = [ [ _; P (Variable _ | Arrow [ _; _ ]) ] ]; } -> true
     | _ -> false
 
   let delay = function
-    | { Name = "Delay"; Parameters = [ [ P (Arrow [ Unit; _ ]) ] ] } -> true
+    | { Name = "Delay"; Parameters = [ [ P (Variable _ | Arrow [ (Unit | Variable _); _ ]) ] ] } -> true
     | _ -> false
 
   let return' = function
@@ -62,23 +62,23 @@ module BuilderMethod =
     | _ -> false
 
   let for' = function
-    | { Name = "For"; Parameters = [ [ _; P (Arrow [ _; _ ]) ] ] } -> true
+    | { Name = "For"; Parameters = [ [ _; P (Variable _ | Arrow [ _; _ ]) ] ] } -> true
     | _ -> false
 
   let tryFinally = function
-    | { Name = "TryFinally"; Parameters = [ [ _; P (Arrow [ Unit; Unit ]) ] ] } -> true
+    | { Name = "TryFinally"; Parameters = [ [ _; P (Variable _ | Arrow [ (Variable _ | Unit); (Variable _ | Unit) ]) ] ] } -> true
     | _ -> false
 
   let tryWith = function
-    | { Name = "TryWith"; Parameters = [ [ _; P (Arrow [ _; _ ]) ] ] } -> true
+    | { Name = "TryWith"; Parameters = [ [ _; P (Variable _ | Arrow [ _; _ ]) ] ] } -> true
     | _ -> false
 
   let using = function
-    | { Name = "Using"; Parameters = [ [ _; P (Arrow [ _; _ ]) ] ] } -> true
+    | { Name = "Using"; Parameters = [ [ _; P (Variable _ | Arrow [ _; _ ]) ] ] } -> true
     | _ -> false
 
   let while' = function
-    | { Name = "While"; Parameters = [ [ P (Arrow [ Unit; Boolean ]); _ ] ] } -> true
+    | { Name = "While"; Parameters = [ [ P (Variable _ | Arrow [ (Variable _ | Unit); (Variable _ | Boolean) ]); _ ] ] } -> true
     | _ -> false
 
   let yield' = function
@@ -90,7 +90,7 @@ module BuilderMethod =
     | _ -> false
 
   let zero = function
-    | { Name = "Zero"; Parameters = [ [ P Unit ] ] } -> true
+    | { Name = "Zero"; Parameters = [ [ P (Variable _ | Unit) ] ] } -> true
     | _ -> false
 
 let extract (typeDef: FullTypeDefinition) =

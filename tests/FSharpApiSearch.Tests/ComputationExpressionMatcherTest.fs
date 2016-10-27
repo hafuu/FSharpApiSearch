@@ -9,13 +9,14 @@ open TestHelper.DSL
 
 let testComputationExpression = parameterize {
   source [
-    "{ _ } : option<'a>", 2
-    "{ let! } : option<'a>", 2
-    "{ let!; return } : option<'a>", 2
-    "{ for } : option<'a>", 0
-    "{ _ } : list<'a>", 0
+    "{ _ } : option<'a>", 1, 2
+    "{ let! } : option<'a>", 1, 2
+    "{ let!; return } : option<'a>", 1, 2
+    "{ for } : option<'a>", 0, 0
+    "{ _ } : list<'a>", 0, 0
+    "{ try-finally } : TryFinallyTest", 2, 2
   ]
-  run (fun (query, expected) -> test {
+  run (fun (query, builderExpected, expected) -> test {
     let! apiDict = TestAssemblies.fsharpAssemblyApi
     let! dictionaries = TestAssemblies.apiDictionary
     let options = SearchOptions.defaultOptions |> SearchOptions.Parallel.Set Disabled
@@ -23,6 +24,6 @@ let testComputationExpression = parameterize {
     let computationBuilderCount = actual |> Seq.filter (fun result -> result.Api.Kind = ApiKind.ComputationExpressionBuilder) |> Seq.length
     let apiCount = actual |> Seq.filter (fun result -> result.Api.Kind <> ApiKind.ComputationExpressionBuilder) |> Seq.length
     do! apiCount |> assertEquals expected
-    do! computationBuilderCount |> assertEquals (if expected = 0 then 0 else 1)
+    do! computationBuilderCount |> assertEquals builderExpected
   })
 }

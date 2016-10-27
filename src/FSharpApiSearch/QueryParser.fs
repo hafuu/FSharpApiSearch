@@ -127,7 +127,7 @@ let nameQuery =
 
 let signatureQuery = FSharpSignatureParser.extendedFsharpSignature |>> QueryMethod.BySignature
 
-let computationExpressionSyntax = manyChars letter .>>. opt (pstring "!") |>> (fun (syntax, bang) -> match bang with Some bang -> syntax + bang | None -> syntax)  
+let computationExpressionSyntax = manyChars (letter <|> pchar '-') .>>. opt (pstring "!") |>> (fun (syntax, bang) -> match bang with Some bang -> syntax + bang | None -> syntax)  
 let computationExpressionQuery =
   let underScore = skipString "_" >>% []
   let syntaxes = sepBy1 (trim computationExpressionSyntax) (pchar ';') |>> List.filter ((<>)"")
