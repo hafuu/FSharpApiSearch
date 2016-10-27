@@ -944,6 +944,7 @@ module internal Impl =
       | ApiSignature.TypeExtension e -> ApiSignature.TypeExtension (resolve_TypeExtension cache e)
       | ApiSignature.ExtensionMember m -> ApiSignature.ExtensionMember (resolve_Member cache m)
       | ApiSignature.UnionCase uc -> ApiSignature.UnionCase (resolve_UnionCase cache uc)
+      | ApiSignature.ComputationExpressionBuilder _ -> failwith "Computation Expression should not be loaded."
 
     let resolve_Api cache (api: Api) =
       { api with

@@ -32,6 +32,7 @@ type FSharpApiSearchClient(targets: string seq, dictionaries: ApiDictionary seq)
         | ApiKind.ModuleDefinition -> 0
         | ApiKind.TypeDefinition -> 0
         | ApiKind.TypeAbbreviation -> 1
+        | ApiKind.ComputationExpressionBuilder -> 1
         | _ -> 2
       let distance = result.Distance
       let name = result.Api.Name.Print()

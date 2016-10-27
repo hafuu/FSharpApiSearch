@@ -262,6 +262,7 @@ type ApiKind =
   | ModuleDefinition
   | TypeDefinition
   | TypeAbbreviation
+  | ComputationExpressionBuilder
 
 [<RequireQualifiedAccess>]
 type ActivePatternKind =
@@ -311,6 +312,7 @@ type ApiSignature =
   /// C# Extension Member
   | ExtensionMember of Member
   | UnionCase of UnionCase
+  | ComputationExpressionBuilder of LowType * syntaxes: string list
 
 type Api = {
   Name: Name
@@ -333,6 +335,7 @@ with
     | ApiSignature.TypeExtension t -> ApiKind.Member (t.MemberModifier, t.Member.Kind)
     | ApiSignature.ExtensionMember _ -> ApiKind.ExtensionMember
     | ApiSignature.UnionCase _ -> ApiKind.UnionCase
+    | ApiSignature.ComputationExpressionBuilder _ -> ApiKind.ComputationExpressionBuilder
 
 type ApiDictionary = {
   AssemblyName: string
@@ -532,6 +535,7 @@ module internal Print =
     | ApiKind.ModuleDefinition -> "module"
     | ApiKind.TypeDefinition -> "type"
     | ApiKind.TypeAbbreviation -> "type abbreviation"
+    | ApiKind.ComputationExpressionBuilder -> "builder"
 
   let typeVariablePrefix (v: TypeVariable) = if v.IsSolveAtCompileTime then "^" else "'"
 
@@ -716,6 +720,9 @@ module internal Print =
 
   let printModule (m: ModuleDefinition) = sprintf "module %s" m.Name.Head.FSharpName
 
+  let printComputationExpressionBuilder isDebug builderTypeDef syntaxes =
+    sprintf "type %s, { %s }" (printLowType isDebug builderTypeDef) (String.concat "; " syntaxes)
+
   let printApiSignature isDebug = function
     | ApiSignature.ModuleValue t -> printLowType isDebug t
     | ApiSignature.ModuleFunction fn -> printParameterGroups false isDebug fn
@@ -737,6 +744,7 @@ module internal Print =
         printMember isDebug t.Member
     | ApiSignature.ExtensionMember m -> printMember isDebug m
     | ApiSignature.UnionCase uc -> printUnionCase isDebug uc
+    | ApiSignature.ComputationExpressionBuilder (td, syntaxes) -> printComputationExpressionBuilder isDebug td syntaxes
 
 type TypeVariable with
   member this.Print() = Print.printTypeVariable false VariableSource.Target this

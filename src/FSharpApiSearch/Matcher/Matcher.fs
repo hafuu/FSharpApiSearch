@@ -44,5 +44,5 @@ let search (dictionaries: ApiDictionary[]) (options: SearchOptions) (targets: Ap
   let initialContext = MatcherInitializer.initializeContext dictionaries options query
 
   match query.Method with
-  | QueryMethod.ByComputationExpression ceQuery -> ComputationExpression.search dictionaries options targets lowTypeMatcher ceQuery initialContext
+  | QueryMethod.ByComputationExpression ceQuery -> ComputationExpression.search options targets lowTypeMatcher ceQuery initialContext
   | _ -> search' targets options lowTypeMatcher apiMatchers query initialContext

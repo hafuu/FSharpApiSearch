@@ -106,6 +106,7 @@ module LinkGenerator =
           | _ -> Some "method"
         | ApiSignature.ExtensionMember _ -> Some "extension-method"
         | ApiSignature.UnionCase _ -> None
+        | ApiSignature.ComputationExpressionBuilder _ -> Some "type"
 
       return sprintf "%s%s-%s-[fsharp]" namePart genericParamsPart kindPart |> toLower |> urlEncode
     }
@@ -123,6 +124,7 @@ module LinkGenerator =
       | ApiSignature.TypeAbbreviation _
       | ApiSignature.TypeExtension _
       | ApiSignature.ExtensionMember _
+      | ApiSignature.ComputationExpressionBuilder _
       | ApiSignature.UnionCase _ -> false
 
       | ApiSignature.InstanceMember _
