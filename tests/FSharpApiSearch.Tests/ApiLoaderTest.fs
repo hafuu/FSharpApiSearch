@@ -834,14 +834,20 @@ module TypeExtension =
 
 module ComputationExpression =
   let optBuilder = createType "ComputationExpression.OptionBuilder" [] |> updateAssembly fsharpAssemblyName
+
   let tryFinallyTest = createType "ComputationExpression.TryFinallyTest" [] |> updateAssembly fsharpAssemblyName
   let genericDelayBuilder = createType "ComputationExpression.GenericDelayBuilder" [] |> updateAssembly fsharpAssemblyName
   let delayBuilder = createType "ComputationExpression.DelayBuilder" [] |> updateAssembly fsharpAssemblyName
+  
+  let customOperation = createType "ComputationExpression.CustomOperation" [] |> updateAssembly fsharpAssemblyName
+  let customOperationBuilder = createType "ComputationExpression.CustomOperationBuilder" [] |> updateAssembly fsharpAssemblyName
+  
   let computationExpressionTest = parameterize {
     source [
       "ComputationExpression.OptionBuilder", { BuilderType = optBuilder; ComputationExpressionTypes = [ fsharpOption (variable "'a"); fsharpOption (variable "'b") ]; Syntaxes = [ "let!"; "return"; "return!" ] }
       "ComputationExpression.GenericDelayBuilder", { BuilderType = genericDelayBuilder; ComputationExpressionTypes = [ tryFinallyTest ]; Syntaxes = [ "if"; "try-finally" ] }
       "ComputationExpression.DelayBuilder", { BuilderType = delayBuilder; ComputationExpressionTypes = [ tryFinallyTest ]; Syntaxes = [ "if"; "try-finally" ] }
+      "ComputationExpression.CustomOperationBuilder", { BuilderType = customOperationBuilder; ComputationExpressionTypes = [ variable "'a"; customOperation ]; Syntaxes = [ "test"; "yield" ] }
     ]
 
     run (fun (name, expected) -> test {

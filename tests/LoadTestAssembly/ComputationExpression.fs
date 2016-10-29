@@ -9,11 +9,11 @@ let option = OptionBuilder()
 let option2 _ = OptionBuilder()
 
 do
-  option {
+  let x = option {
     let! x = Some 3
     return x
   }
-  |> ignore
+  ()
 
 type NotBuilder() =
   member this.Run() = Option<int>.None
@@ -28,7 +28,9 @@ type GenericDelayBuilder() =
 
 let genericDelay = GenericDelayBuilder()
 
-let test1 = genericDelay { try () finally () }
+do
+  let x = genericDelay { try () finally () }
+  ()
 
 type DelayBuilder() =
   member this.Zero() = TryFinallyTest
@@ -37,4 +39,19 @@ type DelayBuilder() =
 
 let delay = DelayBuilder()
 
-let test2 = delay { try () finally () }
+do
+  let x = delay { try () finally () }
+  ()
+
+type CustomOperation = CustomOperation
+type CustomOperationBuilder() =
+  [<CustomOperation("test")>]
+  member this.Test(value: 'a) = CustomOperation
+
+  member this.Yield(x: 'a) = x
+
+let customOperation = CustomOperationBuilder()
+
+do
+  let x = customOperation { test }
+  ()

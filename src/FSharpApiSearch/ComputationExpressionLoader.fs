@@ -40,6 +40,8 @@ module Extract =
     | { Parameters = [ [ P t1 ] ] } -> [ t1 ]
     | _ -> []
 
+  let customOperation (m: Member) = m.ReturnParameter.Type
+
 module BuilderMethod =
   let bind = function
     | { Name = "Bind"; Parameters = [ [ _; P (Variable _ | Arrow [ _; _ ]) ] ]; } -> true
@@ -93,17 +95,20 @@ module BuilderMethod =
     | { Name = "Zero"; Parameters = [ [ P (Variable _ | Unit) ] ] } -> true
     | _ -> false
 
-let extractTypes (typeDef: FullTypeDefinition) =
-  typeDef.InstanceMembers
-  |> Seq.collect (fun m ->
-    match m with
-    | { Name = "Run" } -> Extract.run m
-    | { Name = "Bind" } -> Extract.bind m
-    | { Name = ("Return" | "Yield") } -> Extract.return' m
-    | { Name = ("ReturnFrom" | "YieldFrom") } -> Extract.returnFrom m
-    | { Name = "Zero" } -> Extract.zero m
-    | { Name = "Source" } -> Extract.source m
-    | _ -> [] )
+let extractTypes (typeDef: FullTypeDefinition) (customOperations: seq<string * Member>) =
+  seq {
+    yield! typeDef.InstanceMembers
+            |> Seq.collect (fun m ->
+              match m with
+              | { Name = "Run" } -> Extract.run m
+              | { Name = "Bind" } -> Extract.bind m
+              | { Name = ("Return" | "Yield") } -> Extract.return' m
+              | { Name = ("ReturnFrom" | "YieldFrom") } -> Extract.returnFrom m
+              | { Name = "Zero" } -> Extract.zero m
+              | { Name = "Source" } -> Extract.source m
+              | _ -> [] )
+    yield! customOperations |> Seq.map (snd >> Extract.customOperation)
+  }
   |> Seq.distinct
 
 let hasMethod (builderTypeDef: FullTypeDefinition) f = builderTypeDef.InstanceMembers |> List.exists f

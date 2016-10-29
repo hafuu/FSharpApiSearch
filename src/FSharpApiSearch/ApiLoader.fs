@@ -748,20 +748,30 @@ module internal Impl =
     let def: ModuleDefinition = { Name = name; Accessibility = accessibility e }
     { Name = DisplayName name; Signature = ApiSignature.ModuleDefinition def; TypeConstraints = []; Document = tryGetXmlDoc xml e }
 
-  let tryExtractSyntaxes typeDef =
-    let syntaxes = ComputationExpressionLoader.extractSyntaxes typeDef
+  let tryExtractSyntaxes typeDef customOperations =
+    let defaultSyntaxes = ComputationExpressionLoader.extractSyntaxes typeDef
+    let customOperationSyntaxes = customOperations |> Seq.map fst |> Set.ofSeq
+    let syntaxes = defaultSyntaxes + customOperationSyntaxes
     if Set.isEmpty syntaxes then
       None
     else
       Some syntaxes
 
-  let computationExpression xml (typeDef: FullTypeDefinition) =
+  let computationExpression xml (typeDef: FullTypeDefinition) customOperations =
     option {
-      let! syntaxes = tryExtractSyntaxes typeDef
-      let ceTypes = ComputationExpressionLoader.extractTypes typeDef |> Seq.toList
+      let! syntaxes = tryExtractSyntaxes typeDef customOperations
+      let ceTypes = ComputationExpressionLoader.extractTypes typeDef customOperations |> Seq.toList
       let apiSig = ApiSignature.ComputationExpressionBuilder { BuilderType = typeDef.LowType; ComputationExpressionTypes = ceTypes; Syntaxes = Set.toList syntaxes }
       return { Name = DisplayName typeDef.Name; Signature = apiSig; TypeConstraints = typeDef.TypeConstraints; Document = xml }
     }
+
+  let isCustomOperation (x: FSharpMemberOrFunctionOrValue) =
+    x.Attributes |> Seq.tryPick (fun attr ->
+      if attr.AttributeType.TryFullName = Some "Microsoft.FSharp.Core.CustomOperationAttribute" then
+        let (_, name) = attr.ConstructorArguments |> Seq.head
+        tryUnbox<string> name
+      else
+        None)
 
   let rec collectApi xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
     seq {
@@ -802,11 +812,22 @@ module internal Impl =
     seq {
       let declaringSignature = fsharpEntityToLowType e
 
-      let members =
+      let membersAndCustomOperations =
         e.MembersFunctionsAndValues
         |> Seq.filter (fun x -> x.Accessibility.IsPublic && not x.IsCompilerGenerated)
-        |> Seq.choose (toTypeMemberApi xml typeName e declaringSignature)
+        |> Seq.choose (fun x ->
+          toTypeMemberApi xml typeName e declaringSignature x
+          |> Option.map (fun m -> (m, isCustomOperation x)))
         |> Seq.cache
+
+      let members = membersAndCustomOperations |> Seq.map fst
+
+      let customOperations =
+        membersAndCustomOperations
+        |> Seq.choose (function
+          | { Signature = ApiSignature.InstanceMember (_, m) }, Some name -> Some (name, m)
+          | _ -> None)
+        |> Seq.toList
 
       let fields =
         e.FSharpFields
@@ -827,7 +848,7 @@ module internal Impl =
         yield! fields
         yield! unionCases
 
-        yield! computationExpression typeDefApi.Document typeDef |> Option.toList
+        yield! computationExpression typeDefApi.Document typeDef customOperations |> Option.toList
       | None -> ()
       yield! collectFromNestedEntities xml typeName e
     }
