@@ -6,6 +6,8 @@ let genericFunction (x: 'a) (y : 'b) = y
 
 let multiParamFunction (x: 'a, y: 'b, z: 'c) = x
 
+let autoGenericFunction x = x
+
 let unitParamFunction () = 0
 
 let listmap (f: 'a -> 'b) (xs: 'a list) = List.map f xs

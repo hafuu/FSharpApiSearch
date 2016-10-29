@@ -137,6 +137,7 @@ module FSharp =
       "PublicModule.nonGenericFunction", [ moduleFunction' [ [ pname "x" >> ptype int ]; [ pname "y" >> ptype int ]; [ ptype int ] ] ]
       "PublicModule.genericFunction<'a, 'b>", [ moduleFunction' [ [ pname "x" >> ptype (variable "'a") ]; [ pname "y" >> ptype (variable "'b") ]; [ ptype (variable "'b") ] ] ]
       "PublicModule.multiParamFunction<'a, 'b, 'c>", [ moduleFunction' [ [ pname "x" >> ptype (variable "'a"); pname "y" >> ptype (variable "'b"); pname "z" >> ptype (variable "'c") ]; [ ptype (variable "'a") ] ] ]
+      "PublicModule.autoGenericFunction<'a>", [ moduleFunction' [ [ pname "x" >> ptype (variable "'a") ]; [ ptype (variable "'a") ] ] ]
       "PublicModule.unitParamFunction", [ moduleFunction' [ [ ptype unit ]; [ ptype int ] ] ]
       "PublicModule.value", [ moduleValue int ]
       "PublicModule.NestedModule.publicFunction", [ moduleFunction' [ [ pname "x" >> ptype int ]; [ ptype int] ] ]

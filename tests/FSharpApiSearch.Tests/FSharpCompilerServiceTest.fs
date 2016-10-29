@@ -37,6 +37,16 @@ module InferredFloat =
     do! ``is float`` method'.CurriedParameterGroups.[0].[0].Type
   }
 
+let ``auto generic parameter`` = test {
+  let! assemblies = assemblies
+  let assembly = assemblies |> Array.find (fun x -> x.FileName = Some fsharpAssemblyPath)
+  let module' = assembly.Contents.Entities |> Seq.find (fun x -> x.DisplayName = "PublicModule")
+  let autoGenericFun = module'.MembersFunctionsAndValues |> Seq.find (fun x -> x.DisplayName = "autoGenericFunction")
+  let parameter = autoGenericFun.CurriedParameterGroups.[0].[0]
+  do! parameter.Type.ToString() |> assertEquals "type 'a"
+  do! autoGenericFun.GenericParameters.[0].Name.StartsWith("?") |> assertEquals true
+}
+
 let ``Enum.value__ test`` = test {
   let! assemblies = assemblies
   let assembly = assemblies |> Array.find (fun x -> x.FileName = Some fsharpAssemblyPath )
