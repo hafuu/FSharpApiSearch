@@ -740,12 +740,28 @@ module internal Impl =
         Equality = equality e |> snd
         Comparison = comparison e |> snd
       }
-      return { Name = DisplayName name; Signature = ApiSignature.FullTypeDefinition typeDef; TypeConstraints = typeDef.TypeConstraints; Document = tryGetXmlDoc xml e }
+      let api = { Name = DisplayName name; Signature = ApiSignature.FullTypeDefinition typeDef; TypeConstraints = typeDef.TypeConstraints; Document = tryGetXmlDoc xml e }
+      return (api, typeDef)
     }
 
   let moduleDef xml name (e: FSharpEntity) =
     let def: ModuleDefinition = { Name = name; Accessibility = accessibility e }
     { Name = DisplayName name; Signature = ApiSignature.ModuleDefinition def; TypeConstraints = []; Document = tryGetXmlDoc xml e }
+
+  let tryExtractSyntaxes typeDef =
+    let syntaxes = ComputationExpressionLoader.extractSyntaxes typeDef
+    if Set.isEmpty syntaxes then
+      None
+    else
+      Some syntaxes
+
+  let computationExpression xml (typeDef: FullTypeDefinition) =
+    option {
+      let! syntaxes = tryExtractSyntaxes typeDef
+      let ceTypes = ComputationExpressionLoader.extractTypes typeDef |> Seq.toList
+      let apiSig = ApiSignature.ComputationExpressionBuilder { BuilderType = typeDef.LowType; ComputationExpressionTypes = ceTypes; Syntaxes = Set.toList syntaxes }
+      return { Name = DisplayName typeDef.Name; Signature = apiSig; TypeConstraints = typeDef.TypeConstraints; Document = xml }
+    }
 
   let rec collectApi xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
     seq {
@@ -805,11 +821,13 @@ module internal Impl =
         |> Seq.cache
 
       match fullTypeDef xml typeName e (Seq.append members fields) with
-      | Some d ->
-        yield d
+      | Some (typeDefApi, typeDef) ->
+        yield typeDefApi
         yield! members
         yield! fields
         yield! unionCases
+
+        yield! computationExpression typeDefApi.Document typeDef |> Option.toList
       | None -> ()
       yield! collectFromNestedEntities xml typeName e
     }
@@ -930,6 +948,12 @@ module internal Impl =
           DeclaringType = resolve_LowType cache uc.DeclaringType
           Fields = List.map (resolve_UnionCaseField cache) uc.Fields
       }
+
+    let resolve_ComputationExpressionBuilder cache (builder: ComputationExpressionBuilder) =
+      { builder with
+          BuilderType = resolve_LowType cache builder.BuilderType
+          ComputationExpressionTypes = List.map (resolve_LowType cache) builder.ComputationExpressionTypes
+      }
       
     let resolve_Signature cache = function
       | ApiSignature.ModuleValue x -> ApiSignature.ModuleValue (resolve_LowType cache x)
@@ -944,7 +968,7 @@ module internal Impl =
       | ApiSignature.TypeExtension e -> ApiSignature.TypeExtension (resolve_TypeExtension cache e)
       | ApiSignature.ExtensionMember m -> ApiSignature.ExtensionMember (resolve_Member cache m)
       | ApiSignature.UnionCase uc -> ApiSignature.UnionCase (resolve_UnionCase cache uc)
-      | ApiSignature.ComputationExpressionBuilder _ -> failwith "Computation Expression should not be loaded."
+      | ApiSignature.ComputationExpressionBuilder b -> ApiSignature.ComputationExpressionBuilder (resolve_ComputationExpressionBuilder cache b)
 
     let resolve_Api cache (api: Api) =
       { api with

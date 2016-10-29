@@ -101,7 +101,7 @@ let testApiWithoutParameterName (assembly: TestCase<ApiDictionary>) nameConverte
   let actual =
     Seq.filter (fun x -> x.Name = name) apiDict.Api 
     |> Seq.map (fun x -> x.Signature)
-    |> Seq.filter (function (ApiSignature.FullTypeDefinition _ | ApiSignature.TypeAbbreviation _) -> false | _ -> true)
+    |> Seq.filter (function (ApiSignature.FullTypeDefinition _ | ApiSignature.TypeAbbreviation _ | ApiSignature.ComputationExpressionBuilder _) -> false | _ -> true)
     |> Seq.toList
     |> List.sort
   let expected = expected |> List.sort
@@ -830,6 +830,44 @@ module TypeExtension =
       "Net40Assembly.TestExtensions.ExtensionMethod", [ extensionMember (method' "ExtensionMethod" [ [ pname "x" >> ptype int ] ] int) ]
     ]
     run testApi_net40
+  }
+
+module ComputationExpression =
+  let optBuilder = createType "ComputationExpression.OptionBuilder" [] |> updateAssembly fsharpAssemblyName
+  let tryFinallyTest = createType "ComputationExpression.TryFinallyTest" [] |> updateAssembly fsharpAssemblyName
+  let genericDelayBuilder = createType "ComputationExpression.GenericDelayBuilder" [] |> updateAssembly fsharpAssemblyName
+  let delayBuilder = createType "ComputationExpression.DelayBuilder" [] |> updateAssembly fsharpAssemblyName
+  let computationExpressionTest = parameterize {
+    source [
+      "ComputationExpression.OptionBuilder", { BuilderType = optBuilder; ComputationExpressionTypes = [ fsharpOption (variable "'a"); fsharpOption (variable "'b") ]; Syntaxes = [ "let!"; "return"; "return!" ] }
+      "ComputationExpression.GenericDelayBuilder", { BuilderType = genericDelayBuilder; ComputationExpressionTypes = [ tryFinallyTest ]; Syntaxes = [ "if"; "try-finally" ] }
+      "ComputationExpression.DelayBuilder", { BuilderType = delayBuilder; ComputationExpressionTypes = [ tryFinallyTest ]; Syntaxes = [ "if"; "try-finally" ] }
+    ]
+
+    run (fun (name, expected) -> test {
+      let name = DisplayName (DisplayName.ofString name)
+      let! apiDict = fsharpAssemblyApi
+      let actual =
+        apiDict.Api
+        |> Seq.filter (fun api -> api.Name = name)
+        |> Seq.pick (fun api -> match api.Signature with ApiSignature.ComputationExpressionBuilder b -> Some b | _ -> None)
+      do! actual |> assertEquals expected
+    })
+  }
+
+  let nonloadedTest = parameterize {
+    source [
+      "ComputationExpression.NotBuilder"
+    ]
+
+    run (fun name -> test {
+      let name = DisplayName (DisplayName.ofString name)
+      let! apiDict = fsharpAssemblyApi
+      let actual =
+        apiDict.Api
+        |> Seq.filter (fun api -> api.Name = name && api.Kind = ApiKind.ComputationExpressionBuilder)
+      do! Seq.isEmpty actual |> assertEquals true
+    })
   }
 
 module CSharp =

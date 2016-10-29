@@ -1,4 +1,4 @@
-﻿module internal FSharpApiSearch.ComputationExpression
+﻿module internal FSharpApiSearch.ComputationExpressionLoader
 
 open FSharpApiSearch.MatcherTypes
 open FSharpApiSearch.SpecialTypes.LowType.Patterns
@@ -93,7 +93,7 @@ module BuilderMethod =
     | { Name = "Zero"; Parameters = [ [ P (Variable _ | Unit) ] ] } -> true
     | _ -> false
 
-let extract (typeDef: FullTypeDefinition) =
+let extractTypes (typeDef: FullTypeDefinition) =
   typeDef.InstanceMembers
   |> Seq.collect (fun m ->
     match m with
@@ -105,10 +105,6 @@ let extract (typeDef: FullTypeDefinition) =
     | { Name = "Source" } -> Extract.source m
     | _ -> [] )
   |> Seq.distinct
-
-let isBuilder (lowTypeMatcher: ILowTypeMatcher) (compExprType: LowType) (ctx: Context) (typeDef: FullTypeDefinition) : bool =
-  extract typeDef
-  |> Seq.exists (fun t -> lowTypeMatcher.Test t compExprType ctx |> MatchingResult.toBool)
 
 let hasMethod (builderTypeDef: FullTypeDefinition) f = builderTypeDef.InstanceMembers |> List.exists f
 
@@ -140,82 +136,3 @@ let extractSyntaxes (builderTypeDef: FullTypeDefinition) : Set<string> =
       None
   )
   |> Set.ofList
-
-let private map (options: SearchOptions) f (xs: #seq<_>) =
-  match options.Parallel with
-  | Enabled -> PSeq.map f xs :> seq<_>
-  | Disabled -> Seq.map f xs
-
-let private filter (options: SearchOptions) f (xs: #seq<_>) =
-  match options.Parallel with
-  | Enabled -> PSeq.filter f xs :> seq<_>
-  | Disabled -> Seq.filter f xs
-
-let private collect (options: SearchOptions) f (xs: #seq<_>) =
-  match options.Parallel with
-  | Enabled -> PSeq.collect f xs :> seq<_>
-  | Disabled -> Seq.collect f xs
-
-let private choose (options: SearchOptions) f xs =
-  match options.Parallel with
-  | Enabled -> PSeq.choose f xs :> seq<_>
-  | Disabled -> Seq.choose f xs
-
-let private append options xs ys =
-  match options.Parallel with
-  | Enabled -> PSeq.append xs ys :> seq<_>
-  | Disabled -> Seq.append xs ys
-
-let test (lowTypeMatcher: ILowTypeMatcher) (builderTypes: LowType) (ctx: Context) (api: Api) =
-  match api.Signature with
-  | ApiSignature.ModuleValue (TypeAbbreviation { Original = Arrow xs }) -> lowTypeMatcher.Test builderTypes (List.last xs) ctx
-  | ApiSignature.ModuleValue value -> lowTypeMatcher.Test builderTypes value ctx
-  | ApiSignature.ModuleFunction xs -> lowTypeMatcher.Test builderTypes ((xs |> List.last |> List.last).Type) ctx
-  | _ -> Failure
-
-let search (options: SearchOptions) (targets: ApiDictionary seq) (lowTypeMatcher: ILowTypeMatcher) (query: ComputationExpressionQuery) (initialContext: Context) =
-  let querySyntaxes = Set.ofList query.Syntaxes
-
-  let builderTypes =
-    targets
-    |> collect options (fun target -> target.Api)
-    |> choose options (fun api ->
-      match api.Signature with
-      | ApiSignature.FullTypeDefinition td -> Some (td, api.Document)
-      | _ -> None)
-    |> filter options (fst >> isBuilder lowTypeMatcher query.Type initialContext)
-    |> map options (fun (builderTypeDef, doc) ->
-      let syntaxes = extractSyntaxes builderTypeDef
-      (builderTypeDef, doc, syntaxes)
-    )
-    |> filter options (fun (_, _, syntaxes) ->
-      if Set.isEmpty querySyntaxes then
-        Set.isEmpty syntaxes = false
-      else
-        Set.intersect syntaxes querySyntaxes = querySyntaxes
-    )
-    |> Seq.toList
-
-  let builderResults =
-    builderTypes
-    |> Seq.map (fun (td, doc, syntaxes) ->
-      let apiSig = ApiSignature.ComputationExpressionBuilder (td.LowType, Set.toList syntaxes)
-      let api = { Name = DisplayName td.Name; Signature = apiSig; TypeConstraints = td.TypeConstraints; Document = doc }
-      { Distance = 0; Api = api; AssemblyName = td.AssemblyName }
-    )
-
-  let builderTypes = Choice (builderTypes |> List.map (fun (td, _, _) -> td.LowType))
-
-  let apiResults =
-    seq {
-      for dic in targets do
-        for api in dic.Api do
-          yield (dic, api)
-    }
-    |> choose options (fun (dic, api) ->
-      match test lowTypeMatcher builderTypes initialContext api with
-      | Matched ctx -> Some { Distance = ctx.Distance; Api = api; AssemblyName = dic.AssemblyName }
-      | _ -> None
-    )
-
-  append options builderResults apiResults

@@ -296,6 +296,12 @@ type ModuleDefinition = {
 with
   member internal this.LowType = Identity (FullIdentity { Name = DisplayName this.Name; AssemblyName = "dummy assembly"; GenericParameterCount = 0 })
 
+type ComputationExpressionBuilder = {
+  BuilderType: LowType
+  ComputationExpressionTypes: LowType list
+  Syntaxes: string list
+}
+
 [<RequireQualifiedAccess>]
 type ApiSignature =
   | ModuleValue of LowType
@@ -312,7 +318,7 @@ type ApiSignature =
   /// C# Extension Member
   | ExtensionMember of Member
   | UnionCase of UnionCase
-  | ComputationExpressionBuilder of LowType * syntaxes: string list
+  | ComputationExpressionBuilder of ComputationExpressionBuilder
 
 type Api = {
   Name: Name
@@ -720,8 +726,14 @@ module internal Print =
 
   let printModule (m: ModuleDefinition) = sprintf "module %s" m.Name.Head.FSharpName
 
-  let printComputationExpressionBuilder isDebug builderTypeDef syntaxes =
-    sprintf "type %s, { %s }" (printLowType isDebug builderTypeDef) (String.concat "; " syntaxes)
+  let printComputationExpressionBuilder isDebug (builder: ComputationExpressionBuilder)=
+    if isDebug then
+      sprintf "type %s, [ %s ], { %s }"
+        (printLowType isDebug builder.BuilderType)
+        (List.map (printLowType isDebug) builder.ComputationExpressionTypes |> String.concat "; ")
+        (String.concat "; " builder.Syntaxes)
+    else
+      sprintf "type %s, { %s }" (printLowType isDebug builder.BuilderType) (String.concat "; " builder.Syntaxes)
 
   let printApiSignature isDebug = function
     | ApiSignature.ModuleValue t -> printLowType isDebug t
@@ -744,7 +756,7 @@ module internal Print =
         printMember isDebug t.Member
     | ApiSignature.ExtensionMember m -> printMember isDebug m
     | ApiSignature.UnionCase uc -> printUnionCase isDebug uc
-    | ApiSignature.ComputationExpressionBuilder (td, syntaxes) -> printComputationExpressionBuilder isDebug td syntaxes
+    | ApiSignature.ComputationExpressionBuilder builder -> printComputationExpressionBuilder isDebug builder
 
 type TypeVariable with
   member this.Print() = Print.printTypeVariable false VariableSource.Target this

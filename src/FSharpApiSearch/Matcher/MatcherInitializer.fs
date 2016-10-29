@@ -12,6 +12,7 @@ let matchers options =
       ActivePatternMatcher.instance
       ConstraintSolver.instance
       NonPublicFilter.instance
+      ComputationExpressionMatcher.Filter.instance
     ]
     |> List.map (fun f -> f options)
   (lowTypeMatcher, apiMatchers)

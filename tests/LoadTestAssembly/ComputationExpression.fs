@@ -1,9 +1,9 @@
 ﻿module ComputationExpression
 
 type OptionBuilder() =
-  member this.Bind(x, f) = Option.bind f x
-  member this.Return(x) = Some x
-  member this.ReturnFrom(x) = x
+  member this.Bind(x: option<'a>, f: 'a -> 'b option) = Option.bind f x
+  member this.Return(x: 'a) = Some x
+  member this.ReturnFrom(x: option<'a>) = x
 
 let option = OptionBuilder()
 let option2 _ = OptionBuilder()

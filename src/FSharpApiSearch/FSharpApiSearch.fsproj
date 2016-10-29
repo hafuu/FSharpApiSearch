@@ -74,11 +74,12 @@
     <Compile Include="Matcher\ActivePatternMatcher.fs" />
     <Compile Include="Matcher\ConstraintSolver.fs" />
     <Compile Include="Matcher\NonPublicFilter.fs" />
-    <Compile Include="Matcher\ComputationExpression.fs" />
+    <Compile Include="Matcher\ComputationExpressionMatcher.fs" />
     <Compile Include="Matcher\MatcherInitializer.fs" />
     <Compile Include="Matcher\Matcher.fs" />
     <Compile Include="AssemblyLoader.fs" />
     <Compile Include="CompilerOptimization.fs" />
+    <Compile Include="ComputationExpressionLoader.fs" />
     <Compile Include="ApiLoader.fs" />
     <Compile Include="FSharpApiSearchClient.fs" />
     <Compile Include="LinkGenerator.fs" />
