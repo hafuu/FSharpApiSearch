@@ -8,6 +8,12 @@ open MBrace.FsPickler
 open System.Collections.Generic
 open System.Xml.Linq
 
+type TypeForward = {
+  Type: FullName
+  From: string
+  To: string
+}
+
 module internal Impl =
   type VariableCache = IDictionary<string, string>
 
@@ -918,7 +924,17 @@ module internal Impl =
 
   module NameResolve =
     type AssemblyCache = IDictionary<string, DisplayName>
-    type NameCache = IDictionary<string, AssemblyCache>
+    type NameCache = (string * AssemblyCache)[]
+
+    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+    module NameCache =
+      let tryGetValue key (cache: NameCache) = cache |> Array.tryFind (fun (k, _) -> k = key) |> Option.map snd
+      let getValue key (cache: NameCache) = cache |> Array.find (fun (k, _) -> k = key) |> snd
+
+    type Context = {
+      Cache: NameCache
+      ForwardingLogs: IDictionary<FullName, TypeForward>
+    }
 
     let tryGetValue key (dict: IDictionary<_, _>) =
       match dict.TryGetValue(key) with
@@ -928,137 +944,147 @@ module internal Impl =
     let tryResolve_Name (name: Name) (assemblyCache: AssemblyCache) =
       match name with
       | LoadingName (_, accessPath, apiName) ->
-        // TODO: Output warning log
         assemblyCache |> tryGetValue accessPath |> Option.map (fun accessPath -> DisplayName (apiName @ accessPath))
       | DisplayName _ as n -> Some n
 
-    let tryResolve_Name' (cache: NameCache) (name: Name) =
+    let typeForwarding (context: Context) fromAssemblyName (name: Name) =
       match name with
-      | LoadingName _ ->
-        cache.Values |> Seq.tryPick (tryResolve_Name name)
+      | LoadingName (_, accessPath, _) ->
+        context.Cache
+        |> Seq.tryPick (fun (toAssemblyName, assemblyCache) ->
+          let result = tryResolve_Name name assemblyCache
+          result |> Option.iter (fun _ -> context.ForwardingLogs.[accessPath] <- { Type = accessPath; From = fromAssemblyName; To = toAssemblyName })
+          result)
       | DisplayName _ as n -> Some n
 
-    let resolve_Name (cache: NameCache) (name: Name) =
+    let resolve_Name context (name: Name) =
       match name with
       | LoadingName (assemblyName, accessPath, _) ->
-        let resolved = tryGetValue assemblyName cache |> Option.bind (tryResolve_Name name)
+        let resolved = NameCache.tryGetValue assemblyName context.Cache |> Option.bind (tryResolve_Name name)
         match resolved with
         | Some n -> n
         | None ->
-          match tryResolve_Name' cache name with
+          match typeForwarding context assemblyName name with
           | Some n -> n
           | None -> failwithf "%s(%s) is not found." accessPath assemblyName
       | DisplayName _ as n -> n
   
-    let rec resolve_LowType cache = function
+    let rec resolve_LowType context = function
       | Wildcard _ as w -> w
       | Variable _ as v -> v
-      | Identity i -> Identity (resolve_Identity cache i)
-      | Arrow xs -> Arrow (List.map (resolve_LowType cache) xs)
-      | Tuple xs -> Tuple (List.map (resolve_LowType cache) xs)
+      | Identity i -> Identity (resolve_Identity context i)
+      | Arrow xs -> Arrow (List.map (resolve_LowType context) xs)
+      | Tuple xs -> Tuple (List.map (resolve_LowType context) xs)
       | Generic (id, args) ->
-        let id = resolve_LowType cache id
-        let args = List.map (resolve_LowType cache) args
+        let id = resolve_LowType context id
+        let args = List.map (resolve_LowType context) args
         Generic (id, args)
-      | TypeAbbreviation a -> TypeAbbreviation { Abbreviation = resolve_LowType cache a.Abbreviation; Original = resolve_LowType cache a.Original }
+      | TypeAbbreviation a -> TypeAbbreviation { Abbreviation = resolve_LowType context a.Abbreviation; Original = resolve_LowType context a.Original }
       | Delegate (t, arrow) ->
-        let t = resolve_LowType cache t
-        let arrow = List.map (resolve_LowType cache) arrow
+        let t = resolve_LowType context t
+        let arrow = List.map (resolve_LowType context) arrow
         Delegate (t, arrow)
-      | Choice (xs) -> Choice (List.map (resolve_LowType cache) xs)
+      | Choice (xs) -> Choice (List.map (resolve_LowType context) xs)
     and resolve_Identity cache = function
       | PartialIdentity _ as i -> i
       | FullIdentity full -> FullIdentity { full with Name = resolve_Name cache full.Name }
 
-    let resolve_Parameter cache (p: Parameter) = { p with Type = resolve_LowType cache p.Type }
-    let resolve_ParameterGroups cache (groups: ParameterGroups) = List.map (List.map (resolve_Parameter cache)) groups
+    let resolve_Parameter context (p: Parameter) = { p with Type = resolve_LowType context p.Type }
+    let resolve_ParameterGroups context (groups: ParameterGroups) = List.map (List.map (resolve_Parameter context)) groups
 
-    let resolve_Member cache (member': Member) =
+    let resolve_Member context (member': Member) =
       { member' with
-          Parameters = resolve_ParameterGroups cache member'.Parameters
-          ReturnParameter = resolve_Parameter cache member'.ReturnParameter
+          Parameters = resolve_ParameterGroups context member'.Parameters
+          ReturnParameter = resolve_Parameter context member'.ReturnParameter
       }
 
-    let resolve_TypeExtension cache (typeExtension: TypeExtension) =
+    let resolve_TypeExtension context (typeExtension: TypeExtension) =
       { typeExtension with
-          ExistingType = resolve_LowType cache typeExtension.ExistingType
-          Member = resolve_Member cache typeExtension.Member
+          ExistingType = resolve_LowType context typeExtension.ExistingType
+          Member = resolve_Member context typeExtension.Member
       }
 
-    let resolve_TypeConstraint cache (c: TypeConstraint) =
+    let resolve_TypeConstraint context (c: TypeConstraint) =
       let constraint' =
         match c.Constraint with
-        | SubtypeConstraints x -> SubtypeConstraints (resolve_LowType cache x)
-        | MemberConstraints (modifier, member') -> MemberConstraints (modifier, resolve_Member cache member')
+        | SubtypeConstraints x -> SubtypeConstraints (resolve_LowType context x)
+        | MemberConstraints (modifier, member') -> MemberConstraints (modifier, resolve_Member context member')
         | other -> other
       { c with Constraint = constraint' }
 
-    let resolve_FullTypeDefinition cache (fullTypeDef: FullTypeDefinition) =
+    let resolve_FullTypeDefinition context (fullTypeDef: FullTypeDefinition) =
       { fullTypeDef with
-          BaseType = Option.map (resolve_LowType cache) fullTypeDef.BaseType
-          AllInterfaces = List.map (resolve_LowType cache) fullTypeDef.AllInterfaces
-          TypeConstraints = List.map (resolve_TypeConstraint cache) fullTypeDef.TypeConstraints
-          InstanceMembers = List.map (resolve_Member cache) fullTypeDef.InstanceMembers
-          StaticMembers = List.map (resolve_Member cache) fullTypeDef.StaticMembers
-          ImplicitInstanceMembers = List.map (resolve_Member cache) fullTypeDef.ImplicitInstanceMembers
-          ImplicitStaticMembers = List.map (resolve_Member cache) fullTypeDef.ImplicitStaticMembers
+          BaseType = Option.map (resolve_LowType context) fullTypeDef.BaseType
+          AllInterfaces = List.map (resolve_LowType context) fullTypeDef.AllInterfaces
+          TypeConstraints = List.map (resolve_TypeConstraint context) fullTypeDef.TypeConstraints
+          InstanceMembers = List.map (resolve_Member context) fullTypeDef.InstanceMembers
+          StaticMembers = List.map (resolve_Member context) fullTypeDef.StaticMembers
+          ImplicitInstanceMembers = List.map (resolve_Member context) fullTypeDef.ImplicitInstanceMembers
+          ImplicitStaticMembers = List.map (resolve_Member context) fullTypeDef.ImplicitStaticMembers
       }
 
-    let resolve_TypeAbbreviationDefinition cache abbDef =
+    let resolve_TypeAbbreviationDefinition context abbDef =
       { abbDef with
-          Abbreviated = resolve_LowType cache abbDef.Abbreviated
-          Original = resolve_LowType cache abbDef.Original
+          Abbreviated = resolve_LowType context abbDef.Abbreviated
+          Original = resolve_LowType context abbDef.Original
       }
 
-    let resolve_Function cache fn = resolve_ParameterGroups cache fn
+    let resolve_Function context fn = resolve_ParameterGroups context fn
 
-    let resolve_UnionCaseField cache (field: UnionCaseField) = { field with Type = resolve_LowType cache field.Type }
+    let resolve_UnionCaseField context (field: UnionCaseField) = { field with Type = resolve_LowType context field.Type }
 
-    let resolve_UnionCase cache (uc: UnionCase) =
+    let resolve_UnionCase context (uc: UnionCase) =
       { uc with
-          DeclaringType = resolve_LowType cache uc.DeclaringType
-          Fields = List.map (resolve_UnionCaseField cache) uc.Fields
+          DeclaringType = resolve_LowType context uc.DeclaringType
+          Fields = List.map (resolve_UnionCaseField context) uc.Fields
       }
 
-    let resolve_ComputationExpressionBuilder cache (builder: ComputationExpressionBuilder) =
+    let resolve_ComputationExpressionBuilder context (builder: ComputationExpressionBuilder) =
       { builder with
-          BuilderType = resolve_LowType cache builder.BuilderType
-          ComputationExpressionTypes = List.map (resolve_LowType cache) builder.ComputationExpressionTypes
+          BuilderType = resolve_LowType context builder.BuilderType
+          ComputationExpressionTypes = List.map (resolve_LowType context) builder.ComputationExpressionTypes
       }
       
-    let resolve_Signature cache = function
-      | ApiSignature.ModuleValue x -> ApiSignature.ModuleValue (resolve_LowType cache x)
-      | ApiSignature.ModuleFunction fn -> ApiSignature.ModuleFunction (resolve_Function cache fn)
-      | ApiSignature.ActivePatten (kind, fn) -> ApiSignature.ActivePatten (kind, resolve_Function cache fn)
-      | ApiSignature.InstanceMember (d, m) -> ApiSignature.InstanceMember (resolve_LowType cache d, resolve_Member cache m)
-      | ApiSignature.StaticMember (d, m) -> ApiSignature.StaticMember (resolve_LowType cache d, resolve_Member cache m)
-      | ApiSignature.Constructor (d, m) -> ApiSignature.Constructor (resolve_LowType cache d, resolve_Member cache m)
+    let resolve_Signature context = function
+      | ApiSignature.ModuleValue x -> ApiSignature.ModuleValue (resolve_LowType context x)
+      | ApiSignature.ModuleFunction fn -> ApiSignature.ModuleFunction (resolve_Function context fn)
+      | ApiSignature.ActivePatten (kind, fn) -> ApiSignature.ActivePatten (kind, resolve_Function context fn)
+      | ApiSignature.InstanceMember (d, m) -> ApiSignature.InstanceMember (resolve_LowType context d, resolve_Member context m)
+      | ApiSignature.StaticMember (d, m) -> ApiSignature.StaticMember (resolve_LowType context d, resolve_Member context m)
+      | ApiSignature.Constructor (d, m) -> ApiSignature.Constructor (resolve_LowType context d, resolve_Member context m)
       | ApiSignature.ModuleDefinition m -> ApiSignature.ModuleDefinition m
-      | ApiSignature.FullTypeDefinition f -> ApiSignature.FullTypeDefinition (resolve_FullTypeDefinition cache f)
-      | ApiSignature.TypeAbbreviation a -> ApiSignature.TypeAbbreviation (resolve_TypeAbbreviationDefinition cache a)
-      | ApiSignature.TypeExtension e -> ApiSignature.TypeExtension (resolve_TypeExtension cache e)
-      | ApiSignature.ExtensionMember m -> ApiSignature.ExtensionMember (resolve_Member cache m)
-      | ApiSignature.UnionCase uc -> ApiSignature.UnionCase (resolve_UnionCase cache uc)
-      | ApiSignature.ComputationExpressionBuilder b -> ApiSignature.ComputationExpressionBuilder (resolve_ComputationExpressionBuilder cache b)
+      | ApiSignature.FullTypeDefinition f -> ApiSignature.FullTypeDefinition (resolve_FullTypeDefinition context f)
+      | ApiSignature.TypeAbbreviation a -> ApiSignature.TypeAbbreviation (resolve_TypeAbbreviationDefinition context a)
+      | ApiSignature.TypeExtension e -> ApiSignature.TypeExtension (resolve_TypeExtension context e)
+      | ApiSignature.ExtensionMember m -> ApiSignature.ExtensionMember (resolve_Member context m)
+      | ApiSignature.UnionCase uc -> ApiSignature.UnionCase (resolve_UnionCase context uc)
+      | ApiSignature.ComputationExpressionBuilder b -> ApiSignature.ComputationExpressionBuilder (resolve_ComputationExpressionBuilder context b)
 
-    let resolve_Api cache (api: Api) =
+    let resolve_Api context (api: Api) =
       { api with
-          Name = resolve_Name cache api.Name
-          Signature = resolve_Signature cache api.Signature
-          TypeConstraints = List.map (resolve_TypeConstraint cache) api.TypeConstraints
+          Name = resolve_Name context api.Name
+          Signature = resolve_Signature context api.Signature
+          TypeConstraints = List.map (resolve_TypeConstraint context) api.TypeConstraints
       }
 
     let resolve_ApiDictionary cache (apiDic: ApiDictionary) =
-      { apiDic with
-          Api = Array.map (resolve_Api cache) apiDic.Api
-          TypeDefinitions = Array.map (resolve_FullTypeDefinition cache) apiDic.TypeDefinitions
-          TypeAbbreviations = Array.map (resolve_TypeAbbreviationDefinition cache) apiDic.TypeAbbreviations
+      let context = {
+        Cache = cache
+        ForwardingLogs = Dictionary<_, _>() :> IDictionary<_, _>
       }
+      let resolved =
+        { apiDic with
+            Api = Array.map (resolve_Api context) apiDic.Api
+            TypeDefinitions = Array.map (resolve_FullTypeDefinition context) apiDic.TypeDefinitions
+            TypeAbbreviations = Array.map (resolve_TypeAbbreviationDefinition context) apiDic.TypeAbbreviations
+        }
+      let forwardingLogs = context.ForwardingLogs.Values :> seq<_>
+      (resolved, forwardingLogs)
 
     let resolveLoadingName (dictionaries: ApiDictionary[]) =
       let cache: NameCache =
         dictionaries
-        |> Seq.map (fun d ->
+        |> Array.map (fun d ->
           let names =
             Seq.concat [
               d.TypeDefinitions |> Seq.map (fun x -> x.FullName, x.Name)
@@ -1067,10 +1093,10 @@ module internal Impl =
             |> dict
           (d.AssemblyName, names)
         )
-        |> dict
       dictionaries |> Array.map (resolve_ApiDictionary cache)
 
-let load (assemblies: FSharpAssembly[]): ApiDictionary[] = Array.map Impl.load assemblies |> Impl.NameResolve.resolveLoadingName
+let loadWithLogs (assemblies: FSharpAssembly[]) = Array.map Impl.load assemblies |> Impl.NameResolve.resolveLoadingName
+let load (assemblies: FSharpAssembly[]): ApiDictionary[] = loadWithLogs assemblies |> Array.map fst
 
 let databaseName = "database"
 

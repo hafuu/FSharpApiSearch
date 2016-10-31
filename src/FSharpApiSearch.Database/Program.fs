@@ -52,7 +52,18 @@ let printAssemblies (assemblyResolver: AssemblyLoader.AssemblyResolver) assembli
   printfn "Create the database of the following assemblies."
   assemblies
   |> Seq.choose assemblyResolver.Resolve
-  |> Seq.iter (fun path -> printfn "%s" path)
+  |> Seq.iter (fun path -> printfn "  %s" path)
+
+let printForwardingLogs (apiDict: ApiDictionary, logs: seq<ApiLoader.TypeForward>) =
+  if Seq.isEmpty logs then
+    ()
+  else
+    printfn "%s" apiDict.AssemblyName
+    logs
+    |> Seq.sortBy (fun tf -> tf.Type)
+    |> Seq.iter (fun tf ->
+      printfn "  %s was forwarded to %s from %s." tf.Type tf.To tf.From
+    )
 
 [<EntryPoint>]
 let main argv = 
@@ -67,8 +78,12 @@ let main argv =
       printAssemblies args.AssemblyResolver assemblies
       let dictionaries =
         AssemblyLoader.load args.AssemblyResolver assemblies
-        |> ApiLoader.load
-      ApiLoader.save ApiLoader.databaseName dictionaries
+        |> ApiLoader.loadWithLogs
+      
+      dictionaries |> Array.iter printForwardingLogs
+
+      printfn "Saving database."
+      ApiLoader.save ApiLoader.databaseName (Array.map fst dictionaries)
       0
     with ex ->
       printfn "%A" ex
