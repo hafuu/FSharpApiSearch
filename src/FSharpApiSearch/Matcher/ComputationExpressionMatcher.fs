@@ -12,16 +12,6 @@ module Filter =
           | ApiKind.ComputationExpressionBuilder -> Failure
           | _ -> Matched ctx }
 
-let private map (options: SearchOptions) f (xs: #seq<_>) =
-  match options.Parallel with
-  | Enabled -> PSeq.map f xs :> seq<_>
-  | Disabled -> Seq.map f xs
-
-let private filter (options: SearchOptions) f (xs: #seq<_>) =
-  match options.Parallel with
-  | Enabled -> PSeq.filter f xs :> seq<_>
-  | Disabled -> Seq.filter f xs
-
 let private collect (options: SearchOptions) f (xs: #seq<_>) =
   match options.Parallel with
   | Enabled -> PSeq.collect f xs :> seq<_>
@@ -60,15 +50,15 @@ let search (options: SearchOptions) (targets: ApiDictionary seq) (lowTypeMatcher
     targets
     |> collect options (fun target ->
       target.Api
-      |> choose options (fun api ->
+      |> Seq.choose (fun api ->
         match api.Signature with
         | ApiSignature.ComputationExpressionBuilder builder ->
           Some (api, builder)
         | _ -> None
       )
-      |> filter options (fun (_, builder) -> testComputationExpressionTypes lowTypeMatcher initialContext query.Type builder.ComputationExpressionTypes)
-      |> filter options (fun (_, builder) -> testSyntaxes (Set.ofList builder.Syntaxes))
-      |> map options (fun (api, builder) ->
+      |> Seq.filter (fun (_, builder) -> testComputationExpressionTypes lowTypeMatcher initialContext query.Type builder.ComputationExpressionTypes)
+      |> Seq.filter (fun (_, builder) -> testSyntaxes (Set.ofList builder.Syntaxes))
+      |> Seq.map (fun (api, builder) ->
         let result = { Distance = 0; Api = api; AssemblyName = target.AssemblyName }
         (result, builder.BuilderType)
       )
@@ -80,11 +70,8 @@ let search (options: SearchOptions) (targets: ApiDictionary seq) (lowTypeMatcher
   let builderTypes = Choice (builderTypes |> List.map snd)
 
   let apiResults =
-    seq {
-      for dic in targets do
-        for api in dic.Api do
-          yield (dic, api)
-    }
+    targets
+    |> Seq.collect (fun dic -> dic.Api |> Seq.map (fun api -> (dic, api)))
     |> choose options (fun (dic, api) ->
       match test lowTypeMatcher builderTypes initialContext api with
       | Matched ctx -> Some { Distance = ctx.Distance; Api = api; AssemblyName = dic.AssemblyName }

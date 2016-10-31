@@ -27,11 +27,8 @@ let private choose (options: SearchOptions) f xs=
   | Disabled -> Seq.choose f xs
 
 let internal search' (targets: ApiDictionary seq) (options: SearchOptions) (lowTypeMatcher: ILowTypeMatcher) (apiMatchers: IApiMatcher list) (query: Query) (initialContext: Context) =
-  seq {
-    for dic in targets do
-    for api in dic.Api do
-    yield (dic, api)
-  }
+  targets
+  |> Seq.collect (fun dic -> dic.Api |> Seq.map (fun api -> (dic, api)))
   |> choose options (fun (dic, api) ->
     match test lowTypeMatcher apiMatchers query initialContext api with
     | Matched ctx -> Some { Distance = ctx.Distance; Api = api; AssemblyName = dic.AssemblyName }

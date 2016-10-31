@@ -7,6 +7,7 @@ open System.IO
 open MBrace.FsPickler
 open System.Collections.Generic
 open System.Xml.Linq
+open FSharp.Collections.ParallelSeq
 
 type TypeForward = {
   Type: FullName
@@ -874,7 +875,6 @@ module internal Impl =
         e.UnionCases
         |> Seq.filter (fun x -> x.Accessibility.IsPublic)
         |> Seq.choose (toUnionCaseApi cache xml typeName e declaringSignature)
-        |> Seq.cache
 
       match fullTypeDef cache xml typeName e (Seq.append members fields) with
       | Some (typeDefApi, typeDef) ->
@@ -887,10 +887,6 @@ module internal Impl =
       | None -> ()
       yield! collectFromNestedEntities cache xml typeName e
     }
-
-  let collectTypeAbbreviations (xs: Api seq) =
-    xs
-    |> Seq.choose (function { Signature = ApiSignature.TypeAbbreviation t } -> Some t | _ -> None)
 
   let tryGetXml (assembly: FSharpAssembly) = option {
     let! assemblyFileName = assembly.FileName
@@ -918,7 +914,8 @@ module internal Impl =
       |> Seq.choose (function { Signature = ApiSignature.FullTypeDefinition full } -> Some full | _ -> None)
       |> Seq.toArray
     let typeAbbreviations =
-      collectTypeAbbreviations api
+      api
+      |> Seq.choose (function { Signature = ApiSignature.TypeAbbreviation t } -> Some t | _ -> None)
       |> Seq.toArray
     { AssemblyName = assembly.SimpleName; Api = api; TypeDefinitions = types; TypeAbbreviations = typeAbbreviations }
 
@@ -1095,7 +1092,7 @@ module internal Impl =
         )
       dictionaries |> Array.map (resolve_ApiDictionary cache)
 
-let loadWithLogs (assemblies: FSharpAssembly[]) = Array.map Impl.load assemblies |> Impl.NameResolve.resolveLoadingName
+let loadWithLogs (assemblies: FSharpAssembly[]) = PSeq.map Impl.load assemblies |> PSeq.toArray |> Impl.NameResolve.resolveLoadingName
 let load (assemblies: FSharpAssembly[]): ApiDictionary[] = loadWithLogs assemblies |> Array.map fst
 
 let databaseName = "database"
