@@ -76,6 +76,11 @@
     <Compile Include="LinkGeneratorTest.fs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Net20Assembly\Net20Assembly.fsproj">
+      <Name>Net20Assembly</Name>
+      <Project>{7f986c73-f777-4778-a3fa-20c1b27c1ee0}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\CSharpLoadTestAssembly\CSharpLoadTestAssembly.csproj">
       <Name>CSharpLoadTestAssembly</Name>
       <Project>{6273542c-01f5-4ebf-8aab-9fcaa96bea62}</Project>

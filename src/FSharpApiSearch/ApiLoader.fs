@@ -917,17 +917,37 @@ module internal Impl =
     { AssemblyName = assembly.SimpleName; Api = api; TypeDefinitions = types; TypeAbbreviations = typeAbbreviations }
 
   module NameResolve =
-    type NameCache = IDictionary<string, IDictionary<string, DisplayName>>
-  
+    type AssemblyCache = IDictionary<string, DisplayName>
+    type NameCache = IDictionary<string, AssemblyCache>
+
+    let tryGetValue key (dict: IDictionary<_, _>) =
+      match dict.TryGetValue(key) with
+      | true, value -> Some value
+      | false, _ -> None
+
+    let tryResolve_Name (name: Name) (assemblyCache: AssemblyCache) =
+      match name with
+      | LoadingName (_, accessPath, apiName) ->
+        // TODO: Output warning log
+        assemblyCache |> tryGetValue accessPath |> Option.map (fun accessPath -> DisplayName (apiName @ accessPath))
+      | DisplayName _ as n -> Some n
+
+    let tryResolve_Name' (cache: NameCache) (name: Name) =
+      match name with
+      | LoadingName _ ->
+        cache.Values |> Seq.tryPick (tryResolve_Name name)
+      | DisplayName _ as n -> Some n
+
     let resolve_Name (cache: NameCache) (name: Name) =
       match name with
-      | LoadingName (assemblyName, fullName, displayName) ->
-        match cache.TryGetValue(assemblyName) with
-        | true, assembly ->
-            match assembly.TryGetValue(fullName) with
-            | true, namespace' -> DisplayName (displayName @ namespace')
-            | false, _ -> failwithf "Namespace %A is not found in %s" fullName assemblyName
-        | false, _ -> failwithf "Assembly %s is not found" assemblyName
+      | LoadingName (assemblyName, accessPath, _) ->
+        let resolved = tryGetValue assemblyName cache |> Option.bind (tryResolve_Name name)
+        match resolved with
+        | Some n -> n
+        | None ->
+          match tryResolve_Name' cache name with
+          | Some n -> n
+          | None -> failwithf "%s(%s) is not found." accessPath assemblyName
       | DisplayName _ as n -> n
   
     let rec resolve_LowType cache = function
