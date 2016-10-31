@@ -269,6 +269,7 @@ let tryGetSignatureQuery = function
   | QueryMethod.BySignature s -> Some s
   | QueryMethod.ByName (_, s) -> Some s
   | QueryMethod.ByActivePattern _ -> None
+  | QueryMethod.ByComputationExpression _ -> None
 
 let instance (options: SearchOptions) =
   let testArrow =

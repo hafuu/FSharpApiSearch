@@ -146,10 +146,10 @@ GROUP Test
 NUGET
   remote: https://www.nuget.org/api/v2
     Diff.Match.Patch (1.1)
-    FSharp.Object.Diff (0.9)
+    FSharp.Object.Diff (0.10.0-beta2)
     Persimmon (1.1)
     Persimmon.Console (1.1)
-    Persimmon.MuscleAssert (0.7.2)
+    Persimmon.MuscleAssert (0.8.0-beta1)
       Diff.Match.Patch (1.1)
-      FSharp.Object.Diff (>= 0.9)
+      FSharp.Object.Diff (>= 0.10.0-beta2)
       Persimmon (>= 1.1)

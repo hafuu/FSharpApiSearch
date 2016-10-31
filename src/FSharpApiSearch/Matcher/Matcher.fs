@@ -26,10 +26,7 @@ let private choose (options: SearchOptions) f xs=
   | Enabled -> PSeq.choose f xs :> seq<_>
   | Disabled -> Seq.choose f xs
 
-let search (dictionaries: ApiDictionary[]) (options: SearchOptions) (targets: ApiDictionary seq) (queryStr: string) =
-  let lowTypeMatcher, apiMatchers = MatcherInitializer.matchers options
-  let query = QueryParser.parse queryStr |> MatcherInitializer.initializeQuery dictionaries options
-  let initialContext = MatcherInitializer.initializeContext dictionaries options query
+let internal search' (targets: ApiDictionary seq) (options: SearchOptions) (lowTypeMatcher: ILowTypeMatcher) (apiMatchers: IApiMatcher list) (query: Query) (initialContext: Context) =
   seq {
     for dic in targets do
     for api in dic.Api do
@@ -40,3 +37,12 @@ let search (dictionaries: ApiDictionary[]) (options: SearchOptions) (targets: Ap
     | Matched ctx -> Some { Distance = ctx.Distance; Api = api; AssemblyName = dic.AssemblyName }
     | _ -> None
   )
+
+let search (dictionaries: ApiDictionary[]) (options: SearchOptions) (targets: ApiDictionary seq) (queryStr: string) =
+  let lowTypeMatcher, apiMatchers = MatcherInitializer.matchers options
+  let query = QueryParser.parse queryStr |> MatcherInitializer.initializeQuery dictionaries options
+  let initialContext = MatcherInitializer.initializeContext dictionaries options query
+
+  match query.Method with
+  | QueryMethod.ByComputationExpression ceQuery -> ComputationExpressionMatcher.search options targets lowTypeMatcher ceQuery initialContext
+  | _ -> search' targets options lowTypeMatcher apiMatchers query initialContext

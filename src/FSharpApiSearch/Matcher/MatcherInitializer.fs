@@ -12,6 +12,7 @@ let matchers options =
       ActivePatternMatcher.instance
       ConstraintSolver.instance
       NonPublicFilter.instance
+      ComputationExpressionMatcher.Filter.instance
     ]
     |> List.map (fun f -> f options)
   (lowTypeMatcher, apiMatchers)
@@ -46,6 +47,7 @@ let collectFromSignatureQuery getTarget query =
       match apQuery with
       | { ActivePatternQuery.Signature = ActivePatternSignature.AnyParameter (x, y) } -> Seq.collect f [ x; y ]
       | { ActivePatternQuery.Signature = ActivePatternSignature.Specified x } -> f x
+    | { Query.Method = QueryMethod.ByComputationExpression ceQuery } -> f ceQuery.Type
 
   results |> Seq.distinct |> Seq.toList
     
@@ -133,10 +135,13 @@ let replaceTypeAbbreviation nameEquality (dictionaries: ApiDictionary seq) (quer
   let replaceActivePatternSignature = function
     | ActivePatternSignature.AnyParameter (x, y) -> ActivePatternSignature.AnyParameter (replace x, replace y)
     | ActivePatternSignature.Specified x -> ActivePatternSignature.Specified (replace x)
+  let replaceComputationExpressionQuery (ce: ComputationExpressionQuery) = { ce with Type = replace ce.Type }
+
   match query with
   | { Method = QueryMethod.ByName (name, sigQuery) } -> { query with Method = QueryMethod.ByName (name, replaceSignatureQuery sigQuery) }
   | { Method = QueryMethod.BySignature sigQuery } -> { query with Method = QueryMethod.BySignature (replaceSignatureQuery sigQuery) }
   | { Method = QueryMethod.ByActivePattern apQuery } -> { query with Method = QueryMethod.ByActivePattern { apQuery with Signature = replaceActivePatternSignature apQuery.Signature } }
+  | { Method = QueryMethod.ByComputationExpression ceQuery } -> { query with Method = QueryMethod.ByComputationExpression (replaceComputationExpressionQuery ceQuery) }
           
 
 let initializeQuery (dictionaries: ApiDictionary seq) (options: SearchOptions) (query: Query) =

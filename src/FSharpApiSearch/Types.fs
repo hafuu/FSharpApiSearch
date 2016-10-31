@@ -262,6 +262,7 @@ type ApiKind =
   | ModuleDefinition
   | TypeDefinition
   | TypeAbbreviation
+  | ComputationExpressionBuilder
 
 [<RequireQualifiedAccess>]
 type ActivePatternKind =
@@ -295,6 +296,12 @@ type ModuleDefinition = {
 with
   member internal this.LowType = Identity (FullIdentity { Name = DisplayName this.Name; AssemblyName = "dummy assembly"; GenericParameterCount = 0 })
 
+type ComputationExpressionBuilder = {
+  BuilderType: LowType
+  ComputationExpressionTypes: LowType list
+  Syntaxes: string list
+}
+
 [<RequireQualifiedAccess>]
 type ApiSignature =
   | ModuleValue of LowType
@@ -311,6 +318,7 @@ type ApiSignature =
   /// C# Extension Member
   | ExtensionMember of Member
   | UnionCase of UnionCase
+  | ComputationExpressionBuilder of ComputationExpressionBuilder
 
 type Api = {
   Name: Name
@@ -333,6 +341,7 @@ with
     | ApiSignature.TypeExtension t -> ApiKind.Member (t.MemberModifier, t.Member.Kind)
     | ApiSignature.ExtensionMember _ -> ApiKind.ExtensionMember
     | ApiSignature.UnionCase _ -> ApiKind.UnionCase
+    | ApiSignature.ComputationExpressionBuilder _ -> ApiKind.ComputationExpressionBuilder
 
 type ApiDictionary = {
   AssemblyName: string
@@ -349,6 +358,11 @@ type ActivePatternSignature =
 type ActivePatternQuery = {
   Kind: ActivePatternKind
   Signature: ActivePatternSignature
+}
+[<RequireQualifiedAccess>]
+type ComputationExpressionQuery = {
+  Syntaxes: string list
+  Type: LowType
 }
 
 [<RequireQualifiedAccess>]
@@ -375,6 +389,7 @@ type QueryMethod =
   | ByName of (string * NameMatchMethod) list * SignatureQuery
   | BySignature of SignatureQuery
   | ByActivePattern of ActivePatternQuery
+  | ByComputationExpression of ComputationExpressionQuery
 
 [<RequireQualifiedAccess>]
 type Query = {
@@ -464,6 +479,8 @@ module internal SpecialTypes =
       | TypeAbbreviation { Original = o } -> isUnit o
       | _ -> false
 
+    let Boolean = ofDotNetType typeof<Boolean>
+
     module Patterns =
       let (|Unit|_|) x = if isUnit x then Some () else None
       let (|Array|_|) x =
@@ -481,6 +498,13 @@ module internal SpecialTypes =
             | _ -> None
           | FullIdentity { Name = LoadingName _ } -> Name.loadingNameError()
         | _ -> None
+
+      let private b = Boolean
+      let (|Boolean|_|) (TypeAbbreviation { Original = t } | t ) =
+        if t = b then
+          Some ()
+        else
+          None
       let (|NonTuple|_|) x =
         match x with
         | Tuple _ -> None
@@ -517,6 +541,7 @@ module internal Print =
     | ApiKind.ModuleDefinition -> "module"
     | ApiKind.TypeDefinition -> "type"
     | ApiKind.TypeAbbreviation -> "type abbreviation"
+    | ApiKind.ComputationExpressionBuilder -> "builder"
 
   let typeVariablePrefix (v: TypeVariable) = if v.IsSolveAtCompileTime then "^" else "'"
 
@@ -701,6 +726,15 @@ module internal Print =
 
   let printModule (m: ModuleDefinition) = sprintf "module %s" m.Name.Head.FSharpName
 
+  let printComputationExpressionBuilder isDebug (builder: ComputationExpressionBuilder)=
+    if isDebug then
+      sprintf "type %s, [ %s ], { %s }"
+        (printLowType isDebug builder.BuilderType)
+        (List.map (printLowType isDebug) builder.ComputationExpressionTypes |> String.concat "; ")
+        (String.concat "; " builder.Syntaxes)
+    else
+      sprintf "type %s, { %s }" (printLowType isDebug builder.BuilderType) (String.concat "; " builder.Syntaxes)
+
   let printApiSignature isDebug = function
     | ApiSignature.ModuleValue t -> printLowType isDebug t
     | ApiSignature.ModuleFunction fn -> printParameterGroups false isDebug fn
@@ -722,6 +756,7 @@ module internal Print =
         printMember isDebug t.Member
     | ApiSignature.ExtensionMember m -> printMember isDebug m
     | ApiSignature.UnionCase uc -> printUnionCase isDebug uc
+    | ApiSignature.ComputationExpressionBuilder builder -> printComputationExpressionBuilder isDebug builder
 
 type TypeVariable with
   member this.Print() = Print.printTypeVariable false VariableSource.Target this

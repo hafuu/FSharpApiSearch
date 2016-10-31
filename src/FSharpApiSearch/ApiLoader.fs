@@ -765,12 +765,38 @@ module internal Impl =
         Equality = equality cache e |> snd
         Comparison = comparison cache e |> snd
       }
-      return { Name = DisplayName name.Value; Signature = ApiSignature.FullTypeDefinition typeDef; TypeConstraints = typeDef.TypeConstraints; Document = tryGetXmlDoc xml e }
+      let api = { Name = DisplayName name.Value; Signature = ApiSignature.FullTypeDefinition typeDef; TypeConstraints = typeDef.TypeConstraints; Document = tryGetXmlDoc xml e }
+      return (api, typeDef)
     }
 
   let moduleDef xml (name: Lazy<_>) (e: FSharpEntity) =
     let def: ModuleDefinition = { Name = name.Value; Accessibility = accessibility e }
     { Name = DisplayName name.Value; Signature = ApiSignature.ModuleDefinition def; TypeConstraints = []; Document = tryGetXmlDoc xml e }
+
+  let tryExtractSyntaxes typeDef customOperations =
+    let defaultSyntaxes = ComputationExpressionLoader.extractSyntaxes typeDef
+    let customOperationSyntaxes = customOperations |> Seq.map fst |> Set.ofSeq
+    let syntaxes = defaultSyntaxes + customOperationSyntaxes
+    if Set.isEmpty syntaxes then
+      None
+    else
+      Some syntaxes
+
+  let computationExpression xml (typeDef: FullTypeDefinition) customOperations =
+    option {
+      let! syntaxes = tryExtractSyntaxes typeDef customOperations
+      let ceTypes = ComputationExpressionLoader.extractTypes typeDef customOperations |> Seq.toList
+      let apiSig = ApiSignature.ComputationExpressionBuilder { BuilderType = typeDef.LowType; ComputationExpressionTypes = ceTypes; Syntaxes = Set.toList syntaxes }
+      return { Name = DisplayName typeDef.Name; Signature = apiSig; TypeConstraints = typeDef.TypeConstraints; Document = xml }
+    }
+
+  let isCustomOperation (x: FSharpMemberOrFunctionOrValue) =
+    x.Attributes |> Seq.tryPick (fun attr ->
+      if attr.AttributeType.TryFullName = Some "Microsoft.FSharp.Core.CustomOperationAttribute" then
+        let (_, name) = attr.ConstructorArguments |> Seq.head
+        tryUnbox<string> name
+      else
+        None)
 
   let rec collectApi (cache: VariableCache) xml (accessPath: Lazy<DisplayName>) (e: FSharpEntity): Api seq =
     seq {
@@ -815,11 +841,22 @@ module internal Impl =
     seq {
       let declaringSignature = lazy(fsharpEntityToLowType cache e)
 
-      let members =
+      let membersAndCustomOperations =
         e.MembersFunctionsAndValues
         |> Seq.filter (fun x -> x.Accessibility.IsPublic && not x.IsCompilerGenerated)
-        |> Seq.choose (toTypeMemberApi cache xml typeName e declaringSignature)
+        |> Seq.choose (fun x ->
+          toTypeMemberApi cache xml typeName e declaringSignature x
+          |> Option.map (fun m -> (m, isCustomOperation x)))
         |> Seq.cache
+
+      let members = membersAndCustomOperations |> Seq.map fst
+
+      let customOperations =
+        membersAndCustomOperations
+        |> Seq.choose (function
+          | { Signature = ApiSignature.InstanceMember (_, m) }, Some name -> Some (name, m)
+          | _ -> None)
+        |> Seq.toList
 
       let fields =
         e.FSharpFields
@@ -834,11 +871,13 @@ module internal Impl =
         |> Seq.cache
 
       match fullTypeDef cache xml typeName e (Seq.append members fields) with
-      | Some d ->
-        yield d
+      | Some (typeDefApi, typeDef) ->
+        yield typeDefApi
         yield! members
         yield! fields
         yield! unionCases
+
+        yield! computationExpression typeDefApi.Document typeDef customOperations |> Option.toList
       | None -> ()
       yield! collectFromNestedEntities cache xml typeName e
     }
@@ -887,7 +926,7 @@ module internal Impl =
         | true, assembly ->
             match assembly.TryGetValue(fullName) with
             | true, namespace' -> DisplayName (displayName @ namespace')
-            | false, _ -> failwithf "Namespace %s is not found in %s" assemblyName assemblyName
+            | false, _ -> failwithf "Namespace %A is not found in %s" fullName assemblyName
         | false, _ -> failwithf "Assembly %s is not found" assemblyName
       | DisplayName _ as n -> n
   
@@ -960,6 +999,12 @@ module internal Impl =
           DeclaringType = resolve_LowType cache uc.DeclaringType
           Fields = List.map (resolve_UnionCaseField cache) uc.Fields
       }
+
+    let resolve_ComputationExpressionBuilder cache (builder: ComputationExpressionBuilder) =
+      { builder with
+          BuilderType = resolve_LowType cache builder.BuilderType
+          ComputationExpressionTypes = List.map (resolve_LowType cache) builder.ComputationExpressionTypes
+      }
       
     let resolve_Signature cache = function
       | ApiSignature.ModuleValue x -> ApiSignature.ModuleValue (resolve_LowType cache x)
@@ -974,6 +1019,7 @@ module internal Impl =
       | ApiSignature.TypeExtension e -> ApiSignature.TypeExtension (resolve_TypeExtension cache e)
       | ApiSignature.ExtensionMember m -> ApiSignature.ExtensionMember (resolve_Member cache m)
       | ApiSignature.UnionCase uc -> ApiSignature.UnionCase (resolve_UnionCase cache uc)
+      | ApiSignature.ComputationExpressionBuilder b -> ApiSignature.ComputationExpressionBuilder (resolve_ComputationExpressionBuilder cache b)
 
     let resolve_Api cache (api: Api) =
       { api with

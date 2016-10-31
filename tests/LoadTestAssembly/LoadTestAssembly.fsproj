@@ -66,6 +66,7 @@
     <Compile Include="Operators.fs" />
     <Compile Include="Delegate.fs" />
     <Compile Include="OptionalParameters.fs" />
+    <Compile Include="ComputationExpression.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
