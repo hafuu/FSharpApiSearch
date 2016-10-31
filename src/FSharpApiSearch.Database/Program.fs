@@ -58,11 +58,11 @@ let printForwardingLogs (apiDict: ApiDictionary, logs: seq<ApiLoader.TypeForward
   if Seq.isEmpty logs then
     ()
   else
-    printfn "%s" apiDict.AssemblyName
+    printfn "%s type forwarding" apiDict.AssemblyName
     logs
     |> Seq.sortBy (fun tf -> tf.Type)
     |> Seq.iter (fun tf ->
-      printfn "  %s was forwarded to %s from %s." tf.Type tf.To tf.From
+      printfn "  %s : %s -> %s" tf.Type tf.From tf.To
     )
 
 [<EntryPoint>]
