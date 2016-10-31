@@ -349,6 +349,15 @@ type ApiDictionary = {
   TypeDefinitions: FullTypeDefinition[]
   TypeAbbreviations: TypeAbbreviationDefinition[]
 }
+with
+  member this.PublicApiNumber =
+    this.Api
+    |> Seq.filter (function
+      | { Signature = ApiSignature.FullTypeDefinition { Accessibility = Private } }
+      | { Signature = ApiSignature.ModuleDefinition { Accessibility = Private } }
+      | { Signature = ApiSignature.TypeAbbreviation { Accessibility = Private } } -> false
+      | _ -> true)
+    |> Seq.length
 
 [<RequireQualifiedAccess>]
 type ActivePatternSignature =

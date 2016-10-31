@@ -65,6 +65,13 @@ let printForwardingLogs (apiDict: ApiDictionary, logs: seq<ApiLoader.TypeForward
       printfn "  %s : %s -> %s" tf.Type tf.From tf.To
     )
 
+let printApiNumber (dictionaries: ApiDictionary[]) =
+  printfn "Finished."
+  dictionaries
+  |> Array.iter (fun apiDic ->
+    printfn "  %s : %d" apiDic.AssemblyName apiDic.PublicApiNumber
+  )
+
 [<EntryPoint>]
 let main argv = 
   let args = Args.parse Args.defaultArg (List.ofArray argv)
@@ -82,8 +89,12 @@ let main argv =
       
       dictionaries |> Array.iter printForwardingLogs
 
+      let dictionaries = Array.map fst dictionaries
+
+      printApiNumber dictionaries
+
       printfn "Saving database."
-      ApiLoader.save ApiLoader.databaseName (Array.map fst dictionaries)
+      ApiLoader.save ApiLoader.databaseName dictionaries
       0
     with ex ->
       printfn "%A" ex

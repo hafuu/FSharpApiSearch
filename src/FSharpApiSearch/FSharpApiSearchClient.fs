@@ -4,6 +4,11 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open FSharpApiSearch.AssemblyLoader
 open FSharp.Collections.ParallelSeq
 
+type TargetSummary = {
+  AssemblyName: string
+  PublicApiNumber: int
+}
+
 type FSharpApiSearchClient(targets: string seq, dictionaries: ApiDictionary seq) =
   let dictionaries = dictionaries |> Seq.toArray
   let targetDictionaries = dictionaries |> Seq.filter (fun x -> targets |> Seq.exists ((=)x.AssemblyName)) |> Seq.toArray
@@ -43,3 +48,5 @@ type FSharpApiSearchClient(targets: string seq, dictionaries: ApiDictionary seq)
     
 
   member this.TargetAssemblies: string list = targetDictionaries |> Array.map (fun x -> x.AssemblyName) |> Array.toList
+
+  member this.Targets: TargetSummary list = targetDictionaries |> Array.map (fun x -> { AssemblyName = x.AssemblyName; PublicApiNumber = x.PublicApiNumber }) |> Array.toList

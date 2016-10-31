@@ -104,7 +104,7 @@ FSharpApiSearch.Console interactive mode directive:
     match Console.ReadLine().TrimEnd(';') with
     | "#q" -> arg
     | "#targets" ->
-      client.Value.TargetAssemblies |> List.iter (printfn "  %s")
+      client.Value.Targets |> List.iter (fun t -> printfn "  %s : %d" t.AssemblyName t.PublicApiNumber)
       Console.WriteLine()
       loop client arg
     | OptionSetting "#respect-name-difference" SearchOptions.RespectNameDifference arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
