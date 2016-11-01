@@ -29,6 +29,7 @@ module Args =
     | Status "--greedy-matching" v :: rest -> parse { arg with SearchOptions = SearchOptions.GreedyMatching.Set (boolToOptionStatus v) arg.SearchOptions } rest
     | Status "--ignore-param-style" v :: rest -> parse { arg with SearchOptions = SearchOptions.IgnoreParameterStyle.Set (boolToOptionStatus v) arg.SearchOptions } rest
     | Status "--ignore-case" v :: rest -> parse { arg with SearchOptions = SearchOptions.IgnoreCase.Set (boolToOptionStatus v) arg.SearchOptions } rest
+    | KeyValue "--swap-order-depth" (Number depth) :: rest -> parse { arg with SearchOptions = SearchOptions.SwapOrderDepth.Set depth arg.SearchOptions } rest
     | (KeyValue "--target" t | KeyValue "-t" t) :: rest -> parse { arg with Targets = t :: arg.Targets } rest
     | Status "--xmldoc" v :: rest -> parse { arg with ShowXmlDocument = boolToOptionStatus v } rest
     | Status "--stacktrace" v :: rest -> parse { arg with StackTrace = boolToOptionStatus v } rest

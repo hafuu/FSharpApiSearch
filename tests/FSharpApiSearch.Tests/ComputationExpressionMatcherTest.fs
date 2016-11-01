@@ -19,7 +19,7 @@ let testComputationExpression = parameterize {
   run (fun (query, builderExpected, expected) -> test {
     let! apiDict = TestAssemblies.fsharpAssemblyApi
     let! dictionaries = TestAssemblies.apiDictionary
-    let options = SearchOptions.defaultOptions |> SearchOptions.Parallel.Set Disabled
+    let options = TestHelper.defaultTestOptions
     let actual = Matcher.search dictionaries options [| apiDict |] query |> Seq.cache
     let computationBuilderCount = actual |> Seq.filter (fun result -> result.Api.Kind = ApiKind.ComputationExpressionBuilder) |> Seq.length
     let apiCount = actual |> Seq.filter (fun result -> result.Api.Kind <> ApiKind.ComputationExpressionBuilder) |> Seq.length

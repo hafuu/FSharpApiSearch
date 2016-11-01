@@ -9,6 +9,11 @@ let (|Status|_|) (name: string) (str: string) =
   else
     None
 
+let (|Number|_|) (str: string) =
+  match System.Int32.TryParse(str) with
+  | true, x -> Some x
+  | false, _ -> None
+
 let (|KeyValue|_|) key (str: string) =
   match str.Split([| ':' |], 2) |> Array.toList with
   | [ k; v ] when key = k -> Some v

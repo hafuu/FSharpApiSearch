@@ -57,7 +57,10 @@ module Rules =
   let testArrow (lowTypeMatcher: ILowTypeMatcher) (leftElems: LowType list) (rightElems: Parameter list list) ctx =
     Debug.WriteLine("test arrow.")
     let rightElems = trimOptionalParameters leftElems rightElems
-    let test ctx = lowTypeMatcher.TestAll leftElems (Function.toLowTypeList rightElems) ctx
+    let test ctx =
+      let rightElems = (Function.toLowTypeList rightElems)
+      lowTypeMatcher.TestAll2 leftElems rightElems ctx
+      |> MatchingResult.bindFailureWithSwap (lowTypeMatcher.TestArrowElementsWithSwap leftElems rightElems) ctx
     match leftElems, rightElems with
     | [ WildcardOrVariable; _ ], [ [ _ ]; _ ] -> test ctx
     | [ WildcardOrVariable; _ ], [ _; _ ] -> Failure
@@ -97,14 +100,17 @@ module Rules =
       Debug.WriteLine("pattern 1")
       let leftElems = [ leftParam; leftRet ]
       let rightElems = [ rightParam.Type; rightRet.Type ]
-      lowTypeMatcher.TestAll leftElems rightElems ctx
+      lowTypeMatcher.TestAll2 leftElems rightElems ctx
+      |> MatchingResult.bindFailureWithSwap (lowTypeMatcher.TestArrowElementsWithSwap leftElems rightElems) ctx
     | Left_NonCurriedFunction leftElems, Right_CurriedFunction rightElems ->
       Debug.WriteLine("pattern 2")
-      lowTypeMatcher.TestAll leftElems rightElems ctx
+      lowTypeMatcher.TestAll2 leftElems rightElems ctx
+      |> MatchingResult.bindFailureWithSwap (lowTypeMatcher.TestArrowElementsWithSwap leftElems rightElems) ctx
       |> MatchingResult.mapMatched (Context.addDistance 1)
     | Left_CurriedFunction leftElems, (Right_TupleFunction rightElems | Right_NonCurriedFunction rightElems) ->
       Debug.WriteLine("pattern 3")
-      lowTypeMatcher.TestAll leftElems rightElems ctx
+      lowTypeMatcher.TestAll2 leftElems rightElems ctx
+      |> MatchingResult.bindFailureWithSwap (lowTypeMatcher.TestArrowElementsWithSwap leftElems rightElems) ctx
       |> MatchingResult.mapMatched (Context.addDistance 1)
     | _, _ ->
       Debug.WriteLine("pattern 4")
@@ -212,7 +218,8 @@ module Rules =
           yield queryReturnType
         ]
       let rightElems = Function.toLowTypeList right
-      lowTypeMatcher.TestAll leftElems rightElems ctx
+      lowTypeMatcher.TestAll2 leftElems rightElems ctx
+      |> MatchingResult.bindFailureWithSwap (lowTypeMatcher.TestArrowElementsWithSwap leftElems rightElems) ctx
       |> MatchingResult.mapMatched (Context.addDistance 1)
     | _ -> Continue ctx
 

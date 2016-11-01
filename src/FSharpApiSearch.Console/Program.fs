@@ -59,16 +59,27 @@ module Interactive =
     | "disable" -> Some Disabled
     | _ -> None
 
-  let (|OptionSetting|_|) (name: string) (lens: Lens<_, _>) target (str: string) =
-    match str.Split([| ' ' |], 2) with
+  let tryParseInt (x: string) =
+    match Int32.TryParse(x) with
+    | true, n -> Some n
+    | false, _ -> None
+
+  let setting tryParse (name: string) (lens: Lens<_, _>) target (str: string) =
+    match str.Split([| ' ' |], 2, StringSplitOptions.RemoveEmptyEntries) with
     | [| key; value |] when key = name ->
-      match tryParseOptionStatus value with
+      match tryParse value with
       | Some value -> Some (lens.Set value target)
       | None -> printfn "invalid value"; Some target
     | [| key |] when key = name ->
       printfn "%A" (lens.Get target)
       Some target
     | _ -> None
+
+  let (|OptionSetting|_|) (name: string) (lens: Lens<_, _>) target (str: string) =
+    setting tryParseOptionStatus name lens target str
+
+  let (|NumberSetting|_|) (name: string) (lens: Lens<_, _>) target (str: string) =
+    setting tryParseInt name lens target str
 
   let ShowXmlDocument = { Get = (fun x -> x.ShowXmlDocument); Set = (fun value x -> { x with ShowXmlDocument = value }) }
   let StackTrace = { Get = (fun x -> x.StackTrace); Set = (fun value x -> { x with StackTrace = value }) }
@@ -86,6 +97,8 @@ FSharpApiSearch.Console interactive mode directive:
       The parameter style refers to curried parameter, multi parameter and tuple parameter.
   #ignore-case
       Enables or disables to use ignore case matching.
+  #swap-order-depth
+      Specifies the depth of swapping parameters and tuple order.
   #xmldoc [enable|disable]
       Enables or disables to show xml document of API.
   #stacktrace [enable|disable]
@@ -111,6 +124,7 @@ FSharpApiSearch.Console interactive mode directive:
     | OptionSetting "#greedy-matching" SearchOptions.GreedyMatching arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#ignore-param-style" SearchOptions.IgnoreParameterStyle arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#ignore-case" SearchOptions.IgnoreCase arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
+    | NumberSetting "#swap-order-depth" SearchOptions.SwapOrderDepth arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#xmldoc" ShowXmlDocument arg newArg -> loop client newArg
     | OptionSetting "#stacktrace" StackTrace arg newArg -> loop client newArg
     | "#clear" ->
@@ -148,6 +162,9 @@ options:
   --ignore-case[+|-]
       Enables or disables to use ignore case matching.
       The default is enabled.
+  --swap-order-depth:<depth>
+      Specifies the depth of swapping parameters and tuple order.
+      The default is 1.
   --target:<assembly>, -t:<assembly>
       Specifies the assembly name of the searching target.
       If omitted, it will target 'FSharp.Core', 'mscorlib', 'System' and 'System.Core'.

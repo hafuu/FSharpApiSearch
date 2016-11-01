@@ -56,7 +56,7 @@ let expectedValue optValue expected =
 let respectNameDifferenceInequalitiesTest =
   test {
     let query = QueryParser.parse "?a -> ?b -> 'a -> 'b"
-    let opt = SearchOptions.defaultOptions
+    let opt = defaultTestOptions
     let eqs = MatcherTypes.Equations.empty |> MatcherInitializer.initialEquations opt query
     do! eqs.Inequalities |> assertEquals [ (queryVariable "'a", queryVariable "'b"); (Wildcard (Some "a"), Wildcard (Some "b")) ]
   }
@@ -108,7 +108,7 @@ let nameMatchTest =
       "B..ctor : _", typeAConstructorName, typeAConstructor, false
       "B : _", typeAConstructorName, typeAConstructor, false
     ]
-    run (fun (query, targetName, targetSig, expected) -> matchTest false [||] (SearchOptions.defaultOptions, query, targetName, targetSig, expected))
+    run (fun (query, targetName, targetSig, expected) -> matchTest false [||] (defaultTestOptions, query, targetName, targetSig, expected))
   }
 
 let partialNameMatchTest = 
@@ -130,7 +130,7 @@ let partialNameMatchTest =
       "map : _", Name.displayNameOfString "semaphore", listMap, false
       "*map* : _", Name.displayNameOfString "semaphore", listMap, true
     ]
-    run (fun (query, targetName, targetSig, expected) -> matchTest false [||] (SearchOptions.defaultOptions, query, targetName, targetSig, expected))
+    run (fun (query, targetName, targetSig, expected) -> matchTest false [||] (defaultTestOptions, query, targetName, targetSig, expected))
   }  
 
 let ignoreCaseMatchTest =
@@ -164,7 +164,7 @@ let ignoreCaseMatchTest =
     source [
       for opt in [ Enabled; Disabled ] do
         for (query, targetName, targetSig, expected) in cases do
-          let options = { SearchOptions.defaultOptions with IgnoreCase = opt }
+          let options = { defaultTestOptions with IgnoreCase = opt }
           let expected = expectedValue opt expected
           yield (options, query, targetName, targetSig, expected)
     ]
@@ -190,7 +190,7 @@ let matchModuleTest =
     run (fun (query, expected) -> test {
       let! apiDict = TestAssemblies.fsharpAssemblyApi
       let! dictionaries = TestAssemblies.apiDictionary
-      let opt = SearchOptions.defaultOptions |> SearchOptions.GreedyMatching.Set Enabled
+      let opt = defaultTestOptions |> SearchOptions.GreedyMatching.Set Enabled
       let actual = Matcher.search dictionaries opt [| apiDict |] query |> Seq.filter (fun result -> match result.Api.Kind with ApiKind.ModuleDefinition -> true | _ -> false)
       do! Seq.length actual >= 1 |> assertEquals expected
     })
@@ -214,7 +214,7 @@ let matchTypeDefTest =
     run (fun (query, expected) -> test {
       let! apiDict = TestAssemblies.fsharpAssemblyApi
       let! dictionaries = TestAssemblies.apiDictionary
-      let opt = SearchOptions.defaultOptions |> SearchOptions.GreedyMatching.Set Enabled
+      let opt = defaultTestOptions |> SearchOptions.GreedyMatching.Set Enabled
       let actual = Matcher.search dictionaries opt [| apiDict |] query |> Seq.filter (fun result -> match result.Api.Kind with ApiKind.TypeDefinition -> true | _ -> false)
       do! Seq.length actual >= 1 |> assertEquals expected
     })
@@ -241,7 +241,7 @@ let matchTypeAbbreviationTest =
     source (seq {
       for greedyOpt in [ Enabled; Disabled ] do
         for (query, expected) in cases do
-          let options = { SearchOptions.defaultOptions with GreedyMatching = greedyOpt; }
+          let options = { defaultTestOptions with GreedyMatching = greedyOpt; }
           yield (options, query, expectedValue greedyOpt expected)
     })
     run (fun (opt, query, expected) -> test {
@@ -256,7 +256,7 @@ let assemblyNameTest =
   test {
     let api: Api = { Name = Name.displayNameOfString "test"; Signature = moduleValue int; TypeConstraints = []; Document = None }
     let dummyDict = { AssemblyName = "dummyAssembly"; Api = [| api |]; TypeDefinitions = [||]; TypeAbbreviations = [||] }
-    let actual = Matcher.search Array.empty SearchOptions.defaultOptions [ dummyDict ] "?" |> Seq.toList
+    let actual = Matcher.search Array.empty defaultTestOptions [ dummyDict ] "?" |> Seq.toList
     do! actual |> assertEquals [ { AssemblyName = "dummyAssembly"; Api = api; Distance = 0 } ]
   }
 
@@ -264,7 +264,7 @@ let greedyMatchingTest trace abbTable greedyOpt cases = parameterize {
   source (seq {
     for respectNameDiffOpt in [ Enabled; Disabled ] do
       for (query, target, expected) in cases do
-        let options = { SearchOptions.defaultOptions with GreedyMatching = greedyOpt; RespectNameDifference = respectNameDiffOpt }
+        let options = { defaultTestOptions with GreedyMatching = greedyOpt; RespectNameDifference = respectNameDiffOpt }
         yield (options, query, Name.displayNameOfString "test", target, expectedValue respectNameDiffOpt expected)
   })
   run (matchTest trace abbTable)
@@ -274,7 +274,7 @@ let functionParamStyleTest trace cases = parameterize {
   source (seq {
       for opt in [ Enabled; Disabled ] do
       for (query, target, expected) in cases do
-        let options = { SearchOptions.defaultOptions with IgnoreParameterStyle = opt }
+        let options = { defaultTestOptions with IgnoreParameterStyle = opt }
         yield (options, query, Name.displayNameOfString "test", target, expectedValue opt expected)
   })
   run (matchTest trace [||])
@@ -506,7 +506,7 @@ module RespectNameDifferenceTest_WithGreedy =
     run (fun (query, target, expected) -> test {
       let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
       let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
-      let options = { GreedyMatching = Enabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled; Parallel = Disabled }
+      let options = { defaultTestOptions with GreedyMatching = Enabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled }
       let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.head
       do! actual.Distance |> assertEquals expected
     })
@@ -719,7 +719,7 @@ module IgnoreParameterStyleTest =
     run (fun (query, target, expected) -> test {
       let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
       let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
-      let options = { GreedyMatching = Disabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled; Parallel = Disabled }
+      let options = { defaultTestOptions with GreedyMatching = Disabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled }
       let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.head
       do! actual.Distance |> assertEquals expected
     })
@@ -1182,7 +1182,7 @@ module TypeConstraintTest =
       dictionary
     |]
 
-    let options = { GreedyMatching = Enabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled; Parallel = Disabled }
+    let options = { defaultTestOptions with GreedyMatching = Enabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled }
     let dummyDict = { AssemblyName = "dummy"; Api = [| targetApi |]; TypeDefinitions = [||]; TypeAbbreviations = [||] }
     let actual = Matcher.search dictionaries options [ dummyDict ] query |> Seq.length = 1
     do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
@@ -1582,7 +1582,7 @@ module ActivePatternTest =
     try
       let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
       let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
-      let options = SearchOptions.defaultOptions
+      let options = defaultTestOptions
       let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.length = 1
       do! actual |> assertEquals expected
     finally
@@ -1668,4 +1668,82 @@ module TypeExtensionTest =
       "A -> B", extensionMember (method' "test" [ [ ptype typeA ] ] typeB), Always true
       "A -> B", extensionMember (method' "test" [ [ ptype typeA ] ] typeA), Always false
       "A -> B -> A", extensionMember (method' "test" [ [ ptype typeA; ptype typeB ] ] typeA), WhenEnabled true
+    ]
+
+module SwapOrderTest =
+  open MatcherTypes
+  let swapTableTest = parameterize {
+    source[
+      1, [ Fixed; Swap ], []
+      1, [ Swap; Fixed; Swap; ], [ [ 2; 1; 0 ] ]
+      2, [ Swap; Fixed; Swap; ], [ [ 2; 1; 0 ] ]
+      1, [ Swap; Swap; Swap ], []
+      2, [ Swap; Swap; Swap ], [ [ 2; 0; 1 ]; [ 1; 2; 0 ] ]
+    ]
+    run (fun (n, input, expected) -> test {
+      do! LowTypeMatcher.Rules.makeSwapTable n (List.toArray input) |> assertEquals (List.map List.toArray expected |> List.toArray)
+    })
+  }
+
+  let typeA = createType "Test.A" []
+  let typeB = createType "Test.B" []
+  let typeC = createType "Test.C" []
+  let typeD = createType "Test.D" []
+    
+  let runTest trace depth cases =
+    let targetName = Name.displayNameOfString "test"
+
+    parameterize {
+      source [
+        for opt in [ Enabled; Disabled ] do
+          for (query, targetSig, expected) in cases do
+            let depth = match opt with Enabled -> depth | Disabled -> 0
+            let expected = expectedValue opt expected
+            yield (depth, query, targetSig, expected)
+      ]
+      
+      run (fun (depth, query, targetSig, expected) ->
+        let options = { defaultTestOptions with SwapOrderDepth = depth }
+        matchTest trace [||] (options, query, targetName, targetSig, expected))
+    }
+
+  let depth1test =
+    runTest false 1 [
+      "A -> B -> A", moduleFunction' [ [ ptype typeB ]; [ ptype typeA ]; [ ptype typeA ] ], WhenEnabled true
+      "A -> A -> B", moduleFunction' [ [ ptype typeB ]; [ ptype typeA ]; [ ptype typeA ] ], Always false
+      "B -> B -> A", moduleFunction' [ [ ptype typeB ]; [ ptype typeA ]; [ ptype typeA ] ], Always false
+      "A -> A -> A", moduleFunction' [ [ ptype typeB ]; [ ptype typeB ]; [ ptype typeA ] ], Always false
+
+      "B -> C -> A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeB ]; [ ptype typeC ]; [ ptype typeA ] ], Always false
+
+      "A * B -> A", moduleFunction' [ [ ptype typeB ]; [ ptype typeA ]; [ ptype typeA ] ], WhenEnabled true
+
+      "(A -> B -> B) -> A", moduleFunction' [ [ ptype (Arrow [ typeB; typeA; typeB ]) ]; [ ptype typeA ] ], WhenEnabled true
+      "(A * B -> B) -> A", moduleFunction' [ [ ptype (Arrow [ typeB; typeA; typeB ]) ]; [ ptype typeA ] ], WhenEnabled true
+      "(B -> B -> A) -> A", moduleFunction' [ [ ptype (Arrow [ typeB; typeA; typeB ]) ]; [ ptype typeA ] ], Always false
+
+      "(A * B) -> A", moduleFunction' [ [ ptype (tuple [ typeB; typeA ]) ]; [ ptype typeA ] ], WhenEnabled true
+      "(A * B * A) -> A", moduleFunction' [ [ ptype (tuple [ typeB; typeA; typeA ]) ]; [ ptype typeA ] ], WhenEnabled true
+    ]
+
+  let depth2Test =
+    runTest false 2 [
+      "B -> C -> A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeB ]; [ ptype typeC ]; [ ptype typeA ] ], WhenEnabled true
+    ]
+
+  let otherApiTest =
+    runTest false 1 [
+      "A -> B -> ?", activePattern [ [ ptype typeB ]; [ ptype typeA ]; [ ptype typeB ] ], WhenEnabled true
+      
+      "A -> B -> A", staticMember typeA (member' "test" MemberKind.Method [ [ ptype typeB ]; [ ptype typeA ] ] typeA), WhenEnabled true
+      "A -> B -> A", constructor' typeA (member' "new" MemberKind.Method [ [ ptype typeB ]; [ ptype typeA ] ] typeA), WhenEnabled true
+
+      "A => B -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeB ]; [ ptype typeA ] ], WhenEnabled true
+
+      "A => A -> B -> A", instanceMember typeA (member' "test" MemberKind.Method [ [ ptype typeB ]; [ ptype typeA ] ] typeA), WhenEnabled true
+      "A -> A -> B -> A", instanceMember typeA (member' "test" MemberKind.Method [ [ ptype typeB ]; [ ptype typeA ] ] typeA), WhenEnabled true
+
+      "A -> B -> A", moduleValue (delegate' typeD [ typeB; typeA; typeA ]), WhenEnabled true
+
+      "C -> B -> A", unionCase typeA "test" [ (None, typeB); (None, typeC) ], WhenEnabled true
     ]
