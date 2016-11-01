@@ -14,7 +14,7 @@ let testComputationExpression = parameterize {
     "{ let!; return } : option<'a>", 1, 2
     "{ for } : option<'a>", 0, 0
     "{ _ } : list<'a>", 0, 0
-    "{ try-finally } : TryFinallyTest", 2, 2
+    "{ try/finally } : TryFinallyTest", 2, 2
   ]
   run (fun (query, builderExpected, expected) -> test {
     let! apiDict = TestAssemblies.fsharpAssemblyApi

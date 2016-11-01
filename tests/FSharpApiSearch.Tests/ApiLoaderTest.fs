@@ -846,8 +846,8 @@ module ComputationExpression =
   let computationExpressionTest = parameterize {
     source [
       "ComputationExpression.OptionBuilder", { BuilderType = optBuilder; ComputationExpressionTypes = [ fsharpOption (variable "'a"); fsharpOption (variable "'b") ]; Syntaxes = [ "let!"; "return"; "return!" ] }
-      "ComputationExpression.GenericDelayBuilder", { BuilderType = genericDelayBuilder; ComputationExpressionTypes = [ tryFinallyTest ]; Syntaxes = [ "if"; "try-finally" ] }
-      "ComputationExpression.DelayBuilder", { BuilderType = delayBuilder; ComputationExpressionTypes = [ tryFinallyTest ]; Syntaxes = [ "if"; "try-finally" ] }
+      "ComputationExpression.GenericDelayBuilder", { BuilderType = genericDelayBuilder; ComputationExpressionTypes = [ tryFinallyTest ]; Syntaxes = [ "if/then"; "try/finally" ] }
+      "ComputationExpression.DelayBuilder", { BuilderType = delayBuilder; ComputationExpressionTypes = [ tryFinallyTest ]; Syntaxes = [ "if/then"; "try/finally" ] }
       "ComputationExpression.CustomOperationBuilder", { BuilderType = customOperationBuilder; ComputationExpressionTypes = [ variable "'a"; customOperation ]; Syntaxes = [ "test"; "yield" ] }
     ]
 

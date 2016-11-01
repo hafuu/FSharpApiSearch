@@ -122,11 +122,11 @@ let syntaxMethods =
     "return!", [ BuilderMethod.returnFrom ]
     "use", [ BuilderMethod.using ]
     "use!", [ BuilderMethod.bind; BuilderMethod.using ]
-    "if", [ BuilderMethod.zero ]
+    "if/then", [ BuilderMethod.zero ]
     "for", [ BuilderMethod.for' ]
     "while", [ BuilderMethod.while'; BuilderMethod.delay ]
-    "try-with", [ BuilderMethod.tryWith; BuilderMethod.delay ]
-    "try-finally", [ BuilderMethod.tryFinally; BuilderMethod.delay ]
+    "try/with", [ BuilderMethod.tryWith; BuilderMethod.delay ]
+    "try/finally", [ BuilderMethod.tryFinally; BuilderMethod.delay ]
   ]
 
 let hasSyntax (builderTypeDef: FullTypeDefinition) (expectedMethods: (Member -> bool) list) : bool =
