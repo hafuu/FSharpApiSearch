@@ -1672,23 +1672,12 @@ module TypeExtensionTest =
 
 module SwapOrderTest =
   open MatcherTypes
-  let swapTableTest = parameterize {
-    source[
-      1, [ Fixed; Swap ], []
-      1, [ Swap; Fixed; Swap; ], [ [ 2; 1; 0 ] ]
-      2, [ Swap; Fixed; Swap; ], [ [ 2; 1; 0 ] ]
-      1, [ Swap; Swap; Swap ], []
-      2, [ Swap; Swap; Swap ], [ [ 2; 0; 1 ]; [ 1; 2; 0 ] ]
-    ]
-    run (fun (n, input, expected) -> test {
-      do! LowTypeMatcher.Rules.makeSwapTable n (List.toArray input) |> assertEquals (List.map List.toArray expected |> List.toArray)
-    })
-  }
-
   let typeA = createType "Test.A" []
   let typeB = createType "Test.B" []
   let typeC = createType "Test.C" []
   let typeD = createType "Test.D" []
+
+  let typeE2 x y = createType "Test.E<'a, 'b>" [ x; y ]
     
   let runTest trace depth cases =
     let targetName = Name.displayNameOfString "test"
@@ -1714,7 +1703,8 @@ module SwapOrderTest =
       "B -> B -> A", moduleFunction' [ [ ptype typeB ]; [ ptype typeA ]; [ ptype typeA ] ], Always false
       "A -> A -> A", moduleFunction' [ [ ptype typeB ]; [ ptype typeB ]; [ ptype typeA ] ], Always false
 
-      "B -> C -> A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeB ]; [ ptype typeC ]; [ ptype typeA ] ], Always false
+      "B -> C -> A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeB ]; [ ptype typeC ]; [ ptype typeA ] ], WhenEnabled true
+      "C -> B -> A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeB ]; [ ptype typeC ]; [ ptype typeA ] ], Always false
 
       "A * B -> A", moduleFunction' [ [ ptype typeB ]; [ ptype typeA ]; [ ptype typeA ] ], WhenEnabled true
 
@@ -1728,7 +1718,7 @@ module SwapOrderTest =
 
   let depth2Test =
     runTest false 2 [
-      "B -> C -> A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeB ]; [ ptype typeC ]; [ ptype typeA ] ], WhenEnabled true
+      "C -> B -> A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeB ]; [ ptype typeC ]; [ ptype typeA ] ], WhenEnabled true
     ]
 
   let otherApiTest =
@@ -1747,3 +1737,115 @@ module SwapOrderTest =
 
       "C -> B -> A", unionCase typeA "test" [ (None, typeB); (None, typeC) ], WhenEnabled true
     ]
+
+  let genericTest =
+    runTest false 1 [
+      "E<A, B>", moduleValue (typeE2 typeA typeB), Always true
+      "E<B, A>", moduleValue (typeE2 typeA typeB), Always false
+    ]
+
+  let distanceTest =
+    parameterize {
+      source [
+        "A * B * C", moduleValue (tuple [ typeB; typeA; typeC ]), 1
+        "A * B * C", moduleValue (tuple [ typeC; typeB; typeA ]), 2
+      ]
+
+      run (fun (query, targetSig, expected) -> test {
+        let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = targetSig; TypeConstraints = []; Document = None }
+        let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
+        let options = { defaultTestOptions with SwapOrderDepth = 10 }
+        let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.head
+        do! actual.Distance |> assertEquals expected
+      })
+    }
+
+module ComplementTest =
+  let runTest trace depth cases =
+    let targetName = Name.displayNameOfString "test"
+
+    parameterize {
+      source [
+        for opt in [ Enabled; Disabled ] do
+          for (query, targetSig, expected) in cases do
+            let depth = match opt with Enabled -> depth | Disabled -> 0
+            let expected = expectedValue opt expected
+            yield (depth, query, targetSig, expected)
+      ]
+      
+      run (fun (depth, query, targetSig, expected) ->
+        let options = { defaultTestOptions with ComplementDepth = depth }
+        matchTest trace [||] (options, query, targetName, targetSig, expected))
+    }
+
+  let depth1Test =
+    runTest false 1 [
+      "A -> A", moduleFunction' [ [ ptype typeB ]; [ ptype typeA ]; [ ptype typeA ] ], WhenEnabled true
+      "A -> A", moduleFunction' [ [ ptype typeB ]; [ ptype typeA ]; [ ptype typeB ]; [ ptype typeA ] ], Always false
+
+      "A * B", moduleValue (tuple [ typeA; typeA; typeB ]), WhenEnabled true
+      "A * B", moduleValue (tuple [ typeA; typeA; typeB; typeB ]), Always false
+
+      "A * B", moduleValue (tuple [ typeB; typeB; typeB ]), Always false
+
+      "A", moduleValue (tuple [ typeA; typeB ]), WhenEnabled true
+      "A", moduleValue (tuple [ typeA; typeA; typeB ]), Always false
+
+      "A", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ] ], Always false
+
+      "A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ]; [ ptype typeB ] ], Always false
+    ]
+
+  let depth2Test =
+    runTest false 2 [
+      "A -> A", moduleFunction' [ [ ptype typeB ]; [ ptype typeA ]; [ ptype typeB ]; [ ptype typeA ] ], WhenEnabled true
+
+      "A * B", moduleValue (tuple [ typeA; typeA; typeB; typeB ]), WhenEnabled true
+      "A", moduleValue (tuple [ typeA; typeA; typeB ]), WhenEnabled true
+    ]
+
+  let tupleTest =
+    runTest false 1 [
+      "A * A -> B", instanceMember typeA (member' "test" (MemberKind.Property PropertyKind.Get) [] typeB), Always false
+      "A * ? -> B", instanceMember typeB (member' "test" MemberKind.Method [ [ ptype typeA ] ] typeB), Always false
+    ]
+
+  let wildcardTest =
+    runTest false 1 [
+      "A * ?", moduleValue (tuple [ typeA; typeB; typeA ]), WhenEnabled true
+      "A * B * ?", moduleValue (tuple [ typeA; typeB ]), Always false
+    ]
+
+  let genericTest =
+    runTest false 1 [
+      "D<A, B>", moduleValue (typeD2 typeA typeB), Always true
+      "D<A, B>", moduleValue (typeD1 typeA), Always false
+    ]
+
+  let otherApiTest =
+    runTest false 1 [
+      "B", staticMember typeA (member' "test" (MemberKind.Property PropertyKind.Get) [] typeB), Always true
+      "B", staticMember typeA (member' "test" (MemberKind.Property PropertyKind.Get) [ [ ptype typeA ] ] typeB), Always false
+      "B", staticMember typeA (member' "test" MemberKind.Method [ [ ptype typeA ] ] typeB), Always false
+
+      "A -> B", staticMember typeA (member' "test" MemberKind.Method [ [ ptype typeA ]; [ ptype typeB ] ] typeB), WhenEnabled true
+
+      "A -> B", instanceMember typeA (member' "test" MemberKind.Method [ [ ptype typeA ]; [ ptype typeB ] ] typeB), Always false
+      "A -> A -> B", instanceMember typeA (member' "test" MemberKind.Method [ [ ptype typeA ]; [ ptype typeB ] ] typeB), WhenEnabled true
+    ]
+
+  let distanceTest =
+    parameterize {
+      source [
+        "A", moduleValue (tuple [ typeB; typeA ]), 1
+        "A * B", moduleValue (tuple [ typeA; typeA; typeB; typeB; typeB ]), 3
+      ]
+
+      run (fun (query, targetSig, expected) -> test {
+        let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = targetSig; TypeConstraints = []; Document = None }
+        let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
+        let options = { defaultTestOptions with ComplementDepth = 10 }
+        let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.head
+        do! actual.Distance |> assertEquals expected
+      })
+    }

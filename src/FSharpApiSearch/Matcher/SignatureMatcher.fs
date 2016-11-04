@@ -59,8 +59,7 @@ module Rules =
     let rightElems = trimOptionalParameters leftElems rightElems
     let test ctx =
       let rightElems = (Function.toLowTypeList rightElems)
-      lowTypeMatcher.TestAll2 leftElems rightElems ctx
-      |> MatchingResult.bindFailureWithSwap (lowTypeMatcher.TestArrowElementsWithSwap leftElems rightElems) ctx
+      lowTypeMatcher.TestArrow leftElems rightElems ctx
     match leftElems, rightElems with
     | [ WildcardOrVariable; _ ], [ [ _ ]; _ ] -> test ctx
     | [ WildcardOrVariable; _ ], [ _; _ ] -> Failure
@@ -100,17 +99,14 @@ module Rules =
       Debug.WriteLine("pattern 1")
       let leftElems = [ leftParam; leftRet ]
       let rightElems = [ rightParam.Type; rightRet.Type ]
-      lowTypeMatcher.TestAll2 leftElems rightElems ctx
-      |> MatchingResult.bindFailureWithSwap (lowTypeMatcher.TestArrowElementsWithSwap leftElems rightElems) ctx
+      lowTypeMatcher.TestArrow leftElems rightElems ctx
     | Left_NonCurriedFunction leftElems, Right_CurriedFunction rightElems ->
       Debug.WriteLine("pattern 2")
-      lowTypeMatcher.TestAll2 leftElems rightElems ctx
-      |> MatchingResult.bindFailureWithSwap (lowTypeMatcher.TestArrowElementsWithSwap leftElems rightElems) ctx
+      lowTypeMatcher.TestArrow leftElems rightElems ctx
       |> MatchingResult.mapMatched (Context.addDistance 1)
     | Left_CurriedFunction leftElems, (Right_TupleFunction rightElems | Right_NonCurriedFunction rightElems) ->
       Debug.WriteLine("pattern 3")
-      lowTypeMatcher.TestAll2 leftElems rightElems ctx
-      |> MatchingResult.bindFailureWithSwap (lowTypeMatcher.TestArrowElementsWithSwap leftElems rightElems) ctx
+      lowTypeMatcher.TestArrow leftElems rightElems ctx
       |> MatchingResult.mapMatched (Context.addDistance 1)
     | _, _ ->
       Debug.WriteLine("pattern 4")
@@ -189,7 +185,7 @@ module Rules =
     match left, right with
     | SignatureQuery.InstanceMember (Receiver = queryReceiver; Parameters = queryParams; ReturnType = queryReturnType), InstanceMember (declaringType, member') ->
       Debug.WriteLine("instance member rule.")
-      lowTypeMatcher.Test queryReceiver declaringType ctx
+      lowTypeMatcher.TestReceiver queryReceiver declaringType ctx
       |> MatchingResult.bindMatched (fun ctx ->
         let left = methodPart queryParams queryReturnType
         testArrow lowTypeMatcher left (Member.toFunction member') ctx
@@ -200,7 +196,7 @@ module Rules =
     match left, right with
     | SignatureQuery.InstanceMember (Receiver = queryReceiver; Parameters = []; ReturnType = queryReturnType), InstanceMember (declaringType, ({ Parameters = [ [ { Type = LowType.Patterns.Unit } ] ] } as member')) ->
       Debug.WriteLine("instance member unit parameter rule.")
-      lowTypeMatcher.Test queryReceiver declaringType ctx
+      lowTypeMatcher.TestReceiver queryReceiver declaringType ctx
       |> MatchingResult.bindMatched (lowTypeMatcher.Test queryReturnType member'.ReturnParameter.Type)
       |> MatchingResult.mapMatched (Context.addDistance 1)
     | _ -> Continue ctx
@@ -218,8 +214,7 @@ module Rules =
           yield queryReturnType
         ]
       let rightElems = Function.toLowTypeList right
-      lowTypeMatcher.TestAll2 leftElems rightElems ctx
-      |> MatchingResult.bindFailureWithSwap (lowTypeMatcher.TestArrowElementsWithSwap leftElems rightElems) ctx
+      lowTypeMatcher.TestArrow leftElems rightElems ctx
       |> MatchingResult.mapMatched (Context.addDistance 1)
     | _ -> Continue ctx
 
@@ -227,7 +222,7 @@ module Rules =
     match left, right with
     | SignatureQuery.Signature (Arrow (leftReceiver :: leftMemberPart)), InstanceMember (declaringType, member') ->
       Debug.WriteLine("arrow and instance member rule.")
-      lowTypeMatcher.Test leftReceiver declaringType ctx
+      lowTypeMatcher.TestReceiver leftReceiver declaringType ctx
       |> MatchingResult.bindMatched (testArrow lowTypeMatcher leftMemberPart (Member.toFunction member'))
       |> MatchingResult.mapMatched (Context.addDistance 1)
     | _ -> Continue ctx

@@ -35,10 +35,6 @@ type MatchingResult =
   | Continue of Context
   | Failure
 
-type SwapState =
-  | Fixed
-  | Swap
-
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module MatchingResult =
   let inline bindContinue f = function Continue x -> f x | r -> r
@@ -47,29 +43,30 @@ module MatchingResult =
 
   let toBool = function Matched _ -> true | _ -> false
 
-  let bindFailureWithSwap f (ctx: Context) (result, swapState) =
-    match result, swapState with
-    | Matched _ as m, _ -> m
-    | Failure, [||] -> Failure
-    | Failure, _ -> f swapState ctx
-    | _ -> Failure
-
 type ILowTypeMatcher =
   abstract Test: LowType -> LowType -> Context -> MatchingResult
-  abstract Test2: LowType -> LowType -> Context -> MatchingResult * SwapState
   abstract TestAll: LowType seq -> LowType seq -> Context -> MatchingResult
-  abstract TestAll2: LowType seq -> LowType seq -> Context -> MatchingResult * SwapState[]
-  abstract TestAllWithSwap: LowType seq -> LowType seq -> SwapState[] -> Context -> MatchingResult
+  abstract TestAllExactly: LowType seq -> LowType seq -> Context -> MatchingResult
 
 [<AutoOpen>]
 module Extensions =
+  let private paramsAndRet (xs: 'a seq) =
+    let xs = Array.ofSeq xs
+    let ps = Array.take (xs.Length - 1) xs
+    let ret = Array.last xs
+    (ps, ret)
   type ILowTypeMatcher with
-    member this.TestArrowElementsWithSwap (leftTypes: LowType seq) (rightTypes: LowType seq) (swapState: SwapState[]) (ctx: Context) =
-      if Array.last swapState = Swap then
-        Debug.WriteLine("Return type is failed. It dose not swap.")
-        Failure
-      else
-        this.TestAllWithSwap leftTypes rightTypes swapState ctx
+    member this.TestArrow (leftTypes: LowType seq) (rightTypes: LowType seq) (ctx: Context) =
+      let leftParams, leftRet = paramsAndRet leftTypes
+      let rightParams, rightRet = paramsAndRet rightTypes
+      this.Test leftRet rightRet ctx
+      |> MatchingResult.bindMatched (this.TestAll leftParams rightParams)
+
+    member this.TestReceiver (left: LowType) (right: LowType) (ctx: Context) =
+      match left, right with
+      | Tuple _, Tuple _ -> this.Test left right ctx
+      | Tuple _, _ | _, Tuple _ -> Failure
+      | _ -> this.Test left right ctx 
 
 type IApiMatcher =
   abstract Name: string

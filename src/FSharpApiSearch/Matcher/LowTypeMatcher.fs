@@ -127,82 +127,97 @@ module Rules =
         | Continue _ | Failure -> sprintf "It failed to add the equality.: \"%s\" = \"%s\"" (LowType.debug left) (LowType.debug right))
       result
 
-  let testAll2 (lowTypeMatcher: ILowTypeMatcher) (leftTypes: LowType seq) (rightTypes: LowType seq) (ctx: Context) : MatchingResult * SwapState[] =
+  type Swapped = bool
+
+  let swappedToInt (swapped: Swapped) = if swapped then 1 else 0
+
+  let contains (lowTypeMatcher: ILowTypeMatcher) (testee: LowType) (back: LowType[]) (forward: LowType[]) (ctx: Context) : option<Context * LowType[] * LowType[] * Swapped> =
+    let test x ys = Array.indexed ys |> Array.tryPick (fun (i, y) -> match lowTypeMatcher.Test x y ctx with Matched ctx -> Some (i, ctx) | _ -> None)
+    let pick i xs =
+      let back = Array.take i xs
+      let forward = Array.skip (i + 1) xs
+      let value = Array.item i xs
+      (value, back, forward)
+    Debug.WriteLine(sprintf "Try find from forward: %A" (forward |> Array.map (fun x -> x.Debug())))
+    match test testee forward with
+    | Some (i, ctx) ->
+      let _, f_back, f_forward = pick i forward
+      let back = Array.append back f_back
+      let forward = f_forward
+      Debug.WriteLine("Found from forward.")
+      Some (ctx, back, forward, false)
+    | None ->
+      Debug.WriteLine("Not found from forward.")
+      Debug.WriteLine(sprintf "Try find from back: %A" (back |> Array.map (fun x -> x.Debug())))
+      match test testee back with
+      | Some (i, ctx) ->
+        let _, b_back, b_forward = pick i back
+        let back = Array.append b_back b_forward
+        Debug.WriteLine("Found from back.")
+        Some (ctx, back, forward, true)
+      | None ->
+        Debug.WriteLine("Not found from back.")
+        None
+
+  let containsWildcard xs = xs |> Array.exists (function Wildcard _ -> true | _ -> false)
+
+  let testAllWithComplementAndSwap (lowTypeMatcher: ILowTypeMatcher) (complementNumberLimit: int) (swapNumberLimit: int) (leftTypes: LowType seq) (rightTypes: LowType seq) (ctx: Context) : MatchingResult =
+    Debug.WriteLine(sprintf "Test %A and %A." (Seq.map LowType.debug leftTypes |> Seq.toList) (Seq.map LowType.debug rightTypes |> Seq.toList))
+    let short, long =
+      let s, l =
+        if Seq.length leftTypes <= Seq.length rightTypes then
+          leftTypes, rightTypes
+        else
+          rightTypes, leftTypes
+      (Array.ofSeq s, Array.ofSeq l)
+
+    let result =
+      if short.Length <> long.Length && containsWildcard long then
+        Debug.WriteLine("There is a wildcard.")
+        None
+      elif short.Length <> long.Length && Array.isEmpty short then
+        Debug.WriteLine("Empty input.")
+        None
+      else
+        short
+        |> Array.fold (fun state testee ->
+          match state with
+          | None -> None
+          | Some (ctx, back, forward, swapNumber) ->
+            Debug.WriteLine(sprintf "Test %s" (testee.Debug()))
+            Debug.Indent()
+            let result =
+              contains lowTypeMatcher testee back forward ctx
+              |> Option.map (fun (ctx, back, forward, swapped) -> (ctx, back, forward, swapNumber + swappedToInt swapped))
+            Debug.Unindent()
+            result
+        ) (Some (ctx, Array.empty, long, 0))
+
+    match result with
+    | Some (ctx, back, forward, swapNumber) ->
+      let complementNumber = back.Length + forward.Length
+      if swapNumber > swapNumberLimit then
+        Failure
+      elif complementNumber > complementNumberLimit then
+        Failure
+      else
+        Matched (ctx |> Context.addDistance (swapNumber + complementNumber))
+    | None -> Failure
+
+  let testAllExactly (lowTypeMatcher: ILowTypeMatcher) (leftTypes: LowType seq) (rightTypes: LowType seq) (ctx: Context): MatchingResult =
     Debug.WriteLine(sprintf "Test %A and %A." (Seq.map LowType.debug leftTypes |> Seq.toList) (Seq.map LowType.debug rightTypes |> Seq.toList))
     if Seq.length leftTypes <> Seq.length rightTypes then
       Debug.WriteLine("The numbers of the parameters are different.")
-      Failure, [||]
+      Failure
     else
-      let lastContext, revSwapStatuses, success =
-        Seq.zip leftTypes rightTypes
-        |> Seq.fold (fun (lastContext, revSwapStatuses, lastResult) (left, right) ->
-          Debug.WriteLine(sprintf "Test %s and %s." (LowType.debug left) (LowType.debug right))
-          Debug.Indent()
-          let result, swapStatus = lowTypeMatcher.Test2 left right lastContext
-          Debug.Unindent()
-
-          let newResult = lastResult && MatchingResult.toBool result
-          let newContext =
-            match result with
-            | Matched ctx -> ctx
-            | _ -> lastContext
-          
-          (newContext, swapStatus :: revSwapStatuses, newResult)
-        ) (ctx, [], true)
-      if success then
-        Matched lastContext, [||]
-      else
-        Failure, (revSwapStatuses |> List.rev |> List.toArray)
-
-  let makeSwapTable depth (swapState: SwapState[]) : int[][] =
-    let swapTable = Array.indexed swapState |> Array.choose (fun (i, state) -> match state with Swap -> Some i | Fixed -> None)
-    let swap (xs: int[]) : int[][] =
-      [|
-        yield xs
-        for i in swapTable do
-          for k in swapTable do
-            if i < k then
-              let buff = Array.copy xs
-              buff.[i] <- xs.[k]
-              buff.[k] <- xs.[i]
-              yield buff
-      |]
-    let swappedAll (xs: int[]): bool =
-      swapTable
-      |> Array.forall (fun i -> xs.[i] <> i)
-    let init = Array.init (swapState.Length) id
-    let rec loop n acc =
-      if n <= 0 then
-        acc
-      else
-        loop (n - 1) (acc |> Array.collect swap)
-    loop depth [| init |]
-    |> Seq.filter swappedAll
-    |> Seq.distinct
-    |> Seq.toArray
-
-  let swap (swapTable: int[]) (xs: LowType seq) =
-    Seq.permute (fun i -> swapTable.[i]) xs
-
-  let testSwap (swapDepth: int) (lowTypeMatcher: ILowTypeMatcher) (leftTypes: LowType seq) (rightTypes: LowType seq) (swapState: SwapState[]) (ctx: Context): MatchingResult =
-    Debug.WriteLine("Test swap.")
-    Debug.Indent()
-    let result =
-      makeSwapTable swapDepth swapState
-      |> Array.tryPick (fun swapTable ->
-        Debug.WriteLine(sprintf "Swap table: %A" swapTable)
+      Seq.zip leftTypes rightTypes
+      |> Seq.fold (fun result (left, right) ->
+        Debug.WriteLine(sprintf "Test %s and %s." (LowType.debug left) (LowType.debug right))
         Debug.Indent()
-        let leftTypes = swap swapTable leftTypes
-        let result = lowTypeMatcher.TestAll leftTypes rightTypes ctx
+        let result = MatchingResult.bindMatched (lowTypeMatcher.Test left right) result
         Debug.Unindent()
-        match result with
-        | Matched _ as m -> Some m
-        | _ -> None
-      )
-    Debug.Unindent()
-    match result with
-    | Some m -> m |> MatchingResult.mapMatched (Context.addDistance 1)
-    | _ -> Failure
+        result
+      ) (Matched ctx)
 
   let choiceRule (lowTypeMatcher: ILowTypeMatcher) left right ctx =
     match left, right with
@@ -281,13 +296,16 @@ module Rules =
     match left, right with
     | Tuple leftElems, Tuple rightElems ->
       Debug.WriteLine("tuple rule.")
-      lowTypeMatcher.TestAll2 leftElems rightElems ctx
-      |> MatchingResult.bindFailureWithSwap (lowTypeMatcher.TestAllWithSwap leftElems rightElems) ctx
+      lowTypeMatcher.TestAll leftElems rightElems ctx
+    | Tuple tuple, other
+    | other, Tuple tuple ->
+      Debug.WriteLine("tuple rule.")
+      let other = [ other ]
+      lowTypeMatcher.TestAll tuple other ctx
     | _ -> Continue ctx
 
   let testArrow (lowTypeMatcher: ILowTypeMatcher) leftElems rightElems ctx =
-    lowTypeMatcher.TestAll2 leftElems rightElems ctx
-    |> MatchingResult.bindFailureWithSwap (lowTypeMatcher.TestArrowElementsWithSwap leftElems rightElems) ctx
+    lowTypeMatcher.TestArrow leftElems rightElems ctx
 
   let arrowRule lowTypeMatcher left right ctx =
     match left, right with
@@ -299,21 +317,17 @@ module Rules =
   let testArrow_IgnoreParameterStyle (lowTypeMatcher: ILowTypeMatcher) leftElems rightElems ctx =
     match leftElems, rightElems with
     | [ _; _ ], [ _; _ ] ->
-      lowTypeMatcher.TestAll2 leftElems rightElems ctx
-      |> MatchingResult.bindFailureWithSwap (lowTypeMatcher.TestArrowElementsWithSwap leftElems rightElems) ctx
+      lowTypeMatcher.TestArrow leftElems rightElems ctx
     | [ Tuple leftArgs; leftRet ], _ ->
       let leftElems = seq { yield! leftArgs; yield leftRet }
-      lowTypeMatcher.TestAll2 leftElems rightElems ctx
-      |> MatchingResult.bindFailureWithSwap (lowTypeMatcher.TestArrowElementsWithSwap leftElems rightElems) ctx
+      lowTypeMatcher.TestArrow leftElems rightElems ctx
       |> MatchingResult.mapMatched (Context.addDistance 1)
     | _, [ Tuple rightArgs; rightRet ] ->
       let rightElems = seq { yield! rightArgs; yield rightRet }
-      lowTypeMatcher.TestAll2 leftElems rightElems ctx
-      |> MatchingResult.bindFailureWithSwap (lowTypeMatcher.TestArrowElementsWithSwap leftElems rightElems) ctx
+      lowTypeMatcher.TestArrow leftElems rightElems ctx
       |> MatchingResult.mapMatched (Context.addDistance 1)
     | _, _ ->
-      lowTypeMatcher.TestAll2 leftElems rightElems ctx 
-      |> MatchingResult.bindFailureWithSwap (lowTypeMatcher.TestArrowElementsWithSwap leftElems rightElems) ctx
+      lowTypeMatcher.TestArrow leftElems rightElems ctx
 
   let arrowRule_IgnoreParameterStyle lowTypeMatcher left right ctx =
     match left, right with
@@ -326,7 +340,8 @@ module Rules =
     match left, right with
     | Generic (leftId, leftArgs), Generic (rightId, rightArgs) ->
       Debug.WriteLine("generic rule.")
-      lowTypeMatcher.TestAll (leftId :: leftArgs) (rightId :: rightArgs) ctx
+      lowTypeMatcher.Test leftId rightId ctx
+      |> MatchingResult.bindMatched (lowTypeMatcher.TestAllExactly leftArgs rightArgs)
     | _ -> Continue ctx
 
   let wildcardRule _ left right ctx =
@@ -360,7 +375,8 @@ module Rules =
     | Delegate (Generic (leftId, leftArgs), _), Generic (rightId, rightArgs)
     | Generic (leftId, leftArgs), Delegate (Generic (rightId, rightArgs), _) ->
       Debug.WriteLine("generic delegate rule.")
-      lowTypeMatcher.TestAll (leftId :: leftArgs) (rightId :: rightArgs) ctx
+      lowTypeMatcher.Test leftId rightId ctx
+      |> MatchingResult.bindMatched (lowTypeMatcher.TestAllExactly leftArgs rightArgs)
     | _ -> Continue ctx
 
   let delegateAndArrowRule lowTypeMatcher left right ctx =
@@ -411,15 +427,6 @@ let instance options =
       yield Rule.terminator
     ]
 
-  let toSwapState = function
-    | Matched _ -> SwapState.Fixed
-    | _ -> SwapState.Swap
-
-  let testAllWithSwap =
-    match options.SwapOrderDepth with
-    | 0 -> fun _ _ _ _ _ -> Failure
-    | depth -> fun lowTypeMatcher left right swapState ctx -> Rules.testSwap depth lowTypeMatcher left right swapState ctx
-
   { new ILowTypeMatcher with
       member this.Test left right ctx =
         Debug.WriteLine(sprintf "Test \"%s\" and \"%s\". Equations: %s"
@@ -430,10 +437,5 @@ let instance options =
         let result = Rule.run rule this left right ctx
         Debug.Unindent()
         result
-      member this.Test2 left right ctx =
-        let result = this.Test left right ctx
-        let swap = result |> toSwapState
-        (result, swap)
-      member this.TestAll left right ctx = this.TestAll2 left right ctx |> fst
-      member this.TestAll2 left right ctx = Rules.testAll2 this left right ctx
-      member this.TestAllWithSwap left right swapState ctx = testAllWithSwap this left right swapState ctx }
+      member this.TestAll left right ctx = Rules.testAllWithComplementAndSwap this options.ComplementDepth options.SwapOrderDepth left right ctx
+      member this.TestAllExactly left right ctx = Rules.testAllExactly this left right ctx}
