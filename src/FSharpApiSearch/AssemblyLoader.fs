@@ -12,12 +12,14 @@ type AssemblyResolver = {
 with
   member this.Resolve(assemblyName: string) =
     let assemblyName = if assemblyName.EndsWith(".dll") = false then assemblyName + ".dll" else assemblyName
-    if assemblyName = "FSharp.Core.dll" then
-      Some (Path.Combine(this.FSharpCore, assemblyName))
-    else
-      seq { yield! this.Directories; yield! this.Framework }
-      |> Seq.map (fun dir -> Path.Combine(dir, assemblyName))
-      |> Seq.tryFindBack File.Exists
+    let result =
+      if assemblyName = "FSharp.Core.dll" then
+        Some (Path.Combine(this.FSharpCore, assemblyName))
+      else
+        seq { yield! this.Directories; yield! this.Framework }
+        |> Seq.map (fun dir -> Path.Combine(dir, assemblyName))
+        |> Seq.tryFindBack File.Exists
+    result |> Option.map Path.GetFullPath
 
 let internal ignoreFSharpCompilerServiceError() =
   typeof<FSharpChecker>.Assembly.GetType("Microsoft.FSharp.Compiler.AbstractIL.Diagnostics")
