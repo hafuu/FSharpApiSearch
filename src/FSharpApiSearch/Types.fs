@@ -563,7 +563,7 @@ module internal Print =
     | [] -> n.FSharpName
     | args -> sprintf "%s<%s>" n.FSharpName (args |> List.map (fun a -> typeVariablePrefix a +  a.Name) |> String.concat ", ")
 
-  let printDisplayName = function
+  let printDisplayName_full = function
     | [] -> "<empty>"
     | ns ->
       seq {
@@ -574,25 +574,31 @@ module internal Print =
       |> Seq.rev
       |> String.concat "."
 
-  let printName = function
+  let printName_full = function
     | LoadingName (_, n1, n2) ->
       match n2 with
       | [] -> n1
-      | n2 -> n1 + "." + printDisplayName n2
-    | DisplayName n -> printDisplayName n
+      | n2 -> n1 + "." + printDisplayName_full n2
+    | DisplayName n -> printDisplayName_full n
 
-  let printDisplayName_short = function
-    | [] -> "<empty>"
-    | n :: _ -> n.FSharpName
+  let printIdentity_full (identity: Identity): string =
+    match identity with
+    | FullIdentity i -> printName_full i.Name
+    | PartialIdentity i -> printDisplayName_full i.Name
 
-  let printName_short = function
-    | LoadingName (_, n1, n2) ->
-      match n2 with
-      | [] -> n1
-      | n2 -> printDisplayName_short n2
-    | DisplayName n -> printDisplayName_short n
+  let printIdentity_short (identity: Identity): string =
+    let printDisplayName_short = function
+      | [] -> "<empty>"
+      | n :: _ -> n.FSharpName
 
-  let printIdentity = function
+    let printName_short = function
+      | LoadingName (_, n1, n2) ->
+        match n2 with
+        | [] -> n1
+        | n2 -> printDisplayName_short n2
+      | DisplayName n -> printDisplayName_short n
+    
+    match identity with
     | FullIdentity i -> printName_short i.Name
     | PartialIdentity i -> printDisplayName_short i.Name
 
@@ -606,41 +612,44 @@ module internal Print =
     else
       typeVariablePrefix v + v.Name
 
-  let rec printLowType isDebug = function
+  let rec printLowType isDebug (printIdentity: Identity -> string) = function
     | Wildcard name ->
       match name with
       | Some n -> sprintf "?%s" n
       | None -> "?"
     | Variable (source, v) -> printTypeVariable isDebug source v
     | Identity i -> printIdentity i
-    | Arrow xs -> printArrow isDebug xs
-    | Tuple xs -> printTuple isDebug xs
+    | Arrow xs -> printArrow isDebug printIdentity xs
+    | Tuple xs -> printTuple isDebug printIdentity xs
     | LowType.Patterns.Array (name, elem) ->
       let paramPart =
         match elem with
         | Tuple _ | Arrow _ ->
-          sprintf "(%s)" (printLowType isDebug elem)
-        | _ -> printLowType isDebug elem
+          sprintf "(%s)" (printLowType isDebug printIdentity elem)
+        | _ -> printLowType isDebug printIdentity elem
       paramPart + name
-    | Generic (id, args) -> printGeneric isDebug id args
-    | TypeAbbreviation t -> printLowType isDebug t.Abbreviation
-    | Delegate (t, _) -> printLowType isDebug t
-    | Choice xs -> sprintf "(%s)" (List.map (printLowType isDebug) xs |> String.concat " or ")
-  and printGeneric isDebug id args =
-    let args = args |> Seq.map (printLowType isDebug) |> String.concat ", "
-    sprintf "%s<%s>" (printLowType isDebug id) args
-  and printArrow isDebug xs =
+    | Generic (id, args) -> printGeneric isDebug printIdentity id args
+    | TypeAbbreviation t -> printLowType isDebug printIdentity t.Abbreviation
+    | Delegate (t, _) -> printLowType isDebug printIdentity t
+    | Choice xs -> sprintf "(%s)" (List.map (printLowType isDebug printIdentity) xs |> String.concat " or ")
+  and printGeneric isDebug printIdentity id args =
+    let args = args |> Seq.map (printLowType isDebug printIdentity) |> String.concat ", "
+    sprintf "%s<%s>" (printLowType isDebug printIdentity id) args
+  and printArrow isDebug printIdentity xs =
     xs
     |> Seq.map (function
-      | Arrow _ as a -> sprintf "(%s)" (printLowType isDebug a)
-      | x -> printLowType isDebug x)
+      | Arrow _ as a -> sprintf "(%s)" (printLowType isDebug printIdentity a)
+      | x -> printLowType isDebug printIdentity x)
     |> String.concat " -> "
-  and printTuple isDebug xs =
+  and printTuple isDebug printIdentity xs =
     xs
     |> Seq.map (function
-      | Tuple _ as t -> sprintf "(%s)" (printLowType isDebug t)
-      | x -> printLowType isDebug x)
+      | Tuple _ as t -> sprintf "(%s)" (printLowType isDebug printIdentity t)
+      | x -> printLowType isDebug printIdentity x)
     |> String.concat " * "
+
+  let printLowType_short isDebug t = printLowType isDebug printIdentity_short t
+  let printLowType_full isDebug t = printLowType isDebug printIdentity_full t
 
   let printAccessPath' (i: Identity) =
     let print (name: DisplayName) =
@@ -676,9 +685,9 @@ module internal Print =
       | None -> ""
     let sigPart =
       match p with
-      | { Type = Tuple _ } when tupleParen -> sprintf "(%s)" (printLowType isDebug p.Type)
-      | { Type = Arrow _ } -> sprintf "(%s)" (printLowType isDebug p.Type)
-      | _ -> printLowType isDebug p.Type
+      | { Type = Tuple _ } when tupleParen -> sprintf "(%s)" (printLowType_short isDebug p.Type)
+      | { Type = Arrow _ } -> sprintf "(%s)" (printLowType_short isDebug p.Type)
+      | _ -> printLowType_short isDebug p.Type
     optPart + namePart + sigPart
 
   let printParameterGroups tupleParen isDebug (f: Parameter list list) =
@@ -692,8 +701,8 @@ module internal Print =
 
   let printMember isDebug (m: Member) =
     match m.Parameters with
-    | [] -> printLowType isDebug m.ReturnParameter.Type
-    | _ -> sprintf "%s -> %s" (printParameterGroups true isDebug m.Parameters) (printLowType isDebug m.ReturnParameter.Type)
+    | [] -> printLowType_short isDebug m.ReturnParameter.Type
+    | _ -> sprintf "%s -> %s" (printParameterGroups true isDebug m.Parameters) (printLowType_short isDebug m.ReturnParameter.Type)
 
   let printConstraint isDebug (c: TypeConstraint) =
     let variableSource = VariableSource.Target
@@ -703,7 +712,7 @@ module internal Print =
       | vs -> sprintf "(%s)" (List.map (printTypeVariable isDebug variableSource) vs |> String.concat " or ")
     let constraintPart =
       match c.Constraint with
-      | Constraint.SubtypeConstraints s -> sprintf ":> %s" (printLowType isDebug s)
+      | Constraint.SubtypeConstraints s -> sprintf ":> %s" (printLowType_short isDebug s)
       | Constraint.NullnessConstraints -> ": null"
       | Constraint.MemberConstraints (modifier, member') ->
         let modifierPart =
@@ -721,18 +730,21 @@ module internal Print =
       | Constraint.ComparisonConstraints -> ": comparison"
     sprintf "%s %s" variablePart constraintPart
     
-  let printFullTypeDefinition isDebug (x: FullTypeDefinition) = sprintf "type %s" (printLowType isDebug x.LowType)
+  let printFullTypeDefinition isDebug (x: FullTypeDefinition) = sprintf "type %s" (printLowType_short isDebug x.LowType)
 
-  let pringTypeAbbreviation isDebug (x: TypeAbbreviationDefinition) = sprintf "type %s = %s.%s" (printLowType isDebug x.TypeAbbreviation.Abbreviation) (printAccessPath x.Abbreviated) (printLowType isDebug x.Abbreviated)
+  let pringTypeAbbreviation isDebug (x: TypeAbbreviationDefinition) =
+    sprintf "type %s = %s"
+      (printLowType_short isDebug x.TypeAbbreviation.Abbreviation)
+      (printLowType_full isDebug x.Abbreviated)
 
   let printUnionCaseField isDebug (uc: UnionCaseField) =
     match uc.Name with
-    | Some name -> sprintf "%s:%s" name (printLowType isDebug uc.Type)
-    | None -> printLowType isDebug uc.Type
+    | Some name -> sprintf "%s:%s" name (printLowType_short isDebug uc.Type)
+    | None -> printLowType_short isDebug uc.Type
 
   let printUnionCase isDebug (uc: UnionCase) =
     if uc.Fields.IsEmpty then
-      printLowType isDebug uc.DeclaringType
+      printLowType_short isDebug uc.DeclaringType
     else
       UnionCase.toFunction uc
       |> printParameterGroups true isDebug
@@ -742,19 +754,19 @@ module internal Print =
   let printComputationExpressionBuilder isDebug (builder: ComputationExpressionBuilder)=
     if isDebug then
       sprintf "type %s, [ %s ], { %s }"
-        (printLowType isDebug builder.BuilderType)
-        (List.map (printLowType isDebug) builder.ComputationExpressionTypes |> String.concat "; ")
+        (printLowType_short isDebug builder.BuilderType)
+        (List.map (printLowType_short isDebug) builder.ComputationExpressionTypes |> String.concat "; ")
         (String.concat "; " builder.Syntaxes)
     else
-      sprintf "type %s, { %s }" (printLowType isDebug builder.BuilderType) (String.concat "; " builder.Syntaxes)
+      sprintf "type %s, { %s }" (printLowType_short isDebug builder.BuilderType) (String.concat "; " builder.Syntaxes)
 
   let printApiSignature isDebug = function
-    | ApiSignature.ModuleValue t -> printLowType isDebug t
+    | ApiSignature.ModuleValue t -> printLowType_short isDebug t
     | ApiSignature.ModuleFunction fn -> printParameterGroups false isDebug fn
     | ApiSignature.ActivePatten (_, fn) -> printParameterGroups false isDebug fn
     | ApiSignature.InstanceMember (declaringType, m) ->
       if isDebug then
-        sprintf "%s => %s" (printLowType isDebug declaringType) (printMember isDebug m)
+        sprintf "%s => %s" (printLowType_short isDebug declaringType) (printMember isDebug m)
       else
         printMember isDebug m
     | ApiSignature.StaticMember (_, m) -> printMember isDebug m
@@ -764,7 +776,7 @@ module internal Print =
     | ApiSignature.TypeAbbreviation t -> pringTypeAbbreviation isDebug t
     | ApiSignature.TypeExtension t ->
       if isDebug then
-        sprintf "%s => %s" (printLowType isDebug t.ExistingType) (printMember isDebug t.Member)
+        sprintf "%s => %s" (printLowType_short isDebug t.ExistingType) (printMember isDebug t.Member)
       else
         printMember isDebug t.Member
     | ApiSignature.ExtensionMember m -> printMember isDebug m
@@ -778,11 +790,11 @@ type NameItem with
   member this.Print() = Print.printNameItem this
 
 type Name with
-  member this.Print() = Print.printName this
+  member this.Print() = Print.printName_full this
 
 type LowType with
-  member this.Print() = Print.printLowType false this
-  member this.Debug() = Print.printLowType true this
+  member this.Print() = Print.printLowType_short false this
+  member this.Debug() = Print.printLowType_short true this
 
 type ApiSignature with
   member this.Print() = Print.printApiSignature false this
@@ -803,7 +815,7 @@ type Api with
   member this.PrintKind() =
     match this.Signature with
     | ApiSignature.TypeExtension { Declaration = declaration } ->
-      sprintf "%s (%s)" (Print.printApiKind this.Kind) (Print.printDisplayName declaration)
+      sprintf "%s (%s)" (Print.printApiKind this.Kind) (Print.printDisplayName_full declaration)
     | _ -> Print.printApiKind this.Kind
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]

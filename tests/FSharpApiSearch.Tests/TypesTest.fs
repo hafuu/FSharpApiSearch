@@ -64,48 +64,55 @@ module PrintTest =
     })
   }
 
-  let printApiSignatureTest = parameterize {
-    source [
-      moduleValue typeA, "a"
-      moduleFunction' [ [ ptype typeA ]; [ ptype typeB ] ], "a -> b"
-      moduleFunction' [ [ ptype (arrow [ typeA; typeB ]) ]; [ ptype typeC ] ], "(a -> b) -> c"
+  let printApiSignatureTest =
+    let Int32 = createType "System.Int32" []
+    let array t = createType "Microsoft.FSharp.Core.[]<'a>" [ t ]
+    parameterize {
+      source [
+        moduleValue typeA, "a"
+        moduleFunction' [ [ ptype typeA ]; [ ptype typeB ] ], "a -> b"
+        moduleFunction' [ [ ptype (arrow [ typeA; typeB ]) ]; [ ptype typeC ] ], "(a -> b) -> c"
 
-      moduleFunction' [ [ pname "x" >> ptype typeA; pname "y" >> ptype typeB ]; [ ptype typeB ] ], "x:a * y:b -> b"
-      moduleFunction' [ [ pname "x" >> ptype typeA ]; [ pname "y" >> ptype typeB ]; [ ptype typeB ] ], "x:a -> y:b -> b"
+        moduleFunction' [ [ pname "x" >> ptype typeA; pname "y" >> ptype typeB ]; [ ptype typeB ] ], "x:a * y:b -> b"
+        moduleFunction' [ [ pname "x" >> ptype typeA ]; [ pname "y" >> ptype typeB ]; [ ptype typeB ] ], "x:a -> y:b -> b"
 
-      moduleValue variableA, "'a"
-      moduleValue (variable "^a"), "^a"
-      moduleValue (array typeA), "a[]"
-      moduleValue (array (array2D typeA)), "a[,][]"
-      moduleValue (createType "A" [ typeC]), "A<c>"
-      moduleValue (genericB), "B<'a, 'b>"
-      moduleValue (tuple [ typeA; variableB; typeC ]), "a * 'b * c"
-      moduleValue (tuple [ typeA; (tuple [ typeB; typeC ]) ]), "a * (b * c)"
-      instanceMember typeA memberMethod, "'a * b -> c"
-      instanceMember typeA memberOptArgMethod, "?x:'a * b -> c"
-      instanceMember typeA memberCurriedMethod, "'a -> b -> c"
-      instanceMember typeA memberProperty, "a"
-      staticMember typeA memberMethod, "'a * b -> c"
-      staticMember typeA memberProperty, "a"
+        moduleValue variableA, "'a"
+        moduleValue (variable "^a"), "^a"
+        moduleValue (array typeA), "a[]"
+        moduleValue (array (array2D typeA)), "a[,][]"
+        moduleValue (createType "A" [ typeC]), "A<c>"
+        moduleValue (genericB), "B<'a, 'b>"
+        moduleValue (tuple [ typeA; variableB; typeC ]), "a * 'b * c"
+        moduleValue (tuple [ typeA; (tuple [ typeB; typeC ]) ]), "a * (b * c)"
+        instanceMember typeA memberMethod, "'a * b -> c"
+        instanceMember typeA memberOptArgMethod, "?x:'a * b -> c"
+        instanceMember typeA memberCurriedMethod, "'a -> b -> c"
+        instanceMember typeA memberProperty, "a"
+        staticMember typeA memberMethod, "'a * b -> c"
+        staticMember typeA memberProperty, "a"
 
-      moduleValue (array (tuple [ typeA; typeB ])), "(a * b)[]"
-      moduleValue (array (arrow [ typeA; typeB ])), "(a -> b)[]"
+        moduleValue (array (tuple [ typeA; typeB ])), "(a * b)[]"
+        moduleValue (array (arrow [ typeA; typeB ])), "(a -> b)[]"
 
-      unionCase typeA "Case" [], "a"
-      unionCase typeA "Case" [ (None, typeB) ], "b -> a"
-      unionCase typeA "Case" [ (Some "value1", typeB); (Some "value2", typeA) ], "value1:b * value2:a -> a"
-      unionCase typeA "Case" [ (None, tuple [ typeA; typeB ]) ], "(a * b) -> a"
-      unionCase typeA "Case" [ (Some "value1", tuple [ typeA; typeB ]) ], "value1:(a * b) -> a"
-      unionCase typeA "Case" [ (None, arrow [ typeA; typeB ]) ], "(a -> b) -> a"
-      unionCase typeA "Case" [ (Some "value1", arrow [ typeA; typeB ]) ], "value1:(a -> b) -> a"
+        unionCase typeA "Case" [], "a"
+        unionCase typeA "Case" [ (None, typeB) ], "b -> a"
+        unionCase typeA "Case" [ (Some "value1", typeB); (Some "value2", typeA) ], "value1:b * value2:a -> a"
+        unionCase typeA "Case" [ (None, tuple [ typeA; typeB ]) ], "(a * b) -> a"
+        unionCase typeA "Case" [ (Some "value1", tuple [ typeA; typeB ]) ], "value1:(a * b) -> a"
+        unionCase typeA "Case" [ (None, arrow [ typeA; typeB ]) ], "(a -> b) -> a"
+        unionCase typeA "Case" [ (Some "value1", arrow [ typeA; typeB ]) ], "value1:(a -> b) -> a"
 
-      typeAbbreviationApi (typeAbbreviationDef "FSharp.Collections.list<'a>" (generic (identity "System.Collections.Generic.List") [ variable "'a" ])), "type list<'a> = System.Collections.Generic.List<'a>"
-    ]
-    run (fun (input, expected) -> test {
-      let actual = ApiSignature.print input
-      do! actual |> assertEquals expected
-    })
-  }
+        typeAbbreviationApi (typeAbbreviationDef "FSharp.Collections.list<'a>" (generic (identity "System.Collections.Generic.List") [ variable "'a" ])), "type list<'a> = System.Collections.Generic.List<'a>"
+        typeAbbreviationApi (typeAbbreviationDef "Test.A" (generic (identity "System.Collections.Generic.List") [ Int32 ])), "type A = System.Collections.Generic.List<System.Int32>"
+        typeAbbreviationApi (typeAbbreviationDef "Test.B<'a>" (variable "'a")), "type B<'a> = 'a"
+        typeAbbreviationApi (typeAbbreviationDef "Test.C<'a>" (arrow [ variable "'a"; variable "'a" ])), "type C<'a> = 'a -> 'a"
+        typeAbbreviationApi (typeAbbreviationDef "Test.D<'a>" (array (variable "'a"))), "type D<'a> = 'a[]"
+      ]
+      run (fun (input, expected) -> test {
+        let actual = ApiSignature.print input
+        do! actual |> assertEquals expected
+      })
+    }
 
   let debugPrintTest = parameterize {
     source [
