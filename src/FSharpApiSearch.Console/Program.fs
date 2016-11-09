@@ -167,10 +167,10 @@ options:
       The default is enabled.
   --swap-order-depth:<depth>
       Specifies the depth of swapping parameters and tuple elements.
-      The default is 1.
+      The default is 2.
   --complement-depth:<depth>
       Specifies the depth of complementing parameters and tuple elements.
-      The default is 3.
+      The default is 2.
   --target:<assembly>, -t:<assembly>
       Specifies the assembly name of the searching target.
       If omitted, it will target 'FSharp.Core', 'mscorlib', 'System' and 'System.Core'.
