@@ -1,5 +1,7 @@
 ﻿namespace FSharpApiSearch
 
+open System.Text
+
 type TypeVariable = {
   Name: string
   IsSolveAtCompileTime: bool
@@ -537,6 +539,17 @@ module internal SpecialTypes =
 module internal Print =
   open SpecialTypes
 
+  let join (sep: string) (sb: StringBuilder) (f: StringBuilder -> 'a -> unit) (xs: 'a list) : unit =
+    if xs.IsEmpty then
+      ()
+    else
+      f sb xs.Head
+      xs.Tail
+      |> List.iter (fun x ->
+        sb.Append(sep) |> ignore
+        f sb x  
+      )
+
   let printPropertyKind = function
     | PropertyKind.Get -> "get"
     | PropertyKind.Set -> "set"
@@ -562,264 +575,347 @@ module internal Print =
 
   let typeVariablePrefix (v: TypeVariable) = if v.IsSolveAtCompileTime then "^" else "'"
 
-  let printNameItem (n: NameItem) =
+  let printNameItem (sb: StringBuilder) (n: NameItem) =
     match n.GenericParametersForDisplay with
-    | [] -> n.FSharpName
-    | args -> sprintf "%s<%s>" n.FSharpName (args |> List.map (fun a -> typeVariablePrefix a +  a.Name) |> String.concat ", ")
+    | [] -> sb.Append(n.FSharpName) |> ignore
+    | args ->
+      sb.Append(n.FSharpName).Append("<") |> ignore
+      join ", " sb (fun sb arg -> sb.Append(typeVariablePrefix arg).Append(arg.Name) |> ignore) args
+      sb.Append(">") |> ignore  
 
-  let printDisplayName_full = function
-    | [] -> "<empty>"
+  let printDisplayName_full (sb: StringBuilder) = function
+    | [] -> sb.Append("<empty>") |> ignore
     | ns ->
-      seq {
-        yield ns.Head.FSharpName
-        for path in ns.Tail do
-          yield printNameItem path
-      }
+      ns.Tail
       |> Seq.rev
-      |> String.concat "."
+      |> Seq.iter (fun n -> printNameItem sb n; sb.Append(".") |> ignore)
+      sb.Append(ns.Head.FSharpName) |> ignore
 
-  let printName_full = function
+  let printName_full (sb: StringBuilder) = function
     | LoadingName (_, n1, n2) ->
       match n2 with
-      | [] -> n1
-      | n2 -> n1 + "." + printDisplayName_full n2
-    | DisplayName n -> printDisplayName_full n
+      | [] -> sb.Append(n1) |> ignore
+      | n2 ->
+        sb.Append(n1).Append(".") |> ignore
+        printDisplayName_full sb n2
+    | DisplayName n -> printDisplayName_full sb n
 
-  let printIdentity_full (identity: Identity): string =
+  let printIdentity_full (sb: StringBuilder) (identity: Identity) =
     match identity with
-    | FullIdentity i -> printName_full i.Name
-    | PartialIdentity i -> printDisplayName_full i.Name
+    | FullIdentity i -> printName_full sb i.Name
+    | PartialIdentity i -> printDisplayName_full sb i.Name
 
-  let printIdentity_short (identity: Identity): string =
-    let printDisplayName_short = function
-      | [] -> "<empty>"
-      | n :: _ -> n.FSharpName
+  let printIdentity_short (sb: StringBuilder) (identity: Identity) =
+    let printDisplayName_short (sb: StringBuilder) = function
+      | [] -> sb.Append("<empty>") |> ignore
+      | n :: _ -> sb.Append(n.FSharpName) |> ignore
 
-    let printName_short = function
+    let printName_short (sb: StringBuilder) = function
       | LoadingName (_, n1, n2) ->
         match n2 with
-        | [] -> n1
-        | n2 -> printDisplayName_short n2
-      | DisplayName n -> printDisplayName_short n
+        | [] -> sb.Append(n1) |> ignore
+        | n2 -> printDisplayName_short sb n2
+      | DisplayName n -> printDisplayName_short sb n
     
     match identity with
-    | FullIdentity i -> printName_short i.Name
-    | PartialIdentity i -> printDisplayName_short i.Name
+    | FullIdentity i -> printName_short sb i.Name
+    | PartialIdentity i -> printDisplayName_short sb i.Name
 
   let printVariableSource = function
     | VariableSource.Query -> "q"
     | VariableSource.Target -> "t"
 
-  let printTypeVariable isDebug source v =
+  let printTypeVariable isDebug (sb: StringBuilder) source v =
     if isDebug then
-      sprintf "%s%s_%s" (typeVariablePrefix v) (printVariableSource source) v.Name
+      sb.Append(typeVariablePrefix v).Append(printVariableSource source).Append("_").Append(v.Name) |> ignore
     else
-      typeVariablePrefix v + v.Name
+      sb.Append(typeVariablePrefix v).Append(v.Name) |> ignore
 
-  let rec printLowType isDebug (printIdentity: Identity -> string) = function
+  let rec printLowType isDebug (sb: StringBuilder) (printIdentity: StringBuilder -> Identity -> unit) = function
     | Wildcard name ->
       match name with
-      | Some n -> sprintf "?%s" n
-      | None -> "?"
-    | Variable (source, v) -> printTypeVariable isDebug source v
-    | Identity i -> printIdentity i
-    | Arrow xs -> printArrow isDebug printIdentity xs
-    | Tuple xs -> printTuple isDebug printIdentity xs
+      | Some n -> sb.Append("?").Append(n) |> ignore
+      | None -> sb.Append("?") |> ignore
+    | Variable (source, v) -> printTypeVariable isDebug sb source v
+    | Identity i -> printIdentity sb i
+    | Arrow xs -> printArrow isDebug sb printIdentity xs
+    | Tuple xs -> printTuple isDebug sb printIdentity xs
     | LowType.Patterns.Array (name, elem) ->
-      let paramPart =
-        match elem with
-        | Tuple _ | Arrow _ ->
-          sprintf "(%s)" (printLowType isDebug printIdentity elem)
-        | _ -> printLowType isDebug printIdentity elem
-      paramPart + name
-    | Generic (id, args) -> printGeneric isDebug printIdentity id args
-    | TypeAbbreviation t -> printLowType isDebug printIdentity t.Abbreviation
-    | Delegate (t, _) -> printLowType isDebug printIdentity t
-    | Choice xs -> sprintf "(%s)" (List.map (printLowType isDebug printIdentity) xs |> String.concat " or ")
-  and printGeneric isDebug printIdentity id args =
-    let args = args |> Seq.map (printLowType isDebug printIdentity) |> String.concat ", "
-    sprintf "%s<%s>" (printLowType isDebug printIdentity id) args
-  and printArrow isDebug printIdentity xs =
-    xs
-    |> Seq.map (function
-      | Arrow _ as a -> sprintf "(%s)" (printLowType isDebug printIdentity a)
-      | x -> printLowType isDebug printIdentity x)
-    |> String.concat " -> "
-  and printTuple isDebug printIdentity xs =
-    xs
-    |> Seq.map (function
-      | Tuple _ as t -> sprintf "(%s)" (printLowType isDebug printIdentity t)
-      | x -> printLowType isDebug printIdentity x)
-    |> String.concat " * "
+      match elem with
+      | Tuple _ | Arrow _ ->
+        sb.Append("(") |> ignore
+        printLowType isDebug sb printIdentity elem
+        sb.Append(")") |> ignore
+      | _ -> printLowType isDebug sb printIdentity elem
+      sb.Append(name) |> ignore
+    | Generic (id, args) -> printGeneric isDebug sb printIdentity id args
+    | TypeAbbreviation t -> printLowType isDebug sb printIdentity t.Abbreviation
+    | Delegate (t, _) -> printLowType isDebug sb printIdentity t
+    | Choice xs -> printChoice isDebug sb printIdentity xs
+  and printGeneric isDebug (sb: StringBuilder) printIdentity id (args: _ list) =
+    printLowType isDebug sb printIdentity id
+    sb.Append("<") |> ignore
+    join ", " sb (fun sb arg -> printLowType isDebug sb printIdentity arg) args
+    sb.Append(">") |> ignore
+  and printArrow isDebug (sb: StringBuilder) printIdentity (xs: _ list) =
+    let printItem (sb: StringBuilder) = function
+      | Arrow _ as a ->
+        sb.Append("(") |> ignore
+        printLowType isDebug sb printIdentity a
+        sb.Append(")") |> ignore
+      | x -> printLowType isDebug sb printIdentity x
+    join " -> " sb printItem xs
+  and printTuple isDebug (sb: StringBuilder) printIdentity (xs: _ list) =
+    let printItem (sb: StringBuilder) = function
+      | Tuple _ as t ->
+        sb.Append("(") |> ignore
+        printLowType isDebug sb printIdentity t
+        sb.Append(")") |> ignore
+      | x -> printLowType isDebug sb printIdentity x
+    join " * " sb printItem xs
+  and printChoice isDebug (sb: StringBuilder) printIdentity (xs: _ list) =
+    sb.Append("(") |> ignore
+    join " or " sb (fun sb x -> printLowType isDebug sb printIdentity x) xs
+    sb.Append(")") |> ignore
 
-  let printLowType_short isDebug t = printLowType isDebug printIdentity_short t
-  let printLowType_full isDebug t = printLowType isDebug printIdentity_full t
+  let printLowType_short isDebug (sb: StringBuilder) t = printLowType isDebug sb printIdentity_short t
+  let printLowType_full isDebug (sb: StringBuilder) t = printLowType isDebug sb printIdentity_full t
 
-  let printAccessPath' (i: Identity) =
+  let printAccessPath' (sb: StringBuilder) (i: Identity) =
     let print (name: DisplayName) =
       List.tail name
-      |> Seq.rev
-      |> Seq.map printNameItem
-      |> String.concat "."
+      |> List.rev
+      |> join "." sb (fun sb x -> printNameItem sb x)
     match i with
     | PartialIdentity p -> print p.Name
     | FullIdentity f ->
       let name = Name.displayName f.Name
       print name
 
-  let rec printAccessPath = function
-    | Wildcard _ -> ""
-    | Variable _ -> ""
-    | Identity i -> printAccessPath' i
-    | Arrow _ -> ""
-    | Tuple _ -> ""
-    | Generic (id, _) -> printAccessPath id
-    | TypeAbbreviation t -> printAccessPath t.Abbreviation
-    | Delegate _ -> ""
-    | Choice _ -> ""
+  let rec printAccessPath (sb: StringBuilder) = function
+    | Wildcard _ -> ()
+    | Variable _ -> ()
+    | Identity i -> printAccessPath' sb i
+    | Arrow _ -> ()
+    | Tuple _ -> ()
+    | Generic (id, _) -> printAccessPath sb id
+    | TypeAbbreviation t -> printAccessPath sb t.Abbreviation
+    | Delegate _ -> ()
+    | Choice _ -> ()
 
-  let printParameter tupleParen isDebug (p: Parameter) =
-    let optPart =
-      match p.IsOptional with
-      | true -> "?"
-      | false -> ""
-    let namePart =
-      match p.Name with
-      | Some name -> sprintf "%s:" name
-      | None -> ""
-    let sigPart =
-      match p with
-      | { Type = Tuple _ } when tupleParen -> sprintf "(%s)" (printLowType_short isDebug p.Type)
-      | { Type = Arrow _ } -> sprintf "(%s)" (printLowType_short isDebug p.Type)
-      | _ -> printLowType_short isDebug p.Type
-    optPart + namePart + sigPart
+  let printParameter tupleParen isDebug (sb: StringBuilder) (p: Parameter) =
+    match p.IsOptional with
+    | true -> sb.Append("?") |> ignore
+    | false -> ()
 
-  let printParameterGroups tupleParen isDebug (f: Parameter list list) =
+    match p.Name with
+    | Some name -> sb.Append(name).Append(":") |> ignore
+    | None -> ()
+
+    match p with
+    | { Type = Tuple _ } when tupleParen ->
+      sb.Append("(") |> ignore
+      printLowType_short isDebug sb p.Type
+      sb.Append(")") |> ignore
+    | { Type = Arrow _ } ->
+      sb.Append("(") |> ignore
+      printLowType_short isDebug sb p.Type
+      sb.Append(")") |> ignore
+    | _ -> printLowType_short isDebug sb p.Type
+
+  let printParameterGroups tupleParen isDebug (sb: StringBuilder) (f: Parameter list list) =
     f
-    |> Seq.map (fun ps ->
-      ps
-      |> Seq.map (printParameter tupleParen isDebug)
-      |> String.concat " * "
+    |> join " -> " sb (fun sb ps ->
+      ps |> join " * " sb (fun sb p -> printParameter tupleParen isDebug sb p)
     )
-    |> String.concat " -> "
 
-  let printMember isDebug (m: Member) =
+  let printMember isDebug (sb: StringBuilder) (m: Member) =
     match m.Parameters with
-    | [] -> printLowType_short isDebug m.ReturnParameter.Type
-    | _ -> sprintf "%s -> %s" (printParameterGroups true isDebug m.Parameters) (printLowType_short isDebug m.ReturnParameter.Type)
+    | [] -> printLowType_short isDebug sb m.ReturnParameter.Type
+    | _ ->
+      printParameterGroups true isDebug sb m.Parameters
+      sb.Append(" -> ") |> ignore
+      printLowType_short isDebug sb m.ReturnParameter.Type
 
-  let printConstraint isDebug (c: TypeConstraint) =
+  let printConstraint isDebug (sb: StringBuilder) (c: TypeConstraint) =
     let variableSource = VariableSource.Target
-    let variablePart =
-      match c.Variables with
-      | [ v ] -> printTypeVariable isDebug variableSource v
-      | vs -> sprintf "(%s)" (List.map (printTypeVariable isDebug variableSource) vs |> String.concat " or ")
-    let constraintPart =
-      match c.Constraint with
-      | Constraint.SubtypeConstraints s -> sprintf ":> %s" (printLowType_short isDebug s)
-      | Constraint.NullnessConstraints -> ": null"
-      | Constraint.MemberConstraints (modifier, member') ->
-        let modifierPart =
-          match modifier with
-          | MemberModifier.Static -> "static member"
-          | MemberModifier.Instance -> "member"
-        sprintf ": (%s %s : %s)" modifierPart member'.Name (printMember isDebug member')
-      | Constraint.DefaultConstructorConstraints -> let v = printTypeVariable isDebug variableSource (c.Variables.Head) in sprintf ": (new : unit -> %s)" v
-      | Constraint.ValueTypeConstraints -> ": struct"
-      | Constraint.ReferenceTypeConstraints -> ": not struct"
-      | Constraint.EnumerationConstraints -> ": enum"
-      | Constraint.DelegateConstraints -> ": delegate"
-      | Constraint.UnmanagedConstraints -> ": unmanaged"
-      | Constraint.EqualityConstraints -> ": equality"
-      | Constraint.ComparisonConstraints -> ": comparison"
-    sprintf "%s %s" variablePart constraintPart
+
+    match c.Variables with
+    | [ v ] ->
+      printTypeVariable isDebug sb variableSource v
+    | vs ->
+      sb.Append("(") |> ignore
+      join " or " sb (fun sb v -> printTypeVariable isDebug sb variableSource v) vs
+      sb.Append(")") |> ignore
+
+    sb.Append(" ") |> ignore
+
+    match c.Constraint with
+    | Constraint.SubtypeConstraints s ->
+      sb.Append(":> ") |> ignore
+      printLowType_short isDebug sb s
+    | Constraint.NullnessConstraints -> sb.Append(": null") |> ignore
+    | Constraint.MemberConstraints (modifier, member') ->
+      sb.Append(": (") |> ignore
+      match modifier with
+      | MemberModifier.Static -> sb.Append("static member") |> ignore
+      | MemberModifier.Instance -> sb.Append("member") |> ignore
+      sb.Append(" ").Append(member'.Name).Append(" : ") |> ignore
+      printMember isDebug sb member'
+      sb.Append(")") |> ignore
+    | Constraint.DefaultConstructorConstraints ->
+      sb.Append(": (new : unit -> ") |> ignore
+      printTypeVariable isDebug sb variableSource (c.Variables.Head)
+      sb.Append(")") |> ignore
+    | Constraint.ValueTypeConstraints -> sb.Append(": struct") |> ignore
+    | Constraint.ReferenceTypeConstraints -> sb.Append(": not struct") |> ignore
+    | Constraint.EnumerationConstraints -> sb.Append(": enum") |> ignore
+    | Constraint.DelegateConstraints -> sb.Append(": delegate") |> ignore
+    | Constraint.UnmanagedConstraints -> sb.Append(": unmanaged") |> ignore
+    | Constraint.EqualityConstraints -> sb.Append(": equality") |> ignore
+    | Constraint.ComparisonConstraints -> sb.Append(": comparison") |> ignore
     
-  let printFullTypeDefinition isDebug (x: FullTypeDefinition) = sprintf "type %s" (printLowType_short isDebug x.LowType)
+  let printFullTypeDefinition isDebug (sb: StringBuilder) (x: FullTypeDefinition) =
+    sb.Append("type ") |> ignore
+    printLowType_short isDebug sb x.LowType
 
-  let pringTypeAbbreviation isDebug (x: TypeAbbreviationDefinition) =
-    sprintf "type %s = %s"
-      (printLowType_short isDebug x.TypeAbbreviation.Abbreviation)
-      (printLowType_full isDebug x.Abbreviated)
+  let pringTypeAbbreviation isDebug (sb: StringBuilder) (x: TypeAbbreviationDefinition) =
+    sb.Append("type ") |> ignore
+    printLowType_short isDebug sb x.TypeAbbreviation.Abbreviation
+    sb.Append(" = ") |> ignore
+    printLowType_full isDebug sb x.Abbreviated
 
-  let printUnionCaseField isDebug (uc: UnionCaseField) =
+  let printUnionCaseField isDebug (sb: StringBuilder) (uc: UnionCaseField) =
     match uc.Name with
-    | Some name -> sprintf "%s:%s" name (printLowType_short isDebug uc.Type)
-    | None -> printLowType_short isDebug uc.Type
+    | Some name ->
+      sb.Append(name).Append(":") |> ignore
+      printLowType_short isDebug sb uc.Type
+    | None -> printLowType_short isDebug sb uc.Type
 
-  let printUnionCase isDebug (uc: UnionCase) =
+  let printUnionCase isDebug (sb: StringBuilder) (uc: UnionCase) =
     if uc.Fields.IsEmpty then
-      printLowType_short isDebug uc.DeclaringType
+      printLowType_short isDebug sb uc.DeclaringType
     else
-      UnionCase.toFunction uc
-      |> printParameterGroups true isDebug
+      printParameterGroups true isDebug sb (UnionCase.toFunction uc)
 
-  let printModule (m: ModuleDefinition) = sprintf "module %s" m.Name.Head.FSharpName
+  let printModule (sb: StringBuilder) (m: ModuleDefinition) = sb.Append("module ").Append(m.Name.Head.FSharpName) |> ignore
 
-  let printComputationExpressionBuilder isDebug (builder: ComputationExpressionBuilder)=
+  let printComputationExpressionBuilder isDebug (sb: StringBuilder) (builder: ComputationExpressionBuilder)=
     if isDebug then
-      sprintf "type %s, [ %s ], { %s }"
-        (printLowType_short isDebug builder.BuilderType)
-        (List.map (printLowType_short isDebug) builder.ComputationExpressionTypes |> String.concat "; ")
-        (String.concat "; " builder.Syntaxes)
+      sb.Append("type ") |> ignore
+      printLowType_short isDebug sb builder.BuilderType
+      sb.Append(", [ ") |> ignore
+      join "; " sb (fun sb x -> printLowType_short isDebug sb x) builder.ComputationExpressionTypes
+      sb.Append(" ], { ") |> ignore
+      join "; " sb (fun sb (x: string) -> sb.Append(x) |> ignore) builder.Syntaxes
+      sb.Append(" }") |> ignore
     else
-      sprintf "type %s, { %s }" (printLowType_short isDebug builder.BuilderType) (String.concat "; " builder.Syntaxes)
+      sb.Append("type ") |> ignore
+      printLowType_short isDebug sb builder.BuilderType
+      sb.Append(", { ") |> ignore
+      join "; " sb (fun sb (x: string) -> sb.Append(x) |> ignore) builder.Syntaxes
+      sb.Append(" }") |> ignore
 
-  let printApiSignature isDebug = function
-    | ApiSignature.ModuleValue t -> printLowType_short isDebug t
-    | ApiSignature.ModuleFunction fn -> printParameterGroups false isDebug fn
-    | ApiSignature.ActivePatten (_, fn) -> printParameterGroups false isDebug fn
+  let printApiSignature isDebug (sb: StringBuilder) = function
+    | ApiSignature.ModuleValue t -> printLowType_short isDebug sb t
+    | ApiSignature.ModuleFunction fn -> printParameterGroups false isDebug sb fn
+    | ApiSignature.ActivePatten (_, fn) -> printParameterGroups false isDebug sb fn
     | ApiSignature.InstanceMember (declaringType, m) ->
       if isDebug then
-        sprintf "%s => %s" (printLowType_short isDebug declaringType) (printMember isDebug m)
+        printLowType_short isDebug sb declaringType
+        sb.Append(" => ") |> ignore
+        printMember isDebug sb m
       else
-        printMember isDebug m
-    | ApiSignature.StaticMember (_, m) -> printMember isDebug m
-    | ApiSignature.Constructor (_, m) -> printMember isDebug m
-    | ApiSignature.ModuleDefinition m -> printModule m
-    | ApiSignature.FullTypeDefinition x -> printFullTypeDefinition isDebug x
-    | ApiSignature.TypeAbbreviation t -> pringTypeAbbreviation isDebug t
+        printMember isDebug sb m
+    | ApiSignature.StaticMember (_, m) -> printMember isDebug sb m
+    | ApiSignature.Constructor (_, m) -> printMember isDebug sb m
+    | ApiSignature.ModuleDefinition m -> printModule sb m
+    | ApiSignature.FullTypeDefinition x -> printFullTypeDefinition isDebug sb x
+    | ApiSignature.TypeAbbreviation t -> pringTypeAbbreviation isDebug sb t
     | ApiSignature.TypeExtension t ->
       if isDebug then
-        sprintf "%s => %s" (printLowType_short isDebug t.ExistingType) (printMember isDebug t.Member)
+        printLowType_short isDebug sb t.ExistingType
+        sb.Append(" => ") |> ignore
+        printMember isDebug sb t.Member
       else
-        printMember isDebug t.Member
-    | ApiSignature.ExtensionMember m -> printMember isDebug m
-    | ApiSignature.UnionCase uc -> printUnionCase isDebug uc
-    | ApiSignature.ComputationExpressionBuilder builder -> printComputationExpressionBuilder isDebug builder
+        printMember isDebug sb t.Member
+    | ApiSignature.ExtensionMember m -> printMember isDebug sb m
+    | ApiSignature.UnionCase uc -> printUnionCase isDebug sb uc
+    | ApiSignature.ComputationExpressionBuilder builder -> printComputationExpressionBuilder isDebug sb builder
 
 type TypeVariable with
-  member this.Print() = Print.printTypeVariable false VariableSource.Target this
+  member this.Print() =
+    let sb = StringBuilder()
+    Print.printTypeVariable false sb VariableSource.Target this
+    string sb
 
 type NameItem with
-  member this.Print() = Print.printNameItem this
+  member this.Print() =
+    let sb = StringBuilder()
+    Print.printNameItem sb this
+    string sb
 
 type Name with
-  member this.Print() = Print.printName_full this
+  member this.Print() =
+    let sb = StringBuilder()
+    Print.printName_full sb this
+    string sb
 
 type LowType with
-  member this.Print() = Print.printLowType_short false this
-  member this.Debug() = Print.printLowType_short true this
+  member this.Print() =
+    let sb = StringBuilder()
+    Print.printLowType_short false sb this
+    string sb
+  member this.Debug() =
+    let sb = StringBuilder()
+    Print.printLowType_short true sb this
+    string sb
 
 type ApiSignature with
-  member this.Print() = Print.printApiSignature false this
-  member this.Debug() = Print.printApiSignature true this
+  member this.Print() =
+    let sb = StringBuilder()
+    Print.printApiSignature false sb this
+    string sb
+  member this.Debug() =
+    let sb = StringBuilder()
+    Print.printApiSignature true sb this
+    string sb
 
 type TypeConstraint with
-  member this.Print() = Print.printConstraint false this
-  member this.Debug() = Print.printConstraint true this
+  member this.Print() =
+    let sb = StringBuilder()
+    Print.printConstraint false sb this
+    string sb
+  member this.Debug() =
+    let sb = StringBuilder()
+    Print.printConstraint true sb this
+    string sb
   
 type FullTypeDefinition with
-  member this.Print() = Print.printFullTypeDefinition false this
-  member this.Debug() = Print.printFullTypeDefinition true this
+  member this.Print() =
+    let sb = StringBuilder()
+    Print.printFullTypeDefinition false sb this
+    string sb
+  member this.Debug() =
+    let sb = StringBuilder()
+    Print.printFullTypeDefinition true sb this
+    string sb
 
 type Api with
   member this.PrintSignature() = this.Signature.Print()
   member this.PrintTypeConstraints() =
-    sprintf "when %s" (this.TypeConstraints |> List.map (fun c -> c.Print()) |> String.concat " and ")
+    let sb = StringBuilder()
+    sb.Append("when ") |> ignore
+    Print.join " and " sb (fun sb (c: TypeConstraint) -> Print.printConstraint false sb c) this.TypeConstraints
+    string sb
   member this.PrintKind() =
     match this.Signature with
     | ApiSignature.TypeExtension { Declaration = declaration } ->
-      sprintf "%s (%s)" (Print.printApiKind this.Kind) (Print.printDisplayName_full declaration)
+      let sb = StringBuilder()
+      sb.Append(Print.printApiKind this.Kind).Append(" (") |> ignore
+      Print.printDisplayName_full sb declaration
+      sb.Append(")") |> ignore
+      string sb
     | _ -> Print.printApiKind this.Kind
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
