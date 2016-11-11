@@ -122,7 +122,7 @@ let anyOrSignature = attempt signatureWildcard <|> (FSharpSignatureParser.extend
 let nameQuery =
   let name = trim (memberNamePartial <|> opName)
   sepBy1 name (pchar '.') .>> pstring ":" .>>. anyOrSignature |>> (fun (name, sigPart) ->
-    let expecteds = List.rev name |> List.map (fun n -> (n, NameMatchMethod.ofString n))
+    let expecteds = List.rev name |> List.map (fun n -> NameMatchMethod.ofString n)
     QueryMethod.ByName (expecteds, sigPart))
 
 let signatureQuery = FSharpSignatureParser.extendedFsharpSignature |>> QueryMethod.BySignature

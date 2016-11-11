@@ -115,6 +115,7 @@ module ByName =
 
     let Compare = NameMatchMethod.StringCompare
     let Regex = NameMatchMethod.Regex
+    let Any = NameMatchMethod.Any
     parameterize {
       source [
         "map : _", [ "map", Compare ], SignatureQuery.Wildcard
@@ -124,17 +125,17 @@ module ByName =
         "(+) : _", [ "op_Addition", Compare ], SignatureQuery.Wildcard
         "( + ) : _", [ "op_Addition", Compare ], SignatureQuery.Wildcard
         "A.B : _", [ ("B", Compare); ("A", Compare) ], SignatureQuery.Wildcard
-        "* : _", [ "*", Regex ], SignatureQuery.Wildcard
+        "* : _", [ "*", Any ], SignatureQuery.Wildcard
         "( * ) : _", [ "op_Multiply", Compare ], SignatureQuery.Wildcard
 
         ".ctor : _", [ ".ctor", Compare ], SignatureQuery.Wildcard
         "A..ctor : _", [ (".ctor", Compare); ("A", Compare) ], SignatureQuery.Wildcard
 
-        "ma* : _", [ "ma*", Regex ], SignatureQuery.Wildcard
-        "m*p : _", [ "m*p", Regex ], SignatureQuery.Wildcard
-        "*ap : _", [ "*ap", Regex ], SignatureQuery.Wildcard
-        "A.ma* : _", [ ("ma*", Regex); ("A", Compare) ], SignatureQuery.Wildcard
-        "A.*ap : _", [ ("*ap", Regex); ("A", Compare) ], SignatureQuery.Wildcard
+        "ma* : _", [ "^ma.*$", Regex ], SignatureQuery.Wildcard
+        "m*p : _", [ "^m.*p$", Regex ], SignatureQuery.Wildcard
+        "*ap : _", [ "^.*ap$", Regex ], SignatureQuery.Wildcard
+        "A.ma* : _", [ ("^ma.*$", Regex); ("A", Compare) ], SignatureQuery.Wildcard
+        "A.*ap : _", [ ("^.*ap$", Regex); ("A", Compare) ], SignatureQuery.Wildcard
       ]
       run (fun (input, expectedName, expectedSig) -> test {
         let actual = QueryParser.parse input

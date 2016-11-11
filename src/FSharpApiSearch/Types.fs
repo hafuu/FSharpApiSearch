@@ -384,14 +384,18 @@ type SignatureQuery =
 type NameMatchMethod =
   | StringCompare
   | Regex
+  | Any
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module NameMatchMethod =
-  let ofString (str: string) =
-    if str.Contains("*") then
-      NameMatchMethod.Regex
+  let ofString (str: string) : string * NameMatchMethod =
+    if str = "*" then
+      str, NameMatchMethod.Any
+    elif str.Contains("*") then
+      let pattern = sprintf "^%s$" (str.Replace("*",".*"))
+      pattern, NameMatchMethod.Regex
     else
-      NameMatchMethod.StringCompare
+      str, NameMatchMethod.StringCompare
 
 [<RequireQualifiedAccess>]
 type QueryMethod =

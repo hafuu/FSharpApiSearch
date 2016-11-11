@@ -14,8 +14,9 @@ let testRegex ignoreCase (expected: string) (actual: string) =
     match ignoreCase with
     | Enabled -> RegexOptions.CultureInvariant ||| RegexOptions.IgnoreCase
     | Disabled -> RegexOptions.CultureInvariant
-  let pattern = sprintf "^%s$" (expected.Replace("*",".*"))
-  Regex.IsMatch(actual, pattern, regexOption)
+  Regex.IsMatch(actual, expected, regexOption)
+
+let testAny _ _ _ = true
 
 let test' ignoreCase expectedName actualName =
   if not (List.length expectedName <= List.length actualName) then
@@ -27,6 +28,7 @@ let test' ignoreCase expectedName actualName =
         match matchMethod with
         | NameMatchMethod.StringCompare -> testCompare
         | NameMatchMethod.Regex -> testRegex
+        | NameMatchMethod.Any -> testAny
       cmp ignoreCase expected actual.InternalFSharpName
     )
 
