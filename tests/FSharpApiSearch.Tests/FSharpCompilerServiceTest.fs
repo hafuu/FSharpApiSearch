@@ -26,7 +26,9 @@ module InferredFloat =
   }
 
   let ``is float`` (t: FSharpType) = test {
-    do! t.TypeDefinition.FullName |> assertEquals "Microsoft.FSharp.Core.float`1"
+    let entity = t.TypeDefinition
+    do! sprintf "%s.%s" entity.AccessPath entity.CompiledName |> assertEquals "Microsoft.FSharp.Core.float"
+    do! entity.TryFullName |> assertEquals None
     do! t.GenericArguments.Count |> assertEquals 0
   }
 
