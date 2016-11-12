@@ -56,6 +56,7 @@ FSharpApiSearch.Console.exeの`--target`オプションを使用するとデー�
 | 名前 (関数名、メソッド名等)  | `head : 'a list -> 'a`                                   |
 | アクティブパターン           | `(||) : ... -> Expr -> ?`                                |
 | 型、型略称、モジュール       | `List<'T>`                                               |
+| コンピュテーション式         | `{ let! } : Async<'T>`                                   | 
 
 ### 名前検索
 `name : signature`と書きます。シグネチャを指定しない場合は、シグネチャ部分に`_`を指定します。
@@ -158,13 +159,16 @@ FSharpApiSearch.Console.exeの`--target`オプションを使用するとデー�
 対応する任意の型、`option<_>`、`Choice<_,...,_>`を指定して下さい。
 通常はワイルドカード（`?`）を使うことをお勧めします。
 
+### コンピュテーション式
+`{ syntax } : type`と書きます。指定した構文が使えて、指定した型を扱えるビルダーを検索します。
+
+`syntax`には`let!`、`yield`、`yield!`、`return`、`return!`、`use`、`use!`、`if/then`、`for`、`while`、`try/with`、`try/finally`と任意のカスタムオペレーション名を指定できます。
+複数指定する場合は`;`で区切ります。
+
+
 ## 検索オプション
 
 ### `respect-name-difference`オプション
-FSharpApiSearch.Console.exeに`--respect-name-difference[+|-]`オプションを付けて起動するか、
-インタラクティブモードで`#respect-name-difference [enable|disable]`を実行すると設定できます。
-デフォルトは有効です。
-
 `respect-name-difference`オプションが有効の場合は、クエリ中の異なる型変数や名前付きワイルドカードの名前の違いを検索に反映します。
 異なる名前同士は同じ型にマッチしません。
 例えば、`?a -> ?a`というクエリは`int -> int`というシグネチャにマッチしますが、`?a -> ?b`というクエリは`int -> int`にマッチしません。
@@ -172,33 +176,25 @@ FSharpApiSearch.Console.exeに`--respect-name-difference[+|-]`オプションを
 このオプションに無効にした場合は、`?a -> ?b`というクエリで`int -> int`にマッチします。
 
 ### `greedy-matching`オプション
-FSharpApiSearch.Console.exeに`--greedy-matching[+|-]`オプションを付けて起動するか、
-インタラクティブモードで`#greedy-matching [enable|disable]`を実行すると設定できます。
-デフォルトは無効です。
-
 `greedy-matching`オプションが有効の場合は、型変数と他の型がそれぞれマッチするようになり、一致度が高い順に並び替えられて表示されます。
 また、検索に型制約が考慮されるようになります。
 
 ### `ignore-param-style`オプション
-FSharpApiSearch.Console.exeに`--ignore-param-style[+|-]`オプションを付けて起動するか、
-インタラクティブモードで`#ignore-param-style [enable|disable]`を実行すると設定できます。
-デフォルトは有効です。
-
 関数、メソッドの引数の形式には、カリー化形式（`arg1 -> arg2 -> returnType`）とタプル形式（`arg1 * arg2 -> returnType`）の2種類があります。
 `ignore-param-style`オプションが有効の場合は、カリー化形式とタプル形式を無視してマッチします。
 
 ### `ignore-case`オプション
-FSharpApiSearch.Console.exeに`--ignore-case[+|-]`オプションを付けて起動するか、
-インタラクティブモードで`#ignore-case [enable|disable]`を実行すると設定できます。
-デフォルトは有効です。
-
 `ignore-case`オプションが有効の場合は、API名、型名とのマッチング時に大文字と小文字を区別しません。
 
-### `xmldoc`オプション
-FSharpApiSearch.Console.exeに`--xmldoc[+|-]`オプションを付けて起動するか、
-インタラクティブモードで`#xmldoc [enable|disable]`を実行すると設定できます。
-デフォルトは無効です。
+### `swap-order-depth`オプション
+引数とタプルの順番を入れ替えて検索します。入れ替え回数が設定された値を超えた場合はマッチしません。0を設定した場合は入れ替えを行いません。
+例えば、`a -> b -> c`というクエリで`b -> a -> c`にマッチします。
 
+### `complement-depth`オプション
+引数とタプルの要素が不足している場合、指定された数まで補完して検索します。補完した数が設定された値を超えた場合はマッチしません。0を設定した場合は補完しません。
+例えば、`a * c`というクエリで`a * b * c`にマッチします。
+
+### `xmldoc`オプション
 `xmldoc`オプションが有効の場合は、検索結果にXMLドキュメントを表示します。
 
 ## FSharp.Compiler.Service の制限により対応できないAPI

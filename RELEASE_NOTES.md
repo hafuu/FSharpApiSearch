@@ -1,3 +1,11 @@
+### 2.1.0 - unreleased
+* Support computation expression
+* Add swapping parameters and tuple elements
+* Add complementing parameters and tuple elements
+* Fix type abbreviation result
+* Fix automatic generalization parameter
+* Improve assembly loading
+
 ### 2.0.0 - 2016/10/20
 Engine
 * Improve the display of the parameter name
