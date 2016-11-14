@@ -95,12 +95,12 @@ FSharpApiSearch.Console interactive mode directive:
   #ignore-param-style [enable|disable]
       Enables of disables to ignore the difference of the parameter style.
       The parameter style refers to curried parameter, multi parameter and tuple parameter.
-  #ignore-case
+  #ignore-case [enable|disable]
       Enables or disables to use ignore case matching.
-  #swap-order-depth
-      Specifies the depth of swapping parameters and tuple elements.
-  #complement-depth
-      Specifies the depth of complementing parameters and tuple elements.
+  #swap-order [enable|disable]
+      Enables of disables to swap parameters and tuple elements.
+  #complement [enable|disable]
+      Enables of disables to complement parameters and tuple elements.
   #xmldoc [enable|disable]
       Enables or disables to show xml document of API.
   #stacktrace [enable|disable]
@@ -126,8 +126,8 @@ FSharpApiSearch.Console interactive mode directive:
     | OptionSetting "#greedy-matching" SearchOptions.GreedyMatching arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#ignore-param-style" SearchOptions.IgnoreParameterStyle arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#ignore-case" SearchOptions.IgnoreCase arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
-    | NumberSetting "#swap-order-depth" SearchOptions.SwapOrderDepth arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
-    | NumberSetting "#complement-depth" SearchOptions.ComplementDepth arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
+    | OptionSetting "#swap-order" SearchOptions.SwapOrder arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
+    | OptionSetting "#complement" SearchOptions.Complement arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#xmldoc" ShowXmlDocument arg newArg -> loop client newArg
     | OptionSetting "#stacktrace" StackTrace arg newArg -> loop client newArg
     | "#clear" ->
@@ -165,18 +165,18 @@ options:
   --ignore-case[+|-]
       Enables or disables to use ignore case matching.
       The default is enabled.
-  --swap-order-depth:<depth>
-      Specifies the depth of swapping parameters and tuple elements.
-      The default is 2.
-  --complement-depth:<depth>
-      Specifies the depth of complementing parameters and tuple elements.
-      The default is 2.
+  --swap-order[+|-]
+      Enables or disables to swap parameters and tuple elements.
+      The default is enabled.
+  --complement[+|-]
+      Enables or disables to complement parameters and tuple elements.
+      The default is enabled.
   --target:<assembly>, -t:<assembly>
       Specifies the assembly name of the searching target.
       If omitted, it will target 'FSharp.Core', 'mscorlib', 'System' and 'System.Core'.
   --xmldoc[+|-]
       Enables or disables to show xml document of API.
-      Default is disabled.
+      The default is disabled.
   --stacktrace[+|-]
       Enables or disables stacktrace output if an exception occurs.
       The default is disabled.
