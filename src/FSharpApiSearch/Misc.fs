@@ -32,3 +32,16 @@ module internal String =
   let equals (x: string) (y: string) = equalsWithComparer StringComparer.InvariantCulture x y
   let equalsIgnoreCase x y = equalsWithComparer StringComparer.InvariantCultureIgnoreCase x y
   
+[<AutoOpen>]
+module internal Extensions =
+  open System.Text
+  type StringBuilder with
+    member this.Append(print: StringBuilder -> StringBuilder) = print this
+    member this.AppendJoin(sep: string, xs: 'a list, print: 'a -> StringBuilder -> StringBuilder) : StringBuilder =
+      if xs.IsEmpty then
+        this
+      else
+        print xs.Head this |> ignore
+        xs.Tail
+        |> List.iter (fun x -> this.Append(sep).Append(print x) |> ignore)
+        this
