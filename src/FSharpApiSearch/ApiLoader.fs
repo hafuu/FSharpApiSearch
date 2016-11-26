@@ -16,12 +16,6 @@ type TypeForward = {
 }
 
 module internal Impl =
-  type VariableCache = IDictionary<string, string>
-
-  [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-  module VariableCache =
-    let carete() = Dictionary<_, _>() :> VariableCache
-
   let inline tryGetXmlDoc (xml: XElement option) (symbol: ^a): string option =
     option {
       let! xml = xml
@@ -63,12 +57,8 @@ module internal Impl =
 
   type FSharpGenericParameter with
     member this.IsAutoGeneric = this.Name.StartsWith("?")
-    member this.TypeVariable(cache: VariableCache): TypeVariable =
-      let name =
-        if this.IsAutoGeneric then
-          try cache.[this.Name] with ex -> raise (System.Exception(sprintf "%s is not found" this.Name, ex))
-        else
-          this.Name
+    member this.TypeVariable: TypeVariable =
+      let name = this.Name
       { Name = name; IsSolveAtCompileTime = this.IsSolveAtCompileTime }
 
   type FSharpMemberOrFunctionOrValue with
@@ -86,18 +76,18 @@ module internal Impl =
         PropertyKind.Get
       else
         PropertyKind.Set
-    member this.TargetSignatureConstructor = fun (declaringType: Lazy<LowType>) member' ->
+    member this.TargetSignatureConstructor = fun (declaringType: LowType) member' ->
       if this.IsCSharpExtensionMember then
         ApiSignature.ExtensionMember member'
       elif this.IsStaticMember then
-        ApiSignature.StaticMember (declaringType.Value, member')
+        ApiSignature.StaticMember (declaringType, member')
       else
-        ApiSignature.InstanceMember (declaringType.Value, member')
-    member this.GenericParametersAsTypeVariable(cache: VariableCache) =
-      this.GenericParameters |> Seq.map (fun x -> x.TypeVariable(cache)) |> Seq.toList
-    member this.GetDisplayName(cache: VariableCache) =
+        ApiSignature.InstanceMember (declaringType, member')
+    member this.GenericParametersAsTypeVariable =
+      this.GenericParameters |> Seq.map (fun x -> x.TypeVariable) |> Seq.toList
+    member this.GetDisplayName =
       let dn = this.DisplayName
-      let genericParameters = this.GenericParameters |> Seq.map (fun p -> p.TypeVariable(cache)) |> Seq.toList
+      let genericParameters = this.GenericParameters |> Seq.map (fun p -> p.TypeVariable) |> Seq.toList
       let isOperator =
         dn.StartsWith("(") && dn.EndsWith(")") && this.CompiledName.StartsWith("op_")
       if isOperator then
@@ -106,14 +96,14 @@ module internal Impl =
         { FSharpName = dn; InternalFSharpName = dn; GenericParametersForDisplay = genericParameters }
 
   type FSharpField with
-    member this.TargetSignatureConstructor = fun (declaringType: Lazy<LowType>) member' ->
+    member this.TargetSignatureConstructor = fun (declaringType: LowType) member' ->
       if this.IsStatic then
-        ApiSignature.StaticMember (declaringType.Value, member')
+        ApiSignature.StaticMember (declaringType, member')
       else
-        ApiSignature.InstanceMember (declaringType.Value, member')
+        ApiSignature.InstanceMember (declaringType, member')
 
-  let genericParameters (cache: VariableCache) (e: FSharpEntity) =
-    e.GenericParameters |> Seq.map (fun p -> p.TypeVariable(cache)) |> Seq.toList
+  let genericParameters (e: FSharpEntity) =
+    e.GenericParameters |> Seq.map (fun p -> p.TypeVariable) |> Seq.toList
 
   let accessibility (e: FSharpEntity) =
     let a = e.Accessibility
@@ -124,28 +114,19 @@ module internal Impl =
 
   let autoGenericVariableLen = "type '".Length
 
-  let cacheVariableName (cache: VariableCache) (t: FSharpType) =
-    let p = t.GenericParameter
-    if p.IsAutoGeneric then
-      let name = t.ToString().Substring(autoGenericVariableLen)
-      cache.[t.GenericParameter.Name] <- name
-    else
-      ()
-
-  let rec fsharpTypeToLowType (cache: VariableCache) (t: FSharpType) =
+  let rec fsharpTypeToLowType (t: FSharpType) =
     if Hack.isMeasure t then
       None
     elif t.IsFunctionType then
       option {
-        let! xs = toFlatArrow cache t
+        let! xs = toFlatArrow t
         return Arrow xs
       }
     elif t.IsGenericParameter then
-      cacheVariableName cache t
-      Some (Variable (VariableSource.Target, t.GenericParameter.TypeVariable(cache)))
+      Some (Variable (VariableSource.Target, t.GenericParameter.TypeVariable))
     elif t.IsTupleType then
       option {
-        let! args = listLowType cache t.GenericArguments
+        let! args = listLowType t.GenericArguments
         return Tuple args
       }
     elif Hack.isFloat t then
@@ -156,27 +137,27 @@ module internal Impl =
         | [] -> t.TryIdentity
         | xs -> 
           option {
-            let! xs = listLowType cache xs
+            let! xs = listLowType xs
             let! id = t.TryIdentity
             return Generic (id, xs)
           }
       if t.TypeDefinition.IsDelegate then
         option {
-          let! arrow = delegateArrow cache t
+          let! arrow = delegateArrow t
           let! t = signature
           return Delegate (t, arrow)
         }
       elif Hack.isAbbreviation t then
         option {
           let! signature = signature
-          let! original = abbreviationRoot cache t
+          let! original = abbreviationRoot t
           return TypeAbbreviation { Abbreviation = signature; Original = original }
         }
       else
         signature
     else
       None
-  and delegateArrow (cache: VariableCache) (t: FSharpType) =
+  and delegateArrow (t: FSharpType) =
     let td = t.TypeDefinition
     option {
       let! invokeMethod = td.MembersFunctionsAndValues |> Seq.tryFind (fun m -> m.DisplayName = "Invoke")
@@ -188,57 +169,57 @@ module internal Impl =
                 yield x.Type
             yield invokeMethod.ReturnParameter.Type
           ]
-          |> listLowType cache
-        let! genericArguments = t.GenericArguments |> listLowType cache
-        let replacements = Seq.zip (genericParameters cache td) genericArguments |> Map.ofSeq
+          |> listLowType
+        let! genericArguments = t.GenericArguments |> listLowType
+        let replacements = Seq.zip (genericParameters td) genericArguments |> Map.ofSeq
         return LowType.applyVariableToTargetList VariableSource.Target replacements methodParameters
       }
       return arrow
     }
-  and abbreviationRoot (cache: VariableCache) (t: FSharpType) =
+  and abbreviationRoot (t: FSharpType) =
     if t.IsAbbreviation then
-      abbreviationRoot cache t.AbbreviatedType
+      abbreviationRoot t.AbbreviatedType
     elif Hack.isFloat t then
       Some SpecialTypes.LowType.Double
     elif t.IsFunctionType then
       option {
-        let! xs = toFlatArrow cache t
+        let! xs = toFlatArrow t
         return Arrow xs
       }
     else
-      fsharpTypeToLowType cache t
-  and toFlatArrow (cache: VariableCache) (t: FSharpType): LowType list option =
+      fsharpTypeToLowType t
+  and toFlatArrow (t: FSharpType): LowType list option =
     match Seq.toList t.GenericArguments with
     | [ x; y ] when y.IsFunctionType ->
       option {
-        let! xSig = fsharpTypeToLowType cache x
-        let! ySigs = toFlatArrow cache y
+        let! xSig = fsharpTypeToLowType x
+        let! ySigs = toFlatArrow y
         return xSig :: ySigs
       }
     | [ x; y ] ->
       option {
-        let! xSig = fsharpTypeToLowType cache x
-        let! ySig = fsharpTypeToLowType cache y
+        let! xSig = fsharpTypeToLowType x
+        let! ySig = fsharpTypeToLowType y
         return [ xSig; ySig ]
       }
     | _ -> None
-  and listLowType (cache: VariableCache) (ts: FSharpType seq) = ts |> Seq.foldOptionMapping (fsharpTypeToLowType cache) |> Option.map Seq.toList
-  and fsharpEntityToLowType (cache: VariableCache) (x: FSharpEntity) =
+  and listLowType (ts: FSharpType seq) = ts |> Seq.foldOptionMapping fsharpTypeToLowType |> Option.map Seq.toList
+  and fsharpEntityToLowType (x: FSharpEntity) =
     let identity = x.Identity
-    let args = x |> genericParameters cache |> List.map (fun v -> Variable (VariableSource.Target, v))
+    let args = x |> genericParameters |> List.map (fun v -> Variable (VariableSource.Target, v))
     match args with
     | [] -> identity
     | xs -> Generic (identity, xs)
 
-  let collectTypeConstraints (cache: VariableCache) (genericParamters: seq<FSharpGenericParameter>): TypeConstraint list =
+  let collectTypeConstraints (genericParamters: seq<FSharpGenericParameter>): TypeConstraint list =
     genericParamters
     |> Seq.collect (fun p ->
-      let variable = p.TypeVariable(cache)
+      let variable = p.TypeVariable
       p.Constraints
       |> Seq.choose (fun c -> 
         if c.IsCoercesToConstraint then
           option {
-            let! parent = fsharpTypeToLowType cache c.CoercesToTarget
+            let! parent = fsharpTypeToLowType c.CoercesToTarget
             return { Variables = [ variable ]; Constraint = SubtypeConstraints parent }
           }
         elif c.IsSupportsNullConstraint then
@@ -247,9 +228,9 @@ module internal Impl =
           option {
             let data = c.MemberConstraintData
             let modifier = if data.MemberIsStatic then MemberModifier.Static else MemberModifier.Instance
-            let! returnType = fsharpTypeToLowType cache data.MemberReturnType
+            let! returnType = fsharpTypeToLowType data.MemberReturnType
             let returnParam = Parameter.ofLowType returnType
-            let! parameters = listLowType cache data.MemberArgumentTypes
+            let! parameters = listLowType data.MemberArgumentTypes
             let parameters =
               let ps =
                 if data.MemberIsStatic then
@@ -264,7 +245,7 @@ module internal Impl =
                     List.tail parameters // instance member contains receiver
               [ List.map Parameter.ofLowType ps ]
               
-            let variables = data.MemberSources |> Seq.map (fun x -> x.GenericParameter.TypeVariable(cache)) |> Seq.toList
+            let variables = data.MemberSources |> Seq.map (fun x -> x.GenericParameter.TypeVariable) |> Seq.toList
             let name = data.MemberName
             let member' = { Name = name; Kind = MemberKind.Method; Parameters = parameters; ReturnParameter = returnParam; GenericParameters = [] }
             return { Variables = variables; Constraint = MemberConstraints (modifier, member') }
@@ -292,13 +273,13 @@ module internal Impl =
     |> Seq.toList
     |> List.distinct
 
-  let parameterSignature (cache: VariableCache) (t: FSharpMemberOrFunctionOrValue) =
+  let parameterSignature (t: FSharpMemberOrFunctionOrValue) =
     let xs = [
       for group in t.CurriedParameterGroups do
         for parameter in group do
           yield parameter.Type
     ]
-    listLowType cache xs
+    listLowType xs
 
   let private (|Fs_option|_|) = function
     | Generic (Identity (FullIdentity { AssemblyName = "FSharp.Core"; Name = LoadingName ("FSharp.Core", "Microsoft.FSharp.Core.option`1", []); GenericParameterCount = 1 }), [ p ]) -> Some p
@@ -314,14 +295,14 @@ module internal Impl =
     | IsOption p -> p
     | p -> p
 
-  let curriedParameterGroups (cache: VariableCache) isFSharp (t: FSharpMemberOrFunctionOrValue) =
+  let curriedParameterGroups isFSharp (t: FSharpMemberOrFunctionOrValue) =
     seq {
       for group in t.CurriedParameterGroups do
         if Seq.length group > 0 then
           let group = seq {
               for p in group do
                 yield option {
-                  let! t = fsharpTypeToLowType cache p.Type
+                  let! t = fsharpTypeToLowType p.Type
                   let t =
                     if isFSharp && p.IsOptionalArg then
                       unwrapFsOptionalParameter t
@@ -343,35 +324,35 @@ module internal Impl =
     else
       ps
 
-  let methodMember (cache: VariableCache) isFSharp (x: FSharpMemberOrFunctionOrValue) =
+  let methodMember isFSharp (x: FSharpMemberOrFunctionOrValue) =
     option {
-      let! parameters = curriedParameterGroups cache isFSharp x
+      let! parameters = curriedParameterGroups isFSharp x
       let parameters = complementUnitParameter x parameters
-      let! returnType = fsharpTypeToLowType cache x.ReturnParameter.Type
+      let! returnType = fsharpTypeToLowType x.ReturnParameter.Type
       let returnParam = Parameter.ofLowType returnType
-      let name = x.GetDisplayName(cache)
-      let genericParams = x.GenericParametersAsTypeVariable(cache)
+      let name = x.GetDisplayName
+      let genericParams = x.GenericParametersAsTypeVariable
       let member' = { Name = name.InternalFSharpName; Kind = MemberKind.Method; GenericParameters = genericParams; Parameters = parameters; ReturnParameter = returnParam }
       return (name, member')
     }
 
-  let propertyMember (cache: VariableCache) isFSharp (x: FSharpMemberOrFunctionOrValue) =
+  let propertyMember isFSharp (x: FSharpMemberOrFunctionOrValue) =
     option {
-      let! parameters = curriedParameterGroups cache isFSharp x
-      let! returnType = fsharpTypeToLowType cache x.ReturnParameter.Type
+      let! parameters = curriedParameterGroups isFSharp x
+      let! returnType = fsharpTypeToLowType x.ReturnParameter.Type
       let returnParam = Parameter.ofLowType returnType
-      let name = x.GetDisplayName(cache)
-      let genericParams = x.GenericParametersAsTypeVariable(cache)
+      let name = x.GetDisplayName
+      let genericParams = x.GenericParametersAsTypeVariable
       let memberKind = MemberKind.Property x.PropertyKind
       let member' = { Name = name.InternalFSharpName; Kind = memberKind; GenericParameters = genericParams; Parameters = parameters; ReturnParameter = returnParam }
       return (name, member')
     }
 
-  let toModuleValue (cache: VariableCache) isFSharp xml (declaringModuleName: Lazy<DisplayName>) (x: FSharpMemberOrFunctionOrValue) =
+  let toModuleValue isFSharp xml (declaringModuleName: DisplayName) (x: FSharpMemberOrFunctionOrValue) =
     option {
       
-      let! parameters = curriedParameterGroups cache isFSharp x
-      let! returnType = fsharpTypeToLowType cache x.ReturnParameter.Type
+      let! parameters = curriedParameterGroups isFSharp x
+      let! returnType = fsharpTypeToLowType x.ReturnParameter.Type
       let returnParam = Parameter.ofLowType returnType
       let arrow = [ yield! parameters; yield [ returnParam ] ]
       let target =
@@ -382,26 +363,26 @@ module internal Impl =
           match arrow with
           | [ [ value ] ] -> ApiSignature.ModuleValue value.Type
           | _ -> ApiSignature.ModuleFunction arrow
-      let name = x.GetDisplayName(cache) :: declaringModuleName.Value
-      return { Name = DisplayName name; Signature = target; TypeConstraints = collectTypeConstraints cache x.GenericParameters; Document = tryGetXmlDoc xml x }
+      let name = x.GetDisplayName :: declaringModuleName
+      return { Name = DisplayName name; Signature = target; TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
     }
 
-  let toTypeExtension (cache: VariableCache) isFSharp xml (declaringModuleName: Lazy<DisplayName>) (x: FSharpMemberOrFunctionOrValue) =
+  let toTypeExtension isFSharp xml (declaringModuleName: DisplayName) (x: FSharpMemberOrFunctionOrValue) =
     option {
       let! _, member' =
         if x.IsPropertyGetterMethod || x.IsPropertySetterMethod then
           None
         elif x.IsProperty then
-          propertyMember cache isFSharp x
+          propertyMember isFSharp x
         else
-          let existingTypeParameters = x.LogicalEnclosingEntity.GenericParameters |> Seq.map (fun x -> x.TypeVariable(cache)) |> Seq.toArray
+          let existingTypeParameters = x.LogicalEnclosingEntity.GenericParameters |> Seq.map (fun x -> x.TypeVariable) |> Seq.toArray
           let removeExistingTypeParameters xs = xs |> List.filter (fun p -> existingTypeParameters |> Array.exists ((=)p) = false)
-          methodMember cache isFSharp x
+          methodMember isFSharp x
           |> Option.map (fun (n, m) -> (n, { m with GenericParameters = removeExistingTypeParameters m.GenericParameters }))
 
       let modifier = x.MemberModifier
-      let existingType = fsharpEntityToLowType cache x.LogicalEnclosingEntity
-      let signature = ApiSignature.TypeExtension { ExistingType = existingType; Declaration = declaringModuleName.Value; MemberModifier = modifier; Member = member' }
+      let existingType = fsharpEntityToLowType x.LogicalEnclosingEntity
+      let signature = ApiSignature.TypeExtension { ExistingType = existingType; Declaration = declaringModuleName; MemberModifier = modifier; Member = member' }
       let name =
         let memberAssemblyName = x.LogicalEnclosingEntity.Assembly.SimpleName
         let memberTypeName = x.LogicalEnclosingEntity.FullName
@@ -409,77 +390,77 @@ module internal Impl =
           let name = member'.Name
           { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = [] }
         LoadingName (memberAssemblyName, memberTypeName, [ memberName ])
-      return { Name = name; Signature = signature; TypeConstraints = collectTypeConstraints cache x.GenericParameters; Document = tryGetXmlDoc xml x }
+      return { Name = name; Signature = signature; TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
     }
 
-  let toFSharpApi (cache: VariableCache) isFSharp xml (declaringModuleName: Lazy<DisplayName>) (x: FSharpMemberOrFunctionOrValue) =
+  let toFSharpApi isFSharp xml (declaringModuleName: DisplayName) (x: FSharpMemberOrFunctionOrValue) =
     if x.IsExtensionMember then
-      toTypeExtension cache isFSharp xml declaringModuleName x
+      toTypeExtension isFSharp xml declaringModuleName x
     else
-      toModuleValue cache isFSharp xml declaringModuleName x
+      toModuleValue isFSharp xml declaringModuleName x
 
-  let constructorSignature (cache: VariableCache) isFSharp xml (declaringSignatureName: Lazy<DisplayName>) (declaringSignature: Lazy<LowType>) (x: FSharpMemberOrFunctionOrValue) =
+  let constructorSignature isFSharp xml (declaringSignatureName: DisplayName) (declaringSignature: LowType) (x: FSharpMemberOrFunctionOrValue) =
     let constructorName = "new"
     option {
-      let! _, target = methodMember cache isFSharp x
-      let target = { target with Name = constructorName; ReturnParameter = Parameter.ofLowType declaringSignature.Value }
-      let name = { FSharpName = constructorName; InternalFSharpName = constructorName; GenericParametersForDisplay = [] } :: declaringSignatureName.Value
-      return { Name = DisplayName name; Signature = ApiSignature.Constructor (declaringSignature.Value, target); TypeConstraints = collectTypeConstraints cache x.GenericParameters; Document = tryGetXmlDoc xml x }
+      let! _, target = methodMember isFSharp x
+      let target = { target with Name = constructorName; ReturnParameter = Parameter.ofLowType declaringSignature }
+      let name = { FSharpName = constructorName; InternalFSharpName = constructorName; GenericParametersForDisplay = [] } :: declaringSignatureName
+      return { Name = DisplayName name; Signature = ApiSignature.Constructor (declaringSignature, target); TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
     }
 
-  let memberSignature (cache: VariableCache) xml (loadMember: FSharpMemberOrFunctionOrValue -> (NameItem * Member) option) (declaringSignatureName: Lazy<DisplayName>) (declaringEntity: FSharpEntity) declaringSignature (x: FSharpMemberOrFunctionOrValue) =
+  let memberSignature xml (loadMember: FSharpMemberOrFunctionOrValue -> (NameItem * Member) option) (declaringSignatureName: DisplayName) (declaringEntity: FSharpEntity) declaringSignature (x: FSharpMemberOrFunctionOrValue) =
     option {
       let! name, member' = loadMember x
-      let name = name :: declaringSignatureName.Value
-      let typeConstraints = Seq.append declaringEntity.GenericParameters x.GenericParameters |> collectTypeConstraints cache
+      let name = name :: declaringSignatureName
+      let typeConstraints = Seq.append declaringEntity.GenericParameters x.GenericParameters |> collectTypeConstraints
       return { Name = DisplayName name; Signature = x.TargetSignatureConstructor declaringSignature member'; TypeConstraints = typeConstraints; Document = tryGetXmlDoc xml x }
     }
 
-  let toTypeMemberApi (cache: VariableCache) xml (declaringSignatureName: Lazy<DisplayName>) (declaringEntity: FSharpEntity) (declaringSignature: Lazy<LowType>) (x: FSharpMemberOrFunctionOrValue) =
+  let toTypeMemberApi xml (declaringSignatureName: DisplayName) (declaringEntity: FSharpEntity) (declaringSignature: LowType) (x: FSharpMemberOrFunctionOrValue) =
     let isFSharp = declaringEntity.IsFSharp
     if x.IsConstructor then
-      constructorSignature cache isFSharp xml declaringSignatureName declaringSignature x
+      constructorSignature isFSharp xml declaringSignatureName declaringSignature x
     elif x.IsMethod then
-      memberSignature cache xml (methodMember cache isFSharp) declaringSignatureName declaringEntity declaringSignature x
+      memberSignature xml (methodMember isFSharp) declaringSignatureName declaringEntity declaringSignature x
     elif x.IsProperty then
-      memberSignature cache xml (propertyMember cache isFSharp) declaringSignatureName declaringEntity declaringSignature x
+      memberSignature xml (propertyMember isFSharp) declaringSignatureName declaringEntity declaringSignature x
     else
       None
 
-  let toFieldApi (cache: VariableCache) xml (accessPath: Lazy<DisplayName>) (declaringEntity: FSharpEntity) (declaringSignature: Lazy<LowType>) (field: FSharpField) =
+  let toFieldApi xml (accessPath: DisplayName) (declaringEntity: FSharpEntity) (declaringSignature: LowType) (field: FSharpField) =
     option {
-      let! returnType = fsharpTypeToLowType cache field.FieldType
+      let! returnType = fsharpTypeToLowType field.FieldType
       let returnParam = Parameter.ofLowType returnType
       let member' = { Name = field.Name; Kind = MemberKind.Field; GenericParameters = []; Parameters = []; ReturnParameter = returnParam }
       let apiName =
         let name = field.Name
-        { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = [] } :: accessPath.Value
-      return { Name = DisplayName apiName; Signature = field.TargetSignatureConstructor declaringSignature member'; TypeConstraints = collectTypeConstraints cache declaringEntity.GenericParameters; Document = tryGetXmlDoc xml field }
+        { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = [] } :: accessPath
+      return { Name = DisplayName apiName; Signature = field.TargetSignatureConstructor declaringSignature member'; TypeConstraints = collectTypeConstraints declaringEntity.GenericParameters; Document = tryGetXmlDoc xml field }
     }
 
-  let toUnionCaseField (cache: VariableCache) length (n, field: FSharpField) = option {
+  let toUnionCaseField length (n, field: FSharpField) = option {
     let name =
       if length = 1 && field.Name = "Item" then None
       elif field.Name = sprintf "Item%d" n then None
       else Some field.Name
-    let! t = fsharpTypeToLowType cache field.FieldType
+    let! t = fsharpTypeToLowType field.FieldType
     return ({ Name = name; Type = t } : UnionCaseField)
   }
 
-  let toUnionCaseApi (cache: VariableCache) xml (accessPath: Lazy<DisplayName>) (declaringEntity: FSharpEntity) (declaringSignature: Lazy<LowType>) (unionCase: FSharpUnionCase) =
+  let toUnionCaseApi xml (accessPath: DisplayName) (declaringEntity: FSharpEntity) (declaringSignature: LowType) (unionCase: FSharpUnionCase) =
     option {
       let caseName = unionCase.Name
-      let! fields = unionCase.UnionCaseFields |> Seq.mapi (fun i field -> (i + 1, field)) |> Seq.foldOptionMapping (toUnionCaseField cache unionCase.UnionCaseFields.Count)
-      let returnType = declaringSignature.Value
+      let! fields = unionCase.UnionCaseFields |> Seq.mapi (fun i field -> (i + 1, field)) |> Seq.foldOptionMapping (toUnionCaseField unionCase.UnionCaseFields.Count)
+      let returnType = declaringSignature
       let signature = { DeclaringType = returnType; Name = caseName; Fields = List.ofSeq fields } : UnionCase
-      let apiName = { FSharpName = caseName; InternalFSharpName = caseName; GenericParametersForDisplay = [] } :: accessPath.Value
-      return { Name = DisplayName apiName; Signature = ApiSignature.UnionCase signature; TypeConstraints = collectTypeConstraints cache declaringEntity.GenericParameters; Document = tryGetXmlDoc xml unionCase }
+      let apiName = { FSharpName = caseName; InternalFSharpName = caseName; GenericParametersForDisplay = [] } :: accessPath
+      return { Name = DisplayName apiName; Signature = ApiSignature.UnionCase signature; TypeConstraints = collectTypeConstraints declaringEntity.GenericParameters; Document = tryGetXmlDoc xml unionCase }
     }
 
-  let resolveConflictGenericArgumnet (cache: VariableCache) (replacementVariables: LowType list) (m: FSharpMemberOrFunctionOrValue) =
+  let resolveConflictGenericArgumnet (replacementVariables: LowType list) (m: FSharpMemberOrFunctionOrValue) =
     m.GenericParameters
     |> Seq.choose (fun p ->
-      let name = p.TypeVariable(cache)
+      let name = p.TypeVariable
       let isConflict = replacementVariables |> List.exists (function Variable (VariableSource.Target, n) -> n = name | _ -> false)
       if isConflict then
         let confrictVariable = name
@@ -489,10 +470,10 @@ module internal Impl =
     )
     |> Seq.toList
 
-  let genericParametersAndArguments (cache: VariableCache) (t: FSharpType) =
+  let genericParametersAndArguments (t: FSharpType) =
     Seq.zip t.TypeDefinition.GenericParameters t.GenericArguments
     |> Seq.choose (fun (parameter, arg) -> option {
-      let! s = fsharpTypeToLowType cache arg
+      let! s = fsharpTypeToLowType arg
       let v = parameter.TypeVariable
       return v, s
     })
@@ -511,9 +492,9 @@ module internal Impl =
       | _ -> declaringSignatureName
     { api with Name = DisplayName name; Signature = target }
 
-  let collectTypeAbbreviationDefinition (cache: VariableCache) xml (accessPath: Lazy<DisplayName>) (e: FSharpEntity): Api seq =
+  let collectTypeAbbreviationDefinition xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
     option {
-      let! abbreviatedAndOriginal = fsharpTypeToLowType cache e.AbbreviatedType
+      let! abbreviatedAndOriginal = fsharpTypeToLowType e.AbbreviatedType
       let abbreviated, original =
         match abbreviatedAndOriginal with
         | TypeAbbreviation t -> t.Abbreviation, t.Original
@@ -521,18 +502,18 @@ module internal Impl =
 
       let typeAbbreviationName =
         let name = e.DisplayName
-        { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = genericParameters cache e } :: accessPath.Value
+        { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = genericParameters e } :: accessPath
       let abbreviationDef: TypeAbbreviationDefinition = {
         Name = typeAbbreviationName
         FullName = e.TypeAbbreviationFullName
         AssemblyName = e.Assembly.SimpleName
         Accessibility = accessibility e
-        GenericParameters = e.GenericParameters |> Seq.map (fun p -> p.TypeVariable(cache)) |> Seq.toList
+        GenericParameters = e.GenericParameters |> Seq.map (fun p -> p.TypeVariable) |> Seq.toList
         Abbreviated = abbreviated
         Original = original
       }
       let target = ApiSignature.TypeAbbreviation abbreviationDef
-      return { Name = DisplayName typeAbbreviationName; Signature = target; TypeConstraints = collectTypeConstraints cache e.GenericParameters; Document = tryGetXmlDoc xml e }
+      return { Name = DisplayName typeAbbreviationName; Signature = target; TypeConstraints = collectTypeConstraints e.GenericParameters; Document = tryGetXmlDoc xml e }
     }
     |> Option.toList
     |> List.toSeq
@@ -571,7 +552,7 @@ module internal Impl =
     ExpectedInterfaces: string list
   }
 
-  let loadEqualityAndComparison (variableCache: VariableCache) builder (e: FSharpEntity) =
+  let loadEqualityAndComparison builder (e: FSharpEntity) =
     let loadConditional (e: FSharpEntity) =
       let vs =
         e.GenericParameters
@@ -579,7 +560,7 @@ module internal Impl =
           x.Attributes
           |> Seq.exists (fun attr -> attr.AttributeType.FullName = builder.ConditionalAttrName)
         )
-        |> Seq.map (fun p -> p.TypeVariable(variableCache))
+        |> Seq.map (fun p -> p.TypeVariable)
         |> Seq.toList
       match vs with
       | [] -> Satisfy
@@ -605,14 +586,14 @@ module internal Impl =
         elif builder.SatisfyTypes |> Seq.exists (Some >> ((=) fullName)) then
           updateCache cache Satisfy
         elif e.IsTuple then
-          let vs = e.GenericParameters |> Seq.map (fun p -> p.TypeVariable(variableCache)) |> Seq.toList
+          let vs = e.GenericParameters |> Seq.map (fun p -> p.TypeVariable) |> Seq.toList
           let eq =
             match vs with
             | [] -> Satisfy
             | _ -> Dependence vs
           updateCache cache eq
         elif e.IsArrayType then
-          let v = e.GenericParameters |> Seq.map (fun p -> p.TypeVariable(variableCache)) |> Seq.toList
+          let v = e.GenericParameters |> Seq.map (fun p -> p.TypeVariable) |> Seq.toList
           updateCache cache (Dependence v)
         else
           match updateCache cache (loadBasic e) with
@@ -623,7 +604,7 @@ module internal Impl =
             | cache, _ -> updateCache cache NotSatisfy
     and loadBasic (e: FSharpEntity) =
       if e.IsFSharp && (e.IsFSharpRecord || e.IsFSharpUnion || e.IsValueType) then
-        let vs = e.GenericParameters |> Seq.map (fun p -> p.TypeVariable(variableCache)) |> Seq.toList
+        let vs = e.GenericParameters |> Seq.map (fun p -> p.TypeVariable) |> Seq.toList
         match vs with
         | [] -> Satisfy
         | _ -> Dependence vs
@@ -677,14 +658,14 @@ module internal Impl =
           | Dependence dependenceVariables ->
             let testArgs =
               root.TypeDefinition.GenericParameters
-              |> Seq.map (fun x -> x.TypeVariable(variableCache))
+              |> Seq.map (fun x -> x.TypeVariable)
               |> Seq.zip root.GenericArguments
               |> Seq.choose (fun (t, v) -> if Seq.exists ((=)v) dependenceVariables then Some t else None)
             foldFsharpType cache testArgs
 
     load Map.empty e
 
-  let equality (cache: VariableCache) (e: FSharpEntity) =
+  let equality (e: FSharpEntity) =
     let builder = {
       ConditionalAttrName = typeof<EqualityConditionalOnAttribute>.FullName
       CustomAttrName = typeof<CustomEqualityAttribute>.FullName
@@ -692,9 +673,9 @@ module internal Impl =
       SatisfyTypes = []
       ExpectedInterfaces = []
     }
-    loadEqualityAndComparison cache builder e
+    loadEqualityAndComparison builder e
 
-  let comparison (cache: VariableCache) (e: FSharpEntity) =
+  let comparison (e: FSharpEntity) =
     let builder = {
       ConditionalAttrName = typeof<ComparisonConditionalOnAttribute>.FullName
       CustomAttrName = typeof<CustomComparisonAttribute>.FullName
@@ -702,7 +683,7 @@ module internal Impl =
       SatisfyTypes = [ typeof<System.IntPtr>.FullName; typeof<System.UIntPtr>.FullName ]
       ExpectedInterfaces = [ typeof<System.IComparable>.FullName; typeof<System.Collections.IStructuralComparable>.FullName ]
     }
-    loadEqualityAndComparison cache builder e
+    loadEqualityAndComparison builder e
 
   let typeDefKind (e: FSharpEntity) =
     if e.IsEnum then
@@ -718,11 +699,11 @@ module internal Impl =
     else
       TypeDefinitionKind.Type
 
-  let fullTypeDef (cache: VariableCache) xml (name: Lazy<DisplayName>) (e: FSharpEntity) members =
+  let fullTypeDef xml (name: DisplayName) (e: FSharpEntity) members =
     option {
       let baseType =
         if not e.IsInterface then
-          e.BaseType |> Option.bind (fsharpTypeToLowType cache)
+          e.BaseType |> Option.bind fsharpTypeToLowType
         else
           None
       let instanceMembers =
@@ -738,7 +719,7 @@ module internal Impl =
           | _ -> None)
         |> Seq.toList
 
-      let identity = { e.LoadingFullIdentity with Name = DisplayName name.Value }
+      let identity = { e.LoadingFullIdentity with Name = DisplayName name }
       let implicitInstanceMembers, implicitStaticMembers = CompilerOptimization.implicitMembers identity
 
       let fullName =
@@ -747,15 +728,15 @@ module internal Impl =
         | None -> e.AccessPath + "." + e.CompiledName
 
       let typeDef = {
-        Name = name.Value
+        Name = name
         FullName = fullName
         AssemblyName = identity.AssemblyName
         Accessibility = accessibility e
         Kind = typeDefKind e
         BaseType = baseType
-        AllInterfaces = e.DeclaredInterfaces |> Seq.filter (fun x -> x.TypeDefinition.Accessibility.IsPublic) |> Seq.choose (fsharpTypeToLowType cache) |> Seq.toList
-        GenericParameters = genericParameters cache e
-        TypeConstraints = e.GenericParameters |> collectTypeConstraints cache
+        AllInterfaces = e.DeclaredInterfaces |> Seq.filter (fun x -> x.TypeDefinition.Accessibility.IsPublic) |> Seq.choose fsharpTypeToLowType |> Seq.toList
+        GenericParameters = genericParameters e
+        TypeConstraints = e.GenericParameters |> collectTypeConstraints
         InstanceMembers = instanceMembers
         StaticMembers = staticMembers
 
@@ -769,16 +750,16 @@ module internal Impl =
           let constructors = members |> Seq.choose (function { Signature = ApiSignature.Constructor (_, m)} -> Some m | _ -> None)
           hasDefaultConstructor constructors
           |> boolToConstraintStatus
-        Equality = equality cache e |> snd
-        Comparison = comparison cache e |> snd
+        Equality = equality e |> snd
+        Comparison = comparison e |> snd
       }
-      let api = { Name = DisplayName name.Value; Signature = ApiSignature.FullTypeDefinition typeDef; TypeConstraints = typeDef.TypeConstraints; Document = tryGetXmlDoc xml e }
+      let api = { Name = DisplayName name; Signature = ApiSignature.FullTypeDefinition typeDef; TypeConstraints = typeDef.TypeConstraints; Document = tryGetXmlDoc xml e }
       return (api, typeDef)
     }
 
-  let moduleDef xml (name: Lazy<_>) (e: FSharpEntity) =
-    let def: ModuleDefinition = { Name = name.Value; Accessibility = accessibility e }
-    { Name = DisplayName name.Value; Signature = ApiSignature.ModuleDefinition def; TypeConstraints = []; Document = tryGetXmlDoc xml e }
+  let moduleDef xml name (e: FSharpEntity) =
+    let def: ModuleDefinition = { Name = name; Accessibility = accessibility e }
+    { Name = DisplayName name; Signature = ApiSignature.ModuleDefinition def; TypeConstraints = []; Document = tryGetXmlDoc xml e }
 
   let tryExtractSyntaxes typeDef customOperations =
     let defaultSyntaxes = ComputationExpressionLoader.extractSyntaxes typeDef
@@ -805,54 +786,51 @@ module internal Impl =
       else
         None)
 
-  let rec collectApi (cache: VariableCache) xml (accessPath: Lazy<DisplayName>) (e: FSharpEntity): Api seq =
+  let rec collectApi xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
     seq {
       if e.IsNamespace then
-        let accessPath = Lazy.Create (fun () ->
+        let accessPath =
           let name = e.DisplayName
-          { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = [] } :: accessPath.Value
-        )
-        yield! collectFromNestedEntities cache xml accessPath e
+          { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = [] } :: accessPath
+        yield! collectFromNestedEntities xml accessPath e
       elif e.IsCompilerInternalModule then
         ()
       elif e.IsFSharpModule then
-        yield! collectFromModule cache xml accessPath e
+        yield! collectFromModule xml accessPath e
       elif e.IsFSharpAbbreviation && not e.IsMeasure then
-        yield! collectTypeAbbreviationDefinition cache xml accessPath e
+        yield! collectTypeAbbreviationDefinition xml accessPath e
       elif e.IsClass || e.IsInterface || e.IsValueType || e.IsFSharpRecord || e.IsFSharpUnion || e.IsArrayType || e.IsDelegate then
-        yield! collectFromType cache xml accessPath e
+        yield! collectFromType xml accessPath e
       elif e.IsOpaque || e.HasAssemblyCodeRepresentation then
-        yield! collectFromType cache xml accessPath e
+        yield! collectFromType xml accessPath e
     }
-  and collectFromNestedEntities  (cache: VariableCache) xml (accessPath: Lazy<DisplayName>) (e: FSharpEntity): Api seq =
+  and collectFromNestedEntities xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
     e.NestedEntities
-    |> Seq.collect (collectApi cache xml accessPath)
-  and collectFromModule (cache: VariableCache) xml (accessPath: Lazy<DisplayName>) (e: FSharpEntity): Api seq =
-    let moduleName = Lazy.Create (fun () ->
+    |> Seq.collect (collectApi xml accessPath)
+  and collectFromModule xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
+    let moduleName =
       let name = e.DisplayName
-      { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = [] } :: accessPath.Value
-    )
+      { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = [] } :: accessPath
     seq {
       yield moduleDef xml moduleName e
       yield! e.MembersFunctionsAndValues
               |> Seq.filter (fun x -> x.Accessibility.IsPublic)
-              |> Seq.choose (toFSharpApi cache e.IsFSharp xml moduleName)
-      yield! collectFromNestedEntities cache xml moduleName e
+              |> Seq.choose (toFSharpApi e.IsFSharp xml moduleName)
+      yield! collectFromNestedEntities xml moduleName e
     }
-  and collectFromType (cache: VariableCache) xml (accessPath: Lazy<DisplayName>) (e: FSharpEntity): Api seq =
-    let typeName = Lazy.Create (fun () ->
+  and collectFromType xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
+    let typeName =
       let name = e.DisplayName
-      { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = genericParameters cache e } :: accessPath.Value
-    )
+      { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = genericParameters e } :: accessPath
 
     seq {
-      let declaringSignature = lazy(fsharpEntityToLowType cache e)
+      let declaringSignature = fsharpEntityToLowType e
 
       let membersAndCustomOperations =
         e.MembersFunctionsAndValues
         |> Seq.filter (fun x -> x.Accessibility.IsPublic && not x.IsCompilerGenerated)
         |> Seq.choose (fun x ->
-          toTypeMemberApi cache xml typeName e declaringSignature x
+          toTypeMemberApi xml typeName e declaringSignature x
           |> Option.map (fun m -> (m, isCustomOperation x)))
         |> Seq.cache
 
@@ -868,15 +846,15 @@ module internal Impl =
       let fields =
         e.FSharpFields
         |> Seq.filter (fun x -> x.Accessibility.IsPublic && not x.IsCompilerGenerated)
-        |> Seq.choose (toFieldApi cache xml typeName e declaringSignature)
+        |> Seq.choose (toFieldApi xml typeName e declaringSignature)
         |> Seq.cache
 
       let unionCases =
         e.UnionCases
         |> Seq.filter (fun x -> x.Accessibility.IsPublic)
-        |> Seq.choose (toUnionCaseApi cache xml typeName e declaringSignature)
+        |> Seq.choose (toUnionCaseApi xml typeName e declaringSignature)
 
-      match fullTypeDef cache xml typeName e (Seq.append members fields) with
+      match fullTypeDef xml typeName e (Seq.append members fields) with
       | Some (typeDefApi, typeDef) ->
         yield typeDefApi
         yield! members
@@ -885,7 +863,7 @@ module internal Impl =
 
         yield! computationExpression typeDefApi.Document typeDef customOperations |> Option.toList
       | None -> ()
-      yield! collectFromNestedEntities cache xml typeName e
+      yield! collectFromNestedEntities xml typeName e
     }
 
   let tryGetXml (assembly: FSharpAssembly) = option {
@@ -899,7 +877,6 @@ module internal Impl =
 
   let load (assembly: FSharpAssembly): ApiDictionary =
     let xml = tryGetXml assembly
-    let cache = VariableCache.carete()
     let api =
       assembly.Contents.Entities
       |> Seq.collect (fun e ->
@@ -907,7 +884,7 @@ module internal Impl =
           match e.AccessPath with
           | "global" -> []
           | a -> DisplayName.ofString a
-        collectApi cache xml (lazy accessPath) e)
+        collectApi xml accessPath e)
       |> Seq.toArray
     let types =
       api
