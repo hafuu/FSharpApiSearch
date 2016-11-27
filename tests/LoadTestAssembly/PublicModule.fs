@@ -7,6 +7,11 @@ let genericFunction (x: 'a) (y : 'b) = y
 let multiParamFunction (x: 'a, y: 'b, z: 'c) = x
 
 let autoGenericFunction x = x
+let autoGenericFunction2 (x: 'a) y z = x
+let autoGenericFunction3 x (y: 'b) z = x
+let autoGenericFunction4 x y (z: 'c) = x
+let autoGenericFunction5 (x: 'a0) y z = x
+let autoGenericFunction6 (x: 'a) (y: 'a0) z = x
 
 let unitParamFunction () = 0
 

@@ -16,6 +16,7 @@ type TypeForward = {
 }
 
 module internal Impl =
+  let VariableSource = VariableSource.Target
   let inline tryGetXmlDoc (xml: XElement option) (symbol: ^a): string option =
     option {
       let! xml = xml
@@ -123,7 +124,7 @@ module internal Impl =
         return Arrow xs
       }
     elif t.IsGenericParameter then
-      Some (Variable (VariableSource.Target, t.GenericParameter.TypeVariable))
+      Some (Variable (VariableSource, t.GenericParameter.TypeVariable))
     elif t.IsTupleType then
       option {
         let! args = listLowType t.GenericArguments
@@ -172,7 +173,7 @@ module internal Impl =
           |> listLowType
         let! genericArguments = t.GenericArguments |> listLowType
         let replacements = Seq.zip (genericParameters td) genericArguments |> Map.ofSeq
-        return LowType.applyVariableToTargetList VariableSource.Target replacements methodParameters
+        return LowType.applyVariableToTargetList VariableSource replacements methodParameters
       }
       return arrow
     }
@@ -206,7 +207,7 @@ module internal Impl =
   and listLowType (ts: FSharpType seq) = ts |> Seq.foldOptionMapping fsharpTypeToLowType |> Option.map Seq.toList
   and fsharpEntityToLowType (x: FSharpEntity) =
     let identity = x.Identity
-    let args = x |> genericParameters |> List.map (fun v -> Variable (VariableSource.Target, v))
+    let args = x |> genericParameters |> List.map (fun v -> Variable (VariableSource, v))
     match args with
     | [] -> identity
     | xs -> Generic (identity, xs)
@@ -464,7 +465,7 @@ module internal Impl =
       let isConflict = replacementVariables |> List.exists (function Variable (VariableSource.Target, n) -> n = name | _ -> false)
       if isConflict then
         let confrictVariable = name
-        let newVariable = Variable (VariableSource.Target, { confrictVariable with Name = confrictVariable.Name + "1" })
+        let newVariable = Variable (VariableSource, { confrictVariable with Name = confrictVariable.Name + "1" })
         Some (confrictVariable, newVariable)
       else None
     )
@@ -896,6 +897,81 @@ module internal Impl =
       |> Seq.toArray
     { AssemblyName = assembly.SimpleName; Api = api; TypeDefinitions = types; TypeAbbreviations = typeAbbreviations }
 
+  module LowTypeVisitor =
+    type Visitor = LowType -> LowType
+    
+    let accept_Parameter visitor (p: Parameter) = { p with Type = visitor p.Type }
+
+    let accept_ParameterGroups visitor (groups: ParameterGroups) = groups |> List.map (List.map (accept_Parameter visitor))
+
+    let accept_Function visitor func = accept_ParameterGroups visitor func
+
+    let accept_Member visitor (member': Member) =
+      { member' with
+          Parameters = accept_ParameterGroups visitor member'.Parameters
+          ReturnParameter = accept_Parameter visitor member'.ReturnParameter
+      }
+
+    let accept_TypeConstraint visitor (c: TypeConstraint) =
+      let constraint' =
+        match c.Constraint with
+        | SubtypeConstraints x -> SubtypeConstraints (visitor x)
+        | MemberConstraints (modifier, member') -> MemberConstraints (modifier, accept_Member visitor member')
+        | other -> other
+      { c with Constraint = constraint' }
+
+    let accept_FullTypeDefinition visitor (fullTypeDef: FullTypeDefinition) =
+      { fullTypeDef with
+          BaseType = Option.map visitor fullTypeDef.BaseType
+          AllInterfaces = List.map visitor fullTypeDef.AllInterfaces
+          TypeConstraints = List.map (accept_TypeConstraint visitor) fullTypeDef.TypeConstraints
+          InstanceMembers = List.map (accept_Member visitor) fullTypeDef.InstanceMembers
+          StaticMembers = List.map (accept_Member visitor) fullTypeDef.StaticMembers
+          ImplicitInstanceMembers = List.map (accept_Member visitor) fullTypeDef.ImplicitInstanceMembers
+          ImplicitStaticMembers = List.map (accept_Member visitor) fullTypeDef.ImplicitStaticMembers
+      }
+
+    let accept_TypeAbbreviationDefinition visitor (abbDef: TypeAbbreviationDefinition) =
+      { abbDef with
+          Abbreviated = visitor abbDef.Abbreviated
+          Original = visitor abbDef.Original
+      }
+
+    let accept_TypeExtension visitor (typeExtension: TypeExtension) =
+      { typeExtension with
+          ExistingType = visitor typeExtension.ExistingType
+          Member = accept_Member visitor typeExtension.Member
+      }
+
+    let accept_UnionCaseField visitor (field: UnionCaseField) = { field with Type = visitor field.Type }
+
+    let accept_UnionCase visitor (uc: UnionCase) =
+      { uc with
+          DeclaringType = visitor uc.DeclaringType
+          Fields = List.map (accept_UnionCaseField visitor) uc.Fields
+      }
+
+    let accept_ComputationExpressionBuilder visitor (builder: ComputationExpressionBuilder) =
+      { builder with
+          BuilderType = visitor builder.BuilderType
+          ComputationExpressionTypes = List.map visitor builder.ComputationExpressionTypes
+      }
+
+    let accept_ApiSignature (visitor: Visitor) = function
+      | ApiSignature.ModuleValue v -> ApiSignature.ModuleValue (visitor v)
+      | ApiSignature.ModuleFunction func -> ApiSignature.ModuleFunction (accept_Function visitor func)
+      | ApiSignature.ActivePatten (kind, func) -> ApiSignature.ActivePatten (kind, accept_Function visitor func)
+      | ApiSignature.InstanceMember (d, m) -> ApiSignature.InstanceMember (visitor d, accept_Member visitor m)
+      | ApiSignature.StaticMember (d, m) -> ApiSignature.StaticMember (visitor d, accept_Member visitor m)
+      | ApiSignature.Constructor (d, m) -> ApiSignature.Constructor (visitor d, accept_Member visitor m)
+      | ApiSignature.ModuleDefinition m -> ApiSignature.ModuleDefinition m
+      | ApiSignature.FullTypeDefinition d -> ApiSignature.FullTypeDefinition (accept_FullTypeDefinition visitor d)
+      | ApiSignature.TypeAbbreviation a -> ApiSignature.TypeAbbreviation (accept_TypeAbbreviationDefinition visitor a)
+      | ApiSignature.TypeExtension t -> ApiSignature.TypeExtension (accept_TypeExtension visitor t)
+      | ApiSignature.ExtensionMember m -> ApiSignature.ExtensionMember (accept_Member visitor m)
+      | ApiSignature.UnionCase uc -> ApiSignature.UnionCase (accept_UnionCase visitor uc)
+      | ApiSignature.ComputationExpressionBuilder b -> ApiSignature.ComputationExpressionBuilder (accept_ComputationExpressionBuilder visitor b)
+
   module NameResolve =
     type AssemblyCache = IDictionary<string, DisplayName>
     type NameCache = (string * AssemblyCache)[]
@@ -963,76 +1039,10 @@ module internal Impl =
       | PartialIdentity _ as i -> i
       | FullIdentity full -> FullIdentity { full with Name = resolve_Name cache full.Name }
 
-    let resolve_Parameter context (p: Parameter) = { p with Type = resolve_LowType context p.Type }
-    let resolve_ParameterGroups context (groups: ParameterGroups) = List.map (List.map (resolve_Parameter context)) groups
-
-    let resolve_Member context (member': Member) =
-      { member' with
-          Parameters = resolve_ParameterGroups context member'.Parameters
-          ReturnParameter = resolve_Parameter context member'.ReturnParameter
-      }
-
-    let resolve_TypeExtension context (typeExtension: TypeExtension) =
-      { typeExtension with
-          ExistingType = resolve_LowType context typeExtension.ExistingType
-          Member = resolve_Member context typeExtension.Member
-      }
-
-    let resolve_TypeConstraint context (c: TypeConstraint) =
-      let constraint' =
-        match c.Constraint with
-        | SubtypeConstraints x -> SubtypeConstraints (resolve_LowType context x)
-        | MemberConstraints (modifier, member') -> MemberConstraints (modifier, resolve_Member context member')
-        | other -> other
-      { c with Constraint = constraint' }
-
-    let resolve_FullTypeDefinition context (fullTypeDef: FullTypeDefinition) =
-      { fullTypeDef with
-          BaseType = Option.map (resolve_LowType context) fullTypeDef.BaseType
-          AllInterfaces = List.map (resolve_LowType context) fullTypeDef.AllInterfaces
-          TypeConstraints = List.map (resolve_TypeConstraint context) fullTypeDef.TypeConstraints
-          InstanceMembers = List.map (resolve_Member context) fullTypeDef.InstanceMembers
-          StaticMembers = List.map (resolve_Member context) fullTypeDef.StaticMembers
-          ImplicitInstanceMembers = List.map (resolve_Member context) fullTypeDef.ImplicitInstanceMembers
-          ImplicitStaticMembers = List.map (resolve_Member context) fullTypeDef.ImplicitStaticMembers
-      }
-
-    let resolve_TypeAbbreviationDefinition context abbDef =
-      { abbDef with
-          Abbreviated = resolve_LowType context abbDef.Abbreviated
-          Original = resolve_LowType context abbDef.Original
-      }
-
-    let resolve_Function context fn = resolve_ParameterGroups context fn
-
-    let resolve_UnionCaseField context (field: UnionCaseField) = { field with Type = resolve_LowType context field.Type }
-
-    let resolve_UnionCase context (uc: UnionCase) =
-      { uc with
-          DeclaringType = resolve_LowType context uc.DeclaringType
-          Fields = List.map (resolve_UnionCaseField context) uc.Fields
-      }
-
-    let resolve_ComputationExpressionBuilder context (builder: ComputationExpressionBuilder) =
-      { builder with
-          BuilderType = resolve_LowType context builder.BuilderType
-          ComputationExpressionTypes = List.map (resolve_LowType context) builder.ComputationExpressionTypes
-      }
-      
-    let resolve_Signature context = function
-      | ApiSignature.ModuleValue x -> ApiSignature.ModuleValue (resolve_LowType context x)
-      | ApiSignature.ModuleFunction fn -> ApiSignature.ModuleFunction (resolve_Function context fn)
-      | ApiSignature.ActivePatten (kind, fn) -> ApiSignature.ActivePatten (kind, resolve_Function context fn)
-      | ApiSignature.InstanceMember (d, m) -> ApiSignature.InstanceMember (resolve_LowType context d, resolve_Member context m)
-      | ApiSignature.StaticMember (d, m) -> ApiSignature.StaticMember (resolve_LowType context d, resolve_Member context m)
-      | ApiSignature.Constructor (d, m) -> ApiSignature.Constructor (resolve_LowType context d, resolve_Member context m)
-      | ApiSignature.ModuleDefinition m -> ApiSignature.ModuleDefinition m
-      | ApiSignature.FullTypeDefinition f -> ApiSignature.FullTypeDefinition (resolve_FullTypeDefinition context f)
-      | ApiSignature.TypeAbbreviation a -> ApiSignature.TypeAbbreviation (resolve_TypeAbbreviationDefinition context a)
-      | ApiSignature.TypeExtension e -> ApiSignature.TypeExtension (resolve_TypeExtension context e)
-      | ApiSignature.ExtensionMember m -> ApiSignature.ExtensionMember (resolve_Member context m)
-      | ApiSignature.UnionCase uc -> ApiSignature.UnionCase (resolve_UnionCase context uc)
-      | ApiSignature.ComputationExpressionBuilder b -> ApiSignature.ComputationExpressionBuilder (resolve_ComputationExpressionBuilder context b)
+    let resolve_Signature context apiSig = LowTypeVisitor.accept_ApiSignature (resolve_LowType context) apiSig
+    let resolve_TypeConstraint context constraint' = LowTypeVisitor.accept_TypeConstraint (resolve_LowType context) constraint'
+    let resolve_FullTypeDefinition context fullTypeDef = LowTypeVisitor.accept_FullTypeDefinition (resolve_LowType context) fullTypeDef
+    let resolve_TypeAbbreviationDefinition context abbDef = LowTypeVisitor.accept_TypeAbbreviationDefinition (resolve_LowType context) abbDef
 
     let resolve_Api context (api: Api) =
       { api with
@@ -1069,7 +1079,70 @@ module internal Impl =
         )
       dictionaries |> Array.map (resolve_ApiDictionary cache)
 
-let loadWithLogs (assemblies: FSharpAssembly[]) = PSeq.map Impl.load assemblies |> PSeq.toArray |> Impl.NameResolve.resolveLoadingName
+  module AutoGenericResolve =
+    let variables (name: Name) = name |> Name.displayName |> List.collect (fun n -> n.GenericParametersForDisplay) |> List.distinct
+
+    let replaceName (table: Map<TypeVariable, TypeVariable>) (name: Name) =
+      Name.displayName name
+      |> List.map (fun n ->
+        let genericParams =
+          n.GenericParametersForDisplay
+          |> List.map (fun p ->
+            match Map.tryFind p table with
+            | Some r -> r
+            | None -> p
+          )
+        { n with GenericParametersForDisplay = genericParams }
+      )
+      |> DisplayName
+
+    let resolve_TypeConstraint table constraint' = LowTypeVisitor.accept_TypeConstraint (LowType.applyVariable VariableSource table) constraint'
+    let resolve_ApiSignature table apiSig = LowTypeVisitor.accept_ApiSignature (LowType.applyVariable VariableSource table) apiSig
+
+    let resolve_Api (api: Api) : Api =
+      let variables = variables api.Name
+      let autoGenericVariables = variables |> List.filter (fun x -> x.Name.StartsWith("?")) |> List.sortBy (fun x -> x.Name)
+      if List.isEmpty autoGenericVariables then
+        api
+      else
+        let replaceTable =
+          let rec calcNewName i (n: int option) =
+            let suffix, next =
+              match n with
+              | Some n -> string n, Some (n + 1)
+              | None -> "", Some 0
+            let newName = string ('a' + char i) + suffix
+            if variables |> List.exists (fun v -> v.Name = newName) then
+              calcNewName i next
+            else
+              newName
+          autoGenericVariables
+          |> Seq.mapi (fun i autoGeneric ->
+            let newName = calcNewName i None
+            let replacement = { autoGeneric with Name = newName }
+            (autoGeneric, replacement)
+          )
+          |> Map.ofSeq
+        let lowTypeReplaceTable = replaceTable |> Map.map (fun _ value -> Variable (VariableSource, value))
+        { api with
+            Name = replaceName replaceTable api.Name
+            Signature = resolve_ApiSignature lowTypeReplaceTable api.Signature
+            TypeConstraints = List.map (resolve_TypeConstraint lowTypeReplaceTable) api.TypeConstraints
+        }
+
+    let resolveAutoGeneric (apiDict: ApiDictionary) =
+      { apiDict with
+          Api = Array.map resolve_Api apiDict.Api
+      }
+
+let loadWithLogs (assemblies: FSharpAssembly[]) =
+  PSeq.map Impl.load assemblies
+  |> PSeq.toArray
+  |> Impl.NameResolve.resolveLoadingName
+  |> Array.map (fun (apiDict, logs) ->
+    (Impl.AutoGenericResolve.resolveAutoGeneric apiDict, logs)
+  )
+
 let load (assemblies: FSharpAssembly[]): ApiDictionary[] = loadWithLogs assemblies |> Array.map fst
 
 let databaseName = "database"

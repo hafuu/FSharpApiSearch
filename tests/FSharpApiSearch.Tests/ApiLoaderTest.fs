@@ -137,7 +137,6 @@ module FSharp =
       "PublicModule.nonGenericFunction", [ moduleFunction' [ [ pname "x" >> ptype int ]; [ pname "y" >> ptype int ]; [ ptype int ] ] ]
       "PublicModule.genericFunction<'a, 'b>", [ moduleFunction' [ [ pname "x" >> ptype (variable "'a") ]; [ pname "y" >> ptype (variable "'b") ]; [ ptype (variable "'b") ] ] ]
       "PublicModule.multiParamFunction<'a, 'b, 'c>", [ moduleFunction' [ [ pname "x" >> ptype (variable "'a"); pname "y" >> ptype (variable "'b"); pname "z" >> ptype (variable "'c") ]; [ ptype (variable "'a") ] ] ]
-//      "PublicModule.autoGenericFunction<'a>", [ moduleFunction' [ [ pname "x" >> ptype (variable "'a") ]; [ ptype (variable "'a") ] ] ]
       "PublicModule.unitParamFunction", [ moduleFunction' [ [ ptype unit ]; [ ptype int ] ] ]
       "PublicModule.value", [ moduleValue int ]
       "PublicModule.NestedModule.publicFunction", [ moduleFunction' [ [ pname "x" >> ptype int ]; [ ptype int] ] ]
@@ -706,17 +705,18 @@ module FSharp =
       run testApi
     }
 
-  let autoGenericTest =
-    test {
-      let! apiDict = fsharpAssemblyApi
-      let api = apiDict.Api |> Array.find (function { Name = Name.DisplayName [ { FSharpName = "autoGenericFunction" }; { FSharpName = "PublicModule" } ] } -> true | _ -> false)
-      let variables =
-        match api.Signature with
-        | ApiSignature.ModuleFunction fn -> fn |> List.collect id |> List.collect (fun x -> LowType.collectVariables x.Type) |> List.distinct
-        | _ -> failwith "it is not function"
-      do! assertPred (List.isEmpty variables = false)
-      do! assertPred (variables |> List.forall (function Variable (_, name) -> name.Name.StartsWith("?") | _ -> false))
-    }
+  let autoGenericTest = parameterize {
+    source [
+      "PublicModule.autoGenericFunction<'a>", [ moduleFunction' [ [ pname "x" >> ptype (variable "'a") ]; [ ptype (variable "'a") ] ] ]
+      "PublicModule.autoGenericFunction2<'a, 'a0, 'b>", [ moduleFunction' [ [ pname "x" >> ptype (variable "'a") ]; [ pname "y" >> ptype (variable "'a0") ]; [ pname "z" >> ptype (variable "'b") ]; [ ptype (variable "'a") ] ] ]
+      "PublicModule.autoGenericFunction3<'a, 'b, 'b0>", [ moduleFunction' [ [ pname "x" >> ptype (variable "'a") ]; [ pname "y" >> ptype (variable "'b") ]; [ pname "z" >> ptype (variable "'b0") ]; [ ptype (variable "'a") ] ] ]
+      "PublicModule.autoGenericFunction4<'a, 'b, 'c>", [ moduleFunction' [ [ pname "x" >> ptype (variable "'a") ]; [ pname "y" >> ptype (variable "'b") ]; [ pname "z" >> ptype (variable "'c") ]; [ ptype (variable "'a") ] ] ]
+      "PublicModule.autoGenericFunction5<'a0, 'a, 'b>", [ moduleFunction' [ [ pname "x" >> ptype (variable "'a0") ]; [ pname "y" >> ptype (variable "'a") ]; [ pname "z" >> ptype (variable "'b") ]; [ ptype (variable "'a0") ] ] ]
+      "PublicModule.autoGenericFunction6<'a, 'a0, 'a1>", [ moduleFunction' [ [ pname "x" >> ptype (variable "'a") ]; [ pname "y" >> ptype (variable "'a0") ]; [ pname "z" >> ptype (variable "'a1") ]; [ ptype (variable "'a") ] ] ]
+    ]
+
+    run testApi
+  }
 
 module SpecialType =
   let tupleName = Name.displayNameOfString "System.Tuple<'T1, 'T2>"
