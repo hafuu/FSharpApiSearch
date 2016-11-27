@@ -1,3 +1,4 @@
+group App
 FParsec
 FSharp.Compiler.Service
 FsPickler

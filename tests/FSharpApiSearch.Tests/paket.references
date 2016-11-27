@@ -1,3 +1,4 @@
+group App
 FSharp.Compiler.Service
 
 group Test
