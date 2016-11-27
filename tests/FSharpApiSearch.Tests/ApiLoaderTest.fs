@@ -718,6 +718,16 @@ module FSharp =
     run testApi
   }
 
+  let flexibleTest = test {
+    let! apiDict = fsharpAssemblyApi
+    let name = Name.displayNameOfString "PublicModule.flexible<'a, 'b>"
+    let actual = apiDict.Api |> Array.find (fun x -> x.Name = name)
+    do! actual.Signature |> assertEquals (moduleFunction' [ [ pname "x" >> ptype (variable "'a") ]; [ ptype unit ] ])
+    
+    let expectedConstraints = [ constraint' [ "'a"] (SubtypeConstraints (seq (variable "'b"))) ]
+    do! actual.TypeConstraints |> assertEquals expectedConstraints
+  }
+
 module SpecialType =
   let tupleName = Name.displayNameOfString "System.Tuple<'T1, 'T2>"
   let tupleNullnessTest =

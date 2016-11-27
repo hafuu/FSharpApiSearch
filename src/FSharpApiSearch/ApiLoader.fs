@@ -1082,21 +1082,26 @@ module internal Impl =
   module AutoGenericResolve =
     let variables (name: Name) = name |> Name.displayName |> List.collect (fun n -> n.GenericParametersForDisplay) |> List.distinct
 
+    let replaceVariables (table: Map<TypeVariable, TypeVariable>) (variables: TypeVariable list) =
+      variables
+      |> List.map (fun p ->
+        match Map.tryFind p table with
+        | Some r -> r
+        | None -> p
+      )
+
     let replaceName (table: Map<TypeVariable, TypeVariable>) (name: Name) =
       Name.displayName name
       |> List.map (fun n ->
-        let genericParams =
-          n.GenericParametersForDisplay
-          |> List.map (fun p ->
-            match Map.tryFind p table with
-            | Some r -> r
-            | None -> p
-          )
+        let genericParams = n.GenericParametersForDisplay |> replaceVariables table
         { n with GenericParametersForDisplay = genericParams }
       )
       |> DisplayName
 
-    let resolve_TypeConstraint table constraint' = LowTypeVisitor.accept_TypeConstraint (LowType.applyVariable VariableSource table) constraint'
+    let resolve_TypeConstraint variableTable lowTypeTable constraint' =
+      let c = LowTypeVisitor.accept_TypeConstraint (LowType.applyVariable VariableSource lowTypeTable) constraint'
+      { c with Variables = replaceVariables variableTable c.Variables }
+
     let resolve_ApiSignature table apiSig = LowTypeVisitor.accept_ApiSignature (LowType.applyVariable VariableSource table) apiSig
 
     let resolve_Api (api: Api) : Api =
@@ -1127,7 +1132,7 @@ module internal Impl =
         { api with
             Name = replaceName replaceTable api.Name
             Signature = resolve_ApiSignature lowTypeReplaceTable api.Signature
-            TypeConstraints = List.map (resolve_TypeConstraint lowTypeReplaceTable) api.TypeConstraints
+            TypeConstraints = List.map (resolve_TypeConstraint replaceTable lowTypeReplaceTable) api.TypeConstraints
         }
 
     let resolveAutoGeneric (apiDict: ApiDictionary) =

@@ -13,6 +13,8 @@ let autoGenericFunction4 x y (z: 'c) = x
 let autoGenericFunction5 (x: 'a0) y z = x
 let autoGenericFunction6 (x: 'a) (y: 'a0) z = x
 
+let flexible (x: #seq<_>) = ()
+
 let unitParamFunction () = 0
 
 let listmap (f: 'a -> 'b) (xs: 'a list) = List.map f xs
