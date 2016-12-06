@@ -1,4 +1,4 @@
-### 2.1.0 - unreleased
+### 2.1.0 - 2016/12/6
 * Support computation expression
 * Add swapping parameters and tuple elements
 * Add complementing parameters and tuple elements
