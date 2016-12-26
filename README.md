@@ -59,7 +59,7 @@ FSharpApiSearch.Console.exeの`--target`オプションを使用するとデー�
 | コンピュテーション式         | `{ let! } : Async<'T>`                                   | 
 
 ### 名前検索
-`name : signature`と書きます。シグネチャを指定しない場合は、シグネチャ部分に`_`を指定します。
+名前で検索するには`name : signature`と書きます。シグネチャを指定しない場合は、シグネチャ部分に`_`を指定します。
 
     > id : 'a -> 'a
     Microsoft.FSharp.Core.Operators.id: 'T -> 'T, module value, FSharp.Core
@@ -108,7 +108,7 @@ FSharpApiSearch.Console.exeの`--target`オプションを使用するとデー�
 
 ### メンバ検索
 #### インスタンスメンバ
-`receiver -> signature`と書きます。
+インスタンスメンバを検索するには`receiver -> signature`と書きます。
 
 メソッドを検索する場合は`receiver -> arg -> returnType`と書きます。
 
@@ -144,7 +144,7 @@ FSharpApiSearch.Console.exeの`--target`オプションを使用するとデー�
 モジュール内の値や関数と同じクエリで検索できます。多引数メソッドはインスタンスメソッドと同様に`arg1 -> arg2 -> returnType`または`arg1 * arg2 -> returnType`と書きます。
 
 ### アクティブパターン
-`(||) : (args ->) inputType -> returnType`と書きます。
+アクティブパターンを検索するには`(||) : (args ->) inputType -> returnType`と書きます。
 パーシャルアクティブパターンを検索する場合は`(|_|) : (args ->) inputType -> returnType`と書きます。
 
 `inputType`の部分にはアクティブパターンで扱う型を指定します。例えば、`Expr`に対するアクティブパターンを検索したい場合は`(||) : ... -> Expr -> ?`と書きます。
@@ -160,10 +160,10 @@ FSharpApiSearch.Console.exeの`--target`オプションを使用するとデー�
 通常はワイルドカード（`?`）を使うことをお勧めします。
 
 ### コンピュテーション式
-`{ syntax } : type`と書きます。指定した構文が使えて、指定した型を扱えるビルダーを検索します。
+コンピュテーション式を検索するには`{ syntax } : type`と書きます。指定した構文と型を扱えるビルダーを検索します。
 
 `syntax`には`let!`、`yield`、`yield!`、`return`、`return!`、`use`、`use!`、`if/then`、`for`、`while`、`try/with`、`try/finally`と任意のカスタムオペレーション名を指定できます。
-複数指定する場合は`;`で区切ります。
+`syntax`を複数指定する場合は`;`で区切り、`{ s1; s2 } : type`と書きます。
 
 
 ## 検索オプション
