@@ -1719,6 +1719,8 @@ module SwapOrderTest =
   let depth2Test =
     runTest false 2 [
       "C -> B -> A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeB ]; [ ptype typeC ]; [ ptype typeA ] ], WhenEnabled true
+      "A * B * C * D", moduleValue (tuple [ typeD; typeC; typeB; typeA ]), Always false
+      "A * B * C * D", moduleValue (tuple [ typeD; typeB; typeC; typeA ]), WhenEnabled true
     ]
 
   let otherApiTest =

@@ -152,7 +152,8 @@ module Rules =
       match test testee back with
       | Some (i, ctx) ->
         let _, b_back, b_forward = pick i back
-        let back = Array.append b_back b_forward
+        let forward = Array.append b_forward forward
+        let back = b_back
         Debug.WriteLine("Found from back.")
         Some (ctx, back, forward, true)
       | None ->
