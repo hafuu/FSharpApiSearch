@@ -1,3 +1,6 @@
+### 2.1.1 - 2016/12/29
+* Fix the distance of swap-order
+
 ### 2.1.0 - 2016/12/6
 * Support computation expression
 * Add swapping parameters and tuple elements
