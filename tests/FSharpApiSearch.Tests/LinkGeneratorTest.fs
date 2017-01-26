@@ -19,6 +19,8 @@ let fsharpTest = parameterize {
 
     "Microsoft.FSharp.Core.[]", None
     "Microsoft.FSharp.Core.FSharpTypeFunc", Some "core.fsharptypefunc-class-%5bfsharp%5d"
+
+    "Microsoft.FSharp.Control.AsyncBuilder", Some "control.asyncbuilder-class-%5bfsharp%5d"
   ]
   run (fun (name, expected) -> test {
     let! apiDict = fscoreApi
