@@ -1,3 +1,6 @@
+### 2.1.2 - 2017/1/26
+* Fix the computation expression builder url
+
 ### 2.1.1 - 2016/12/29
 * Fix the distance of swap-order
 
