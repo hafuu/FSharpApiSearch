@@ -118,7 +118,8 @@ module DSL =
   let queryArray t = generic (identity "[]<'T>") [ t ]
   let queryArray2D t = generic (identity "[,]<'T>") [ t ]
 
-  let tuple xs = Tuple xs
+  let tuple xs = Tuple { Elements = xs; IsStruct = false }
+  let structTuple xs = Tuple { Elements = xs; IsStruct = true }
 
   let typeAbbreviationDef name original =
     let defName = DisplayName.ofString name

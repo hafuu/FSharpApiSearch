@@ -310,6 +310,9 @@ module RespectNameDifferenceTest_WithNonGreedy =
       "A * A", moduleValue (tuple [ typeA; typeA ]), Always true
       "A * A", moduleValue (tuple [ typeA; typeA; typeA ]), Always false
       "A * A", moduleValue (tuple [ typeA; typeB ]), Always false
+
+      "struct (A * A)", moduleValue (structTuple [ typeA; typeA ]), Always true
+      "A * A", moduleValue (structTuple [ typeA; typeA ]), Always true
     ]
 
   let arrowTest =
@@ -435,6 +438,21 @@ module RespectNameDifferenceTest_WithNonGreedy =
       "GenericInner<'T, 'U>", moduleValue genericInner, Always true
       "GenericOuter.GenericInner<'T, 'U>", moduleValue genericInner, Always true
     ]
+
+  let distanceTest = parameterize {
+    source [
+      "A * A", moduleValue (tuple [ typeA; typeA ]), 0
+      "struct (A * A)", moduleValue (tuple [ typeA; typeA ]), 1
+    ]
+
+    run (fun (query, target, expected) -> test {
+      let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
+      let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
+      let options = { defaultTestOptions with GreedyMatching = Enabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled }
+      let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.head
+      do! actual.Distance |> assertEquals expected
+    })
+  }
 
 module RespectNameDifferenceTest_WithGreedy =
   let matchTest cases = greedyMatchingTest false [||] Enabled cases

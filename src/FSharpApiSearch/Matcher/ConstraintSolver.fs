@@ -8,7 +8,7 @@ let getFullTypeDefinition (ctx: Context) (baseType: LowType) =
   let rec getIdentity = function
     | Identity i -> i
     | Generic (x, _) -> getIdentity x
-    | Tuple xs -> Identity.tupleN xs.Length
+    | Tuple { Elements = xs } -> Identity.tupleN xs.Length
     | TypeAbbreviation { Original = o } -> getIdentity o
     | _ -> failwith "invalid base type."
   match getIdentity baseType with
@@ -21,7 +21,7 @@ let getFullTypeDefinition (ctx: Context) (baseType: LowType) =
 let rec (|ConstraintTestee|_|) = function
   | Identity id -> Some (id, [])
   | Generic (Identity id, args) -> Some (id, args)
-  | Tuple xs -> Some (Identity.tupleN xs.Length, xs)
+  | Tuple { Elements = xs } -> Some (Identity.tupleN xs.Length, xs)
   | TypeAbbreviation { Original = o } -> (|ConstraintTestee|_|) o
   | _ -> None 
 
@@ -126,7 +126,9 @@ let normalizeGetterMethod (m: Member) =
   let indexOrUnit =
     match m.Parameters with
     | [] -> LowType.Unit
-    | [ propertyIndex ] -> Tuple (List.map (fun x -> x.Type) propertyIndex)
+    | [ propertyIndex ] ->
+      let elems = List.map (fun x -> x.Type) propertyIndex
+      Tuple { Elements = elems; IsStruct = false }
     | _ -> failwith "Curried getter is invalid."
   Arrow [ indexOrUnit; m.ReturnParameter.Type ]
 
@@ -134,7 +136,9 @@ let normalizeSetterMethod (m: Member) =
   let parameters =
     match m.Parameters with
     | [] -> m.ReturnParameter.Type
-    | [ propertyIndex ] -> [ yield! propertyIndex; yield m.ReturnParameter ] |> List.map (fun x -> x.Type) |> Tuple
+    | [ propertyIndex ] ->
+      let elements = [ yield! propertyIndex; yield m.ReturnParameter ] |> List.map (fun x -> x.Type)
+      Tuple { Elements = elements; IsStruct = false }
     | _ -> failwith "Curried setter is invalid."
   Arrow [ parameters; LowType.Unit ]
 

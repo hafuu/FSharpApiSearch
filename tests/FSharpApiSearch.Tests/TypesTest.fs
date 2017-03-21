@@ -84,6 +84,10 @@ module PrintTest =
         moduleValue (genericB), "B<'a, 'b>"
         moduleValue (tuple [ typeA; variableB; typeC ]), "a * 'b * c"
         moduleValue (tuple [ typeA; (tuple [ typeB; typeC ]) ]), "a * (b * c)"
+        moduleValue (structTuple [ typeA; typeA; typeC ]), "struct (a * a * c)"
+        moduleValue (structTuple [ typeA; structTuple [ typeB; typeB ]; typeC ]), "struct (a * struct (b * b) * c)"
+        moduleValue (structTuple [ typeA; tuple [ typeB; typeB ]; typeC ]), "struct (a * (b * b) * c)"
+        moduleValue (structTuple [ arrow [ typeA; typeB ]; typeC ]), "struct ((a -> b) * c)"
         instanceMember typeA memberMethod, "'a * b -> c"
         instanceMember typeA memberOptArgMethod, "?x:'a * b -> c"
         instanceMember typeA memberCurriedMethod, "'a -> b -> c"
@@ -92,6 +96,7 @@ module PrintTest =
         staticMember typeA memberProperty, "a"
 
         moduleValue (array (tuple [ typeA; typeB ])), "(a * b)[]"
+        moduleValue (array (structTuple [ typeA; typeB ])), "struct (a * b)[]"
         moduleValue (array (arrow [ typeA; typeB ])), "(a -> b)[]"
 
         unionCase typeA "Case" [], "a"

@@ -13,7 +13,7 @@ module LowType =
     | Variable _ as v -> [ v ]
     | Identity _ -> []
     | Arrow xs -> List.collect collectVariableOrWildcardGroup xs
-    | Tuple xs -> List.collect collectVariableOrWildcardGroup xs
+    | Tuple { Elements = xs } -> List.collect collectVariableOrWildcardGroup xs
     | Generic (id, args) -> List.collect collectVariableOrWildcardGroup (id :: args)
     | TypeAbbreviation t -> collectVariableOrWildcardGroup t.Original
     | Delegate (t, _) -> collectVariableOrWildcardGroup t
@@ -295,14 +295,15 @@ module Rules =
 
   let tupleRule (lowTypeMatcher: ILowTypeMatcher) left right ctx =
     match left, right with
-    | Tuple leftElems, Tuple rightElems ->
+    | Tuple left, Tuple right ->
       Debug.WriteLine("tuple rule.")
-      lowTypeMatcher.TestAll leftElems rightElems ctx
+      lowTypeMatcher.TestAll left.Elements right.Elements ctx
+      |> MatchingResult.mapMatched (Context.addDistance (if left.IsStruct <> right.IsStruct then 1 else 0))
     | Tuple tuple, other
     | other, Tuple tuple ->
       Debug.WriteLine("tuple rule.")
       let other = [ other ]
-      lowTypeMatcher.TestAll tuple other ctx
+      lowTypeMatcher.TestAll tuple.Elements other ctx
     | _ -> Continue ctx
 
   let testArrow (lowTypeMatcher: ILowTypeMatcher) leftElems rightElems ctx =
@@ -319,11 +320,11 @@ module Rules =
     match leftElems, rightElems with
     | [ _; _ ], [ _; _ ] ->
       lowTypeMatcher.TestArrow leftElems rightElems ctx
-    | [ Tuple leftArgs; leftRet ], _ ->
+    | [ Tuple { Elements = leftArgs }; leftRet ], _ ->
       let leftElems = seq { yield! leftArgs; yield leftRet }
       lowTypeMatcher.TestArrow leftElems rightElems ctx
       |> MatchingResult.mapMatched (Context.addDistance 1)
-    | _, [ Tuple rightArgs; rightRet ] ->
+    | _, [ Tuple { Elements = rightArgs }; rightRet ] ->
       let rightElems = seq { yield! rightArgs; yield rightRet }
       lowTypeMatcher.TestArrow leftElems rightElems ctx
       |> MatchingResult.mapMatched (Context.addDistance 1)

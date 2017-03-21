@@ -22,3 +22,4 @@ group Test
   nuget Persimmon
   nuget Persimmon.Console
   nuget Persimmon.MuscleAssert = 0.8.0-beta1
+  nuget System.ValueTuple

@@ -40,7 +40,7 @@ module Rules =
   let trimOptionalParameters (leftElems: LowType list) (rightElems: Parameter list list) =
     match rightElems with
     | [ nonCurriedParameters; [ ret ] ] ->
-      let leftLength = (leftElems |> List.sumBy (function Tuple xs -> xs.Length | _ -> 1)) - 1 // subtract return parameter (1)
+      let leftLength = (leftElems |> List.sumBy (function Tuple { Elements = xs } -> xs.Length | _ -> 1)) - 1 // subtract return parameter (1)
       let rightLength = nonCurriedParameters.Length
       if leftLength < rightLength then
         let trimedParameters, extraParameters = List.splitAt leftLength nonCurriedParameters
@@ -78,7 +78,7 @@ module Rules =
 
   let (|Right_TupleFunction|_|) (xs: Parameter list list) =
     match xs with
-    | [ [ { Type = Tuple parameters } ]; [ { Type = ret } ] ] -> Some [ yield! parameters; yield ret ]
+    | [ [ { Type = Tuple { Elements = parameters } } ]; [ { Type = ret } ] ] -> Some [ yield! parameters; yield ret ]
     | _ -> None
 
   let (|Left_CurriedFunction|_|) (xs: LowType list) =
@@ -88,7 +88,7 @@ module Rules =
 
   let (|Left_NonCurriedFunction|_|) (xs: LowType list) =
     match xs with
-    | [ Tuple parameters; ret ] -> Some [ yield! parameters; yield ret ]
+    | [ Tuple { Elements = parameters }; ret ] -> Some [ yield! parameters; yield ret ]
     | _ -> None
 
   let testArrow_IgnoreParamStyle (lowTypeMatcher: ILowTypeMatcher) (leftElems: LowType list) (rightElems: Parameter list list) ctx =

@@ -6,12 +6,19 @@ open FSharpApiSearch.SpecialTypes
 
 let inline trim p = spaces >>. p .>> spaces
 let inline pcharAndTrim c = pchar c |> trim
+let inline pstringAndTrim s = pstring s |> trim
 
 module FSharpSignatureParser =
+  let struct' = "struct"
+  let keywords = [
+    struct'
+  ]
   let pidentifier =
     let head = letter <|> pchar '_'
     let tail = letter <|> digit <|> anyOf "_'"
-    head .>>. manyChars tail |>> (fun (h, t) -> string h + t) <?> "identifier"
+    head .>>. manyChars tail |>> (fun (h, t) -> string h + t)
+    >>= (fun x -> if keywords |> List.exists ((=)x) then fail (sprintf "%s is the keyword." x) else preturn x)
+    <?> "identifier"
   
   let partialName = sepBy1 pidentifier (pchar '.') |>> (List.map (fun n -> { FSharpName = n; InternalFSharpName = n; GenericParametersForDisplay = [] } ) >> List.rev)
 
@@ -64,27 +71,45 @@ module FSharpSignatureParser =
         List.fold (fun x array -> createGeneric array [ x ]) (createGeneric x [ t ]) xs)
   let term2 = maybeArray term1
 
-  let mlMultiGenericParameter = between (pcharAndTrim '(') (pcharAndTrim ')') (sepBy1 fsharpSignature (pchar ','))
-  let mlSingleGenericParameter = term2 |>> List.singleton
-  let mlLeftGenericParameter = attempt mlMultiGenericParameter <|> mlSingleGenericParameter
-  let foldGeneric parameter ids =
-    let rec foldGeneric' acc = function
-      | id :: rest -> foldGeneric' (createGeneric id [ acc ]) rest
-      | [] -> acc
-    foldGeneric' (createGeneric (List.head ids) parameter) (List.tail ids)
-  let mlGeneric = mlLeftGenericParameter .>>. many1 genericId |>> (fun (parameter, ids) -> foldGeneric parameter ids)
+  let structTuple, structTupleRef = createParserForwardedToRef()
 
-  let term3 = choice [ attempt mlGeneric; term2 ]
+  let createStructTuple term =
+    let elem =
+      choice [
+        attempt (between (pcharAndTrim '(') (pcharAndTrim ')') fsharpSignature)
+        attempt term
+        structTuple
+      ]
+    let tupleElements = sepBy1 elem (pstring "*") |>> fun xs -> Tuple { Elements = xs; IsStruct = true }
+    pstringAndTrim struct' >>. between (pcharAndTrim '(') (pcharAndTrim ')') tupleElements
 
-  let maybeTuple t = sepBy1 t (pstring "*") |>> function [ x ] -> x | xs -> Tuple xs
+  do structTupleRef := createStructTuple term2
 
-  let term4 = maybeTuple term3
+  let term3 = choice [ attempt structTuple; term2 ]
 
-  let maybeArrow t = sepBy1 t (pstring "->") |>> function [ x ] -> x | xs -> Arrow xs
+  let mlGeneric term =
+    let mlMultiGenericParameter = between (pcharAndTrim '(') (pcharAndTrim ')') (sepBy1 fsharpSignature (pchar ','))
+    let mlSingleGenericParameter = term |>> List.singleton
+    let mlLeftGenericParameter = attempt mlMultiGenericParameter <|> mlSingleGenericParameter
+    let foldGeneric parameter ids =
+      let rec foldGeneric' acc = function
+        | id :: rest -> foldGeneric' (createGeneric id [ acc ]) rest
+        | [] -> acc
+      foldGeneric' (createGeneric (List.head ids) parameter) (List.tail ids)
+    
+    mlLeftGenericParameter .>>. many1 genericId |>> (fun (parameter, ids) -> foldGeneric parameter ids)
 
-  let term5 = maybeArrow term4
+  let term4 = choice [ attempt (mlGeneric term3); term3 ]
 
-  do fsharpSignatureRef := term5
+  let maybeTuple term = sepBy1 term (pstring "*") |>> function [ x ] -> x | xs -> Tuple { Elements = xs; IsStruct = false }
+
+  let term5 = maybeTuple term4
+
+  let maybeArrow term = sepBy1 term (pstring "->") |>> function [ x ] -> x | xs -> Arrow xs
+
+  let term6 = maybeArrow term5
+
+  do fsharpSignatureRef := term6
 
   let instanceMember =
     fsharpSignature .>> pstring "=>" .>>. fsharpSignature

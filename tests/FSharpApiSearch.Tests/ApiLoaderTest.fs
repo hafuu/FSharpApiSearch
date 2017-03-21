@@ -728,14 +728,36 @@ module FSharp =
     do! actual.TypeConstraints |> assertEquals expectedConstraints
   }
 
+  let tupleTest = parameterize {
+    source [
+      "FSharp41.tuple", [ moduleValue (tuple [ int; string ]) ]
+      "FSharp41.structTuple", [ moduleValue (structTuple [ int; string ]) ]
+    ]
+    run testApi
+  }
+
 module SpecialType =
-  let tupleName = Name.displayNameOfString "System.Tuple<'T1, 'T2>"
-  let tupleNullnessTest =
-    testFullTypeDef' mscorlibApi (fun x -> x.SupportNull) (tupleName, NotSatisfy)
-  let tupleEqualityTest =
-    testFullTypeDef' mscorlibApi (fun x -> x.Equality) (tupleName, Dependence [ tv "'T1"; tv "'T2" ])
-  let tupleComparisonTest =
-    testFullTypeDef' mscorlibApi (fun x -> x.Comparison) (tupleName, Dependence [ tv "'T1"; tv "'T2" ])
+  module Tuple =
+    let name = Name.displayNameOfString "System.Tuple<'T1, 'T2>"
+    let nullnessTest =
+      testFullTypeDef' mscorlibApi (fun x -> x.SupportNull) (name, NotSatisfy)
+    let equalityTest =
+      testFullTypeDef' mscorlibApi (fun x -> x.Equality) (name, Dependence [ tv "'T1"; tv "'T2" ])
+    let comparisonTest =
+      testFullTypeDef' mscorlibApi (fun x -> x.Comparison) (name, Dependence [ tv "'T1"; tv "'T2" ])
+    let valueTypeTest =
+      testFullTypeDef' mscorlibApi (fun x -> x.ValueType) (name, NotSatisfy)
+
+  module ValueTuple =
+    let name = Name.displayNameOfString "System.ValueTuple<'T1, 'T2>"
+    let nullnessTest =
+      testFullTypeDef' valueTupleApi (fun x -> x.SupportNull) (name, NotSatisfy)
+    let equalityTest =
+      testFullTypeDef' valueTupleApi (fun x -> x.Equality) (name, Dependence [ tv "'T1"; tv "'T2" ])
+    let comparisonTest =
+      testFullTypeDef' valueTupleApi (fun x -> x.Comparison) (name, Dependence [ tv "'T1"; tv "'T2" ])
+    let valueTypeTest =
+      testFullTypeDef' valueTupleApi (fun x -> x.ValueType) (name, Satisfy)
 
   let arrayName = Name.displayNameOfString "Microsoft.FSharp.Core.[]<'T>"
 
@@ -1042,6 +1064,16 @@ module CSharp =
       source [
         "CSharpLoadTestAssembly.OptinalParameters.F", [ staticMember t (method' "F" [ [ popt >> pname "x" >> ptype int ] ] unit) ]
         "CSharpLoadTestAssembly.OptinalParameters.G", [ staticMember t (method' "G" [ [ popt >> pname "x" >> ptype (fsharpOption int) ] ] unit) ]
+      ]
+      run testApi
+    }
+
+  let tupleTest = 
+    let t = createType "CSharpLoadTestAssembly.Tuples" [] |> updateAssembly csharpAssemblyName
+    parameterize {
+      source [
+        "CSharpLoadTestAssembly.Tuples.F", [ staticMember t (method' "F" [ [ pname "x" >> ptype (tuple [ int; string ]) ] ] (tuple [ int; string ])) ]
+        "CSharpLoadTestAssembly.Tuples.G", [ staticMember t (method' "G" [ [ pname "x" >> ptype (structTuple [ int; string ]) ] ] (structTuple [ int; string ])) ]
       ]
       run testApi
     }

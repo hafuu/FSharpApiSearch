@@ -82,7 +82,7 @@ type LowType =
   | Variable of VariableSource * TypeVariable
   | Identity of Identity
   | Arrow of LowType list
-  | Tuple of LowType list
+  | Tuple of TupleType
   | Generic of LowType * LowType list
   | TypeAbbreviation of TypeAbbreviation
   | Delegate of delegateType: LowType * LowType list
@@ -90,6 +90,10 @@ type LowType =
 and TypeAbbreviation = {
   Abbreviation: LowType
   Original: LowType
+}
+and TupleType = {
+  Elements: LowType list
+  IsStruct: bool
 }
 
 type Accessibility =
@@ -130,7 +134,7 @@ module internal Function =
         match ps with
         | [] -> ()
         | [ one ] -> yield one.Type
-        | many -> yield Tuple (List.map (fun x -> x.Type) many)
+        | many -> yield Tuple { Elements = List.map (fun x -> x.Type) many; IsStruct = false }
     ]
   let toArrow (fn: Parameter list list) =
     let xs = toLowTypeList fn
@@ -644,10 +648,11 @@ module internal Print =
     | Variable (source, v) -> sb.Append(printTypeVariable isDebug source v)
     | Identity i -> sb.Append(printIdentity i)
     | Arrow xs -> sb.Append(printArrow isDebug printIdentity xs)
-    | Tuple xs -> sb.Append(printTuple isDebug printIdentity xs)
+    | Tuple { Elements = xs; IsStruct = false } -> sb.Append(printTuple isDebug printIdentity xs)
+    | Tuple { Elements = xs; IsStruct = true } -> sb.Append(printStructTuple isDebug printIdentity xs)
     | LowType.Patterns.Array (name, elem) ->
       match elem with
-      | Tuple _ | Arrow _ ->
+      | Tuple { IsStruct = false } | Arrow _ ->
         sb.Append("(")
           .Append(printLowType isDebug printIdentity elem)
           .Append(")")
@@ -681,6 +686,17 @@ module internal Print =
           .Append(")")
       | x -> sb.Append(printLowType isDebug printIdentity x)
     sb.AppendJoin(" * ", xs, printItem)
+  and printStructTuple isDebug printIdentity (xs: _ list) (sb: StringBuilder) =
+    let printItem lowType (sb: StringBuilder) =
+      match lowType with
+      | Tuple { IsStruct = false  } | Arrow _ ->
+        sb.Append("(")
+          .Append(printLowType isDebug printIdentity lowType)
+          .Append(")")
+      | _ -> sb.Append(printLowType isDebug printIdentity lowType)
+    sb.Append("struct (")
+      .AppendJoin(" * ", xs, printItem)
+      .Append(")")
   and printChoice isDebug printIdentity (xs: _ list) (sb: StringBuilder) =
     sb.Append("(")
       .AppendJoin(" or ", xs, printLowType isDebug printIdentity)
@@ -948,7 +964,7 @@ module internal LowType =
       let baseType = applyVariable source replacements baseType
       let args = applyVariableToTargetList source replacements args
       Generic (baseType, args)
-    | Tuple xs -> Tuple (applyVariableToTargetList source replacements xs)
+    | Tuple x -> Tuple { x with Elements = applyVariableToTargetList source replacements x.Elements }
     | Arrow xs -> Arrow (applyVariableToTargetList source replacements xs)
     | TypeAbbreviation t -> TypeAbbreviation { Abbreviation = applyVariable source replacements t.Abbreviation; Original = applyVariable source replacements t.Original }
     | Delegate (t, xs) ->
@@ -962,7 +978,7 @@ module internal LowType =
     let rec f = function
       | Variable _ as v -> [ v ]
       | Arrow xs -> List.collect f xs
-      | Tuple xs -> List.collect f xs
+      | Tuple { Elements = xs } -> List.collect f xs
       | Generic (id, args) -> List.concat [ f id; List.collect f args ]
       | TypeAbbreviation t -> List.append (f t.Abbreviation) (f t.Original)
       | Delegate (t, _) -> f t

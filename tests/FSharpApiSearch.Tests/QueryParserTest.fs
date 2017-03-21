@@ -79,6 +79,12 @@ module BySignature =
       "a * b c", (tuple [ identity "a"; generic (identity "c") [ identity "b" ] ])
       "a -> (a * b)", (arrow [ identity "a"; tuple [ identity "a"; identity "b" ] ])
       "(a * b) -> a", (arrow [ tuple [ identity "a"; identity "b" ]; identity "a" ])
+
+      "struct (a * b)", (structTuple [ identity "a"; identity "b" ])
+      "struct (a * b) c", (generic (identity "c") [ structTuple [ identity "a"; identity "b" ] ])
+      "struct (a * b * c)", (structTuple [ identity "a"; identity "b"; identity "c" ])
+      "struct ((a * b) * c)", (structTuple [ tuple [ identity "a"; identity "b" ]; identity "c" ])
+      "struct (struct (a * b) * struct (c * d))", (structTuple [ structTuple [ identity "a"; identity "b" ]; structTuple [ identity "c"; identity "d" ] ]) 
     ]
     run runSignatureTest
   }

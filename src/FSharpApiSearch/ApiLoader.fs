@@ -57,7 +57,9 @@ module internal Impl =
     member this.Identity = Identity (FullIdentity this.LoadingFullIdentity)
     member this.IsTuple =
       match this.TryFullName with
-      | Some fullName -> fullName.StartsWith("System.Tuple") && this.DisplayName = "Tuple"
+      | Some fullName ->
+        (fullName.StartsWith("System.Tuple") && this.DisplayName = "Tuple")
+        || (fullName.StartsWith("System.ValueTuple") && this.DisplayName = "ValueTuple")
       | None -> false
     member this.IsCompilerInternalModule = this.IsFSharpModule && (this.FullName = "Microsoft.FSharp.Core.LanguagePrimitives" || this.FullName = "Microsoft.FSharp.Core.Operators.OperatorIntrinsics")
   
@@ -143,7 +145,7 @@ module internal Impl =
     elif t.IsTupleType then
       option {
         let! args = listLowType t.GenericArguments
-        return Tuple args
+        return Tuple { Elements = args; IsStruct = t.IsStructTupleType }
       }
     elif Hack.isFloat t then
       Some SpecialTypes.LowType.float
@@ -219,7 +221,7 @@ module internal Impl =
         return [ xSig; ySig ]
       }
     | _ -> None
-  and listLowType (ts: FSharpType seq) = ts |> Seq.foldOptionMapping fsharpTypeToLowType |> Option.map Seq.toList
+  and listLowType (ts: FSharpType seq) : (LowType list) option = ts |> Seq.foldOptionMapping fsharpTypeToLowType |> Option.map Seq.toList
   and fsharpEntityToLowType (x: FSharpEntity) =
     let identity = x.Identity
     let args = x |> genericParameters |> List.map (fun v -> Variable (VariableSource, v))
@@ -601,7 +603,7 @@ module internal Impl =
           updateCache cache NotSatisfy
         elif builder.SatisfyTypes |> Seq.exists (Some >> ((=) fullName)) then
           updateCache cache Satisfy
-        elif e.IsTuple then
+        elif e.IsTuple  then
           let vs = e.GenericParameters |> Seq.map (fun p -> p.TypeVariable) |> Seq.toList
           let eq =
             match vs with
@@ -1039,7 +1041,7 @@ module internal Impl =
       | Variable _ as v -> v
       | Identity i -> Identity (resolve_Identity context i)
       | Arrow xs -> Arrow (List.map (resolve_LowType context) xs)
-      | Tuple xs -> Tuple (List.map (resolve_LowType context) xs)
+      | Tuple x -> Tuple { x with Elements = List.map (resolve_LowType context) x.Elements }
       | Generic (id, args) ->
         let id = resolve_LowType context id
         let args = List.map (resolve_LowType context) args

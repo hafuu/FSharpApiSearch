@@ -22,7 +22,7 @@ let collectFromSignatureQuery getTarget query =
   let rec f = function
     | Target x -> Seq.singleton x
     | Arrow xs -> Seq.collect f xs
-    | Tuple xs -> Seq.collect f xs
+    | Tuple { Elements = xs } -> Seq.collect f xs
     | Generic (id, args) ->
       Seq.concat [
         f id
@@ -126,7 +126,7 @@ let replaceTypeAbbreviation nameEquality (dictionaries: ApiDictionary seq) (quer
       let replacedArgs = args |> List.map replace
       Generic (id, replacedArgs)
     | Arrow xs -> Arrow (List.map replace xs)
-    | Tuple xs -> Tuple (List.map replace xs)
+    | Tuple x -> Tuple { x with Elements = List.map replace x.Elements }
     | other -> other
   let replaceSignatureQuery = function
     | SignatureQuery.Wildcard -> SignatureQuery.Wildcard

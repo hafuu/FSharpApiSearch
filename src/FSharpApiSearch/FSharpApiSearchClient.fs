@@ -20,6 +20,7 @@ type FSharpApiSearchClient(targets: string seq, dictionaries: ApiDictionary seq)
     "System.Xml"
     "System.Configuration"
     "FSharp.Core"
+    "System.Security"
   ]
   static member DefaultTargets = [
     "mscorlib" 
