@@ -16,18 +16,33 @@ type TypeForward = {
 }
 
 module internal Impl =
-  let VariableSource = VariableSource.Target
-  let inline tryGetXmlDoc (xml: XElement option) (symbol: ^a): string option =
-    option {
-      let! xml = xml
-      let xmlSig: string = (^a : (member XmlDocSig : string) symbol)
-      let members = xml.Element(XName.Get("members")).Elements(XName.Get("member"))
-      let! sigMember = members |> Seq.tryFind (fun e -> e.Attribute(XName.Get("name")).Value = xmlSig)
-      let! summary = sigMember.Element(XName.Get("summary")) |> Option.ofObj
-      if System.String.IsNullOrWhiteSpace(summary.Value) then
-        return! None
+  type XmlDocCache = IDictionary<string, string>
+  let createXmlDocCache (xml: XElement) =
+    let members =
+      let membersElem = xml.Element(XName.Get("members"))
+      if membersElem = null then
+        Seq.empty
       else
-        return summary.Value.Replace("\r", "").Replace("\n", "").Trim()
+        seq {
+          for m in membersElem.Elements(XName.Get("member")) do
+            match m.Element(XName.Get("summary")) with
+            | null -> ()
+            | summary when System.String.IsNullOrWhiteSpace(summary.Value) = false ->
+              let name = m.Attribute(XName.Get("name")).Value
+              let summaryValue = summary.Value.Replace("\r", "").Replace("\n", "").Trim()
+              yield (name, summaryValue)
+            | _ -> ()
+        }
+    dict members
+
+  let VariableSource = VariableSource.Target
+  let inline tryGetXmlDoc (cache: XmlDocCache option) (symbol: ^a): string option =
+    option {
+      let! cache = cache
+      let xmlSig: string = (^a : (member XmlDocSig : string) symbol)
+      match cache.TryGetValue(xmlSig) with
+      | true, v -> return v
+      | false, _ -> return! None
     }
   
   type FSharpEntity with
@@ -877,7 +892,7 @@ module internal Impl =
   }
 
   let load (assembly: FSharpAssembly): ApiDictionary =
-    let xml = tryGetXml assembly
+    let xml = tryGetXml assembly |> Option.map createXmlDocCache
     let api =
       assembly.Contents.Entities
       |> Seq.collect (fun e ->
