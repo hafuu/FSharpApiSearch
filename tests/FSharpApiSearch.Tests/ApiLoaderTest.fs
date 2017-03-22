@@ -220,6 +220,16 @@ module FSharp =
       run testApi  
     }
 
+  let loadStructRecordTest =
+    let t = createType "FSharp41.StructRecord" [] |> updateAssembly fsharpAssemblyName
+    parameterize {
+      source [
+        "FSharp41.StructRecord.FieldA", [ instanceMember t (field "FieldA" int) ]
+        "FSharp41.StructRecord.FieldB", [ instanceMember t (field "FieldB" string) ]
+      ]
+      run testApi  
+    }
+
   let loadGenericRecordTest =
     let t = createType "OtherTypes.GenericRecord<'a>" [ variable "'a" ] |> updateAssembly fsharpAssemblyName
     parameterize {
@@ -286,6 +296,16 @@ module FSharp =
         "OtherTypes.Union.B", [ unionCase t "B" [ (None, int); (Some "field2", string) ] ]
         "OtherTypes.Union.C", [ unionCase t "C" [ (None, int) ] ]
         "OtherTypes.Union.D", [ unionCase t "D" [ (Some "field", int) ] ]
+      ]
+      run testApi
+    }
+
+  let loadStructUnionCaseTest =
+    let t = createType "FSharp41.StructUnion" [] |> updateAssembly fsharpAssemblyName
+    parameterize {
+      source [
+        "FSharp41.StructUnion.A", [ unionCase t "A" [ (Some "a", string) ] ]
+        "FSharp41.StructUnion.B", [ unionCase t "B" [ (Some "b", int); (Some "c", string) ] ]
       ]
       run testApi
     }
@@ -629,6 +649,17 @@ module FSharp =
       testFullTypeDef' fsharpAssemblyApi (fun x -> x.Comparison) (Name.displayNameOfString ("FullTypeDefinition.ComparisonConstraints." + name), expected))
   }
 
+  let valueTypeTest = parameterize {
+    source [
+      "OtherTypes.Record", NotSatisfy
+      "FSharp41.StructRecord", Satisfy
+      "OtherTypes.Union", NotSatisfy
+      "FSharp41.StructUnion", Satisfy
+    ]
+    run (fun (name, expected) ->
+      testFullTypeDef' fsharpAssemblyApi (fun x -> x.ValueType) (Name.displayNameOfString name, expected))
+  }
+
   let compilerInternalTest = test {
     let! fscoreDict = fscoreApi
     let actual =
@@ -661,6 +692,9 @@ module FSharp =
       fsharpAssemblyApi, "OtherTypes.Union", TypeDefinitionKind.Union
       fsharpAssemblyApi, "OtherTypes.Enum", TypeDefinitionKind.Enumeration
       fsharpAssemblyApi, "OtherTypes.Struct", TypeDefinitionKind.Type
+
+      fsharpAssemblyApi, "FSharp41.StructRecord", TypeDefinitionKind.Record
+      fsharpAssemblyApi, "FSharp41.StructUnion", TypeDefinitionKind.Union
 
       fscoreApi, "Microsoft.FSharp.Core.Unit", TypeDefinitionKind.Type
     ]
