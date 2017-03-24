@@ -41,6 +41,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ByRef.cs" />
     <Compile Include="Delegate.cs" />
     <Compile Include="Interface.cs" />
     <Compile Include="Class.cs" />

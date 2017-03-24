@@ -1112,6 +1112,16 @@ module CSharp =
       run testApi
     }
 
+  let byrefTest =
+    let t = createType "CSharpLoadTestAssembly.ByRef" [] |> updateAssembly csharpAssemblyName
+    let byref t = createType "Microsoft.FSharp.Core.byref<'T>" [ t ] |> updateAssembly fscore
+    parameterize {
+      source [
+        "CSharpLoadTestAssembly.ByRef.F", [ staticMember t (method' "F" [ [ pname "a" >> ptype (byref int); pname "b" >> ptype (byref string) ] ] (byref int)) ]
+      ]
+      run testApi
+    }
+
 module XmlDocTest =
   let xmlDocTest = parameterize {
     source[
