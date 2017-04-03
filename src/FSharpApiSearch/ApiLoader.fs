@@ -1169,12 +1169,24 @@ let load (assemblies: FSharpAssembly[]): ApiDictionary[] = loadWithLogs assembli
 
 let databaseName = "database"
 
-let save path (dictionaries: ApiDictionary[]) =
+module internal Serialization =
+  type T = (string * Api[])[]
+  let toDumpObj (xs: ApiDictionary[]) : T = xs |> Array.map (fun x -> x.AssemblyName, x.Api)
+
+  let fromDumpObj (xs: T) =
+    xs
+    |> Array.map (fun (name, apis) ->
+      let typeDefs = apis |> Array.choose (fun a -> match a.Signature with ApiSignature.FullTypeDefinition td -> Some td | _ -> None)
+      let typeAbbs = apis |> Array.choose (fun a -> match a.Signature with ApiSignature.TypeAbbreviation ta -> Some ta | _ -> None)
+      { AssemblyName = name; Api = apis; TypeDefinitions = typeDefs; TypeAbbreviations = typeAbbs }
+    )
+
+let save (path: string) (dictionaries: ApiDictionary[]) : unit =
   use file = File.OpenWrite(path)
   let serializer = FsPickler.CreateBinarySerializer()
-  serializer.Serialize(file, dictionaries)
+  serializer.Serialize<Serialization.T>(file, Serialization.toDumpObj dictionaries)
 
-let loadFromFile path =
+let loadFromFile (path: string) : ApiDictionary[] =
   use file = File.OpenRead(path)
   let serializer = FsPickler.CreateBinarySerializer()
-  serializer.Deserialize<ApiDictionary[]>(file)
+  serializer.Deserialize<Serialization.T>(file) |> Serialization.fromDumpObj
