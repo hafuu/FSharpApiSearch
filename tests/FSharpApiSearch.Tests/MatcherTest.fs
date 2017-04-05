@@ -315,6 +315,28 @@ module RespectNameDifferenceTest_WithNonGreedy =
       "A * A", moduleValue (structTuple [ typeA; typeA ]), Always true
     ]
 
+  let tupleConvertTest =
+    let originalTuple a1 a2 = createType "Original.Tuple<'a, 'b>" [ a1; a2 ]
+
+    matchTest [
+      "Tuple<A, B>", moduleValue (tuple [ typeA; typeB ]), Always true
+      "System.Tuple<A, B>", moduleValue (tuple [ typeA; typeB ]), Always true
+      "Original.Tuple<A, B>", moduleValue (tuple [ typeA; typeB ]), Always false
+
+      "Tuple<A, A>", moduleValue (tuple [ typeA; typeB ]), Always false
+      "Tuple<A, A, A>", moduleValue (tuple [ typeA; typeA ]), Always false
+
+      "ValueTuple<A, B>", moduleValue (structTuple [ typeA; typeB ]), Always true
+      "System.ValueTuple<A, B>", moduleValue (structTuple [ typeA; typeB ]), Always true
+
+      "ValueTuple<A, A>", moduleValue (structTuple [ typeA; typeB ]), Always false
+
+      "Tuple<A, B>", moduleValue (originalTuple typeA typeB), Always true
+      "Original.Tuple<A, B>", moduleValue (originalTuple typeA typeB), Always true
+      "Tuple<A, A>", moduleValue (originalTuple typeA typeB), Always false
+      "System.Tuple<A, B>", moduleValue (originalTuple typeA typeB), Always false
+    ]
+
   let arrowTest =
     matchTest [
       "A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ] ], Always true
@@ -493,6 +515,7 @@ module RespectNameDifferenceTest_WithGreedy =
       "'a", moduleValue int, Always true
       "list<'a>", moduleValue (list variableA), Always true
       "list<'a>", moduleValue (list typeA), Always true
+      "list<A>", moduleValue (list typeA), Always true
       "list<A>", moduleValue (list typeB), Always false
 
       // bug #68

@@ -103,13 +103,10 @@ let replaceTypeAbbreviation nameEquality (dictionaries: ApiDictionary seq) (quer
           yield i
         ]
     | Generic (Identity id, args) as generic ->
-      let replacedArgs = args |> List.map replace
-      let argReplacedGeneric = Generic (Identity id, replacedArgs)
-      let idReplacements = table |> List.filter (function { Abbreviation = Generic (Identity abbId, _) } -> nameEquality abbId id | _ -> false)
-      match idReplacements with
-      | [] -> argReplacedGeneric
-      | _ ->
-        Choice [
+      let types =
+        let replacedArgs = args |> List.map replace
+        let idReplacements = table |> List.filter (function { Abbreviation = Generic (Identity abbId, _) } -> nameEquality abbId id | _ -> false)
+        [
           for idRep in idReplacements do
             match idRep with
             | { Abbreviation = Generic (_, abbArgs); Original = original } ->
@@ -120,8 +117,20 @@ let replaceTypeAbbreviation nameEquality (dictionaries: ApiDictionary seq) (quer
               let replacedGeneric = LowType.applyVariable VariableSource.Target applyTable original
               yield TypeAbbreviation { Abbreviation = generic; Original = replacedGeneric }
             | _ -> failwith "It is not a generic type abbreviation."
-          yield argReplacedGeneric
+
+          if SpecialTypes.Identity.tuples |> List.exists (fun tpl -> nameEquality tpl id) then
+            yield Tuple { Elements = replacedArgs; IsStruct = false }
+
+          if SpecialTypes.Identity.valueTuples |> List.exists (fun tpl -> nameEquality tpl id) then
+            yield Tuple { Elements = replacedArgs; IsStruct = true }
+
+          yield Generic (Identity id, replacedArgs)
         ]
+
+      match types with
+      | [ one ] -> one
+      | many -> Choice many
+
     | Generic (id, args) ->
       let replacedArgs = args |> List.map replace
       Generic (id, replacedArgs)

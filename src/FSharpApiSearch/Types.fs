@@ -483,16 +483,26 @@ module internal SpecialTypes =
       if t.IsGenericType then failwith "It is not support generic type."
       { AssemblyName = t.Assembly.GetName().Name; Name = Name.displayNameOfString t.FullName; GenericParameterCount = 0 }
 
-    let tupleName n =
+    let private tuple' typeName n =
       let name =
         let genericParams = List.init n (fun n -> { Name = sprintf "T%d" n; IsSolveAtCompileTime = false })
-        { FSharpName = "Tuple"; InternalFSharpName = "Tuple"; GenericParametersForDisplay = genericParams } :: { FSharpName = "System"; InternalFSharpName = "System"; GenericParametersForDisplay = [] } :: []
+        { FSharpName = typeName; InternalFSharpName = typeName; GenericParametersForDisplay = genericParams } :: { FSharpName = "System"; InternalFSharpName = "System"; GenericParametersForDisplay = [] } :: []
       DisplayName name
+
+    let tupleName n = tuple' "Tuple" n
+
+    let valueTupleName n = tuple' "ValueTuple" n
 
   module Identity =
     let ofDotNetType (t: Type) = FullIdentity (FullIdentity.ofDotNetType t)
 
     let tupleN n = FullIdentity { AssemblyName = mscorlib; Name = FullIdentity.tupleName n; GenericParameterCount = n }
+
+    let tuples = [1..8] |> List.map (fun n -> tupleN n)
+
+    let valueTupleN n = FullIdentity { AssemblyName = mscorlib; Name = FullIdentity.valueTupleName n; GenericParameterCount = n }
+
+    let valueTuples = [1..8] |> List.map (fun n -> valueTupleN n)
 
   module LowType =
     let ofDotNetType (t: Type) = LowType.Identity (Identity.ofDotNetType t)
