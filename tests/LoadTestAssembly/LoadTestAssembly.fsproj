@@ -70,6 +70,7 @@
     <Compile Include="OptionalParameters.fs" />
     <Compile Include="ComputationExpression.fs" />
     <Compile Include="FSharp41.fs" />
+    <Compile Include="CompiledNames.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

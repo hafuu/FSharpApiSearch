@@ -10,7 +10,7 @@ open System.Xml.Linq
 open FSharp.Collections.ParallelSeq
 
 type TypeForward = {
-  Type: FullName
+  Type: string
   From: string
   To: string
 }
@@ -44,7 +44,21 @@ module internal Impl =
       | true, v -> return v
       | false, _ -> return! None
     }
+
+  let genericSuffix = Regex(@"`\d+$")
+  let inline compiledName (symbol: ^a) =
+    let name = (^a : (member CompiledName : string) symbol)
+    genericSuffix.Replace(name, "")
   
+  type FSharpGenericParameter with
+    member this.IsAutoGeneric = this.Name.StartsWith("?")
+    member this.TypeVariable: TypeVariable =
+      let name = this.Name
+      { Name = name; IsSolveAtCompileTime = this.IsSolveAtCompileTime }
+
+  let genericParameters (e: FSharpEntity) =
+    e.GenericParameters |> Seq.map (fun p -> p.TypeVariable) |> Seq.toList
+
   type FSharpEntity with
     member this.TypeAbbreviationFullName = this.AccessPath + "." + this.CompiledName
     member this.LoadingFullIdentity =
@@ -62,7 +76,13 @@ module internal Impl =
         || (fullName.StartsWith("System.ValueTuple") && this.DisplayName = "ValueTuple")
       | None -> false
     member this.IsCompilerInternalModule = this.IsFSharpModule && (this.FullName = "Microsoft.FSharp.Core.LanguagePrimitives" || this.FullName = "Microsoft.FSharp.Core.Operators.OperatorIntrinsics")
-  
+    member this.GetDisplayName() =
+      let name =
+        let name = this.DisplayName
+        let compiledName = compiledName this
+        if name <> compiledName then WithCompiledName (name, compiledName) else SymbolName name
+      { Name = name; GenericParameters = genericParameters this }
+
   type FSharpType with
     member this.TryIdentity = this.TryFullIdentity |> Option.map (fun x -> Identity (FullIdentity x))
     member this.TryFullIdentity =
@@ -73,11 +93,11 @@ module internal Impl =
       else
         None
 
-  type FSharpGenericParameter with
-    member this.IsAutoGeneric = this.Name.StartsWith("?")
-    member this.TypeVariable: TypeVariable =
-      let name = this.Name
-      { Name = name; IsSolveAtCompileTime = this.IsSolveAtCompileTime }
+  let compiledNameOfProperty (x: FSharpMemberOrFunctionOrValue) =
+    let compiledNameAttr = x.Attributes |> Seq.tryFind (fun attr -> attr.AttributeType.TryFullName = Some "Microsoft.FSharp.Core.CompiledNameAttribute")
+    match compiledNameAttr with
+    | None -> x.DisplayName
+    | Some attr -> attr.ConstructorArguments |> Seq.head |> snd |> unbox<string>
 
   type FSharpMemberOrFunctionOrValue with
     member this.IsStaticMember = not this.IsInstanceMember
@@ -103,14 +123,24 @@ module internal Impl =
     member this.GenericParametersAsTypeVariable =
       this.GenericParameters |> Seq.map (fun x -> x.TypeVariable) |> Seq.toList
     member this.GetDisplayName =
-      let dn = this.DisplayName
+      let displayName = this.DisplayName
+      let compiledName =
+        if this.IsProperty then
+          compiledNameOfProperty this
+        else
+          compiledName this
       let genericParameters = this.GenericParameters |> Seq.map (fun p -> p.TypeVariable) |> Seq.toList
       let isOperator =
-        dn.StartsWith("(") && dn.EndsWith(")") && this.CompiledName.StartsWith("op_")
+        displayName.StartsWith("(") && displayName.EndsWith(")") && compiledName.StartsWith("op_")
       if isOperator then
-        { FSharpName = dn; InternalFSharpName = this.CompiledName; GenericParametersForDisplay = genericParameters }
+        { Name = OperatorName (displayName, compiledName); GenericParameters = genericParameters }
       else
-        { FSharpName = dn; InternalFSharpName = dn; GenericParametersForDisplay = genericParameters }
+        let name =
+          if displayName <> compiledName then
+            WithCompiledName (displayName, compiledName)
+          else
+            SymbolName displayName
+        { Name = name; GenericParameters = genericParameters }
 
   type FSharpField with
     member this.TargetSignatureConstructor = fun (declaringType: LowType) member' ->
@@ -118,9 +148,6 @@ module internal Impl =
         ApiSignature.StaticMember (declaringType, member')
       else
         ApiSignature.InstanceMember (declaringType, member')
-
-  let genericParameters (e: FSharpEntity) =
-    e.GenericParameters |> Seq.map (fun p -> p.TypeVariable) |> Seq.toList
 
   let accessibility (e: FSharpEntity) =
     let a = e.Accessibility
@@ -341,6 +368,12 @@ module internal Impl =
     else
       ps
 
+  let toMemberName (name: DisplayNameItem) =
+    match name.Name with
+    | SymbolName n -> n
+    | OperatorName (_, n) -> n
+    | WithCompiledName (n, _) -> n
+
   let methodMember isFSharp (x: FSharpMemberOrFunctionOrValue) =
     option {
       let! parameters = curriedParameterGroups isFSharp x
@@ -349,7 +382,7 @@ module internal Impl =
       let returnParam = Parameter.ofLowType returnType
       let name = x.GetDisplayName
       let genericParams = x.GenericParametersAsTypeVariable
-      let member' = { Name = name.InternalFSharpName; Kind = MemberKind.Method; GenericParameters = genericParams; Parameters = parameters; ReturnParameter = returnParam }
+      let member' = { Name = toMemberName name; Kind = MemberKind.Method; GenericParameters = genericParams; Parameters = parameters; ReturnParameter = returnParam }
       return (name, member')
     }
 
@@ -361,7 +394,7 @@ module internal Impl =
       let name = x.GetDisplayName
       let genericParams = x.GenericParametersAsTypeVariable
       let memberKind = MemberKind.Property x.PropertyKind
-      let member' = { Name = name.InternalFSharpName; Kind = memberKind; GenericParameters = genericParams; Parameters = parameters; ReturnParameter = returnParam }
+      let member' = { Name = toMemberName name; Kind = memberKind; GenericParameters = genericParams; Parameters = parameters; ReturnParameter = returnParam }
       return (name, member')
     }
 
@@ -405,7 +438,7 @@ module internal Impl =
         let memberTypeName = x.LogicalEnclosingEntity.FullName
         let memberName =
           let name = member'.Name
-          { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = [] }
+          { Name = SymbolName name; GenericParameters = [] }
         LoadingName (memberAssemblyName, memberTypeName, [ memberName ])
       return { Name = name; Signature = signature; TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
     }
@@ -421,11 +454,11 @@ module internal Impl =
     option {
       let! _, target = methodMember isFSharp x
       let target = { target with Name = constructorName; ReturnParameter = Parameter.ofLowType declaringSignature }
-      let name = { FSharpName = constructorName; InternalFSharpName = constructorName; GenericParametersForDisplay = [] } :: declaringSignatureName
+      let name = { Name = WithCompiledName (constructorName, compiledName x); GenericParameters = [] } :: declaringSignatureName
       return { Name = DisplayName name; Signature = ApiSignature.Constructor (declaringSignature, target); TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
     }
 
-  let memberSignature xml (loadMember: FSharpMemberOrFunctionOrValue -> (NameItem * Member) option) (declaringSignatureName: DisplayName) (declaringEntity: FSharpEntity) declaringSignature (x: FSharpMemberOrFunctionOrValue) =
+  let memberSignature xml (loadMember: FSharpMemberOrFunctionOrValue -> (DisplayNameItem * Member) option) (declaringSignatureName: DisplayName) (declaringEntity: FSharpEntity) declaringSignature (x: FSharpMemberOrFunctionOrValue) =
     option {
       let! name, member' = loadMember x
       let name = name :: declaringSignatureName
@@ -453,7 +486,7 @@ module internal Impl =
       let member' = { Name = field.Name; Kind = MemberKind.Field; GenericParameters = []; Parameters = []; ReturnParameter = returnParam }
       let apiName =
         let name = field.Name
-        { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = [] } :: accessPath
+        { Name = SymbolName name; GenericParameters = [] } :: accessPath
       return { Name = DisplayName apiName; Signature = field.TargetSignatureConstructor declaringSignature member'; TypeConstraints = collectTypeConstraints declaringEntity.GenericParameters; Document = tryGetXmlDoc xml field }
     }
 
@@ -472,7 +505,7 @@ module internal Impl =
       let! fields = unionCase.UnionCaseFields |> Seq.mapi (fun i field -> (i + 1, field)) |> Seq.foldOptionMapping (toUnionCaseField unionCase.UnionCaseFields.Count)
       let returnType = declaringSignature
       let signature = { DeclaringType = returnType; Name = caseName; Fields = List.ofSeq fields } : UnionCase
-      let apiName = { FSharpName = caseName; InternalFSharpName = caseName; GenericParametersForDisplay = [] } :: accessPath
+      let apiName = { Name = SymbolName caseName; GenericParameters = [] } :: accessPath
       return { Name = DisplayName apiName; Signature = ApiSignature.UnionCase signature; TypeConstraints = collectTypeConstraints declaringEntity.GenericParameters; Document = tryGetXmlDoc xml unionCase }
     }
 
@@ -521,7 +554,9 @@ module internal Impl =
 
       let typeAbbreviationName =
         let name = e.DisplayName
-        { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = genericParameters e } :: accessPath
+        let compiledName = compiledName e
+        let name = if name <> compiledName then WithCompiledName (name, compiledName) else SymbolName name
+        { Name = name; GenericParameters = genericParameters e } :: accessPath
       let abbreviationDef: TypeAbbreviationDefinition = {
         Name = typeAbbreviationName
         FullName = e.TypeAbbreviationFullName
@@ -808,9 +843,7 @@ module internal Impl =
   let rec collectApi xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
     seq {
       if e.IsNamespace then
-        let accessPath =
-          let name = e.DisplayName
-          { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = [] } :: accessPath
+        let accessPath = e.GetDisplayName() :: accessPath
         yield! collectFromNestedEntities xml accessPath e
       elif e.IsCompilerInternalModule then
         ()
@@ -827,9 +860,7 @@ module internal Impl =
     e.NestedEntities
     |> Seq.collect (collectApi xml accessPath)
   and collectFromModule xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
-    let moduleName =
-      let name = e.DisplayName
-      { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = [] } :: accessPath
+    let moduleName = e.GetDisplayName() :: accessPath
     seq {
       yield moduleDef xml moduleName e
       yield! e.MembersFunctionsAndValues
@@ -838,9 +869,7 @@ module internal Impl =
       yield! collectFromNestedEntities xml moduleName e
     }
   and collectFromType xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
-    let typeName =
-      let name = e.DisplayName
-      { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = genericParameters e } :: accessPath
+    let typeName = e.GetDisplayName() :: accessPath
 
     seq {
       let declaringSignature = fsharpEntityToLowType e
@@ -1001,7 +1030,7 @@ module internal Impl =
 
     type Context = {
       Cache: NameCache
-      ForwardingLogs: IDictionary<FullName, TypeForward>
+      ForwardingLogs: IDictionary<string, TypeForward>
     }
 
     let tryGetValue key (dict: IDictionary<_, _>) =
@@ -1098,7 +1127,7 @@ module internal Impl =
       dictionaries |> Array.map (resolve_ApiDictionary cache)
 
   module AutoGenericResolve =
-    let variables (name: Name) = name |> Name.displayName |> List.collect (fun n -> n.GenericParametersForDisplay) |> List.distinct
+    let variables (name: Name) = name |> Name.toDisplayName |> List.collect (fun n -> n.GenericParameters) |> List.distinct
 
     let replaceVariables (table: Map<TypeVariable, TypeVariable>) (variables: TypeVariable list) =
       variables
@@ -1109,10 +1138,10 @@ module internal Impl =
       )
 
     let replaceName (table: Map<TypeVariable, TypeVariable>) (name: Name) =
-      Name.displayName name
+      Name.toDisplayName name
       |> List.map (fun n ->
-        let genericParams = n.GenericParametersForDisplay |> replaceVariables table
-        { n with GenericParametersForDisplay = genericParams }
+        let genericParams = n.GenericParameters |> replaceVariables table
+        { n with GenericParameters = genericParams }
       )
       |> DisplayName
 

@@ -23,13 +23,18 @@ let test' ignoreCase expectedName actualName =
     false
   else
     Seq.zip expectedName actualName
-    |> Seq.forall (fun ((expected, matchMethod), actual) ->
+    |> Seq.forall (fun ((expected, matchMethod), actual: DisplayNameItem) ->
       let cmp =
         match matchMethod with
         | NameMatchMethod.StringCompare -> testCompare
         | NameMatchMethod.Regex -> testRegex
         | NameMatchMethod.Any -> testAny
-      cmp ignoreCase expected actual.InternalFSharpName
+      let actualName =
+        match actual.Name with
+        | SymbolName n -> n
+        | OperatorName (_, n) -> n
+        | WithCompiledName (n, _) -> n
+      cmp ignoreCase expected actualName
     )
 
 let test ignoreCase query (api: Api) ctx =
@@ -39,7 +44,7 @@ let test ignoreCase query (api: Api) ctx =
     | DisplayName actualName, ApiKind.Constructor ->
       let name_type = List.tail actualName
       let name_new = actualName
-      let name_ctor = { FSharpName = ".ctor"; InternalFSharpName = ".ctor"; GenericParametersForDisplay = [] } :: name_type
+      let name_ctor = { Name = SymbolName ".ctor"; GenericParameters = [] } :: name_type
       let ok = [ name_new; name_type; name_ctor ] |> List.exists (test' ignoreCase expectedName)
       if ok then Matched ctx else Failure
     | DisplayName actualName, _ -> if test' ignoreCase expectedName actualName then Matched ctx else Failure

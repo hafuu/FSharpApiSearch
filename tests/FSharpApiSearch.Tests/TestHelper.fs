@@ -10,11 +10,13 @@ let defaultTestOptions =
 
 module DSL =
 
-  let createType name args =
-    let id = FullIdentity { AssemblyName = "test"; Name = Name.displayNameOfString name; GenericParameterCount = List.length args }
+  let createType' name args =
+    let id = FullIdentity { AssemblyName = "test"; Name = name; GenericParameterCount = List.length args }
     match args with
     | [] -> Identity id
     | args -> Generic (Identity id, args)
+
+  let createType name args = createType' (Name.ofString name) args
 
   let rec updateAssembly name = function
     | Identity (FullIdentity id) -> Identity (FullIdentity { id with AssemblyName = name })
@@ -40,7 +42,7 @@ module DSL =
       let name =
         match id.Name with
         | [] -> []
-        | n :: tail -> { n with GenericParametersForDisplay = List.init parameterCount (fun n -> { Name = sprintf "T%d" n; IsSolveAtCompileTime = false }) } :: tail
+        | n :: tail -> { n with GenericParameters = List.init parameterCount (fun n -> { Name = sprintf "T%d" n; IsSolveAtCompileTime = false }) } :: tail
       let id = { id with Name = name; GenericParameterCount = parameterCount }
       Generic (Identity (PartialIdentity id), args)
     | _ -> Generic (id, args)
@@ -124,12 +126,15 @@ module DSL =
   let typeAbbreviationDef name original =
     let defName = DisplayName.ofString name
     let fullName =
-      let toFullName (x: NameItem) =
-        match x.GenericParametersForDisplay with
-        | [] -> x.FSharpName
-        | args -> sprintf "%s`%d" x.FSharpName args.Length
+      let toFullName (x: DisplayNameItem) =
+        let genericSuffix =
+          match x.GenericParameters with
+          | [] -> ""
+          | args -> "`" + string args.Length
+        let name = Print.toDisplayName x.Name
+        name + genericSuffix
       defName |> List.rev |> List.map toFullName |> String.concat "."
-    { Name = defName; FullName = fullName; AssemblyName = "test"; Accessibility = Public; GenericParameters = defName.Head.GenericParametersForDisplay; Abbreviated = original; Original = original }
+    { Name = defName; FullName = fullName; AssemblyName = "test"; Accessibility = Public; GenericParameters = defName.Head.GenericParameters; Abbreviated = original; Original = original }
 
 open DSL
 

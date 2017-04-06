@@ -29,7 +29,7 @@ module FSharpSignatureParser =
     >>= (fun x -> if keywords |> List.exists ((=)x) then fail (sprintf "%s is the keyword." x) else preturn x)
     <?> "identifier"
   
-  let partialName = sepBy1 pidentifier (pchar '.') |>> (List.map (fun n -> { FSharpName = n; InternalFSharpName = n; GenericParametersForDisplay = [] } ) >> List.rev)
+  let partialName = sepBy1 pidentifier (pchar '.') |>> (List.map (fun n -> { Name = SymbolName n; GenericParameters = [] } ) >> List.rev)
 
   let fsharpSignature, fsharpSignatureRef = createParserForwardedToRef()
 
@@ -52,7 +52,7 @@ module FSharpSignatureParser =
         let newName =
           match p.Name with
           | [] -> []
-          | n :: tail -> { n with GenericParametersForDisplay = List.init parameterCount (fun n -> { Name = sprintf "T%d" n; IsSolveAtCompileTime = false }) } :: tail
+          | n :: tail -> { n with GenericParameters = List.init parameterCount (fun n -> { Name = sprintf "T%d" n; IsSolveAtCompileTime = false }) } :: tail
         Identity (PartialIdentity { p with Name = newName; GenericParameterCount = parameterCount })
       | other -> other
     Generic (id, parameters)
@@ -71,7 +71,7 @@ module FSharpSignatureParser =
   let array _ typeParser =
     let arraySymbol =
       let t = { Name = "T"; IsSolveAtCompileTime = false }
-      regex arrayRegexPattern |> trim |>> (fun array -> Identity (PartialIdentity { Name = [ { FSharpName = array; InternalFSharpName = array; GenericParametersForDisplay = [ t ] } ]; GenericParameterCount = 1 }))
+      regex arrayRegexPattern |> trim |>> (fun array -> Identity (PartialIdentity { Name = [ { Name = SymbolName array; GenericParameters = [ t ] } ]; GenericParameterCount = 1 }))
     typeParser
     .>>. many1 arraySymbol
     |>> (function

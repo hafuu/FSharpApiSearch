@@ -79,7 +79,7 @@ let distanceTest trace opt (query, targetSig, expected) = test {
   use listener = if trace then new System.Diagnostics.TextWriterTraceListener(System.Console.Out) else null
   do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
   try
-    let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = targetSig; TypeConstraints = []; Document = None }
+    let targetApi: Api = { Name = Name.ofString "test"; Signature = targetSig; TypeConstraints = []; Document = None }
     let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
     let actual = Matcher.search [| dict |] opt [ dict ] query |> Seq.head
     do! actual.Distance |> assertEquals expected
@@ -92,23 +92,23 @@ let nameMatchTest =
   let listMap = createMap list
   let cMap = createMap typeC
   
-  let typeAConstructorName = Name.displayNameOfString "Test.A.new"
+  let typeAConstructorName = Name.ofString "Test.A.new"
   let typeAConstructor = constructor' typeA (method' "new" [ [ ptype unit ] ] typeA)
 
   parameterize {
     source [
-      "map : _", Name.displayNameOfString "Microsoft.FSharp.Collections.List.map", listMap, true
-      "bind : _", Name.displayNameOfString "Microsoft.FSharp.Collections.List.map", listMap, false
-      "map : ('a -> 'b) -> 'a list -> 'b list", Name.displayNameOfString "Test.C.map", cMap, false
-      "(+) : _", Name.displayNameOfOperatorString "Test.(+)", listMap, true
-      "(+) : _", Name.displayNameOfString "Test.op_Addition", listMap, true
-      "(-) : _", Name.displayNameOfOperatorString "Test.(+)", listMap, false
-      "A.B : _", Name.displayNameOfString "A.B", listMap, true
-      "A.B : _", Name.displayNameOfString "X.A.B", listMap, true
-      "A.B : _", Name.displayNameOfString "X.Y.B", listMap, false
-      "A.B : _", Name.displayNameOfString "B", listMap, false
-      "* : _", Name.displayNameOfString "A", listMap, true
-      "* : _", Name.displayNameOfString "B", listMap, true
+      "map : _", Name.ofString "Microsoft.FSharp.Collections.List.map", listMap, true
+      "bind : _", Name.ofString "Microsoft.FSharp.Collections.List.map", listMap, false
+      "map : ('a -> 'b) -> 'a list -> 'b list", Name.ofString "Test.C.map", cMap, false
+      "(+) : _", Name.ofOperatorName "Test.(+)", listMap, true
+      "(+) : _", Name.ofString "Test.op_Addition", listMap, true
+      "(-) : _", Name.ofOperatorName "Test.(+)", listMap, false
+      "A.B : _", Name.ofString "A.B", listMap, true
+      "A.B : _", Name.ofString "X.A.B", listMap, true
+      "A.B : _", Name.ofString "X.Y.B", listMap, false
+      "A.B : _", Name.ofString "B", listMap, false
+      "* : _", Name.ofString "A", listMap, true
+      "* : _", Name.ofString "B", listMap, true
 
       "new : _", typeAConstructorName, typeAConstructor, true
       "A.new : _", typeAConstructorName, typeAConstructor, true
@@ -131,29 +131,29 @@ let partialNameMatchTest =
   
   parameterize {
     source [
-      "ma* : _", Name.displayNameOfString "map", listMap, true
-      "m*p : _", Name.displayNameOfString "map", listMap, true
-      "*ap : _", Name.displayNameOfString "map", listMap, true
-      "*ap : _", Name.displayNameOfString "mxxxxxxxxxxxxxxxxxxxxmap", listMap, true
-      "map* : _", Name.displayNameOfString "map", listMap, true
+      "ma* : _", Name.ofString "map", listMap, true
+      "m*p : _", Name.ofString "map", listMap, true
+      "*ap : _", Name.ofString "map", listMap, true
+      "*ap : _", Name.ofString "mxxxxxxxxxxxxxxxxxxxxmap", listMap, true
+      "map* : _", Name.ofString "map", listMap, true
       
-      "m*p : _", Name.displayNameOfString "list", listMap, false
-      "m*p : _", Name.displayNameOfString "mxxx", listMap, false
-      "m*p : _", Name.displayNameOfString "xxxp", listMap, false
+      "m*p : _", Name.ofString "list", listMap, false
+      "m*p : _", Name.ofString "mxxx", listMap, false
+      "m*p : _", Name.ofString "xxxp", listMap, false
 
-      "map : _", Name.displayNameOfString "semaphore", listMap, false
-      "*map* : _", Name.displayNameOfString "semaphore", listMap, true
+      "map : _", Name.ofString "semaphore", listMap, false
+      "*map* : _", Name.ofString "semaphore", listMap, true
     ]
     run (fun (query, targetName, targetSig, expected) -> matchTest false [||] (defaultTestOptions, query, targetName, targetSig, expected))
   }  
 
 let ignoreCaseMatchTest =
-  let dummyName = Name.displayNameOfString "dummy"
+  let dummyName = Name.ofString "dummy"
 
   let cases = [
-    "b : _", Name.displayNameOfString "A.B", moduleValue typeA, WhenEnabled true
-    "a.B : _", Name.displayNameOfString "A.B", moduleValue typeA, WhenEnabled true
-    "te*t : _", Name.displayNameOfString "TEST", moduleValue typeA, WhenEnabled true
+    "b : _", Name.ofString "A.B", moduleValue typeA, WhenEnabled true
+    "a.B : _", Name.ofString "A.B", moduleValue typeA, WhenEnabled true
+    "te*t : _", Name.ofString "TEST", moduleValue typeA, WhenEnabled true
 
     "a", dummyName, moduleValue typeA, WhenEnabled true
     "test.A", dummyName, moduleValue typeA, WhenEnabled true
@@ -268,7 +268,7 @@ let matchTypeAbbreviationTest =
 
 let assemblyNameTest =
   test {
-    let api: Api = { Name = Name.displayNameOfString "test"; Signature = moduleValue int; TypeConstraints = []; Document = None }
+    let api: Api = { Name = Name.ofString "test"; Signature = moduleValue int; TypeConstraints = []; Document = None }
     let dummyDict = { AssemblyName = "dummyAssembly"; Api = [| api |]; TypeDefinitions = [||]; TypeAbbreviations = [||] }
     let actual = Matcher.search Array.empty defaultTestOptions [ dummyDict ] "?" |> Seq.toList
     do! actual |> assertEquals [ { AssemblyName = "dummyAssembly"; Api = api; Distance = 0 } ]
@@ -279,7 +279,7 @@ let greedyMatchingTest trace abbTable greedyOpt cases = parameterize {
     for respectNameDiffOpt in [ Enabled; Disabled ] do
       for (query, target, expected) in cases do
         let options = { defaultTestOptions with GreedyMatching = greedyOpt; RespectNameDifference = respectNameDiffOpt }
-        yield (options, query, Name.displayNameOfString "test", target, expectedValue respectNameDiffOpt expected)
+        yield (options, query, Name.ofString "test", target, expectedValue respectNameDiffOpt expected)
   })
   run (matchTest trace abbTable)
 }
@@ -289,7 +289,7 @@ let functionParamStyleTest trace cases = parameterize {
       for opt in [ Enabled; Disabled ] do
       for (query, target, expected) in cases do
         let options = { defaultTestOptions with IgnoreParameterStyle = opt }
-        yield (options, query, Name.displayNameOfString "test", target, expectedValue opt expected)
+        yield (options, query, Name.ofString "test", target, expectedValue opt expected)
   })
   run (matchTest trace [||])
 }
@@ -1194,7 +1194,7 @@ module TypeConstraintTest =
   let testConstraint trace (query, target, constraints, expected) = test {
     use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
     do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
-    let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = constraints; Document = None }
+    let targetApi: Api = { Name = Name.ofString "test"; Signature = target; TypeConstraints = constraints; Document = None }
 
     let dictionaries = [|
       mscorlibDict
@@ -1600,7 +1600,7 @@ module ActivePatternTest =
     use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
     do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
     try
-      let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
+      let targetApi: Api = { Name = Name.ofString "test"; Signature = target; TypeConstraints = []; Document = None }
       let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
       let options = defaultTestOptions
       let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.length = 1
@@ -1691,7 +1691,7 @@ module SwapOrderTest =
   let typeE2 x y = createType "Test.E<'a, 'b>" [ x; y ]
     
   let runTest trace depth cases =
-    let targetName = Name.displayNameOfString "test"
+    let targetName = Name.ofString "test"
 
     parameterize {
       source [
@@ -1766,7 +1766,7 @@ module SwapOrderTest =
 
 module ComplementTest =
   let runTest trace depth cases =
-    let targetName = Name.displayNameOfString "test"
+    let targetName = Name.ofString "test"
 
     parameterize {
       source [

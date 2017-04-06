@@ -9,8 +9,8 @@ open TestHelper.DSL
 
 let parseDisplayNameTest = parameterize {
   source [
-    "A.B", [ { FSharpName = "B"; InternalFSharpName = "B"; GenericParametersForDisplay = [] }; { FSharpName = "A"; InternalFSharpName = "A"; GenericParametersForDisplay = [] } ]
-    "A.B<'T>", [ { FSharpName = "B"; InternalFSharpName = "B"; GenericParametersForDisplay = [ tv "'T" ] }; { FSharpName = "A"; InternalFSharpName = "A"; GenericParametersForDisplay = [] } ]
+    "A.B", [ { Name = SymbolName "B"; GenericParameters = [] }; { Name = SymbolName "A"; GenericParameters = [] } ]
+    "A.B<'T>", [ { Name = SymbolName "B"; GenericParameters = [ tv "'T" ] }; { Name = SymbolName "A"; GenericParameters = [] } ]
   ]
   run (fun (x, expected) -> test {
     do! DisplayName.ofString x |> assertEquals expected
@@ -19,7 +19,7 @@ let parseDisplayNameTest = parameterize {
 
 let parseOperatorDisplayNameTest = parameterize {
   source [
-    "A.( + )", [ { FSharpName = "( + )"; InternalFSharpName = "op_Addition"; GenericParametersForDisplay = [] }; { FSharpName = "A"; InternalFSharpName = "A"; GenericParametersForDisplay = [] } ]
+    "A.( + )", [ { Name = OperatorName ("( + )", "op_Addition"); GenericParameters = [] }; { Name = SymbolName "A"; GenericParameters = [] } ]
   ]
   run (fun (x, expected) -> test {
     do! DisplayName.ofOperatorString x |> assertEquals expected
@@ -55,9 +55,9 @@ module PrintTest =
 
   let printName_long_test = parameterize {
     source[
-      Name.displayNameOfString "A.B", "A.B"
-      Name.displayNameOfString "A.B<'C>", "A.B"
-      Name.displayNameOfString "A<'C>.B<'D>", "A<'C>.B"
+      Name.ofString "A.B", "A.B"
+      Name.ofString "A.B<'C>", "A.B"
+      Name.ofString "A<'C>.B<'D>", "A<'C>.B"
     ]
     run (fun (input: Name, expected) -> test {
       do! input.Print() |> assertEquals expected

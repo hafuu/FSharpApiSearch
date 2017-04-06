@@ -6,10 +6,16 @@ type LinkGenerator = Api -> string option
 module LinkGenerator =
   open System.Web
 
-  let internal genericParameters (api: Api) = api.Name |> Name.displayName |> Seq.rev |> Seq.collect (fun x -> x.GenericParametersForDisplay) |> Seq.distinct |> Seq.toList
+  let internal genericParameters (api: Api) = api.Name |> Name.toDisplayName |> Seq.rev |> Seq.collect (fun x -> x.GenericParameters) |> Seq.distinct |> Seq.toList
 
   let internal toLower (str: string) = str.ToLower()
   let internal urlEncode (str: string) = HttpUtility.UrlEncode(str)
+
+  let urlName (n: DisplayNameItem) =
+    match n.Name with
+    | SymbolName n -> n
+    | OperatorName (n, _) -> n
+    | WithCompiledName (n, _) -> n
 
   module internal FSharp =
     let fullOpReplaceTable =
@@ -49,24 +55,24 @@ module LinkGenerator =
         let replaced = op |> String.map (fun s -> match opReplaceTable.TryGetValue(s) with true, r -> r | false, _ -> s)
         "[-" + replaced + "-]"
 
-    let isArray (n: NameItem) = n.FSharpName.StartsWith("[")
+    let isArray (n: DisplayNameItem) = (urlName n).StartsWith("[")
 
     let generate (api: Api) = option {
       let ns =
-        let ns = Name.displayName api.Name
+        let ns = Name.toDisplayName api.Name
         match api.Signature with
         | ApiSignature.Constructor _ -> ns.Tail // skip "new"
         | _ -> ns
       let namePart =
         let name =
-          let name = ns.Head.FSharpName
+          let name = urlName ns.Head
           if isActivePattern api then
             name.[3..(name.Length - 4)].Replace("|_", "").Replace("|", "h")
           elif name.StartsWith("( ") then
             replaceOp name
           else
             name
-        let path = (ns.Item 1).FSharpName
+        let path = urlName (ns.Item 1)
         path + "." + name
       let genericParamsPart =
         if namePart = "Operators.[=]" then
@@ -80,7 +86,7 @@ module LinkGenerator =
       let! kindPart =
         match api.Signature with
         | ApiSignature.ActivePatten _ -> Some "active-pattern"
-        | ApiSignature.ModuleValue _ when ns.Head.GenericParametersForDisplay.IsEmpty = false -> Some "type-function"
+        | ApiSignature.ModuleValue _ when ns.Head.GenericParameters.IsEmpty = false -> Some "type-function"
         | ApiSignature.ModuleValue _
         | ApiSignature.ModuleFunction _ -> Some "function"
         | ApiSignature.InstanceMember (_, m) | ApiSignature.StaticMember (_, m) when m.Kind = MemberKind.Method -> Some "method"
@@ -101,7 +107,7 @@ module LinkGenerator =
             | TypeDefinitionKind.Enumeration -> Some "enumeration"
         | ApiSignature.TypeAbbreviation _ -> Some "type-abbreviation"
         | ApiSignature.TypeExtension _ ->
-          match (Seq.last ns).FSharpName with
+          match urlName (Seq.last ns) with
           | "System" -> Some "extension-method"
           | _ -> Some "method"
         | ApiSignature.ExtensionMember _ -> Some "extension-method"
@@ -112,7 +118,7 @@ module LinkGenerator =
     }
 
   module internal Msdn =
-    let isGeneric api = api.Name |> Name.displayName |> List.exists (fun n -> List.isEmpty n.GenericParametersForDisplay = false)
+    let isGeneric api = api.Name |> Name.toDisplayName |> List.exists (fun n -> List.isEmpty n.GenericParameters = false)
     let canGenerate (api: Api) =
       match api.Signature with
       | ApiSignature.ActivePatten _
@@ -136,7 +142,7 @@ module LinkGenerator =
       elif canGenerate api = false then
         None
       else
-        (Name.displayName api.Name |> Seq.rev |> Seq.map (fun n -> n.FSharpName) |> String.concat ".") + ".aspx"
+        (Name.toDisplayName api.Name |> Seq.rev |> Seq.map urlName |> String.concat ".") + ".aspx"
         |> toLower
         |> Some
         

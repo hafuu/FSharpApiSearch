@@ -13,49 +13,68 @@ module TypeVariable =
     if List.exists (fun prefix -> v.StartsWith(prefix)) [ "'"; "^" ] = false then failwithf "wrong variable name: %s" v
     { Name = v.TrimStart(''', '^'); IsSolveAtCompileTime = v.StartsWith("^") }
 
-type NameItem = {
-  FSharpName: string
-  InternalFSharpName: string
-  // CompiledName: string
-  GenericParametersForDisplay: TypeVariable list
+type NamePart =
+  | SymbolName of name:string
+  | OperatorName of name:string * compiledName:string
+  | WithCompiledName of name:string * compiledName:string
+
+type DisplayNameItem = {
+  Name: NamePart
+  GenericParameters: TypeVariable list
 }
 
-type FullName = string
-type DisplayName = NameItem list
+type DisplayName = DisplayNameItem list
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module internal DisplayName =
   open System.Text.RegularExpressions
 
-  let ofString (name: string) =
+  let private splitName (name: string) =
     name.Split('.')
-    |> Seq.map (fun n ->
+    |> Array.map (fun n ->
       if n.Contains("<") then
         let xs = n.Split([| '<' |], 2)
         let name = xs.[0]
         let args = [ for m in Regex.Matches(xs.[1], @"(['^]\w+)") -> TypeVariable.ofString m.Groups.[1].Value ]
-        { FSharpName = name; InternalFSharpName = name; GenericParametersForDisplay = args }
+        (name, args)
       else
-        { FSharpName = n; InternalFSharpName = n; GenericParametersForDisplay = [] })
-    |> Seq.toList
-    |> List.rev
+        (n, [])
+    )
+    |> Array.rev
+    |> Array.toList
+
+  let ofString name =
+    splitName name |> List.map (fun (name, parameters) -> { Name = SymbolName name; GenericParameters = parameters })
   
+  let ofString2 name compiledName =
+    List.zip (splitName name) (splitName compiledName)
+    |> List.map (fun ((name, parameters), (compiledName, _)) ->
+      let n = if name <> compiledName then WithCompiledName (name, compiledName) else SymbolName name
+      { Name = n; GenericParameters = parameters })
+
   let ofOperatorString (name: string) =
     let name = ofString name
-    let head = { name.Head with InternalFSharpName = Microsoft.FSharp.Compiler.PrettyNaming.CompileOpName (name.Head.FSharpName.Trim('(', ')', ' ')) }
+    let headName =
+      match name.Head.Name with
+      | SymbolName n -> n
+      | _ -> failwith "It is not symbol name"
+    let compiledOpName =
+      Microsoft.FSharp.Compiler.PrettyNaming.CompileOpName (headName.Trim('(', ')', ' '))
+    let head = { name.Head with Name = OperatorName (headName, compiledOpName) }
     head :: name.Tail
 
 type Name =
-  | LoadingName of assemblyName: string * FullName * DisplayName
+  | LoadingName of assemblyName:string * accessPath:string * DisplayName // only api loading
   | DisplayName of DisplayName
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module internal Name =
-  let displayNameOfString (name: string) = DisplayName (DisplayName.ofString name)
-  let displayNameOfOperatorString (name: string) = DisplayName (DisplayName.ofOperatorString name)
+  let ofString (name: string) = DisplayName (DisplayName.ofString name)
+  let ofCompiledName name compiledName = DisplayName (DisplayName.ofString2 name compiledName)
+  let ofOperatorName (name: string) = DisplayName (DisplayName.ofOperatorString name)
 
   let loadingNameError() = failwith "Loading name at run time is invalid data."
-  let displayName = function
+  let toDisplayName = function
     | LoadingName _ -> loadingNameError()
     | DisplayName ns -> ns
 
@@ -194,7 +213,7 @@ type ConstraintStatus =
 
 type FullTypeDefinition = {
   Name: DisplayName
-  FullName: FullName
+  FullName: string
   AssemblyName: string
   Accessibility: Accessibility
   Kind: TypeDefinitionKind
@@ -228,7 +247,7 @@ with
 
 type TypeAbbreviationDefinition = {
   Name: DisplayName
-  FullName: FullName
+  FullName: string
   AssemblyName: string
   Accessibility: Accessibility
   GenericParameters: TypeVariable list
@@ -480,12 +499,13 @@ module internal SpecialTypes =
 
     let ofDotNetType (t: Type) =
       if t.IsGenericType then failwith "It is not support generic type."
-      { AssemblyName = t.Assembly.GetName().Name; Name = Name.displayNameOfString t.FullName; GenericParameterCount = 0 }
+      { AssemblyName = t.Assembly.GetName().Name; Name = Name.ofString t.FullName; GenericParameterCount = 0 }
 
     let private tuple' typeName n =
       let name =
         let genericParams = List.init n (fun n -> { Name = sprintf "T%d" n; IsSolveAtCompileTime = false })
-        { FSharpName = typeName; InternalFSharpName = typeName; GenericParametersForDisplay = genericParams } :: { FSharpName = "System"; InternalFSharpName = "System"; GenericParametersForDisplay = [] } :: []
+        let ns = { Name = SymbolName "System"; GenericParameters = [] } :: []
+        { Name = SymbolName typeName; GenericParameters = genericParams } :: ns
       DisplayName name
 
     let tupleName n = tuple' "Tuple" n
@@ -507,12 +527,12 @@ module internal SpecialTypes =
     let ofDotNetType (t: Type) = LowType.Identity (Identity.ofDotNetType t)
     let Unit = ofDotNetType typeof<Unit>
     let unit =
-      let unit = LowType.Identity (FullIdentity { AssemblyName = fscore; Name = Name.displayNameOfString "Microsoft.FSharp.Core.unit"; GenericParameterCount = 0 })
+      let unit = LowType.Identity (FullIdentity { AssemblyName = fscore; Name = Name.ofString "Microsoft.FSharp.Core.unit"; GenericParameterCount = 0 })
       TypeAbbreviation { Abbreviation = unit; Original = Unit }
 
     let Double = ofDotNetType typeof<Double>
     let float =
-      let float = LowType.Identity (FullIdentity { AssemblyName = fscore; Name = Name.displayNameOfString "Microsoft.FSharp.Core.float"; GenericParameterCount = 0 })
+      let float = LowType.Identity (FullIdentity { AssemblyName = fscore; Name = Name.ofString "Microsoft.FSharp.Core.float"; GenericParameterCount = 0 })
       TypeAbbreviation { Abbreviation = float; Original = Double }
 
     let rec isUnit (x: LowType) =
@@ -532,9 +552,9 @@ module internal SpecialTypes =
           | FullIdentity { Name = DisplayName name }
           | PartialIdentity { Name = name } ->
             match name with
-            | { FSharpName = name; GenericParametersForDisplay = [ _ ] } :: _ ->
-              if Regex.IsMatch(name, arrayRegexPattern) then
-                Some (name, elem)
+            | { Name = SymbolName typeName; GenericParameters = [ _ ] } :: _ ->
+              if Regex.IsMatch(typeName, arrayRegexPattern) then
+                Some (typeName, elem)
               else
                 None
             | _ -> None
@@ -588,11 +608,16 @@ module internal Print =
 
   let typeVariablePrefix (v: TypeVariable) = if v.IsSolveAtCompileTime then "^" else "'"
 
-  let printNameItem (n: NameItem) (sb: StringBuilder) =
-    match n.GenericParametersForDisplay with
-    | [] -> sb.Append(n.FSharpName)
+  let toDisplayName = function
+    | SymbolName n -> n
+    | OperatorName (n, _) -> n
+    | WithCompiledName (n, _) -> n
+
+  let printNameItem (n: DisplayNameItem) (sb: StringBuilder) =
+    match n.GenericParameters with
+    | [] -> sb.Append(toDisplayName n.Name)
     | args ->
-      sb.Append(n.FSharpName)
+      sb.Append(toDisplayName n.Name)
         .Append("<")
           .AppendJoin(", ", args, (fun arg sb -> sb.Append(typeVariablePrefix arg).Append(arg.Name)))
         .Append(">")
@@ -604,7 +629,7 @@ module internal Print =
       ns.Tail
       |> Seq.rev
       |> Seq.iter (fun n -> sb.Append(printNameItem n).Append(".") |> ignore)
-      sb.Append(ns.Head.FSharpName)
+      sb.Append(toDisplayName ns.Head.Name)
 
   let printName_full (name: Name) (sb: StringBuilder) =
     match name with
@@ -621,10 +646,10 @@ module internal Print =
     | PartialIdentity i -> sb.Append(printDisplayName_full i.Name)
 
   let printIdentity_short (identity: Identity) (sb: StringBuilder) =
-    let printDisplayName_short xs (sb: StringBuilder) =
+    let printDisplayName_short (xs: DisplayName) (sb: StringBuilder) =
       match xs with
       | [] -> sb.Append("<empty>")
-      | n :: _ -> sb.Append(n.FSharpName)
+      | n :: _ -> sb.Append(toDisplayName n.Name)
 
     let printName_short name (sb: StringBuilder) =
       match name with
@@ -721,7 +746,7 @@ module internal Print =
     match i with
     | PartialIdentity p -> sb.Append(print p.Name)
     | FullIdentity f ->
-      let name = Name.displayName f.Name
+      let name = Name.toDisplayName f.Name
       sb.Append(print name)
 
   let rec printAccessPath lowType (sb: StringBuilder) =
@@ -830,7 +855,7 @@ module internal Print =
     else
       sb.Append(printParameterGroups true isDebug (UnionCase.toFunction uc))
 
-  let printModule (m: ModuleDefinition) (sb: StringBuilder) = sb.Append("module ").Append(m.Name.Head.FSharpName)
+  let printModule (m: ModuleDefinition) (sb: StringBuilder) = sb.Append("module ").Append(toDisplayName m.Name.Head.Name)
 
   let printComputationExpressionBuilder isDebug (builder: ComputationExpressionBuilder) (sb: StringBuilder) =
     if isDebug then
@@ -879,7 +904,7 @@ module internal Print =
 type TypeVariable with
   member this.Print() = StringBuilder().Append(Print.printTypeVariable false VariableSource.Target this).ToString()
 
-type NameItem with
+type DisplayNameItem with
   member this.Print() = StringBuilder().Append(Print.printNameItem this).ToString()
 
 type Name with
@@ -921,8 +946,14 @@ type Api with
 module internal Identity =
   open System
 
+  let testee (x: DisplayNameItem) =
+    match x.Name with
+    | SymbolName n -> n
+    | OperatorName (_, n) -> n
+    | WithCompiledName (n, _) -> n
+
   let private testDisplayName cmp (xs: DisplayName) (ys: DisplayName) =
-    Seq.zip xs ys |> Seq.forall (fun (x, y) -> String.equalsWithComparer cmp x.InternalFSharpName y.InternalFSharpName && x.GenericParametersForDisplay.Length = y.GenericParametersForDisplay.Length)
+    Seq.zip xs ys |> Seq.forall (fun (x, y) -> String.equalsWithComparer cmp (testee x) (testee y) && x.GenericParameters.Length = y.GenericParameters.Length)
 
   let testFullIdentity (x: FullIdentity) (y: FullIdentity) =
     match x.Name, y.Name with
@@ -931,10 +962,10 @@ module internal Identity =
 
   let private testPartialAndFullIdentity cmp (partial: PartialIdentity) (full: FullIdentity) =
     let strEqual x y = String.equalsWithComparer cmp x y
-    let testNameItem (p: NameItem, f: NameItem) =
-      match p.GenericParametersForDisplay, f.GenericParametersForDisplay with
-      | [], _ -> strEqual p.InternalFSharpName f.InternalFSharpName
-      | _ -> strEqual p.InternalFSharpName f.InternalFSharpName && p.GenericParametersForDisplay.Length = f.GenericParametersForDisplay.Length
+    let testNameItem (p: DisplayNameItem, f: DisplayNameItem) =
+      match p.GenericParameters, f.GenericParameters with
+      | [], _ -> strEqual (testee p) (testee f)
+      | _ -> strEqual (testee p) (testee f) && p.GenericParameters.Length = f.GenericParameters.Length
     match full.Name with
     | DisplayName fullName ->
       partial.GenericParameterCount = full.GenericParameterCount

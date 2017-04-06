@@ -67,12 +67,18 @@ let seq t =
   let seq = createType "Microsoft.FSharp.Collections.seq<'T>" [ t ] |> updateAssembly fscore
   typeAbbreviation (ienumerable t) seq
 
-let fsharpList t = createType "Microsoft.FSharp.Collections.List<'T>" [ t] |> updateAssembly fscore
+let fsharpList t =
+  let name = "Microsoft.FSharp.Collections.List<'T>"
+  let compiledName = "Microsoft.FSharp.Collections.FSharpList<'T>"
+  createType' (Name.ofCompiledName name compiledName) [ t] |> updateAssembly fscore
 let list t =
   let list = createType "Microsoft.FSharp.Collections.list<'T>" [ t ] |> updateAssembly fscore
   typeAbbreviation (fsharpList t) list
 
-let fsharpOption t = createType "Microsoft.FSharp.Core.Option<'T>" [ t ] |> updateAssembly fscore
+let fsharpOption t =
+  let name = "Microsoft.FSharp.Core.Option<'T>"
+  let compiledName = "Microsoft.FSharp.Core.FSharpOption<'T>"
+  createType' (Name.ofCompiledName name compiledName) [ t ] |> updateAssembly fscore
 let option t =
   let opt = createType "Microsoft.FSharp.Core.option<'T>" [ t ] |> updateAssembly fscore
   typeAbbreviation (fsharpOption t) opt
@@ -82,7 +88,10 @@ let string =
   let string = createType "Microsoft.FSharp.Core.string" [] |> updateAssembly fscore
   typeAbbreviation String string
 
-let map k v = createType "Microsoft.FSharp.Collections.Map<'Key, 'Value>" [ k; v ] |> updateAssembly fscore
+let map k v =
+  let name = "Microsoft.FSharp.Collections.Map<'Key, 'Value>"
+  let compiledName = "Microsoft.FSharp.Collections.FSharpMap<'Key, 'Value>"
+  createType' (Name.ofCompiledName name compiledName) [ k; v ] |> updateAssembly fscore
 
 let array = array >> updateAssembly fscore
 let array2D = array2D >> updateAssembly fscore
@@ -95,11 +104,26 @@ let istructuralComparable = createType "System.IStructuralComparable" [] |> upda
 
 let valuetype = createType "System.ValueType" [] |> updateAssembly mscorlib
 
+let testFSharpName (left: Name) (right: Name) =
+  let left = Name.toDisplayName left
+  let right = Name.toDisplayName right
+  if left.Length <> right.Length then
+    false
+  else
+    List.zip left right
+    |> List.forall (fun (l, r) ->
+      let f (n: DisplayNameItem) =
+        match n.Name with
+        | SymbolName n -> n
+        | OperatorName (n, _) -> n
+        | WithCompiledName (n, _) -> n
+      f l = f r && l.GenericParameters = r.GenericParameters)
+
 let testApiWithoutParameterName (assembly: TestCase<ApiDictionary>) nameConverter (name, expected) = test {
   let! apiDict = assembly
   let name = nameConverter name
   let actual =
-    Seq.filter (fun x -> x.Name = name) apiDict.Api 
+    Seq.filter (fun x -> testFSharpName x.Name name) apiDict.Api 
     |> Seq.map (fun x -> x.Signature)
     |> Seq.filter (function (ApiSignature.FullTypeDefinition _ | ApiSignature.TypeAbbreviation _ | ApiSignature.ComputationExpressionBuilder _) -> false | _ -> true)
     |> Seq.toList
@@ -111,7 +135,7 @@ let testApiWithoutParameterName (assembly: TestCase<ApiDictionary>) nameConverte
 let testFullTypeDef' (assembly: TestCase<ApiDictionary>) filter (name, expected) = test {
   let! apiDict = assembly
   let actual =
-    Seq.filter (fun x -> x.Name = name) apiDict.Api
+    Seq.filter (fun x -> testFSharpName x.Name name) apiDict.Api
     |> Seq.map (fun x -> x.Signature)
     |> Seq.choose (function ApiSignature.FullTypeDefinition x -> Some x | _ -> None)
     |> Seq.head
@@ -122,14 +146,15 @@ let testFullTypeDef (assembly: TestCase<ApiDictionary>) (expected: FullTypeDefin
 
 let testConstraints (assembly: TestCase<ApiDictionary>) (name, expectedTarget, expectedConstraints) = test {
   let! apiDict = assembly
-  let name = Name.displayNameOfString name
-  let actual = Seq.find (fun x -> x.Name = name) apiDict.Api
+  let name = Name.ofString name
+  let actual = Seq.find (fun x -> testFSharpName x.Name name) apiDict.Api
   do! actual.Signature |> assertEquals expectedTarget
   do! (List.sort actual.TypeConstraints) |> assertEquals (List.sort expectedConstraints)
 }
 
 module FSharp =
-  let testApi = testApiWithoutParameterName fsharpAssemblyApi Name.displayNameOfString
+  let testApi = testApiWithoutParameterName fsharpAssemblyApi Name.ofString
+
   let testConstraints = testConstraints fsharpAssemblyApi
 
   let loadModuleMemberTest = parameterize {
@@ -284,7 +309,7 @@ module FSharp =
   let internalInterfaceTest = test {
     let! mscorDict = mscorlibApi
     let tuple = mscorDict.TypeDefinitions |> Array.find (fun x -> x.Name = DisplayName.ofString "System.Tuple<'T1, 'T2>" && x.GenericParameters.Length = 2)
-    let existsITuple = tuple.AllInterfaces |> Seq.exists (function Identity (FullIdentity i) -> i.Name = Name.displayNameOfString "System.ITuple" | _ -> false)
+    let existsITuple = tuple.AllInterfaces |> Seq.exists (function Identity (FullIdentity i) -> i.Name = Name.ofString "System.ITuple" | _ -> false)
     do! existsITuple |> assertEquals false
   }
 
@@ -646,7 +671,7 @@ module FSharp =
       "AbbreviatedGenericParameterInt", Satisfy
     ]
     run (fun (name, expected) ->
-      testFullTypeDef' fsharpAssemblyApi (fun x -> x.Comparison) (Name.displayNameOfString ("FullTypeDefinition.ComparisonConstraints." + name), expected))
+      testFullTypeDef' fsharpAssemblyApi (fun x -> x.Comparison) (Name.ofString ("FullTypeDefinition.ComparisonConstraints." + name), expected))
   }
 
   let valueTypeTest = parameterize {
@@ -657,7 +682,7 @@ module FSharp =
       "FSharp41.StructUnion", Satisfy
     ]
     run (fun (name, expected) ->
-      testFullTypeDef' fsharpAssemblyApi (fun x -> x.ValueType) (Name.displayNameOfString name, expected))
+      testFullTypeDef' fsharpAssemblyApi (fun x -> x.ValueType) (Name.ofString name, expected))
   }
 
   let compilerInternalTest = test {
@@ -681,7 +706,7 @@ module FSharp =
       "InternalSignature.InternalType", Private
     ]
     run (fun (name, expected) ->
-      testFullTypeDef' fsharpAssemblyApi (fun x -> x.Accessibility) (Name.displayNameOfString name, expected))
+      testFullTypeDef' fsharpAssemblyApi (fun x -> x.Accessibility) (Name.ofString name, expected))
   }
 
   let typeDefKindTest = parameterize {
@@ -698,7 +723,7 @@ module FSharp =
 
       fscoreApi, "Microsoft.FSharp.Core.Unit", TypeDefinitionKind.Type
     ]
-    run (fun (api, name, expected) -> testFullTypeDef' api (fun x -> x.Kind) (Name.displayNameOfString name, expected))
+    run (fun (api, name, expected) -> testFullTypeDef' api (fun x -> x.Kind) (Name.ofString name, expected))
   }
 
   let operatorTest =
@@ -754,7 +779,7 @@ module FSharp =
 
   let flexibleTest = test {
     let! apiDict = fsharpAssemblyApi
-    let name = Name.displayNameOfString "PublicModule.flexible<'a, 'b>"
+    let name = Name.ofString "PublicModule.flexible<'a, 'b>"
     let actual = apiDict.Api |> Array.find (fun x -> x.Name = name)
     do! actual.Signature |> assertEquals (moduleFunction' [ [ pname "x" >> ptype (variable "'a") ]; [ ptype unit ] ])
     
@@ -770,9 +795,35 @@ module FSharp =
     run testApi
   }
 
+  let compiledNameTest =
+    let withoutCompiledName = Name.ofString
+    let cn compiledName fsharpName = Name.ofCompiledName fsharpName compiledName
+    parameterize {
+      source [
+        "CompiledNames.withoutCompiledName", withoutCompiledName
+        "CompiledNames.funcName", cn "CompiledNames.FUNC_NAME"
+        "CompiledNames.TypeName", cn "CompiledNames.TYPE_NAME"
+        "CompiledNames.T.MethodName", cn "CompiledNames.T.METHOD_NAME"
+        "CompiledNames.T.PropertyName", cn "CompiledNames.T.PROPERTY_NAME"
+        "CompiledNames.T.WithoutCompiledNameProperty", withoutCompiledName
+        "CompiledNames.Record.FieldName", cn "CompiledNames.Record.FieldName"
+        "CompiledNames.Union.CaseName", withoutCompiledName
+        "CompiledNames.ModuleName", withoutCompiledName
+        "CompiledNames.WithModuleSuffix", cn "CompiledNames.WithModuleSuffixModule"
+        "CompiledNames.WithModuleSuffix.f", cn "CompiledNames.WithModuleSuffixModule.f"
+      ]
+      run (fun (fsharpName: string, toExpected: string -> Name) -> test {
+        let! apiDict = fsharpAssemblyApi
+        let name = Name.ofString fsharpName
+        let actual = Seq.find (fun x -> testFSharpName x.Name name) apiDict.Api
+        let expected = toExpected fsharpName
+        do! actual.Name |> assertEquals expected
+      })
+    }
+
 module SpecialType =
   module Tuple =
-    let name = Name.displayNameOfString "System.Tuple<'T1, 'T2>"
+    let name = Name.ofString "System.Tuple<'T1, 'T2>"
     let nullnessTest =
       testFullTypeDef' mscorlibApi (fun x -> x.SupportNull) (name, NotSatisfy)
     let equalityTest =
@@ -783,7 +834,7 @@ module SpecialType =
       testFullTypeDef' mscorlibApi (fun x -> x.ValueType) (name, NotSatisfy)
 
   module ValueTuple =
-    let name = Name.displayNameOfString "System.ValueTuple<'T1, 'T2>"
+    let name = Name.ofString "System.ValueTuple<'T1, 'T2>"
     let nullnessTest =
       testFullTypeDef' valueTupleApi (fun x -> x.SupportNull) (name, NotSatisfy)
     let equalityTest =
@@ -793,7 +844,7 @@ module SpecialType =
     let valueTypeTest =
       testFullTypeDef' valueTupleApi (fun x -> x.ValueType) (name, Satisfy)
 
-  let arrayName = Name.displayNameOfString "Microsoft.FSharp.Core.[]<'T>"
+  let arrayName = Name.ofString "Microsoft.FSharp.Core.[]<'T>"
 
   let arrayNullnessTest =
     testFullTypeDef' fscoreApi (fun x -> x.SupportNull) (arrayName, Satisfy)
@@ -803,21 +854,21 @@ module SpecialType =
     testFullTypeDef' fscoreApi (fun x -> x.Comparison) (arrayName, Dependence [ tv "'T" ])
 
   let intptrComparison =
-    testFullTypeDef' mscorlibApi (fun x -> x.Comparison) (Name.displayNameOfString "System.IntPtr", Satisfy)
+    testFullTypeDef' mscorlibApi (fun x -> x.Comparison) (Name.ofString "System.IntPtr", Satisfy)
   let uintptrComparison =
-    testFullTypeDef' mscorlibApi (fun x -> x.Comparison) (Name.displayNameOfString "System.UIntPtr", Satisfy)
+    testFullTypeDef' mscorlibApi (fun x -> x.Comparison) (Name.ofString "System.UIntPtr", Satisfy)
 
   let int32ImplicitStaticMembers =
-    testFullTypeDef' mscorlibApi (fun x -> x.ImplicitStaticMembers |> List.exists (fun x -> x.Name = "op_Addition")) (Name.displayNameOfString "System.Int32", true)
+    testFullTypeDef' mscorlibApi (fun x -> x.ImplicitStaticMembers |> List.exists (fun x -> x.Name = "op_Addition")) (Name.ofString "System.Int32", true)
 
   let Unit =
-    testFullTypeDef' fscoreApi (fun x -> x.AssemblyName) (Name.displayNameOfString "Microsoft.FSharp.Core.Unit", "FSharp.Core")
+    testFullTypeDef' fscoreApi (fun x -> x.AssemblyName) (Name.ofString "Microsoft.FSharp.Core.Unit", "FSharp.Core")
 
   let UnionCaseInfo =
-    testFullTypeDef' fscoreApi (fun x -> x.AssemblyName) (Name.displayNameOfString "Microsoft.FSharp.Reflection.UnionCaseInfo", "FSharp.Core")
+    testFullTypeDef' fscoreApi (fun x -> x.AssemblyName) (Name.ofString "Microsoft.FSharp.Reflection.UnionCaseInfo", "FSharp.Core")
 
   let Delegate =
-    testFullTypeDef' csharpAssemblyApi (fun x -> x.AssemblyName) (Name.displayNameOfString "CSharpLoadTestAssembly.TestDelegate", csharpAssemblyName)
+    testFullTypeDef' csharpAssemblyApi (fun x -> x.AssemblyName) (Name.ofString "CSharpLoadTestAssembly.TestDelegate", csharpAssemblyName)
 
 module TypeAbbreviation =
   let A = createType "TypeAbbreviations.A" [] |> updateAssembly fsharpAssemblyName
@@ -846,11 +897,11 @@ module TypeAbbreviation =
   let functionWithFunctionAbbreviationTest =
     let t = { Abbreviation = createType "TypeAbbreviations.FunctionAbbreviation" [] |> updateAssembly fsharpAssemblyName
               Original = arrow [ int; int ] }
-    testApiWithoutParameterName fsharpAssemblyApi Name.displayNameOfString ("TypeAbbreviations.functionWithFunctionAbbreviation", [ moduleFunction' [ [ pname "x" >> ptype (TypeAbbreviation t) ]; [ ptype (TypeAbbreviation t) ] ] ])
+    testApiWithoutParameterName fsharpAssemblyApi Name.ofString ("TypeAbbreviations.functionWithFunctionAbbreviation", [ moduleFunction' [ [ pname "x" >> ptype (TypeAbbreviation t) ]; [ ptype (TypeAbbreviation t) ] ] ])
 
 module TypeExtension =
-  let testApi_net40 = testApiWithoutParameterName net40AssemblyApi Name.displayNameOfString
-  let testApi = testApiWithoutParameterName fsharpAssemblyApi Name.displayNameOfString
+  let testApi_net40 = testApiWithoutParameterName net40AssemblyApi Name.ofString
+  let testApi = testApiWithoutParameterName fsharpAssemblyApi Name.ofString
   
   let testModule = DisplayName.ofString "TypeExtensions"
   let fsharpList_t = fsharpList (variable "'T")
@@ -956,7 +1007,7 @@ module ComputationExpression =
   }
 
 module CSharp =
-  let testApi = testApiWithoutParameterName csharpAssemblyApi Name.displayNameOfString
+  let testApi = testApiWithoutParameterName csharpAssemblyApi Name.ofString
   let testConstraints = testConstraints csharpAssemblyApi
 
   let loadStaticMemberTest =
@@ -1131,7 +1182,7 @@ module XmlDocTest =
     ]
     run (fun (name, expected) -> test {
       let! apiDic = fsharpAssemblyApi
-      let name = Name.displayNameOfString name
+      let name = Name.ofString name
       let api = apiDic.Api |> Seq.find (fun x -> x.Name = name)
       let actual = api.Document
       do! actual |> assertEquals expected
