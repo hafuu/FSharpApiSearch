@@ -1,4 +1,5 @@
 group App
+FSharp.Core
 FSharp.Compiler.Service
 
 group Test

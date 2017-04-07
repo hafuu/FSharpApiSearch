@@ -1,6 +1,7 @@
 group App
   source https://nuget.org/api/v2
 
+  nuget FSharp.Core >= 4.1.0
   nuget FParsec >= 1.0.2
   nuget FSharp.Compiler.Service >= 11.0.6
   nuget FsPickler >= 3.0
@@ -21,5 +22,5 @@ group Test
   
   nuget Persimmon
   nuget Persimmon.Console
-  nuget Persimmon.MuscleAssert = 0.8.0-beta1
+  nuget Persimmon.MuscleAssert
   nuget System.ValueTuple
