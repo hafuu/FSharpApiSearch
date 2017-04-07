@@ -82,7 +82,6 @@ module internal Impl =
   type FSharpMemberOrFunctionOrValue with
     member this.IsStaticMember = not this.IsInstanceMember
     member this.IsMethod = this.FullType.IsFunctionType && not this.IsPropertyGetterMethod && not this.IsPropertySetterMethod
-    member this.IsConstructor = this.CompiledName = ".ctor"
     member this.IsCSharpExtensionMember = this.Attributes |> Seq.exists (fun attr -> attr.AttributeType.TryFullName = Some "System.Runtime.CompilerServices.ExtensionAttribute")
     member this.MemberModifier = if this.IsStaticMember then MemberModifier.Static else MemberModifier.Instance
     member this.PropertyKind =
@@ -126,9 +125,9 @@ module internal Impl =
   let accessibility (e: FSharpEntity) =
     let a = e.Accessibility
     if a.IsPublic then
-      Public
+      Accessibility.Public
     else
-      Private
+      Accessibility.Private
 
   let autoGenericVariableLen = "type '".Length
 
@@ -434,9 +433,11 @@ module internal Impl =
       return { Name = DisplayName name; Signature = x.TargetSignatureConstructor declaringSignature member'; TypeConstraints = typeConstraints; Document = tryGetXmlDoc xml x }
     }
 
+  let isConstructor (x: FSharpMemberOrFunctionOrValue) = x.CompiledName = ".ctor"
+
   let toTypeMemberApi xml (declaringSignatureName: DisplayName) (declaringEntity: FSharpEntity) (declaringSignature: LowType) (x: FSharpMemberOrFunctionOrValue) =
     let isFSharp = declaringEntity.IsFSharp
-    if x.IsConstructor then
+    if isConstructor x then
       constructorSignature isFSharp xml declaringSignatureName declaringSignature x
     elif x.IsMethod then
       memberSignature xml (methodMember isFSharp) declaringSignatureName declaringEntity declaringSignature x
