@@ -74,6 +74,7 @@
     <Compile Include="Matcher\ActivePatternMatcher.fs" />
     <Compile Include="Matcher\ConstraintSolver.fs" />
     <Compile Include="Matcher\NonPublicFilter.fs" />
+    <Compile Include="Matcher\CSharpFilter.fs" />
     <Compile Include="Matcher\ComputationExpressionMatcher.fs" />
     <Compile Include="Matcher\MatcherInitializer.fs" />
     <Compile Include="Matcher\Matcher.fs" />

@@ -3,17 +3,31 @@
 open System.Diagnostics
 open FSharpApiSearch.MatcherTypes
 
+let fsharpMatchers =
+  [
+    NameMatcher.instance
+    SignatureMatcher.instance
+    ActivePatternMatcher.instance
+    ConstraintSolver.instance
+    NonPublicFilter.instance
+    ComputationExpressionMatcher.Filter.instance
+  ]
+
+let csharpMatchers =
+  [
+    NameMatcher.instance
+    SignatureMatcher.instance
+    ConstraintSolver.instance
+    NonPublicFilter.instance
+    CSharpFilter.instance
+  ]
+
 let matchers options =
   let lowTypeMatcher = LowTypeMatcher.instance options
   let apiMatchers =
-    [
-      NameMatcher.instance
-      SignatureMatcher.instance
-      ActivePatternMatcher.instance
-      ConstraintSolver.instance
-      NonPublicFilter.instance
-      ComputationExpressionMatcher.Filter.instance
-    ]
+    match options.Mode with
+    | FSharp -> fsharpMatchers
+    | CSharp -> csharpMatchers
     |> List.map (fun f -> f options)
   (lowTypeMatcher, apiMatchers)
 
