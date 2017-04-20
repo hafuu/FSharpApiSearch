@@ -31,6 +31,7 @@ module Args =
     | Status "--ignore-case" v :: rest -> parse { arg with SearchOptions = SearchOptions.IgnoreCase.Set (boolToOptionStatus v) arg.SearchOptions } rest
     | Status "--swap-order" v :: rest -> parse { arg with SearchOptions = SearchOptions.SwapOrder.Set (boolToOptionStatus v) arg.SearchOptions } rest
     | Status "--complement" v :: rest -> parse { arg with SearchOptions = SearchOptions.Complement.Set (boolToOptionStatus v) arg.SearchOptions } rest
+    | Mode "--mode" mode :: rest -> parse { arg with SearchOptions = SearchOptions.Mode.Set mode arg.SearchOptions } rest
     | (KeyValue "--target" t | KeyValue "-t" t) :: rest -> parse { arg with Targets = t :: arg.Targets } rest
     | Status "--xmldoc" v :: rest -> parse { arg with ShowXmlDocument = boolToOptionStatus v } rest
     | Status "--stacktrace" v :: rest -> parse { arg with StackTrace = boolToOptionStatus v } rest

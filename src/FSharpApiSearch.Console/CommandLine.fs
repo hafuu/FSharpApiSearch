@@ -18,3 +18,8 @@ let (|KeyValue|_|) key (str: string) =
   match str.Split([| ':' |], 2) |> Array.toList with
   | [ k; v ] when key = k -> Some v
   | _ -> None
+
+let (|Mode|_|) key (str: string) =
+  match str.Split([| ':' |], 2) |> Array.toList with
+  | [ k; v ] when key = k -> Mode.tryParse v
+  | _ -> None

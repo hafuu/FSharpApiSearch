@@ -6,22 +6,38 @@ open System
 open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
+let fsharpPrinter (result: Result) =
+  Console.Write(sprintf "%s: %s" (result.Api.Name.Print()) (result.Api.PrintSignature()))
+  Console.ForegroundColor <- ConsoleColor.DarkGray
+  Console.WriteLine(sprintf ", %s, %s" (result.Api.PrintKind()) result.AssemblyName)
+  if result.Api.TypeConstraints.IsEmpty = false then
+    Console.WriteLine(sprintf "  %s" (result.Api.PrintTypeConstraints()))
+  
+let csharpPrinter (result: Result) =
+  Console.Write(result.Api.PrintCSharpSignatureAndName())
+  Console.ForegroundColor <- ConsoleColor.DarkGray
+  Console.WriteLine(sprintf ", %s, %s" (result.Api.PrintKind()) result.AssemblyName)
+
+let getPrinter (args: Args) =
+  match SearchOptions.Mode.Get args.SearchOptions with
+  | FSharp -> fsharpPrinter
+  | CSharp -> csharpPrinter
+
 let searchAndShowResult (client: Lazy<FSharpApiSearchClient>) (query: string) args =
   let opt = args.SearchOptions
   let client = client.Value
+  let printResult = getPrinter args
+  let printXmlDoc result =
+    match args.ShowXmlDocument, result.Api.Document with
+    | Enabled, Some doc -> Console.WriteLine(doc)
+    | _ -> ()
   let results =
     client.Search(query, opt)
     |> client.Sort
   results
-  |> Seq.iter (fun x ->
-    Console.Write(sprintf "%s: %s" (x.Api.Name.Print()) (x.Api.PrintSignature()))
-    Console.ForegroundColor <- ConsoleColor.DarkGray
-    Console.WriteLine(sprintf ", %s, %s" (x.Api.PrintKind()) x.AssemblyName)
-    if x.Api.TypeConstraints.IsEmpty = false then
-      Console.WriteLine(sprintf "  %s" (x.Api.PrintTypeConstraints()))
-    match args.ShowXmlDocument, x.Api.Document with
-    | Enabled, Some doc -> Console.WriteLine(doc)
-    | _ -> ()
+  |> Seq.iter (fun result ->
+    printResult result
+    printXmlDoc result
     Console.ResetColor()
   )
   Console.WriteLine()
@@ -81,6 +97,9 @@ module Interactive =
   let (|NumberSetting|_|) (name: string) (lens: Lens<_, _>) target (str: string) =
     setting tryParseInt name lens target str
 
+  let (|ModeSetting|_|) (name: string) (lens: Lens<_, _>) target (str: string) =
+    setting Mode.tryParse name lens target str
+
   let ShowXmlDocument = { Get = (fun x -> x.ShowXmlDocument); Set = (fun value x -> { x with ShowXmlDocument = value }) }
   let StackTrace = { Get = (fun x -> x.StackTrace); Set = (fun value x -> { x with StackTrace = value }) }
 
@@ -128,6 +147,7 @@ FSharpApiSearch.Console interactive mode directive:
     | OptionSetting "#ignore-case" SearchOptions.IgnoreCase arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#swap-order" SearchOptions.SwapOrder arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#complement" SearchOptions.Complement arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
+    | ModeSetting   "#mode" SearchOptions.Mode arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#xmldoc" ShowXmlDocument arg newArg -> loop client newArg
     | OptionSetting "#stacktrace" StackTrace arg newArg -> loop client newArg
     | "#clear" ->
