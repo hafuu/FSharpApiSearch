@@ -6,6 +6,7 @@ open Persimmon.MuscleAssert
 open FSharpApiSearch
 
 open TestHelper.DSL
+open TestHelper.Types
 
 let parseDisplayNameTest = parameterize {
   source [
@@ -134,6 +135,43 @@ module PrintTest =
       do! actual |> assertEquals expected
     })
   }
+
+  let printCSharpSignatureTest =
+    let n = Name.ofString
+    let t = createType "T" []
+    parameterize {
+      source [
+        api (n "M<'T>.value") (moduleValue (variable "'T")), "static T M<T>.value { get; }"
+        api (n "M.value") (moduleValue (fsharpList int)), "static FSharpList<int> M.value { get; }"
+        
+        api (n "M.tuple") (moduleValue (tuple [ int; string ])), "static Tuple<int, string> M.tuple { get; }"
+        api (n "M.tuple") (moduleValue (structTuple [ int; string ])), "static (int, string) M.tuple { get; }"
+
+        api (n "M.fn") (moduleFunction' [ [ ptype unit ]; [ ptype unit ] ]), "static void M.fn()"
+        api (n "M.fn<'T>") (moduleFunction' [ [ ptype (variable "'T") ]; [ ptype int ] ]), "static int M.fn<T>(T)"
+
+        api (n "T.method<'T>") (instanceMember t (method' "method" [ [ ptype t ] ] int)), "int T.method<T>(T)"
+        api (n "T.method") (instanceMember t (method' "method" [ [ ptype int >> pname "x"; ptype string >> pname "y" ] ] int)), "int T.method(int x, string y)"
+        api (n "T.method") (instanceMember t (method' "method" [ [ ptype unit ] ] unit)), "void T.method()"
+        api (n "T.method") (instanceMember t (method' "method" [ [ ptype unit; ptype int ] ] unit)), "void T.method(Unit, int)"
+
+        api (n "T.method") (staticMember t (method' "method" [ [ ptype unit ] ] unit)), "static void T.method()"
+
+        api (n "T.prop") (instanceMember t (property' "prop" PropertyKind.Get [] int)), "int T.prop { get; }"
+        api (n "T.prop") (instanceMember t (property' "prop" PropertyKind.GetSet [ [ ptype string ] ] int)), "int T.prop[string] { get; set; }"
+        api (n "T.prop") (instanceMember t (property' "prop" PropertyKind.GetSet [ [ ptype string >> pname "x" ] ] int)), "int T.prop[string x] { get; set; }"
+        api (n "T.prop") (staticMember t (property' "prop" PropertyKind.Get [] int)), "static int T.prop { get; }"
+
+        api (n "T.new") (constructor' t (method' "new" [ [ ptype unit ] ] t)), "T.T()"
+        api (n "T.new") (constructor' t (method' "new" [ [ ptype int >> pname "x"; ptype string >> pname "y" ] ] t)), "T.T(int x, string y)"
+
+        api (n "T.ext") (extensionMember (method' "ext" [ [ ptype int >> pname "x"; ptype int >> pname "y" ] ] unit)), "void T.ext(this int x, int y)"
+      ]
+
+      run (fun (input: Api, expected) -> test {
+        do! input.PrintCSharpSignatureAndName() |> assertEquals expected
+      })
+    }
 
 module QueryTest = // TODO: Matcherのテストに移動
   let string =

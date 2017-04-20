@@ -43,6 +43,7 @@
   <ItemGroup>
     <Compile Include="ByRef.cs" />
     <Compile Include="Delegate.cs" />
+    <Compile Include="ExtensionMember.cs" />
     <Compile Include="Interface.cs" />
     <Compile Include="Class.cs" />
     <Compile Include="NestedClass.cs" />

@@ -8,6 +8,7 @@ open Persimmon.MuscleAssert
 open FSharpApiSearch
 open TestHelper
 open TestHelper.DSL
+open TestHelper.Types
 open TestAssemblies
 
 let emptyDef: FullTypeDefinition = {
@@ -34,75 +35,7 @@ let emptyDef: FullTypeDefinition = {
   Comparison = NotSatisfy
 }
 
-let mscorlib = "mscorlib"
-let fscore = "FSharp.Core"
 
-let object' = createType "System.Object" [] |> updateAssembly mscorlib
-let obj =
-  let obj = createType "Microsoft.FSharp.Core.obj" [] |> updateAssembly fscore
-  typeAbbreviation object' obj
-
-let int32 = createType "System.Int32" [] |> updateAssembly mscorlib
-let int =
-  let int = createType "Microsoft.FSharp.Core.int" [] |> updateAssembly fscore
-  typeAbbreviation int32 int
-
-let double = createType "System.Double" [] |> updateAssembly mscorlib
-let float =
-  let float = createType "Microsoft.FSharp.Core.float" [] |> updateAssembly fscore
-  typeAbbreviation double float
-
-let unit =
-  let Unit = createType "Microsoft.FSharp.Core.Unit" [] |> updateAssembly fscore
-  let unit = createType "Microsoft.FSharp.Core.unit" [] |> updateAssembly fscore
-  typeAbbreviation Unit unit
-
-let bool =
-  let Boolean = createType "System.Boolean" [] |> updateAssembly mscorlib
-  let bool = createType "Microsoft.FSharp.Core.bool" [] |> updateAssembly fscore
-  typeAbbreviation Boolean bool
-
-let ienumerable t = createType "System.Collections.Generic.IEnumerable<'T>" [ t ] |> updateAssembly mscorlib
-let seq t =
-  let seq = createType "Microsoft.FSharp.Collections.seq<'T>" [ t ] |> updateAssembly fscore
-  typeAbbreviation (ienumerable t) seq
-
-let fsharpList t =
-  let name = "Microsoft.FSharp.Collections.List<'T>"
-  let compiledName = "Microsoft.FSharp.Collections.FSharpList<'T>"
-  createType' (Name.ofCompiledName name compiledName) [ t] |> updateAssembly fscore
-let list t =
-  let list = createType "Microsoft.FSharp.Collections.list<'T>" [ t ] |> updateAssembly fscore
-  typeAbbreviation (fsharpList t) list
-
-let fsharpOption t =
-  let name = "Microsoft.FSharp.Core.Option<'T>"
-  let compiledName = "Microsoft.FSharp.Core.FSharpOption<'T>"
-  createType' (Name.ofCompiledName name compiledName) [ t ] |> updateAssembly fscore
-let option t =
-  let opt = createType "Microsoft.FSharp.Core.option<'T>" [ t ] |> updateAssembly fscore
-  typeAbbreviation (fsharpOption t) opt
-
-let string =
-  let String = createType "System.String" [] |> updateAssembly mscorlib
-  let string = createType "Microsoft.FSharp.Core.string" [] |> updateAssembly fscore
-  typeAbbreviation String string
-
-let map k v =
-  let name = "Microsoft.FSharp.Collections.Map<'Key, 'Value>"
-  let compiledName = "Microsoft.FSharp.Collections.FSharpMap<'Key, 'Value>"
-  createType' (Name.ofCompiledName name compiledName) [ k; v ] |> updateAssembly fscore
-
-let array = array >> updateAssembly fscore
-let array2D = array2D >> updateAssembly fscore
-
-let istructualEquatable = createType "System.Collections.IStructuralEquatable" [] |> updateAssembly mscorlib
-let iequatable x = createType "System.IEquatable<'t>" [ x ] |> updateAssembly mscorlib
-let genericIComparable x = createType "System.IComparable<'t>" [ x ] |> updateAssembly mscorlib
-let icomparable = createType "System.IComparable" [] |> updateAssembly mscorlib
-let istructuralComparable = createType "System.IStructuralComparable" [] |> updateAssembly mscorlib
-
-let valuetype = createType "System.ValueType" [] |> updateAssembly mscorlib
 
 let testFSharpName (left: Name) (right: Name) =
   let left = Name.toDisplayName left

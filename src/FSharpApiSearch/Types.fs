@@ -523,6 +523,30 @@ module internal SpecialTypes =
 
     let valueTuples = [1..8] |> List.map (fun n -> valueTupleN n)
 
+
+    module CSharp =
+      let aliases =
+        [
+          "bool", typeof<System.Boolean>
+          "byte", typeof<System.Byte>
+          "sbyte", typeof<System.SByte>
+          "char", typeof<System.Char>
+          "decimal", typeof<System.Decimal>
+          "double", typeof<System.Double>
+          "float", typeof<System.Single>
+          "int", typeof<System.Int32>
+          "uint", typeof<System.UInt32>
+          "long", typeof<System.Int64>
+          "ulong", typeof<System.UInt64>
+          "object", typeof<System.Object>
+          "short", typeof<System.Int16>
+          "ushort", typeof<System.UInt16>
+          "string", typeof<System.String>
+        ]
+        |> List.map (fun (alias, t) ->
+          let alias = (FullIdentity { AssemblyName = "dummy"; Name = Name.ofString alias; GenericParameterCount = 0 })
+          ofDotNetType t, alias)
+
   module LowType =
     let ofDotNetType (t: Type) = LowType.Identity (Identity.ofDotNetType t)
     let Unit = ofDotNetType typeof<Unit>
@@ -542,6 +566,8 @@ module internal SpecialTypes =
       | _ -> false
 
     let Boolean = ofDotNetType typeof<Boolean>
+
+    let FSharpFunc = LowType.Identity (FullIdentity { AssemblyName= fscore; Name = Name.ofString "Microsoft.FSharp.Core.FSharpFunc<'T, 'U>"; GenericParameterCount = 2 })
 
     module Patterns =
       let (|Unit|_|) x = if isUnit x then Some () else None
@@ -901,6 +927,164 @@ module internal Print =
     | ApiSignature.UnionCase uc -> sb.Append(printUnionCase isDebug uc)
     | ApiSignature.ComputationExpressionBuilder builder -> sb.Append(printComputationExpressionBuilder isDebug builder)
 
+module CSharpPrint =
+  open SpecialTypes.LowType.Patterns
+
+  let toDisplayName = function
+    | SymbolName n -> n
+    | OperatorName (_, n) -> n
+    | WithCompiledName (_, n) -> n
+
+  let printNameItem (n: DisplayNameItem) (sb: StringBuilder) =
+    match n.GenericParameters with
+    | [] -> sb.Append(toDisplayName n.Name)
+    | args ->
+      sb.Append(toDisplayName n.Name)
+        .Append("<")
+          .AppendJoin(", ", args, (fun arg sb -> sb.Append(arg.Name)))
+        .Append(">")
+
+  let csharpAlias = SpecialTypes.Identity.CSharp.aliases |> dict
+
+  let printIdentity (identity: Identity) (sb: StringBuilder) =
+    let identity =
+      match csharpAlias.TryGetValue(identity) with
+      | true, alias -> alias
+      | false, _ -> identity
+
+    let printDisplayName_short (xs: DisplayName) (sb: StringBuilder) =
+      match xs with
+      | [] -> sb.Append("<empty>")
+      | n :: _ -> sb.Append(toDisplayName n.Name)
+
+    let printName_short name (sb: StringBuilder) =
+      match name with
+      | LoadingName (_, n1, n2) ->
+        match n2 with
+        | [] -> sb.Append(n1)
+        | n2 -> sb.Append(printDisplayName_short n2)
+      | DisplayName n -> sb.Append(printDisplayName_short n)
+    
+    match identity with
+    | FullIdentity i -> sb.Append(printName_short i.Name)
+    | PartialIdentity i -> sb.Append(printDisplayName_short i.Name)
+
+  let toFSharpFunc xs = xs |> List.reduceBack (fun id ret -> Generic(SpecialTypes.LowType.FSharpFunc, [ id; ret ]))
+
+  let rec printLowType t (sb: StringBuilder) =
+    match t with
+    | Wildcard name ->
+      match name with
+      | Some n -> sb.Append("?").Append(n)
+      | None -> sb.Append("?")
+    | Variable (_, v) -> sb.Append(v.Name)
+    | Identity i -> sb.Append(printIdentity i)
+    | Arrow xs -> printLowType (toFSharpFunc xs) sb
+    | Tuple { Elements = xs; IsStruct = false } -> sb.Append("Tuple<").AppendJoin(", ", xs, printLowType).Append(">")
+    | Tuple { Elements = xs; IsStruct = true } -> sb.Append("(").AppendJoin(", ", xs, printLowType).Append(")")
+    //| LowType.Patterns.Array (name, elem) ->
+    //  match elem with
+    //  | Tuple { IsStruct = false } | Arrow _ ->
+    //    sb.Append("(")
+    //      .Append(printLowType isDebug printIdentity elem)
+    //      .Append(")")
+    //      |> ignore
+    //  | _ -> sb.Append(printLowType isDebug printIdentity elem) |> ignore
+    //  sb.Append(name)
+    | Generic (id, args) -> sb.Append(printLowType id).Append("<").AppendJoin(", ", args, printLowType).Append(">")
+    | TypeAbbreviation t -> sb.Append(printLowType t.Original)
+    | Delegate (t, _) -> sb.Append(printLowType t)
+    | Choice xs -> sb.Append("(").AppendJoin(" or ", xs, printLowType).Append(")")
+
+  let printParameter (p: Parameter) (sb: StringBuilder) =
+    sb.Append(printLowType p.Type) |> ignore
+    p.Name |> Option.iter (fun name -> sb.Append(" ").Append(name) |> ignore)
+    sb
+
+  let printPropertyKind propKind (sb: StringBuilder) =
+    match propKind with
+    | PropertyKind.Get -> sb.Append("{ get; }")
+    | PropertyKind.Set -> sb.Append("{ set; }")
+    | PropertyKind.GetSet -> sb.Append("{ get; set; }")
+
+  let printPropertyParameter (m: Member) (sb: StringBuilder) =
+    let parameters = m.Parameters |> List.collect id
+    sb.Append("[").AppendJoin(", ", parameters, printParameter).Append("]")
+
+  let printProperty (name: DisplayName) (m: Member) (sb: StringBuilder) =
+    sb.Append(printLowType m.ReturnParameter.Type)
+      .Append(" ").Append(printNameItem name.[1]).Append(".").Append(printNameItem name.[0])
+      |> ignore
+    if List.isEmpty m.Parameters = false then sb.Append(printPropertyParameter m) |> ignore
+
+    let propKind = match m.Kind with MemberKind.Property propKind -> propKind | _ -> failwith "it is not property."
+    sb.Append(" ").Append(printPropertyKind propKind)
+
+  let printReturnParameter (p: Parameter) (sb: StringBuilder) =
+    match p.Type with
+    | Unit -> sb.Append("void")
+    | t -> sb.Append(printLowType t)
+
+  let printMethodParameter (m: Member) (isExtension: bool) (sb: StringBuilder) =
+    let parameters = m.Parameters |> List.collect id
+    match parameters with
+    | [ { Type = Unit } ] ->
+      sb.Append("()")
+    | _ ->
+      if isExtension then
+        sb.Append("(this ") |> ignore
+      else
+        sb.Append("(") |> ignore
+      sb.AppendJoin(", ", parameters, printParameter).Append(")")
+
+  let printMethod (name: DisplayName) (m: Member) (isExtension: bool) (sb: StringBuilder) =
+    sb.Append(printReturnParameter m.ReturnParameter)
+      .Append(" ").Append(printNameItem name.[1]).Append(".").Append(printNameItem name.[0])
+      .Append(printMethodParameter m isExtension)
+
+  let printField (name: DisplayName) (m: Member) (sb: StringBuilder) =
+    sb.Append(printLowType m.ReturnParameter.Type)
+      .Append(" ").Append(printNameItem name.[1]).Append(".").Append(printNameItem name.[0])
+
+  let printMember (name: DisplayName) (m: Member) (sb: StringBuilder) =
+    match m.Kind with
+    | MemberKind.Property _ -> sb.Append(printProperty name m)
+    | MemberKind.Method -> sb.Append(printMethod name m false)
+    | MemberKind.Field -> sb.Append(printField name m)
+
+  let printConstructor (name: DisplayName) (m: Member) (sb: StringBuilder) =
+    let typeName = name.[1]
+    sb.Append(printNameItem typeName).Append(".").Append(printNameItem typeName)
+      .Append(printMethodParameter m false)
+
+  let printFunction (name: DisplayName) (fn: Function) (sb: StringBuilder) =
+    let m = {
+      Name = "dummy"
+      Kind = MemberKind.Method
+      GenericParameters = []
+      Parameters = fn |> List.take (List.length fn - 1)
+      ReturnParameter = fn |> List.last |> List.head
+    }
+    printMethod name m false sb
+
+  let printApiSignature (name: Name) (apiSig: ApiSignature) (sb: StringBuilder) =
+    let error name = failwithf "%s is not C# api." name
+    let name = Name.toDisplayName name
+    match apiSig with
+    | ApiSignature.ModuleValue t -> sb.Append("static ").Append(printLowType t).Append(" ").Append(printNameItem name.[1]).Append(".").Append(printNameItem name.[0]).Append(" ").Append(printPropertyKind PropertyKind.Get)
+    | ApiSignature.ModuleFunction fn -> sb.Append("static ").Append(printFunction name fn)
+    | ApiSignature.ActivePatten (_, _) -> error "ActivePattern"
+    | ApiSignature.InstanceMember (_, m) -> sb.Append(printMember name m)
+    | ApiSignature.StaticMember (_, m) -> sb.Append("static ").Append(printMember name m)
+    | ApiSignature.Constructor (_, m) -> sb.Append(printConstructor name m)
+    | ApiSignature.ModuleDefinition _ -> error "Module"
+    | ApiSignature.FullTypeDefinition x -> sb.Append("class ").Append(printNameItem x.Name.[0])
+    | ApiSignature.TypeAbbreviation _ -> error "TypeAbbreviation"
+    | ApiSignature.TypeExtension _ -> error "TypeExtension"
+    | ApiSignature.ExtensionMember m -> sb.Append(printMethod name m true)
+    | ApiSignature.UnionCase _ -> error "UnionCase"
+    | ApiSignature.ComputationExpressionBuilder _ -> error "ComputationExpression"
+
 type TypeVariable with
   member this.Print() = StringBuilder().Append(Print.printTypeVariable false VariableSource.Target this).ToString()
 
@@ -941,6 +1125,9 @@ type Api with
         .Append(" (").Append(Print.printDisplayName_full declaration).Append(")")
         .ToString()
     | _ -> StringBuilder().Append(Print.printApiKind this.Kind).ToString()
+
+  member this.PrintCSharpSignatureAndName() =
+    StringBuilder().Append(CSharpPrint.printApiSignature this.Name this.Signature).ToString()
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module internal Identity =
