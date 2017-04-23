@@ -45,3 +45,29 @@ let msdnTest = parameterize {
     do! actual |> assertEquals expected
   })
 }
+
+let msdocsTest = parameterize {
+  source [
+    "System.Random", "type Random", Some "system.random"
+    "System.Progress", "type Progress<'T>", Some "system.progress-1"
+    "System.Random.Next", "unit -> int", Some "system.random.next?#System_Random_Next"
+    "System.Random.Next", "maxValue:int -> int", Some "system.random.next?#System_Random_Next_System_Int32_"
+    "System.Random.Next", "minValue:int * maxValue:int -> int", Some "system.random.next?#System_Random_Next_System_Int32_System_Int32_"
+    "System.Random.NextBytes", "buffer:byte[] -> unit", Some "system.random.nextbytes?#System_Random_NextBytes_System_Byte___"
+    "System.Lazy<'T>.Value", "'T", Some "system.lazy-1.value?#System_Lazy_1_Value"
+    "System.Collections.Generic.Dictionary<'TKey, 'TValue>.ValueCollection<'TKey, 'TValue>.Enumerator<'TKey, 'TValue>.Current", "'TValue", 
+        Some "system.collections.generic.dictionary-2.valuecollection.enumerator.current?#System_Collections_Generic_Dictionary_2_ValueCollection_Enumerator_Current"
+    "System.String.Split", "separator:char[] -> string[]", Some "system.string.split?#System_String_Split_System_Char___"
+    "System.Collections.Generic.List<'T>.Reverse", "index:int * count:int -> unit" , Some "system.collections.generic.list-1.reverse?#System_Collections_Generic_List_1_Reverse_System_Int32_System_Int32_"
+    "System.Collections.Generic.Dictionary<'TKey, 'TValue>.TryGetValue" , "key:'TKey * value:byref<'TValue> -> bool", Some "system.collections.generic.dictionary-2.trygetvalue?#System_Collections_Generic_Dictionary_2_TryGetValue__0__1__"
+    "System.Random.new" , "unit -> Random", Some "system.random.-ctor?#System_Random__ctor"
+    "System.Random.new" , "Seed:int -> Random", Some "system.random.-ctor?#System_Random__ctor_System_Int32_"
+    "System.Progress<'T>.new" , "unit -> Progress<'T>" , Some "system.progress-1.-ctor?#System_Progress_1__ctor"
+  ]
+  run (fun (name, signature, expected) -> test {
+    let! apiDict = mscorlibApi
+    let api = apiDict.Api |> Array.find (fun a -> a.Name.Print() = name && a.Signature.Print() = signature)
+    let actual = LinkGenerator.MicrosoftDocs.generate api
+    do! actual |> assertEquals expected
+  })
+}
