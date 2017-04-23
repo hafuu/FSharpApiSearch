@@ -32,14 +32,20 @@ let fsharpTest = parameterize {
 
 let msdnTest = parameterize {
   source [
-    "System.Random", None
-    "System.Random.Next", Some "system.random.next.aspx"
-    "System.Random.NextBytes", Some "system.random.nextbytes.aspx"
-    "System.Lazy<'T>.Value", None
+    "System.Random", "type Random", None
+    "System.Progress", "type Progress<'T>", None
+    "System.Random.Next", "unit -> int", Some "system.random.next?#System_Random_Next"
+    "System.Random.Next", "maxValue:int -> int", Some "system.random.next?#System_Random_Next_System_Int32_"
+    "System.Random.Next", "minValue:int * maxValue:int -> int", Some "system.random.next?#System_Random_Next_System_Int32_System_Int32_"
+    "System.Random.NextBytes", "buffer:byte[] -> unit", Some "system.random.nextbytes?#System_Random_NextBytes_System_Byte___"
+    "System.Lazy<'T>.Value", "'T", Some "system.lazy-1.value?#System_Lazy_1_Value"
+    "System.Collections.Generic.Dictionary<'TKey, 'TValue>.ValueCollection<'TKey, 'TValue>.Enumerator<'TKey, 'TValue>.Current", "'TValue", 
+        Some "system.collections.generic.dictionary-2.valuecollection.enumerator.current?#System_Collections_Generic_Dictionary_2_ValueCollection_Enumerator_Current"
+    "System.String.Split", "separator:char[] -> string[]", Some "system.string.split?#System_String_Split_System_Char___"
   ]
-  run (fun (name, expected) -> test {
+  run (fun (name, signature, expected) -> test {
     let! apiDict = mscorlibApi
-    let api = apiDict.Api |> Array.find (fun a -> a.Name.Print() = name)
+    let api = apiDict.Api |> Array.find (fun a -> a.Name.Print() = name && a.Signature.Print() = signature)
     let actual = LinkGenerator.Msdn.generate api
     do! actual |> assertEquals expected
   })

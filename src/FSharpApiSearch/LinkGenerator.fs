@@ -113,33 +113,98 @@ module LinkGenerator =
 
   module internal Msdn =
     let isGeneric api = api.Name |> Name.displayName |> List.exists (fun n -> List.isEmpty n.GenericParametersForDisplay = false)
-    let canGenerate (api: Api) =
-      match api.Signature with
-      | ApiSignature.ActivePatten _
-      | ApiSignature.ModuleValue _
-      | ApiSignature.ModuleFunction _
-      | ApiSignature.Constructor _
-      | ApiSignature.ModuleDefinition _
-      | ApiSignature.FullTypeDefinition _
-      | ApiSignature.TypeAbbreviation _
-      | ApiSignature.TypeExtension _
-      | ApiSignature.ExtensionMember _
-      | ApiSignature.ComputationExpressionBuilder _
-      | ApiSignature.UnionCase _ -> false
 
-      | ApiSignature.InstanceMember _
-      | ApiSignature.StaticMember _ -> true
+    let generateMSDNUrl (api :Api) (mem : Member) =
+        if isGeneric api then
+            let mutable genericParameterIsWrite = false
+            let urlBase : list<string> = api.Name |> Name.displayName |> Seq.rev 
+                                            |> Seq.map (
+                                                fun n -> 
+                                                    if genericParameterIsWrite = false && n.GenericParametersForDisplay.IsEmpty = false then
+                                                        genericParameterIsWrite <- true
+                                                        let genericCounter = n.GenericParametersForDisplay |> List.length
+                                                        n.FSharpName + "-" + (genericCounter.ToString())
+                                            
+                                                    else
+                                                        n.FSharpName
+                                            ) 
+                                            |> List.ofSeq
+            let url = urlBase |> String.concat "." |> toLower
+            let parameter = urlBase |> List.map(fun (x : string) -> x.Replace("-","_")) |> String.concat "_"
+            url + "?#" + parameter  |> Some
+        else
+            let urlBase = (Name.displayName api.Name |> Seq.rev |> Seq.map (fun n -> n.FSharpName) |> String.concat ".")
+                            |> toLower
+            let nameParameter = (Name.displayName api.Name |> Seq.rev |> Seq.map (fun n -> n.FSharpName) |> String.concat "_")
+
+            let isArray (id : Identity) =   match id with
+                                            | FullIdentity fid ->
+                                                match fid.Name with
+                                                | DisplayName dname ->
+                                                    dname |> List.exists(fun x -> x.FSharpName = "[]")
+                                                | _ -> false
+                                            | _ -> false
+            
+            let getParameterString (lt : LowType) =
+                                        seq {
+                                                match lt with
+                                                | TypeAbbreviation t -> 
+                                                    match t.Original with
+                                                    | Identity originalID -> 
+                                                        match originalID with
+                                                        | FullIdentity foid  -> 
+                                                            match foid.Name  with
+                                                            | DisplayName dname -> 
+                                                                if dname.Head.FSharpName = "Unit" then
+                                                                    yield ""
+                                                                else
+                                                                    let revdname = dname |> List.rev
+                                                                    for nameItem in revdname do
+                                                                        yield nameItem.FSharpName
+                                                            | _ -> yield ""
+                                                        | _ -> yield ""
+                                                    | _ -> yield ""
+                                                | _ -> yield ""
+                                        }
+            let parameterQuery = seq {
+                                        for param in mem.Parameters do
+                                            for param2 in param do
+                                                match param2.Type with
+                                                | TypeAbbreviation t -> 
+                                                    yield! getParameterString param2.Type
+                                                
+                                                | Generic (Identity id , [elem]) -> 
+                                                    if (id |> isArray) then
+                                                        yield! getParameterString elem
+                                                        yield "_"
+                                                
+                                                | _ -> yield ""
+                                     } |> String.concat "_"
+    
+            if parameterQuery.Length > 0 then
+                (urlBase + "?#" + nameParameter + "_" + parameterQuery + "_") |> Some
+            else
+                (urlBase + "?#" + nameParameter) |> Some
 
     let generate (api: Api) =
-      if isGeneric api then
-        None
-      elif canGenerate api = false then
-        None
-      else
-        (Name.displayName api.Name |> Seq.rev |> Seq.map (fun n -> n.FSharpName) |> String.concat ".") + ".aspx"
-        |> toLower
-        |> Some
-        
+        match api.Signature with
+            | ApiSignature.ActivePatten _
+            | ApiSignature.ModuleValue _
+            | ApiSignature.ModuleFunction _
+            | ApiSignature.Constructor _
+            | ApiSignature.ModuleDefinition _
+            | ApiSignature.FullTypeDefinition _
+            | ApiSignature.TypeAbbreviation _
+            | ApiSignature.TypeExtension _
+            | ApiSignature.ExtensionMember _
+            | ApiSignature.ComputationExpressionBuilder _
+            | ApiSignature.UnionCase _ -> None
+
+            | ApiSignature.InstanceMember (_ , (x : Member)) ->
+                generateMSDNUrl api x
+
+            | ApiSignature.StaticMember (_ , (x : Member)) ->
+                generateMSDNUrl api x
 
   let fsharp baseUrl: LinkGenerator = fun api -> FSharp.generate api |> Option.map (fun apiUrl -> baseUrl + apiUrl)
   let msdn baseUrl: LinkGenerator = fun api -> Msdn.generate api |> Option.map (fun apiUrl -> baseUrl + apiUrl)
