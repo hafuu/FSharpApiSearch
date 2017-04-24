@@ -37,7 +37,7 @@ let internal search' (targets: ApiDictionary seq) (options: SearchOptions) (lowT
 
 let search (dictionaries: ApiDictionary[]) (options: SearchOptions) (targets: ApiDictionary seq) (queryStr: string) =
   let lowTypeMatcher, apiMatchers = MatcherInitializer.matchers options
-  let query = QueryParser.parse queryStr |> MatcherInitializer.initializeQuery dictionaries options
+  let query = QueryParser.FSharp.parse queryStr |> MatcherInitializer.initializeQuery dictionaries options
   let initialContext = MatcherInitializer.initializeContext dictionaries options query
 
   match query.Method with

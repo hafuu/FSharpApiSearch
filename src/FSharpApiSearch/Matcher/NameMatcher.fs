@@ -18,14 +18,14 @@ let testRegex ignoreCase (expected: string) (actual: string) =
 
 let testAny _ _ _ = true
 
-let test' ignoreCase expectedName actualName =
-  if not (List.length expectedName <= List.length actualName) then
+let test' ignoreCase (expected: ByName list) (actualNames: DisplayNameItem list) =
+  if not (List.length expected <= List.length actualNames) then
     false
   else
-    Seq.zip expectedName actualName
-    |> Seq.forall (fun ((expected, matchMethod), actual: DisplayNameItem) ->
+    Seq.zip expected actualNames
+    |> Seq.forall (fun (byName, actual: DisplayNameItem) ->
       let cmp =
-        match matchMethod with
+        match byName.MatchMethod with
         | NameMatchMethod.StringCompare -> testCompare
         | NameMatchMethod.Regex -> testRegex
         | NameMatchMethod.Any -> testAny
@@ -34,20 +34,20 @@ let test' ignoreCase expectedName actualName =
         | SymbolName n -> n
         | OperatorName (_, n) -> n
         | WithCompiledName (n, _) -> n
-      cmp ignoreCase expected actualName
+      cmp ignoreCase byName.Expected actualName
     )
 
 let test ignoreCase query (api: Api) ctx =
   match query with
-  | QueryMethod.ByName (expectedName, _) ->
+  | QueryMethod.ByName (expected, _) ->
     match api.Name, api.Kind with
     | DisplayName actualName, ApiKind.Constructor ->
       let name_type = List.tail actualName
       let name_new = actualName
       let name_ctor = { Name = SymbolName ".ctor"; GenericParameters = [] } :: name_type
-      let ok = [ name_new; name_type; name_ctor ] |> List.exists (test' ignoreCase expectedName)
+      let ok = [ name_new; name_type; name_ctor ] |> List.exists (test' ignoreCase expected)
       if ok then Matched ctx else Failure
-    | DisplayName actualName, _ -> if test' ignoreCase expectedName actualName then Matched ctx else Failure
+    | DisplayName actualName, _ -> if test' ignoreCase expected actualName then Matched ctx else Failure
     | _ -> Failure
   | _ -> Matched ctx
 

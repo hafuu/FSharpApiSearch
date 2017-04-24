@@ -274,7 +274,7 @@ module QueryTest = // TODO: Matcherのテストに移動
         typeAbbreviationDef "B.conflict<'a>" (generic (identity "B.Type") [ variable "'a" ])
       |]
       let dictionaries = Seq.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = Array.empty; TypeAbbreviations = abbreviations }
-      let actual = MatcherInitializer.initializeQuery dictionaries TestHelper.defaultTestOptions (QueryParser.parse query)
+      let actual = MatcherInitializer.initializeQuery dictionaries TestHelper.defaultTestOptions (QueryParser.FSharp.parse query)
       let expected: Query = { OriginalString = query; Method = QueryMethod.BySignature (SignatureQuery.Signature expected) }
       do! actual |> assertEquals expected
     })

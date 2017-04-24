@@ -57,7 +57,7 @@ let expectedValue optValue expected =
 
 let respectNameDifferenceInequalitiesTest =
   test {
-    let query = QueryParser.parse "?a -> ?b -> 'a -> 'b"
+    let query = QueryParser.FSharp.parse "?a -> ?b -> 'a -> 'b"
     let opt = defaultTestOptions
     let eqs = MatcherTypes.Equations.empty |> MatcherInitializer.initialEquations opt query
     do! eqs.Inequalities |> assertEquals [ (queryVariable "'a", queryVariable "'b"); (Wildcard (Some "a"), Wildcard (Some "b")) ]
