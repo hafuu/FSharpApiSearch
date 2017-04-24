@@ -103,15 +103,6 @@ module BySignature =
     run runSignatureTest
   }
 
-  let instanceMemberParseTest = parameterize {
-    source [
-      "a => b", (SignatureQuery.InstanceMember (identity "a", [], identity "b"))
-      "a => b -> c", (SignatureQuery.InstanceMember (identity "a", [ identity "b" ], identity "c"))
-      "a => b -> c -> d", (SignatureQuery.InstanceMember (identity "a", [ identity "b"; identity "c" ], identity "d"))
-    ]
-    run runParseTest
-  }
-
 module ByName =
   let parseTest =
     let alpha = queryVariable "'a"
@@ -127,7 +118,6 @@ module ByName =
         "map : _", [ "map", Compare ], SignatureQuery.Wildcard
         "a_'3 : _", [ "a_'3", Compare ], SignatureQuery.Wildcard
         "bind : ('a -> 'b option) -> 'a option -> 'b option", [ "bind", Compare ], (SignatureQuery.Signature (arrow [ (arrow [ alpha; option_beta ]); option_alpha; option_beta ]))
-        "ToString : obj => unit -> string", [ "ToString", Compare ], (SignatureQuery.InstanceMember (identity "obj", [ identity "unit" ], identity "string"))
         "(+) : _", [ "op_Addition", Compare ], SignatureQuery.Wildcard
         "( + ) : _", [ "op_Addition", Compare ], SignatureQuery.Wildcard
         "A.B : _", [ ("B", Compare); ("A", Compare) ], SignatureQuery.Wildcard

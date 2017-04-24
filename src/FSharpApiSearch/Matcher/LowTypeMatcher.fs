@@ -176,9 +176,6 @@ module Rules =
       if short.Length <> long.Length && containsWildcard long then
         Debug.WriteLine("There is a wildcard.")
         None
-      elif short.Length <> long.Length && Array.isEmpty short then
-        Debug.WriteLine("Empty input.")
-        None
       else
         short
         |> Array.fold (fun state testee ->
@@ -202,7 +199,7 @@ module Rules =
       elif complementNumber > complementNumberLimit then
         Failure
       else
-        Matched (ctx |> Context.addDistance (swapNumber + complementNumber))
+        Matched (ctx |> Context.addDistance "swap and complement" (swapNumber + complementNumber))
     | None -> Failure
 
   let testAllExactly (lowTypeMatcher: ILowTypeMatcher) (leftTypes: LowType seq) (rightTypes: LowType seq) (ctx: Context): MatchingResult =
@@ -290,7 +287,7 @@ module Rules =
         Matched ctx
       else
         testVariableEquality lowTypeMatcher variable other ctx
-        |> MatchingResult.mapMatched (Context.addDistance (distanceFromVariable other))
+        |> MatchingResult.mapMatched (Context.addDistance "greedy variable" (distanceFromVariable other))
     | _ -> Continue ctx
 
   let tupleRule (lowTypeMatcher: ILowTypeMatcher) left right ctx =
@@ -298,7 +295,7 @@ module Rules =
     | Tuple left, Tuple right ->
       Debug.WriteLine("tuple rule.")
       lowTypeMatcher.TestAll left.Elements right.Elements ctx
-      |> MatchingResult.mapMatched (Context.addDistance (if left.IsStruct <> right.IsStruct then 1 else 0))
+      |> MatchingResult.mapMatched (Context.addDistance "tuple type difference" (if left.IsStruct <> right.IsStruct then 1 else 0))
     | Tuple tuple, other
     | other, Tuple tuple ->
       Debug.WriteLine("tuple rule.")
@@ -323,11 +320,11 @@ module Rules =
     | [ Tuple { Elements = leftArgs }; leftRet ], _ ->
       let leftElems = seq { yield! leftArgs; yield leftRet }
       lowTypeMatcher.TestArrow leftElems rightElems ctx
-      |> MatchingResult.mapMatched (Context.addDistance 1)
+      |> MatchingResult.mapMatched (Context.addDistance "parameter style" 1)
     | _, [ Tuple { Elements = rightArgs }; rightRet ] ->
       let rightElems = seq { yield! rightArgs; yield rightRet }
       lowTypeMatcher.TestArrow leftElems rightElems ctx
-      |> MatchingResult.mapMatched (Context.addDistance 1)
+      |> MatchingResult.mapMatched (Context.addDistance "parameter style" 1)
     | _, _ ->
       lowTypeMatcher.TestArrow leftElems rightElems ctx
 
@@ -387,7 +384,7 @@ module Rules =
     | Arrow leftElems, Delegate (_, rightElems) ->
       Debug.WriteLine("delegate and arrow rule.")
       testArrow lowTypeMatcher leftElems rightElems ctx
-      |> MatchingResult.mapMatched (Context.addDistance 1)
+      |> MatchingResult.mapMatched (Context.addDistance "delegate and arrow" 1)
     | _ -> Continue ctx
 
   let delegateAndArrowRule_IgnoreParameterStyle lowTypeMatcher left right ctx =
@@ -396,7 +393,7 @@ module Rules =
     | Arrow leftElems, Delegate (_, rightElems) ->
       Debug.WriteLine("delegate and arrow rule (ignore parameter style).")
       testArrow_IgnoreParameterStyle lowTypeMatcher leftElems rightElems ctx
-      |> MatchingResult.mapMatched (Context.addDistance 1)
+      |> MatchingResult.mapMatched (Context.addDistance "delegate and arrow" 1)
     | _ -> Continue ctx
 
 let instance options =

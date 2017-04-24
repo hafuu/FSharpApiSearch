@@ -17,6 +17,8 @@ let typeD1 arg  = createType "Test.D<'a>" [ arg ]
 
 let typeD2 arg1 arg2  = createType "Test.D<'a, 'b>" [ arg1; arg2 ]
 
+let typeR = createType "R" []
+
 let variableA = variable "'A"
 let variableB = variable "'B"
 
@@ -69,6 +71,18 @@ let matchTest trace abbTable (options, query, name, target, expected) = test {
     let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = [||]; TypeAbbreviations = Array.append TestHelper.fsharpAbbreviationTable abbTable }
     let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.length = 1
     do! actual |> assertEquals expected
+  finally
+    do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
+}
+
+let distanceTest trace opt (query, targetSig, expected) = test { 
+  use listener = if trace then new System.Diagnostics.TextWriterTraceListener(System.Console.Out) else null
+  do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
+  try
+    let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = targetSig; TypeConstraints = []; Document = None }
+    let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
+    let actual = Matcher.search [| dict |] opt [ dict ] query |> Seq.head
+    do! actual.Distance |> assertEquals expected
   finally
     do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
 }
@@ -467,13 +481,7 @@ module RespectNameDifferenceTest_WithNonGreedy =
       "struct (A * A)", moduleValue (tuple [ typeA; typeA ]), 1
     ]
 
-    run (fun (query, target, expected) -> test {
-      let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
-      let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
-      let options = { defaultTestOptions with GreedyMatching = Enabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled }
-      let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.head
-      do! actual.Distance |> assertEquals expected
-    })
+    run (distanceTest false { defaultTestOptions with GreedyMatching = Enabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled })
   }
 
 module RespectNameDifferenceTest_WithGreedy =
@@ -544,13 +552,7 @@ module RespectNameDifferenceTest_WithGreedy =
       "('a * A) -> A", moduleFunction' [ [ ptype (tuple [ variableA; variableB ]) ]; [ ptype variableA ] ], 2
     ]
 
-    run (fun (query, target, expected) -> test {
-      let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
-      let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
-      let options = { defaultTestOptions with GreedyMatching = Enabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled }
-      let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.head
-      do! actual.Distance |> assertEquals expected
-    })
+    run (distanceTest false { defaultTestOptions with GreedyMatching = Enabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled })
   }
 
 module IgnoreParameterStyleTest =
@@ -625,34 +627,34 @@ module IgnoreParameterStyleTest =
 
   let instanceMemberTest =
     matchTest [
-      "A => A -> B -> A", instanceMember typeA curriedMethod, Always true
-      "A => A * B -> A", instanceMember typeA curriedMethod, WhenEnabled true
-      "A => A -> A -> A", instanceMember typeA curriedMethod, Always false
-      "B => A -> B -> A", instanceMember typeA curriedMethod, Always false
+      "R -> A -> B -> A", instanceMember typeR curriedMethod, Always true
+      "R -> A * B -> A", instanceMember typeR curriedMethod, WhenEnabled true
+      "R -> A -> A -> A", instanceMember typeR curriedMethod, Always false
+      "X -> A -> B -> A", instanceMember typeR curriedMethod, Always false
 
-      "A => A -> B -> A", instanceMember typeA nonCurriedMethod, WhenEnabled true
-      "A => A * B -> A", instanceMember typeA nonCurriedMethod, Always true
-      "A => A * A -> A", instanceMember typeA nonCurriedMethod, Always false
+      "R -> A -> B -> A", instanceMember typeR nonCurriedMethod, WhenEnabled true
+      "R -> A * B -> A", instanceMember typeR nonCurriedMethod, Always true
+      "R -> A * A -> A", instanceMember typeR nonCurriedMethod, Always false
 
-      "? => A -> B -> A", instanceMember typeA curriedMethod, Always true
-      "? => ?", instanceMember typeA curriedMethod, Always false
-      "?", instanceMember typeA curriedMethod, Always false
+      "? -> A -> B -> A", instanceMember typeR curriedMethod, Always true
+      "? -> ?", instanceMember typeR curriedMethod, Always false
+      "?", instanceMember typeR curriedMethod, Always false
 
-      "A => A * B -> A", instanceMember typeA tupleMethod, Always true
-      "A => A -> B -> A", instanceMember typeA tupleMethod, WhenEnabled true
+      "R -> A * B -> A", instanceMember typeR tupleMethod, Always true
+      "R -> A -> B -> A", instanceMember typeR tupleMethod, WhenEnabled true
 
-      "A => A", instanceMember typeA property, Always true
-      "A => B", instanceMember typeA property, Always false
-      "A => ?", instanceMember typeA property, Always true
-      "?", instanceMember typeA property, Always false
+      "R -> A", instanceMember typeR property, Always true
+      "R -> B", instanceMember typeR property, Always false
+      "R -> ?", instanceMember typeR property, Always true
+      "?", instanceMember typeR property, Always false
 
-      "A => B -> A", instanceMember typeA indexedProperty, Always true
-      "A => B -> B", instanceMember typeA indexedProperty, Always false
-      "A => A", instanceMember typeA indexedProperty, Always false
-      "A => ?", instanceMember typeA indexedProperty, Always false
+      "R -> B -> A", instanceMember typeR indexedProperty, Always true
+      "R -> B -> B", instanceMember typeR indexedProperty, Always false
+      "R -> A", instanceMember typeR indexedProperty, Always false
+      "R -> ?", instanceMember typeR indexedProperty, Always false
 
-      "C<'a> => A -> B -> A", instanceMember (typeC variableA) curriedMethod, Always true
-      "C<A> => A -> B -> A", instanceMember (typeC variableA) curriedMethod, Always false
+      "C<'a> -> A -> B -> A", instanceMember (typeC variableA) curriedMethod, Always true
+      "C<A> -> A -> B -> A", instanceMember (typeC variableA) curriedMethod, Always false
     ]
 
   let firstArgAsReceiverTest =
@@ -668,17 +670,6 @@ module IgnoreParameterStyleTest =
       
       "A -> A", instanceMember typeA property, Always true
       "A -> B -> A", instanceMember typeA indexedProperty, Always true
-    ]
-
-  let instanceMemberSpetialRuleTest =
-    matchTest [
-      "A => A", instanceMember typeA unitArgmentMethod, Always true
-      "A => B -> C<A>", moduleFunction' [ [ ptype typeB ]; [ ptype typeA ]; [ ptype (typeC typeA) ] ], Always true
-      "A => B -> C<A>", moduleFunction' [ [ ptype typeB; ptype typeA ]; [ ptype (typeC typeA) ] ], Always false
-      "A => B -> C<A>", moduleFunction' [ [ ptype (tuple [ typeB; typeA ]) ]; [ ptype (typeC typeA) ] ], Always false
-
-      "A -> A", instanceMember typeA unitArgmentMethod, Always false
-      "A -> B -> C<A>", moduleFunction' [ [ ptype typeB ]; [ ptype typeA ]; [ ptype (typeC typeA) ] ], Always false
     ]
 
   let delegateTest =
@@ -708,17 +699,14 @@ module IgnoreParameterStyleTest =
 
   let optionalParameterTest =
     matchTest [
-      "A -> A * A -> A", instanceMember typeA (method' "test" [ [ ptype typeA; popt >> ptype typeA ] ] typeA), Always true
-      "A => A * A -> A", instanceMember typeA (method' "test" [ [ ptype typeA; popt >> ptype typeA ] ] typeA), Always true
-      "A -> A -> A", instanceMember typeA (method' "test" [ [ ptype typeA; popt >> ptype typeA ] ] typeA), Always true
-      "A => A -> A", instanceMember typeA (method' "test" [ [ ptype typeA; popt >> ptype typeA ] ] typeA), Always true
+      "R -> A * A -> A", instanceMember typeR (method' "test" [ [ ptype typeA; popt >> ptype typeA ] ] typeA), Always true
+      "R -> A -> A", instanceMember typeR (method' "test" [ [ ptype typeA; popt >> ptype typeA ] ] typeA), Always true
 
-      "A -> A -> A -> A", instanceMember typeA (method' "test" [ [ ptype typeA; ptype typeA; popt >> ptype typeA ] ] typeA), WhenEnabled true
-      "A => A -> A -> A", instanceMember typeA (method' "test" [ [ ptype typeA; ptype typeA; popt >> ptype typeA ] ] typeA), WhenEnabled true
+      "R -> A -> A -> A", instanceMember typeR (method' "test" [ [ ptype typeA; ptype typeA; popt >> ptype typeA ] ] typeA), WhenEnabled true
 
-      "A * A -> A", staticMember typeA (method' "test" [ [ ptype typeA; popt >> ptype typeA ] ] typeA), Always true
-      "A -> A -> A", staticMember typeA (method' "test" [ [ ptype typeA; ptype typeA; popt >> ptype typeA ] ] typeA), WhenEnabled true
-      "A -> A", staticMember typeA (method' "test" [ [ ptype typeA; popt >> ptype typeA ] ] typeA), Always true
+      "A * A -> A", staticMember typeR (method' "test" [ [ ptype typeA; popt >> ptype typeA ] ] typeA), Always true
+      "A -> A -> A", staticMember typeR (method' "test" [ [ ptype typeA; ptype typeA; popt >> ptype typeA ] ] typeA), WhenEnabled true
+      "A -> A", staticMember typeR (method' "test" [ [ ptype typeA; popt >> ptype typeA ] ] typeA), Always true
     ]
 
   let unionCaseTest =
@@ -740,13 +728,10 @@ module IgnoreParameterStyleTest =
       "A -> B -> A", staticMember typeA nonCurriedMethod, 1
       "A -> B -> A", staticMember typeA tupleMethod, 1
 
-      "A => A", instanceMember typeA property, 0
+      "A -> A", instanceMember typeA property, 0
       "A", staticMember typeA property, 0
 
-      "A => A", instanceMember typeA unitArgmentMethod, 1
-      "A => B -> C<A>", moduleFunction' [ [ ptype typeB ]; [ ptype typeA ]; [ ptype (typeC typeA) ] ], 1
-
-      "A -> A", instanceMember typeA property, 1
+      "A -> A", instanceMember typeA property, 0
 
       "Func<A, A, B>", moduleValue (func3 typeA typeA typeB), 0
       "A -> A -> B", moduleValue (func3 typeA typeA typeB), 1
@@ -757,13 +742,7 @@ module IgnoreParameterStyleTest =
       "list<A> -> (A * int -> B) -> list<B>", moduleFunction' [ [ ptype (list typeA) ]; [ ptype (func3 typeA int typeB) ]; [ ptype (list typeB) ] ], 2
     ]
 
-    run (fun (query, target, expected) -> test {
-      let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = target; TypeConstraints = []; Document = None }
-      let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
-      let options = { defaultTestOptions with GreedyMatching = Disabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled }
-      let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.head
-      do! actual.Distance |> assertEquals expected
-    })
+    run (distanceTest false { defaultTestOptions with GreedyMatching = Disabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled })
   }
 
 module TypeConstraintTest =
@@ -1662,18 +1641,16 @@ module TypeExtensionTest =
 
   let instanceMemberTest =
     matchTest [
-      "A => B", typeExtension typeA testModule MemberModifier.Instance (property' "test" PropertyKind.Get [] typeB), Always true
-      "B => B", typeExtension typeA testModule MemberModifier.Instance (property' "test" PropertyKind.Get [] typeB), Always false
+      "R -> B", typeExtension typeR testModule MemberModifier.Instance (property' "test" PropertyKind.Get [] typeB), Always true
+      "X -> B", typeExtension typeR testModule MemberModifier.Instance (property' "test" PropertyKind.Get [] typeB), Always false
 
-      "A => A -> B", typeExtension typeA testModule MemberModifier.Instance (property' "test" PropertyKind.Get [ [ ptype typeA ] ] typeB), Always true
-      "A => A -> A", typeExtension typeA testModule MemberModifier.Instance (property' "test" PropertyKind.Get [ [ ptype typeA ] ] typeB), Always false
+      "R -> A -> B", typeExtension typeR testModule MemberModifier.Instance (property' "test" PropertyKind.Get [ [ ptype typeA ] ] typeB), Always true
+      "R -> A -> A", typeExtension typeR testModule MemberModifier.Instance (property' "test" PropertyKind.Get [ [ ptype typeA ] ] typeB), Always false
 
-      "A => A * B -> A", typeExtension typeA testModule MemberModifier.Instance (method' "test" [ [ ptype typeA; ptype typeB ] ] typeA), Always true
-      "A => A -> B -> A", typeExtension typeA testModule MemberModifier.Instance (method' "test" [ [ ptype typeA; ptype typeB ] ] typeA), WhenEnabled true
+      "R -> A * B -> A", typeExtension typeR testModule MemberModifier.Instance (method' "test" [ [ ptype typeA; ptype typeB ] ] typeA), Always true
+      "R -> A -> B -> A", typeExtension typeR testModule MemberModifier.Instance (method' "test" [ [ ptype typeA; ptype typeB ] ] typeA), WhenEnabled true
 
-      "A => B", typeExtension typeA testModule MemberModifier.Instance (method' "test" [ [ ptype unit ] ] typeB), Always true
-
-      "A => B", typeExtension typeA testModule MemberModifier.Static (property' "test" PropertyKind.Set [] typeB), Always false
+      "R -> B", typeExtension typeR testModule MemberModifier.Static (property' "test" PropertyKind.Set [] typeB), Always false
     ]
 
   let staticMemberTest =
@@ -1696,19 +1673,12 @@ module TypeExtensionTest =
 
   let extensionMemberTest =
     matchTest [
-      "A => B", extensionMember (method' "test" [ [ ptype typeA ] ] typeB), Always true
-      "A => B", extensionMember (method' "test" [ [ ptype typeA ] ] typeA), Always false
-      "A => B", extensionMember (method' "test" [ [ ptype typeA ] ] typeA), Always false
-
-      "A => A -> B", extensionMember (method' "test" [ [ ptype typeA; ptype typeA ] ] typeB), Always true
-      "A => A -> A -> B", extensionMember (method' "test" [ [ ptype typeA; ptype typeA; ptype typeA ] ] typeB), WhenEnabled true
-
-      "A => B", extensionMember (method' "test" [ [ ptype typeA; ptype unit ] ] typeB), Always true
-
-      // extension member as static method
       "A -> B", extensionMember (method' "test" [ [ ptype typeA ] ] typeB), Always true
       "A -> B", extensionMember (method' "test" [ [ ptype typeA ] ] typeA), Always false
-      "A -> B -> A", extensionMember (method' "test" [ [ ptype typeA; ptype typeB ] ] typeA), WhenEnabled true
+      "A -> B", extensionMember (method' "test" [ [ ptype typeA ] ] typeA), Always false
+
+      "A -> A -> B", extensionMember (method' "test" [ [ ptype typeA; ptype typeA ] ] typeB), WhenEnabled true
+      "A -> A -> A -> B", extensionMember (method' "test" [ [ ptype typeA; ptype typeA; ptype typeA ] ] typeB), WhenEnabled true
     ]
 
 module SwapOrderTest =
@@ -1771,10 +1741,7 @@ module SwapOrderTest =
       "A -> B -> A", staticMember typeA (member' "test" MemberKind.Method [ [ ptype typeB ]; [ ptype typeA ] ] typeA), WhenEnabled true
       "A -> B -> A", constructor' typeA (member' "new" MemberKind.Method [ [ ptype typeB ]; [ ptype typeA ] ] typeA), WhenEnabled true
 
-      "A => B -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeB ]; [ ptype typeA ] ], WhenEnabled true
-
-      "A => A -> B -> A", instanceMember typeA (member' "test" MemberKind.Method [ [ ptype typeB ]; [ ptype typeA ] ] typeA), WhenEnabled true
-      "A -> A -> B -> A", instanceMember typeA (member' "test" MemberKind.Method [ [ ptype typeB ]; [ ptype typeA ] ] typeA), WhenEnabled true
+      "A -> 'A -> B -> A", instanceMember typeA (member' "test" MemberKind.Method [ [ ptype typeB ]; [ ptype variableA ] ] typeA), WhenEnabled true
 
       "A -> B -> A", moduleValue (delegate' typeD [ typeB; typeA; typeA ]), WhenEnabled true
 
@@ -1794,13 +1761,7 @@ module SwapOrderTest =
         "A * B * C", moduleValue (tuple [ typeC; typeB; typeA ]), 2
       ]
 
-      run (fun (query, targetSig, expected) -> test {
-        let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = targetSig; TypeConstraints = []; Document = None }
-        let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
-        let options = { defaultTestOptions with SwapOrderDepth = 10 }
-        let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.head
-        do! actual.Distance |> assertEquals expected
-      })
+      run (distanceTest false { defaultTestOptions with SwapOrderDepth = 10 })
     }
 
 module ComplementTest =
@@ -1834,9 +1795,11 @@ module ComplementTest =
       "A", moduleValue (tuple [ typeA; typeB ]), WhenEnabled true
       "A", moduleValue (tuple [ typeA; typeA; typeB ]), Always false
 
-      "A", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ] ], Always false
+      "A", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ] ], WhenEnabled true
 
       "A -> A", moduleFunction' [ [ ptype typeA ]; [ ptype typeA ]; [ ptype typeB ] ], Always false
+
+      "A -> B", moduleValue typeB, Always false
     ]
 
   let depth2Test =
@@ -1868,8 +1831,10 @@ module ComplementTest =
   let otherApiTest =
     runTest false 1 [
       "B", staticMember typeA (member' "test" (MemberKind.Property PropertyKind.Get) [] typeB), Always true
-      "B", staticMember typeA (member' "test" (MemberKind.Property PropertyKind.Get) [ [ ptype typeA ] ] typeB), Always false
-      "B", staticMember typeA (member' "test" MemberKind.Method [ [ ptype typeA ] ] typeB), Always false
+      "A -> B", staticMember typeA (member' "test" (MemberKind.Property PropertyKind.Get) [] typeB), Always false
+      "B", staticMember typeA (member' "test" (MemberKind.Property PropertyKind.Get) [ [ ptype typeA ] ] typeB), WhenEnabled true
+      "B", staticMember typeA (member' "test" MemberKind.Method [ [ ptype typeA ] ] typeB), WhenEnabled true
+      "B", staticMember typeA (member' "test" MemberKind.Method [ [ ptype typeA; ptype typeA ] ] typeB), Always false
 
       "A -> B", staticMember typeA (member' "test" MemberKind.Method [ [ ptype typeA ]; [ ptype typeB ] ] typeB), WhenEnabled true
 
@@ -1877,18 +1842,21 @@ module ComplementTest =
       "A -> A -> B", instanceMember typeA (member' "test" MemberKind.Method [ [ ptype typeA ]; [ ptype typeB ] ] typeB), WhenEnabled true
     ]
 
+  let unitArgTest =
+    let testModule = DisplayName.ofString "test"
+    runTest false 1 [
+      "R -> A", instanceMember typeR (method' "test" [ [ ptype unit ] ] typeA), WhenEnabled true
+      "R -> B", typeExtension typeR testModule MemberModifier.Instance (method' "test" [ [ ptype unit ] ] typeB), WhenEnabled true
+      "A -> B", extensionMember (method' "test" [ [ ptype typeA; ptype unit ] ] typeB), WhenEnabled true
+    ]
+
   let distanceTest =
     parameterize {
       source [
         "A", moduleValue (tuple [ typeB; typeA ]), 1
         "A * B", moduleValue (tuple [ typeA; typeA; typeB; typeB; typeB ]), 3
+        "R -> A", instanceMember typeR (method' "test" [ [ ptype unit ] ] typeA), 1
       ]
 
-      run (fun (query, targetSig, expected) -> test {
-        let targetApi: Api = { Name = Name.displayNameOfString "test"; Signature = targetSig; TypeConstraints = []; Document = None }
-        let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
-        let options = { defaultTestOptions with ComplementDepth = 10 }
-        let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.head
-        do! actual.Distance |> assertEquals expected
-      })
+      run (distanceTest false { defaultTestOptions with ComplementDepth = 10 })
     }

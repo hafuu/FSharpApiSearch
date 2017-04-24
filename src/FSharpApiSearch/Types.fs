@@ -384,7 +384,6 @@ type ComputationExpressionQuery = {
 type SignatureQuery =
   | Wildcard
   | Signature of LowType
-  | InstanceMember of Receiver: LowType * Parameters: LowType list * ReturnType: LowType
 
 [<RequireQualifiedAccess>]
 type NameMatchMethod =

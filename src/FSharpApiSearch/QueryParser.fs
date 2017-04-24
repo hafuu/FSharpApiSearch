@@ -107,18 +107,6 @@ module FSharpSignatureParser =
 
   do fsharpSignatureRef := compose ptype [ array; structTuple; mlGeneric; tuple; arrow ]
 
-  let instanceMember =
-    fsharpSignature .>> pstring "=>" .>>. fsharpSignature
-    |>> (fun (receiver, paramsAndRet) ->
-      let parameters, ret =
-        match paramsAndRet with
-        | Arrow xs -> (List.take (xs.Length - 1) xs), (List.last xs)
-        | ret -> [], ret
-      SignatureQuery.InstanceMember (Receiver = receiver, Parameters = parameters, ReturnType = ret)
-    )
-
-  let extendedFsharpSignature = choice [ attempt instanceMember <|> (fsharpSignature |>> SignatureQuery.Signature) ]
-
 let activePatternKind =
   (skipString "(||)" >>% ActivePatternKind.ActivePattern)
   <|> (skipString "(|_|)" >>% ActivePatternKind.PartialActivePattern)
@@ -141,14 +129,14 @@ let memberNamePartial =
   let ctor = pstring ".ctor"
   (ctor <|> pident) <?> "identifier"
 
-let anyOrSignature = attempt signatureWildcard <|> (FSharpSignatureParser.extendedFsharpSignature)
+let anyOrSignature = attempt signatureWildcard <|> (FSharpSignatureParser.fsharpSignature |>> SignatureQuery.Signature)
 let nameQuery =
   let name = trim (memberNamePartial <|> opName)
   sepBy1 name (pchar '.') .>> pstring ":" .>>. anyOrSignature |>> (fun (name, sigPart) ->
     let expecteds = List.rev name |> List.map (fun n -> NameMatchMethod.ofString n)
     QueryMethod.ByName (expecteds, sigPart))
 
-let signatureQuery = FSharpSignatureParser.extendedFsharpSignature |>> QueryMethod.BySignature
+let signatureQuery = FSharpSignatureParser.fsharpSignature |>> (SignatureQuery.Signature >> QueryMethod.BySignature)
 
 let computationExpressionSyntax = manyChars (letter <|> pchar '/') .>>. opt (pstring "!") |>> (fun (syntax, bang) -> match bang with Some bang -> syntax + bang | None -> syntax)  
 let computationExpressionQuery =
@@ -158,11 +146,6 @@ let computationExpressionQuery =
   trim left .>> skipString ":" .>>. trim FSharpSignatureParser.fsharpSignature |>> (fun (syntax, t) -> QueryMethod.ByComputationExpression { Syntaxes = syntax; Type = t })
 
 let query = choice [ attempt computationExpressionQuery;attempt activePatternQuery; attempt nameQuery; signatureQuery ]
-
-let parseFSharpSignature (sigStr: string) =
-  match runParserOnString (FSharpSignatureParser.extendedFsharpSignature .>> eof) () "" sigStr with
-  | Success (s, _, _) -> s
-  | Failure (msg, _, _) -> failwithf "%s" msg
 
 let parse (queryStr: string) =
   match runParserOnString (query .>> eof) () "" queryStr with

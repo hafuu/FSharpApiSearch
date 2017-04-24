@@ -37,12 +37,6 @@ let collectFromSignatureQuery getTarget query =
       match sigQuery with
       | SignatureQuery.Wildcard -> Seq.empty
       | SignatureQuery.Signature lt -> f lt
-      | SignatureQuery.InstanceMember (receiver, parameters, returnType) ->
-        Seq.concat [
-          f receiver
-          Seq.collect f parameters
-          f returnType
-        ]
     | { Query.Method = QueryMethod.ByActivePattern apQuery } ->
       match apQuery with
       | { ActivePatternQuery.Signature = ActivePatternSignature.AnyParameter (x, y) } -> Seq.collect f [ x; y ]
@@ -140,7 +134,6 @@ let replaceTypeAbbreviation nameEquality (dictionaries: ApiDictionary seq) (quer
   let replaceSignatureQuery = function
     | SignatureQuery.Wildcard -> SignatureQuery.Wildcard
     | SignatureQuery.Signature lt -> SignatureQuery.Signature (replace lt)
-    | SignatureQuery.InstanceMember (receiver, args, returnType) -> SignatureQuery.InstanceMember (replace receiver, List.map replace args, replace returnType)
   let replaceActivePatternSignature = function
     | ActivePatternSignature.AnyParameter (x, y) -> ActivePatternSignature.AnyParameter (replace x, replace y)
     | ActivePatternSignature.Specified x -> ActivePatternSignature.Specified (replace x)

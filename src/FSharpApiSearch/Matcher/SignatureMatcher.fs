@@ -73,7 +73,7 @@ module Rules =
 
   let (|Right_NonCurriedFunction|_|) (xs: Parameter list list) =
     match xs with
-    | [ parameters; [ ret ] ] -> Some [ yield! parameters |> List.map (fun x -> x.Type); yield ret.Type ]
+    | [ parameters; [ ret ] ] when parameters.Length >= 2 -> Some [ yield! parameters |> List.map (fun x -> x.Type); yield ret.Type ]
     | _ -> None
 
   let (|Right_TupleFunction|_|) (xs: Parameter list list) =
@@ -103,11 +103,11 @@ module Rules =
     | Left_NonCurriedFunction leftElems, Right_CurriedFunction rightElems ->
       Debug.WriteLine("pattern 2")
       lowTypeMatcher.TestArrow leftElems rightElems ctx
-      |> MatchingResult.mapMatched (Context.addDistance 1)
+      |> MatchingResult.mapMatched (Context.addDistance "parameter style" 1)
     | Left_CurriedFunction leftElems, (Right_TupleFunction rightElems | Right_NonCurriedFunction rightElems) ->
       Debug.WriteLine("pattern 3")
       lowTypeMatcher.TestArrow leftElems rightElems ctx
-      |> MatchingResult.mapMatched (Context.addDistance 1)
+      |> MatchingResult.mapMatched (Context.addDistance "parameter style" 1)
     | _, _ ->
       Debug.WriteLine("pattern 4")
       testArrow lowTypeMatcher leftElems rightElems ctx
@@ -118,6 +118,9 @@ module Rules =
     | SignatureQuery.Signature (LowType.Patterns.AbbreviationRoot (Arrow leftElems)), ApiSignature.ModuleFunction rightFun ->
       Debug.WriteLine("module function rule.")
       testArrow lowTypeMatcher leftElems rightFun ctx
+    | SignatureQuery.Signature left, ApiSignature.ModuleFunction rightFun ->
+      Debug.WriteLine("module function rule.")
+      testArrow lowTypeMatcher [ left ] rightFun ctx
     | SignatureQuery.Signature (Arrow _ as left), ApiSignature.ModuleValue (LowType.Patterns.AbbreviationRoot (Arrow _ as right)) ->
       Debug.WriteLine("module function rule.")
       lowTypeMatcher.Test left right ctx
@@ -129,7 +132,7 @@ module Rules =
       let right = Arrow xs
       Debug.WriteLine("arrow query and delegate rule.")
       lowTypeMatcher.Test left right ctx
-      |> MatchingResult.mapMatched (Context.addDistance 1)
+      |> MatchingResult.mapMatched (Context.addDistance "arrow and delegate" 1)
     | _ -> Continue ctx
 
   let activePatternRule testArrow (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
@@ -149,8 +152,15 @@ module Rules =
     | ApiSignature.ExtensionMember member' -> Some member'
     | _ -> None
 
+  let (|NoArgsMember|_|) = function
+    | { Parameters = [] } as m -> Some m
+    | _ -> None
+
   let staticMemberRule testArrow (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
+    | SignatureQuery.Signature (Arrow _), StaticMember (NoArgsMember _) ->
+      Debug.WriteLine("Arrow and static no args member do not match.")
+      Failure
     | SignatureQuery.Signature left, StaticMember member' ->
       Debug.WriteLine("static member rule.")
       testArrow lowTypeMatcher (breakArrow left) (Member.toFunction member') ctx
@@ -181,50 +191,12 @@ module Rules =
       Some (declaringType.Type, member')
     | _ -> None
 
-  let instanceMemberRule testArrow (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
-    match left, right with
-    | SignatureQuery.InstanceMember (Receiver = queryReceiver; Parameters = queryParams; ReturnType = queryReturnType), InstanceMember (declaringType, member') ->
-      Debug.WriteLine("instance member rule.")
-      lowTypeMatcher.TestReceiver queryReceiver declaringType ctx
-      |> MatchingResult.bindMatched (fun ctx ->
-        let left = methodPart queryParams queryReturnType
-        testArrow lowTypeMatcher left (Member.toFunction member') ctx
-      )
-    | _ -> Continue ctx
-
-  let instanceMemberUnitParameterRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
-    match left, right with
-    | SignatureQuery.InstanceMember (Receiver = queryReceiver; Parameters = []; ReturnType = queryReturnType), InstanceMember (declaringType, ({ Parameters = [ [ { Type = LowType.Patterns.Unit } ] ] } as member')) ->
-      Debug.WriteLine("instance member unit parameter rule.")
-      lowTypeMatcher.TestReceiver queryReceiver declaringType ctx
-      |> MatchingResult.bindMatched (lowTypeMatcher.Test queryReturnType member'.ReturnParameter.Type)
-      |> MatchingResult.mapMatched (Context.addDistance 1)
-    | _ -> Continue ctx
-
-  let instanceMemberAndFunctionRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
-    match left, right with
-    | SignatureQuery.InstanceMember (Receiver = queryReceiver; Parameters = queryParams; ReturnType = queryReturnType), ApiSignature.ModuleFunction right ->
-      Debug.WriteLine("instance member and function rule.")
-      let leftElems =
-        [
-          match queryParams with
-          | [] -> ()
-          | _ -> yield! queryParams
-          yield queryReceiver
-          yield queryReturnType
-        ]
-      let rightElems = Function.toLowTypeList right
-      lowTypeMatcher.TestArrow leftElems rightElems ctx
-      |> MatchingResult.mapMatched (Context.addDistance 1)
-    | _ -> Continue ctx
-
   let arrowAndInstanceMemberRule testArrow (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
     | SignatureQuery.Signature (Arrow (leftReceiver :: leftMemberPart)), InstanceMember (declaringType, member') ->
       Debug.WriteLine("arrow and instance member rule.")
       lowTypeMatcher.TestReceiver leftReceiver declaringType ctx
       |> MatchingResult.bindMatched (testArrow lowTypeMatcher leftMemberPart (Member.toFunction member'))
-      |> MatchingResult.mapMatched (Context.addDistance 1)
     | _ -> Continue ctx
 
   let unionCaseRule testArrow (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
@@ -291,9 +263,6 @@ let instance (options: SearchOptions) =
         yield Rules.staticMemberRule testArrow
         yield Rules.constructorRule testArrow
         
-        yield Rules.instanceMemberUnitParameterRule
-        yield Rules.instanceMemberAndFunctionRule
-        yield Rules.instanceMemberRule testArrow
         yield Rules.arrowAndInstanceMemberRule testArrow
         
         yield Rules.arrowQueryAndDelegateRule

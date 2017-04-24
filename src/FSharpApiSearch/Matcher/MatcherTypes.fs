@@ -25,9 +25,9 @@ type Context = {
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Context =
-  let addDistance x (ctx: Context) =
+  let addDistance reason x (ctx: Context) =
     let newDistance = ctx.Distance + x
-    Debug.WriteLine(sprintf "Update distance from %d to %d" ctx.Distance newDistance)
+    Debug.WriteLine(sprintf "Update distance from %d to %d by %s" ctx.Distance newDistance reason)
     { ctx with Distance = newDistance }
 
 type MatchingResult =
