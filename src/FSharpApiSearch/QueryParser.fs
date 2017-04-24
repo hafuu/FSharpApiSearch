@@ -8,6 +8,15 @@ let inline trim p = spaces >>. p .>> spaces
 let inline pcharAndTrim c = pchar c |> trim
 let inline pstringAndTrim s = pstring s |> trim
 
+let inline sepBy2 p sep = p .>> sep .>>. sepBy1 p sep |>> (fun (x, xs) -> x :: xs)
+
+let compose firstParser (ps: _ list) =
+  let compose' prevParser p =
+    let self, selfRef = createParserForwardedToRef()
+    do selfRef := p self prevParser
+    attempt self <|> prevParser
+  List.fold compose' (compose' firstParser ps.Head) ps.Tail
+
 module FSharpSignatureParser =
   let struct' = "struct"
   let keywords = [
@@ -50,46 +59,38 @@ module FSharpSignatureParser =
 
   let dotNetGeneric = genericId .>>. between (pcharAndTrim '<') (pcharAndTrim '>') (sepBy1 fsharpSignature (pchar ',')) |>> (fun (id, parameter) -> createGeneric id parameter)
 
-  let term1 =
+  let ptype =
     choice [
-      attempt dotNetGeneric
       attempt (between (pcharAndTrim '(') (pcharAndTrim ')') fsharpSignature)
+      attempt dotNetGeneric
       attempt identity
       attempt variable
       wildcard
     ]
   
-  let arraySymbol =
-    let t = { Name = "T"; IsSolveAtCompileTime = false }
-    regex arrayRegexPattern |> trim |>> (fun array -> Identity (PartialIdentity { Name = [ { FSharpName = array; InternalFSharpName = array; GenericParametersForDisplay = [ t ] } ]; GenericParameterCount = 1 }))
-  let maybeArray t =
-    t
-    .>>. many arraySymbol
+  let array _ typeParser =
+    let arraySymbol =
+      let t = { Name = "T"; IsSolveAtCompileTime = false }
+      regex arrayRegexPattern |> trim |>> (fun array -> Identity (PartialIdentity { Name = [ { FSharpName = array; InternalFSharpName = array; GenericParametersForDisplay = [ t ] } ]; GenericParameterCount = 1 }))
+    typeParser
+    .>>. many1 arraySymbol
     |>> (function
       | (t, []) -> t
       | (t, x :: xs) ->
         List.fold (fun x array -> createGeneric array [ x ]) (createGeneric x [ t ]) xs)
-  let term2 = maybeArray term1
 
-  let structTuple, structTupleRef = createParserForwardedToRef()
-
-  let createStructTuple term =
+  let structTuple self typeParser =
     let elem =
       choice [
-        attempt (between (pcharAndTrim '(') (pcharAndTrim ')') fsharpSignature)
-        attempt term
-        structTuple
+        attempt typeParser
+        self
       ]
     let tupleElements = sepBy1 elem (pstring "*") |>> fun xs -> Tuple { Elements = xs; IsStruct = true }
     pstringAndTrim struct' >>. between (pcharAndTrim '(') (pcharAndTrim ')') tupleElements
 
-  do structTupleRef := createStructTuple term2
-
-  let term3 = choice [ attempt structTuple; term2 ]
-
-  let mlGeneric term =
+  let mlGeneric _ typeParser =
     let mlMultiGenericParameter = between (pcharAndTrim '(') (pcharAndTrim ')') (sepBy1 fsharpSignature (pchar ','))
-    let mlSingleGenericParameter = term |>> List.singleton
+    let mlSingleGenericParameter = typeParser |>> List.singleton
     let mlLeftGenericParameter = attempt mlMultiGenericParameter <|> mlSingleGenericParameter
     let foldGeneric parameter ids =
       let rec foldGeneric' acc = function
@@ -99,17 +100,12 @@ module FSharpSignatureParser =
     
     mlLeftGenericParameter .>>. many1 genericId |>> (fun (parameter, ids) -> foldGeneric parameter ids)
 
-  let term4 = choice [ attempt (mlGeneric term3); term3 ]
 
-  let maybeTuple term = sepBy1 term (pstring "*") |>> function [ x ] -> x | xs -> Tuple { Elements = xs; IsStruct = false }
+  let tuple _ typeParser = sepBy2 typeParser (pstring "*") |>> function [ x ] -> x | xs -> Tuple { Elements = xs; IsStruct = false }
 
-  let term5 = maybeTuple term4
+  let arrow _ typeParser = sepBy2 typeParser (pstring "->") |>> function [ x ] -> x | xs -> Arrow xs
 
-  let maybeArrow term = sepBy1 term (pstring "->") |>> function [ x ] -> x | xs -> Arrow xs
-
-  let term6 = maybeArrow term5
-
-  do fsharpSignatureRef := term6
+  do fsharpSignatureRef := compose ptype [ array; structTuple; mlGeneric; tuple; arrow ]
 
   let instanceMember =
     fsharpSignature .>> pstring "=>" .>>. fsharpSignature
@@ -123,12 +119,14 @@ module FSharpSignatureParser =
 
   let extendedFsharpSignature = choice [ attempt instanceMember <|> (fsharpSignature |>> SignatureQuery.Signature) ]
 
-  let singleTerm = term4
-
 let activePatternKind =
   (skipString "(||)" >>% ActivePatternKind.ActivePattern)
   <|> (skipString "(|_|)" >>% ActivePatternKind.PartialActivePattern)
-let allPatterns = trim (skipString "...") >>. skipString "->" >>. FSharpSignatureParser.singleTerm .>> skipString "->" .>>. FSharpSignatureParser.singleTerm |>> ActivePatternSignature.AnyParameter
+let allPatterns =
+  trim (skipString "...") >>. skipString "->" >>. FSharpSignatureParser.fsharpSignature
+  >>= function
+      | Arrow [ x; y ] -> preturn (ActivePatternSignature.AnyParameter (x, y))
+      | _ -> fail "parse error"
 let activePattern = FSharpSignatureParser.fsharpSignature |>> ActivePatternSignature.Specified
 let activePatternQuery = trim activePatternKind .>> skipString ":" .>>. (attempt allPatterns <|> activePattern) |>> (fun (kind, sig') -> QueryMethod.ByActivePattern { Kind = kind; Signature = sig' })
 

@@ -159,11 +159,25 @@ module ByActivePattern =
         "(||) : 'a -> 'b -> ?", QueryMethod.ByActivePattern { Kind = ActivePatternKind.ActivePattern; Signature = ActivePatternSignature.Specified (arrow [ queryVariable "'a"; queryVariable "'b"; wildcard ]) }
 
         "(|_|) : ... -> 'a -> ?", QueryMethod.ByActivePattern { Kind = ActivePatternKind.PartialActivePattern; Signature = ActivePatternSignature.AnyParameter (queryVariable "'a", wildcard) }
+
+        "(||) : ... -> 'a * 'b -> ?", QueryMethod.ByActivePattern { Kind = ActivePatternKind.ActivePattern; Signature = ActivePatternSignature.AnyParameter (tuple [ queryVariable "'a"; queryVariable "'b" ], wildcard) }
+        "(||) : ... -> ('a -> 'b) -> ?", QueryMethod.ByActivePattern { Kind = ActivePatternKind.ActivePattern; Signature = ActivePatternSignature.AnyParameter (arrow [ queryVariable "'a"; queryVariable "'b" ], wildcard) }
       ]
       run (fun (input, expected) -> test {
         let actual = QueryParser.parse input
         let expected: Query = { OriginalString = input; Method = expected }
         do! actual |> assertEquals expected
+      })
+    }
+
+  let parseErrorTest =
+    parameterize {
+      source [
+        "(||) : ... -> 'a -> 'b -> ?"
+      ]
+      run (fun input -> test {
+        let! ex = trap { it (QueryParser.parse input) }
+        do! ex |> assertNotEquals null
       })
     }
 
