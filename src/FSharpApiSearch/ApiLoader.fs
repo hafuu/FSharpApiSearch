@@ -141,10 +141,10 @@ module internal Impl =
       }
     elif t.IsGenericParameter then
       Some (Variable (VariableSource, t.GenericParameter.TypeVariable))
-    elif t.IsTupleType then
+    elif Hack.isTupleType t then
       option {
         let! args = listLowType t.GenericArguments
-        return Tuple { Elements = args; IsStruct = t.IsStructTupleType }
+        return Tuple { Elements = args; IsStruct = Hack.isStructTupleType t }
       }
     elif Hack.isFloat t then
       Some SpecialTypes.LowType.float

@@ -57,3 +57,28 @@ let ``Enum.value__ test`` = test {
   do! value__.DisplayName |> assertEquals "value__"
   do! value__.IsCompilerGenerated |> assertEquals true
 }
+
+let ``ValueTuple test (F#)`` = test {
+  let! assemblies = assemblies
+  let assembly = assemblies |> Array.find (fun x -> x.FileName = Some fsharpAssemblyPath )
+  let module' = assembly.Contents.Entities |> Seq.find (fun x -> x.DisplayName = "FSharp41")
+  let value = module'.MembersFunctionsAndValues |> Seq.find (fun x -> x.DisplayName = "structTuple")
+  let actual = value.ReturnParameter.Type
+  do! actual.IsTupleType |> assertEquals true
+  do! actual.IsStructTupleType |> assertEquals true
+}
+
+let ``ValueTuple test (C#)`` = test {
+  let! assemblies = assemblies
+  let assembly = assemblies |> Array.find (fun x -> x.FileName = Some csharpAssemblyPath )
+  let class' = assembly.Contents.Entities |> Seq.find (fun x -> x.DisplayName = "Tuples")
+  let method' = class'.MembersFunctionsAndValues |> Seq.find (fun x -> x.DisplayName = "G")
+  let actual = method'.ReturnParameter.Type
+  if actual.HasTypeDefinition then
+    do! actual.TypeDefinition.FullName |> assertEquals "System.ValueTuple`2"
+    do! actual.IsTupleType |> assertEquals false
+    do! actual.IsStructTupleType |> assertEquals false
+  else
+    do! actual.IsTupleType |> assertEquals true
+    do! actual.IsStructTupleType |> assertEquals true
+}
