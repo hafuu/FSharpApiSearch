@@ -1860,3 +1860,139 @@ module ComplementTest =
 
       run (distanceTest false { defaultTestOptions with ComplementDepth = 10 })
     }
+
+module InitializeTest =
+  let string =
+    choice [
+      typeAbbreviation (identity "String") (identity "string")
+      identity "string"
+    ]
+  let fsharpTypeAbbreviationTest =  parameterize {
+    source [
+      "a", (identity "a")
+      "string", string
+      "Option<string>", (generic (identity "Option") [ string ])
+      "'a list",
+        choice [
+          typeAbbreviation (generic (identity "List") [ queryVariable "'a" ]) (generic (identity "list") [ queryVariable "'a" ])
+          generic (identity "list") [ queryVariable "'a" ]
+        ]
+      "'b list",
+        choice [
+          typeAbbreviation (generic (identity "List") [ queryVariable "'b" ]) (generic (identity "list") [ queryVariable "'b" ])
+          generic (identity "list") [ queryVariable "'b" ]
+        ]
+      "int list",
+        choice [
+          typeAbbreviation (generic (identity "List") [ identity "int" ]) (generic (identity "list") [ identity "int" ])
+          generic (identity "list") [ identity "int" ]
+        ]
+      "string list",
+        choice [
+          typeAbbreviation (generic (identity "List") [ string ]) (generic (identity "list") [ identity "string" ])
+          generic (identity "list") [ string ]
+        ]
+      "map<'a, 'b, 'c>", (generic (identity "map") [ queryVariable "'a"; queryVariable "'b"; queryVariable "'c" ])
+      "list", (identity "list")
+      "intList",
+        choice [
+          typeAbbreviation (generic (identity "List") [ identity "int" ]) (identity "intList")
+          identity "intList"
+        ]
+      "intKeyMap<'value>",
+        choice [
+          typeAbbreviation (generic (identity "Map") [ identity "int"; queryVariable "'value" ]) (generic (identity "intKeyMap") [ queryVariable "'value" ])
+          generic (identity "intKeyMap") [ queryVariable "'value" ]
+        ]
+      "reverseArg<'front, 'end>",
+        choice [
+          typeAbbreviation (generic (identity "ReverseArg") [ queryVariable "'end"; queryVariable "'front" ]) (generic (identity "reverseArg") [ queryVariable "'front"; queryVariable "'end" ])
+          generic (identity "reverseArg") [ queryVariable "'front"; queryVariable "'end" ]
+        ]
+      "samemap<int>",
+        choice [
+          typeAbbreviation (generic (identity "Map") [ identity "int"; identity "int" ]) (generic (identity "samemap") [ identity "int" ])
+          generic (identity "samemap") [ identity "int" ]
+        ]
+      "conflict",
+        choice [
+          typeAbbreviation (identity "A.NonHidden") (identity "conflict")
+          typeAbbreviation (identity "B.Type") (identity "conflict")
+          identity "conflict"
+        ]
+      "B.conflict",
+        choice [
+          typeAbbreviation (identity "B.Type") (identity "B.conflict")
+          identity "B.conflict"
+        ]
+      "A.conflict",
+        choice [
+          typeAbbreviation (identity "A.NonHidden") (identity "A.conflict")
+          identity "A.conflict"
+        ]
+      "conflict<'a>",
+        choice [
+          typeAbbreviation (generic (identity "A.NonHidden") [ queryVariable "'a" ]) (generic (identity "conflict") [ queryVariable "'a" ])
+          typeAbbreviation (generic (identity "B.Type") [ queryVariable "'a" ]) (generic (identity "conflict") [ queryVariable "'a" ])
+          generic (identity "conflict") [ queryVariable "'a" ]
+        ]
+      "B.conflict<'a>",
+        choice [
+          typeAbbreviation (generic (identity "B.Type") [ queryVariable "'a" ]) (generic (identity "B.conflict") [ queryVariable "'a" ])
+          generic (identity "B.conflict") [ queryVariable "'a" ]
+        ]
+      "A.conflict<'a>",
+        choice [
+          typeAbbreviation (generic (identity "A.NonHidden") [ queryVariable "'a" ]) (generic (identity "A.conflict") [ queryVariable "'a" ])
+          generic (identity "A.conflict") [ queryVariable "'a" ]
+        ]
+    ]
+    run (fun (query, expected) -> test {
+      let abbreviations: TypeAbbreviationDefinition[] = [|
+        typeAbbreviationDef "string" (identity "String")
+        typeAbbreviationDef "list<'a>" (generic (identity "List") [ variable "'a" ])
+        typeAbbreviationDef "intList" (generic (identity "List") [ identity "int" ])
+        typeAbbreviationDef "reverseArg<'b, 'a>" (generic (identity "ReverseArg") [ variable "'a"; variable "'b" ])
+        typeAbbreviationDef "map<'a, 'b>" (generic (identity "Map") [ variable "'a"; variable "'b" ])
+        typeAbbreviationDef "intKeyMap<'v>" (generic (identity "Map") [ identity "int"; variable "'v" ])
+        typeAbbreviationDef "samemap<'a>" (generic (identity "Map") [ variable "'a"; variable "'a" ])
+        typeAbbreviationDef "A.conflict" (identity "A.NonHidden")
+        typeAbbreviationDef "B.conflict" (identity "B.Type")
+        typeAbbreviationDef "A.conflict<'a>" (generic (identity "A.NonHidden") [ variable "'a" ])
+        typeAbbreviationDef "B.conflict<'a>" (generic (identity "B.Type") [ variable "'a" ])
+      |]
+      let dictionaries = Array.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = Array.empty; TypeAbbreviations = abbreviations }
+      let actual =
+        let storategy = MatcherInitializer.FSharpInitializeStorategy() :> MatcherInitializer.IInitializeStorategy
+        let query = storategy.ParseQuery(query)
+        storategy.InitializeQuery(query, dictionaries, TestHelper.defaultTestOptions)
+      let expected: Query = { OriginalString = query; Method = QueryMethod.BySignature (SignatureQuery.Signature expected) }
+      do! actual |> assertEquals expected
+    })
+  }
+
+  let csharpAliasTest = parameterize {
+    source [
+      "a", (identity "a")
+      "int",
+        choice [
+          typeAbbreviation (SpecialTypes.LowType.ofDotNetType typeof<System.Int32>) (identity "int")
+          identity "int"
+        ]
+      "<int> : int", (queryVariable "'int")
+      "list<a>", (generic (identity "list") [ identity "a" ])
+    ]
+
+    run (fun (query, expected) -> test {
+      let abbreviations: TypeAbbreviationDefinition[] = [|
+        typeAbbreviationDef "list<'a>" (generic (identity "List") [ variable "'a" ])
+      |]
+      let dictionaries = Array.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = Array.empty; TypeAbbreviations = abbreviations }
+      let actual =
+        let storategy = MatcherInitializer.CSharpInitializeStorategy() :> MatcherInitializer.IInitializeStorategy
+        let query = storategy.ParseQuery(query)
+        storategy.InitializeQuery(query, dictionaries, TestHelper.defaultTestOptions)
+      let expected: Query = { OriginalString = query; Method = QueryMethod.BySignature (SignatureQuery.Signature expected) }
+      do! actual |> assertEquals expected
+    })
+  }

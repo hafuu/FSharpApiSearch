@@ -3,32 +3,9 @@
 open System.Diagnostics
 open FSharpApiSearch.MatcherTypes
 
-let fsharpMatchers =
-  [
-    NameMatcher.instance
-    SignatureMatcher.instance
-    ActivePatternMatcher.instance
-    ConstraintSolver.instance
-    NonPublicFilter.instance
-    ComputationExpressionMatcher.Filter.instance
-  ]
-
-let csharpMatchers =
-  [
-    NameMatcher.instance
-    SignatureMatcher.instance
-    ConstraintSolver.instance
-    NonPublicFilter.instance
-    CSharpFilter.instance
-  ]
-
-let matchers options =
+let buildMatchers options apiMatchers =
   let lowTypeMatcher = LowTypeMatcher.instance options
-  let apiMatchers =
-    match options.Mode with
-    | FSharp -> fsharpMatchers
-    | CSharp -> csharpMatchers
-    |> List.map (fun f -> f options)
+  let apiMatchers = apiMatchers |> List.map (fun f -> f options)
   (lowTypeMatcher, apiMatchers)
 
 let collectFromSignatureQuery getTarget query =
@@ -97,8 +74,7 @@ let initializeContext (dictionaries: ApiDictionary[]) (options: SearchOptions) (
     ApiDictionaries = dictionaries |> Seq.map (fun d -> (d.AssemblyName, d)) |> Map.ofSeq
   }
 
-let replaceTypeAbbreviation nameEquality (dictionaries: ApiDictionary seq) (query: Query) =
-  let table = dictionaries |> Seq.collect (fun x -> x.TypeAbbreviations) |> Seq.filter (fun t -> t.Accessibility = Public) |> Seq.map (fun t -> t.TypeAbbreviation) |> Seq.toList
+let private replaceTypeAbbreviation' nameEquality (table: TypeAbbreviation list) (query: Query) =
   let rec replace = function
     | Identity id as i ->
       let replacements = table |> List.filter (function { Abbreviation = Identity abbId } -> nameEquality abbId id | _ -> false)
@@ -158,8 +134,57 @@ let replaceTypeAbbreviation nameEquality (dictionaries: ApiDictionary seq) (quer
   | { Method = QueryMethod.BySignature sigQuery } -> { query with Method = QueryMethod.BySignature (replaceSignatureQuery sigQuery) }
   | { Method = QueryMethod.ByActivePattern apQuery } -> { query with Method = QueryMethod.ByActivePattern { apQuery with Signature = replaceActivePatternSignature apQuery.Signature } }
   | { Method = QueryMethod.ByComputationExpression ceQuery } -> { query with Method = QueryMethod.ByComputationExpression (replaceComputationExpressionQuery ceQuery) }
-          
 
-let initializeQuery (dictionaries: ApiDictionary seq) (options: SearchOptions) (query: Query) =
-  query
-  |> replaceTypeAbbreviation (Identity.equalityFromOptions options) dictionaries
+let replaceTypeAbbreviation (table: TypeAbbreviation list) (options: SearchOptions) (query: Query) =
+  replaceTypeAbbreviation' (Identity.equalityFromOptions options) table query
+
+let typeAbbreviationTableFromApiDictionary (dictionaries: ApiDictionary seq) =
+  dictionaries |> Seq.collect (fun x -> x.TypeAbbreviations) |> Seq.filter (fun t -> t.Accessibility = Public) |> Seq.map (fun t -> t.TypeAbbreviation) |> Seq.toList
+
+type IInitializeStorategy =
+  abstract Matchers: SearchOptions -> ILowTypeMatcher * IApiMatcher list
+  abstract ParseQuery: string -> Query
+  abstract InitializeQuery: Query * ApiDictionary[] * SearchOptions -> Query
+  abstract InitialContext: Query * ApiDictionary[] * SearchOptions -> Context
+
+type FSharpInitializeStorategy() =
+  interface IInitializeStorategy with
+    member this.Matchers(options) =
+      [
+        NameMatcher.instance
+        SignatureMatcher.instance
+        ActivePatternMatcher.instance
+        ConstraintSolver.instance
+        NonPublicFilter.instance
+        ComputationExpressionMatcher.Filter.instance
+      ]
+      |> buildMatchers options
+    member this.ParseQuery(queryStr) = QueryParser.FSharp.parse queryStr
+    member this.InitializeQuery(query, dictionaries, options) =
+      let table = typeAbbreviationTableFromApiDictionary dictionaries
+      query
+      |> replaceTypeAbbreviation table options
+    member this.InitialContext(query, dictionaries, options) = initializeContext dictionaries options query
+
+let csharpAliases =
+  SpecialTypes.Identity.CSharp.aliases
+  |> List.map (fun (alias, original) ->
+    let alias = Identity (PartialIdentity { Name = DisplayName.ofString alias; GenericParameterCount = 0 })
+    let original = Identity original
+    { Abbreviation = alias; Original = original })
+
+type CSharpInitializeStorategy() =
+  interface IInitializeStorategy with
+    member this.Matchers(options) =
+      [
+        NameMatcher.instance
+        CSharpFilter.instance
+        SignatureMatcher.instance
+        NonPublicFilter.instance
+      ]
+      |> buildMatchers options
+    member this.ParseQuery(queryStr) = QueryParser.CSharp.parse queryStr
+    member this.InitializeQuery(query, _, options) =
+      query
+      |> replaceTypeAbbreviation csharpAliases options
+    member this.InitialContext(query, dictionaries, options) = initializeContext dictionaries options query

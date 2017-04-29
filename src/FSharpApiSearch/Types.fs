@@ -560,9 +560,7 @@ module internal SpecialTypes =
           "ushort", typeof<System.UInt16>
           "string", typeof<System.String>
         ]
-        |> List.map (fun (alias, t) ->
-          let alias = (FullIdentity { AssemblyName = "dummy"; Name = Name.ofString alias; GenericParameterCount = 0 })
-          ofDotNetType t, alias)
+        |> List.map (fun (alias, t) -> alias, ofDotNetType t)
 
   module LowType =
     let ofDotNetType (t: Type) = LowType.Identity (Identity.ofDotNetType t)
@@ -961,7 +959,13 @@ module CSharpPrint =
           .AppendJoin(", ", args, (fun arg sb -> sb.Append(arg.Name)))
         .Append(">")
 
-  let csharpAlias = SpecialTypes.Identity.CSharp.aliases |> dict
+  let csharpAlias =
+    SpecialTypes.Identity.CSharp.aliases
+    |> List.map (fun (alias, t) ->
+      let alias = FullIdentity { AssemblyName = "dummy"; Name = Name.ofString alias; GenericParameterCount = 0 }
+      t, alias
+    )
+    |> dict
 
   let printIdentity (identity: Identity) (sb: StringBuilder) =
     let identity =

@@ -35,10 +35,16 @@ let internal search' (targets: ApiDictionary seq) (options: SearchOptions) (lowT
     | _ -> None
   )
 
+let internal storategy options =
+  match options.Mode with
+  | FSharp -> MatcherInitializer.FSharpInitializeStorategy() :> MatcherInitializer.IInitializeStorategy
+  | CSharp -> MatcherInitializer.CSharpInitializeStorategy() :> MatcherInitializer.IInitializeStorategy
+
 let search (dictionaries: ApiDictionary[]) (options: SearchOptions) (targets: ApiDictionary seq) (queryStr: string) =
-  let lowTypeMatcher, apiMatchers = MatcherInitializer.matchers options
-  let query = QueryParser.FSharp.parse queryStr |> MatcherInitializer.initializeQuery dictionaries options
-  let initialContext = MatcherInitializer.initializeContext dictionaries options query
+  let storategy = storategy options
+  let lowTypeMatcher, apiMatchers = storategy.Matchers(options)
+  let query = storategy.InitializeQuery(storategy.ParseQuery(queryStr), dictionaries, options)
+  let initialContext = storategy.InitialContext(query, dictionaries, options)
 
   match query.Method with
   | QueryMethod.ByComputationExpression ceQuery -> ComputationExpressionMatcher.search options targets lowTypeMatcher ceQuery initialContext
