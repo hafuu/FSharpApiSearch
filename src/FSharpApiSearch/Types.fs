@@ -443,9 +443,9 @@ type Query = {
 
 type OptionStatus = Enabled | Disabled
 
-type Mode = FSharp | CSharp
+type Language = FSharp | CSharp
 
-module Mode =
+module Language =
   let tryParse (str: string) =
     match str.ToLower() with
     | "f#" | "fsharp" -> Some FSharp
@@ -460,12 +460,12 @@ type SearchOptions = internal {
   SwapOrderDepth: int
   ComplementDepth: int
   Parallel: OptionStatus
-  Mode: Mode
+  Language: Language
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module SearchOptions =
-  let defaultOptions = { GreedyMatching = Disabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled; SwapOrderDepth = 2; ComplementDepth = 2; Parallel = Disabled; Mode = FSharp }
+  let defaultOptions = { GreedyMatching = Disabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled; SwapOrderDepth = 2; ComplementDepth = 2; Parallel = Disabled; Language = FSharp }
 
   let private statusToInt enabledValue = function
     | Enabled -> enabledValue
@@ -484,7 +484,7 @@ module SearchOptions =
   let ComplementDepth = { Get = (fun x -> x.ComplementDepth); Set = (fun value x -> { x with ComplementDepth = max 0 value }) }
   let Complement = { Get = ComplementDepth.Get >> intToStatus; Set = statusToInt defaultOptions.ComplementDepth >> ComplementDepth.Set }
   let Parallel = { Get = (fun x -> x.Parallel); Set = (fun value x -> { x with Parallel = value }) }
-  let Mode = { Get = (fun x -> x.Mode); Set = (fun value x -> { x with Mode = value }) }
+  let Language = { Get = (fun x -> x.Language); Set = (fun value x -> { x with Language = value }) }
 
 type Result = {
   Api: Api

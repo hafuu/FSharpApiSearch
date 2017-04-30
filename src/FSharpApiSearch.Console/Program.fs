@@ -24,7 +24,7 @@ let csharpPrinter (result: Result) =
   | None -> ()
 
 let getPrinter (args: Args) =
-  match SearchOptions.Mode.Get args.SearchOptions with
+  match SearchOptions.Language.Get args.SearchOptions with
   | FSharp -> fsharpPrinter
   | CSharp -> csharpPrinter
 
@@ -102,8 +102,8 @@ module Interactive =
   let (|NumberSetting|_|) (name: string) (lens: Lens<_, _>) target (str: string) =
     setting tryParseInt name lens target str
 
-  let (|ModeSetting|_|) (name: string) (lens: Lens<_, _>) target (str: string) =
-    setting Mode.tryParse name lens target str
+  let (|LanguageSetting|_|) (name: string) (lens: Lens<_, _>) target (str: string) =
+    setting Language.tryParse name lens target str
 
   let ShowXmlDocument = { Get = (fun x -> x.ShowXmlDocument); Set = (fun value x -> { x with ShowXmlDocument = value }) }
   let StackTrace = { Get = (fun x -> x.StackTrace); Set = (fun value x -> { x with StackTrace = value }) }
@@ -127,6 +127,8 @@ FSharpApiSearch.Console interactive mode directive:
       Enables of disables to complement parameters and tuple elements.
   #xmldoc [enable|disable]
       Enables or disables to show xml document of API.
+  #language [F#|fsharp|C#|csharp]
+      Specifies the language.
   #stacktrace [enable|disable]
       Enables or disables stacktrace output if an exception occurs.
   #clear
@@ -152,7 +154,7 @@ FSharpApiSearch.Console interactive mode directive:
     | OptionSetting "#ignore-case" SearchOptions.IgnoreCase arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#swap-order" SearchOptions.SwapOrder arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#complement" SearchOptions.Complement arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
-    | ModeSetting   "#mode" SearchOptions.Mode arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
+    | LanguageSetting "#language" SearchOptions.Language arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#xmldoc" ShowXmlDocument arg newArg -> loop client newArg
     | OptionSetting "#stacktrace" StackTrace arg newArg -> loop client newArg
     | "#clear" ->
@@ -196,6 +198,9 @@ options:
   --complement[+|-]
       Enables or disables to complement parameters and tuple elements.
       The default is enabled.
+  --language:[F#|fsharp|C#|csharp]
+      Specifies the language.
+      The default is F#.
   --target:<assembly>, -t:<assembly>
       Specifies the assembly name of the searching target.
       If omitted, it will target 'FSharp.Core', 'mscorlib', 'System' and 'System.Core'.

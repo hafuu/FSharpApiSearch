@@ -37,7 +37,7 @@ let internal search' (targets: ApiDictionary seq) (options: SearchOptions) (lowT
   )
 
 let internal storategy options =
-  match options.Mode with
+  match options.Language with
   | FSharp -> MatcherInitializer.FSharpInitializeStorategy() :> MatcherInitializer.IInitializeStorategy
   | CSharp -> MatcherInitializer.CSharpInitializeStorategy() :> MatcherInitializer.IInitializeStorategy
 
