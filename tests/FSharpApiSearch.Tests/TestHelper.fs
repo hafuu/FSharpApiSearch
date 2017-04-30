@@ -178,8 +178,9 @@ module Types =
     let float = createType "Microsoft.FSharp.Core.float" [] |> updateAssembly fscore
     typeAbbreviation double float
 
+  let Unit = createType "Microsoft.FSharp.Core.Unit" [] |> updateAssembly fscore
+
   let unit =
-    let Unit = createType "Microsoft.FSharp.Core.Unit" [] |> updateAssembly fscore
     let unit = createType "Microsoft.FSharp.Core.unit" [] |> updateAssembly fscore
     typeAbbreviation Unit unit
 

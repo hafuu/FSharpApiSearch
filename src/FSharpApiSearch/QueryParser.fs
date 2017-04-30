@@ -161,6 +161,8 @@ module FSharp =
     | Failure (msg, _, _) -> failwithf "%s" msg
 
 module CSharp =
+  let punit = trim (skipString "void" <|> skipString "()") |>> fun _ -> SpecialTypes.LowType.Unit
+
   let pidentifier =
     let head = letter <|> pchar '_'
     let tail = letter <|> digit <|> anyOf "_'"
@@ -195,6 +197,7 @@ module CSharp =
 
   let ptype =
     choice [
+      attempt punit
       attempt (between (pcharAndTrim '(') (pcharAndTrim ')') csharpSignature)
       attempt generic
       attempt identity

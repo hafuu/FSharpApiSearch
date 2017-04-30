@@ -5,6 +5,7 @@ open Persimmon.Syntax.UseTestNameByReflection
 open Persimmon.MuscleAssert
 open FSharpApiSearch
 open TestHelper.DSL
+open TestHelper.Types
 
 module FSharp =
   module BySignature =
@@ -279,6 +280,14 @@ module CSharp =
       source [
         "<a> : a -> b", (arrow [ queryVariable "'a"; identity "b" ])
         "<a, b> : a -> b", (arrow [ queryVariable "'a"; queryVariable "'b" ])
+      ]
+
+      run runSignatureTest
+    }
+
+    let unitTest = parameterize {
+      source [
+        "() -> void", (arrow [ Unit; Unit ])
       ]
 
       run runSignatureTest
