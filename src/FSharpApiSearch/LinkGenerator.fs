@@ -149,183 +149,108 @@ module LinkGenerator =
 
   module internal MicrosoftDocs =
     open SpecialTypes
-    open FSharpImpl
-    let isGeneric api = api.Name |> Name.toDisplayName |> List.exists (fun n -> List.isEmpty n.GenericParameters = false)
+    open SpecialTypes.LowType.Patterns
+    open System.Collections.Generic
+    open System.Text
 
-    let convertGenericUrl (api:Api) (dname : seq<DisplayNameItem>) =   
-        let toParameterSeq (dname : DisplayNameItem list) =
-            let mutable genericParameterIsWrite = false
-            dname |> Seq.map ( fun n -> 
-                                if genericParameterIsWrite = false && n.GenericParameters.IsEmpty = false then
-                                    genericParameterIsWrite <- true
-                                    let genericCounter = n.GenericParameters |> List.length
-                                    (CSharpImpl.toDisplayName n.Name) + "-" + (genericCounter.ToString())
-                                            
-                                else
-                                    (CSharpImpl.toDisplayName n.Name))
-        
-        match api.Signature with
-        | ApiSignature.Constructor (_ , _) ->
-            seq {
-                let revdname = (Name.toDisplayName api.Name).Tail |> List.rev
-                yield! revdname |> toParameterSeq
-                yield "-ctor"
-            }
+    let nameElementsAndVariableId (api: Api) =
+      let wroteGeneric = ref false
+      let variableId = ref 0
+      let variableMemory = Dictionary<string, int>()
+      let memory variable =
+        if variableMemory.ContainsKey(variable) = false then
+          variableMemory.[variable] <- !variableId
+          incr variableId
+      
+      let convert (name: DisplayNameItem) =
+        name.GenericParameters |> List.iter (fun p -> memory p.Name)
+        if !wroteGeneric = false && name.GenericParameters.IsEmpty = false then
+          wroteGeneric := true
+          urlName name + "-" + string name.GenericParameters.Length
+        else
+          urlName name
+          
+      let elems =
+        match api.Kind with
+        | ApiKind.Constructor ->
+          [|
+            yield! Name.toDisplayName api.Name |> List.tail |> Seq.rev |> Seq.map convert
+            yield "-ctor"
+          |]
         | _ ->
-            dname |> Seq.rev |> Seq.toList |> toParameterSeq
+          Name.toDisplayName api.Name |> Seq.rev |> Seq.map convert |> Seq.toArray
 
-    let convertGenericParameter (dname : seq<DisplayNameItem>) =   
-        dname |> Seq.map (
-            fun n -> 
-                if n.GenericParameters.IsEmpty = false && n.GenericParameters |> List.exists(fun x -> x.Name = (CSharpImpl.toDisplayName n.Name)) then
-                    let genericCounter = n.GenericParameters |> List.findIndex(fun x -> x.Name = (CSharpImpl.toDisplayName n.Name)) 
-                    "_" + (genericCounter.ToString())
-                                            
-                else
-                    (CSharpImpl.toDisplayName n.Name)
-        ) 
+      elems, variableMemory
 
-    let generateMSDocsUrl (api :Api) (mem : Member) =
-        let getParameterString (lt : LowType) =
-            seq {
-                    match lt with
-                    | LowType.Patterns.AbbreviationRoot original -> 
-                        match original with
-                        | Identity originalID -> 
-                            match originalID with
-                            | FullIdentity foid  -> 
-                                match foid.Name  with
-                                | DisplayName dname -> 
-                                    match lt with
-                                    | LowType.Patterns.Unit -> ()
-                                    | _ ->
-                                        let revdname = dname |> List.rev
-                                        for nameItem in revdname do
-                                            yield (CSharpImpl.toDisplayName nameItem.Name)
-                                | _ -> ()
-                            | _ -> ()
-                        | _ -> ()
-                    | _ -> ()
-            }
-        
-        let getParameterQuery (dname : seq<DisplayNameItem>) mem = 
-                                    seq {
-                                        for param in mem.Parameters do
-                                            for param2 in param do
-                                                match param2.Type with
-                                                | TypeAbbreviation t -> 
-                                                    yield! getParameterString param2.Type
-                                                
-                                                | LowType.Patterns.Array (name, elem) ->
-                                                    yield! getParameterString elem
-                                                    yield "_"
-                                                
-                                                | Variable (vs , tv) ->
-                                                    for n in dname do
-                                                        if n.GenericParameters.IsEmpty = false 
-                                                                        && n.GenericParameters |> List.exists(fun x -> x.Name = tv.Name) then
-                                                            let genericCounter = n.GenericParameters |> List.findIndex(fun x -> x.Name = tv.Name) 
-                                                            yield "_" + (genericCounter.ToString())
-                                                        else
-                                                            ()
-                                                | Generic (Identity id , [elem]) ->
-                                                    for n in dname do
-                                                        if n.GenericParameters.IsEmpty = false 
-                                                                        && n.GenericParameters |> List.exists(fun x -> match elem with
-                                                                                                                        | Variable (vs , tv) -> x.Name = tv.Name
-                                                                                                                        | _ -> false
-                                                                                                                ) then
-                                                            let genericCounter = n.GenericParameters |> List.findIndex(fun x -> match elem with
-                                                                                                                                | Variable (vs , tv) -> x.Name = tv.Name
-                                                                                                                                | _ -> false
-                                                                                                                        )
-                                                            match id with
-                                                            | FullIdentity fid -> 
-                                                                if (CSharpImpl.toDisplayName ((Name.toDisplayName fid.Name).Head.Name)) = "byref" then
-                                                                    yield "_" + (genericCounter.ToString()) + "_"
-                                                                else
-                                                                    yield "_" + (genericCounter.ToString())
-                                                        else
-                                                            ()
-                                                    ()
+    let urlPart elems (sb: StringBuilder) =
+      let elems = elems |> Seq.map toLower
+      sb.AppendJoin(".", elems)
 
-                                                | _ -> ()
-                                     } |> String.concat "_"
+    let (|ByRef|_|) = function
+      | Generic (Identity (FullIdentity { Name = DisplayName ns }), [ arg ]) when urlName ns.Head = "byref" -> Some arg
+      | _ -> None
 
-        if isGeneric api then
+    let rec parameterElement (variableMemory: Dictionary<string, int>) (t: LowType) (sb: StringBuilder) : StringBuilder =
+      match t with
+      | Unit -> sb
+      | Identity (FullIdentity { Name = name }) ->
+        let ns = Name.toDisplayName name |> Seq.rev
+        sb.AppendJoin("_", ns, (fun n sb -> sb.Append(urlName n)))
+      | Array (_, elem) -> sb.Append(parameterElement variableMemory elem).Append("__")
+      | ByRef arg -> sb.Append(parameterElement variableMemory arg).Append("_")
+      | Generic (id, args) ->
+        sb.Append(parameterElement variableMemory id)
+          .Append("__")
+          .AppendJoin("_", args, (parameterElement variableMemory))
+          .Append("_")
+      | Variable (_, v) -> sb.Append("_").Append(variableMemory.[v.Name])
+      | Delegate (d, _) -> sb.Append(parameterElement variableMemory d)
+      | AbbreviationRoot root -> sb.Append(parameterElement variableMemory root)
+      | _ -> sb
 
-            let urlBase : list<string> = api.Name |> Name.toDisplayName
-                                            |> convertGenericUrl api
-                                            |> List.ofSeq
-            let url = urlBase |> String.concat "." |> toLower
-            
-            let parameter = urlBase |> List.map(fun (x : string) -> x.Replace("-","_")) |> String.concat "_"
-            
-            let parameterQuery = getParameterQuery (Name.toDisplayName api.Name) mem
+    let hasParameter (member': Member) =
+      match member'.Parameters with
+      | [] | [ [ { Type = Unit } ] ] -> false
+      | _ -> true
 
-            if parameterQuery.Length > 0 then
-                (url + "?#" + parameter + "_" + parameterQuery + "_") |> Some
-            else
-                (url + "?#" + parameter) |> Some
-        else
-            let basedname = seq {
-                                match api.Signature with
-                                | ApiSignature.Constructor (_ , _) ->
-                                    let revdname = (Name.toDisplayName api.Name).Tail |> List.rev
-                                    for nameItem in revdname do
-                                        yield (CSharpImpl.toDisplayName nameItem.Name)
-                                    yield "-ctor"
-                                | _ ->
-                                    let revdname = (Name.toDisplayName api.Name) |> List.rev
-                                    for nameItem in revdname do
-                                        yield (CSharpImpl.toDisplayName nameItem.Name)
-            }
-            let urlBase = basedname |> String.concat "."
-                            |> toLower
-            let nameParameter = basedname |>  Seq.map(fun (x : string) -> x.Replace("-","_")) |> String.concat "_"
-            
-            let parameterQuery = getParameterQuery (Name.toDisplayName api.Name) mem
-    
-            if parameterQuery.Length > 0 then
-                (urlBase + "?#" + nameParameter + "_" + parameterQuery + "_") |> Some
-            else
-                (urlBase + "?#" + nameParameter) |> Some
-    
-    let generateMSDocsTypeUrl (api : Api) =
-        if isGeneric api then
-            let urlBase : list<string> = api.Name |> Name.toDisplayName 
-                                            |> convertGenericUrl api
-                                            |> List.ofSeq
-            urlBase |> String.concat "." |> toLower |> Some
-        else
-            let urlBase = (Name.toDisplayName api.Name |> Seq.rev |> Seq.map (fun n -> (CSharpImpl.toDisplayName n.Name)) |> String.concat ".")
-                            |> toLower
-            urlBase |> Some
-            
+    let hashPart (nameElems: string[]) (variableMemory: Dictionary<_, _>) (member': Member) (sb: StringBuilder) =
+      let nameElems = nameElems |> Seq.map (fun n -> n.Replace("-", "_"))
+      
+      sb.AppendJoin("_", nameElems) |> ignore
+
+      if hasParameter member' then
+        let parameters = member'.Parameters |> Seq.collect id |> Seq.map (fun p -> p.Type)
+        sb.Append("_")
+          .AppendJoin("_", parameters, (parameterElement variableMemory))
+          .Append("_")
+        |> ignore
+
+      sb
+
     let generate (api: Api) =
-        match api.Signature with
-            | ApiSignature.ActivePatten _
-            | ApiSignature.ModuleValue _
-            | ApiSignature.ModuleFunction _
-            | ApiSignature.ModuleDefinition _            
-            | ApiSignature.TypeAbbreviation _
-            | ApiSignature.TypeExtension _
-            | ApiSignature.ExtensionMember _
-            | ApiSignature.ComputationExpressionBuilder _
-            | ApiSignature.UnionCase _ -> None
+      match api.Signature with
+      | ApiSignature.ActivePatten _
+      | ApiSignature.ModuleValue _
+      | ApiSignature.ModuleFunction _
+      | ApiSignature.ModuleDefinition _            
+      | ApiSignature.TypeAbbreviation _
+      | ApiSignature.TypeExtension _
+      | ApiSignature.ExtensionMember _
+      | ApiSignature.ComputationExpressionBuilder _
+      | ApiSignature.UnionCase _ -> None
 
-            | ApiSignature.Constructor (_ , (x : Member)) ->
-                generateMSDocsUrl api x
+      | ApiSignature.FullTypeDefinition _ ->
+        let nameElems, _ = nameElementsAndVariableId api
+        let sb = StringBuilder().Append(urlPart nameElems)
+        Some (string sb)
 
-            | ApiSignature.FullTypeDefinition _ -> 
-                generateMSDocsTypeUrl api
-
-            | ApiSignature.InstanceMember (_ , (x : Member)) ->
-                generateMSDocsUrl api x
-
-            | ApiSignature.StaticMember (_ , (x : Member)) ->
-                generateMSDocsUrl api x
+      | ApiSignature.Constructor (_ , (member' : Member))
+      | ApiSignature.InstanceMember (_ , (member' : Member))
+      | ApiSignature.StaticMember (_ ,(member' : Member)) ->
+        let nameElems, variableMemory = nameElementsAndVariableId api
+        let sb = StringBuilder().Append(urlPart nameElems).Append("?#").Append(hashPart nameElems variableMemory member')
+        Some (string sb)
 
   let fsharp baseUrl: LinkGenerator = fun api -> FSharp.generate api |> Option.map (fun apiUrl -> baseUrl + apiUrl)
   let msdn baseUrl: LinkGenerator = fun api -> Msdn.generate api |> Option.map (fun apiUrl -> baseUrl + apiUrl)
-  let msdocs baseUrl:LinkGenerator = fun api -> MicrosoftDocs.generate api |> Option.map (fun apiUrl -> baseUrl + apiUrl)
+  let msdocs baseUrl: LinkGenerator = fun api -> MicrosoftDocs.generate api |> Option.map (fun apiUrl -> baseUrl + apiUrl)
