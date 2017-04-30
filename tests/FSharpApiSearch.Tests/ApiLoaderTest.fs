@@ -6,6 +6,7 @@ open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
 open Persimmon.MuscleAssert
 open FSharpApiSearch
+open FSharpApiSearch.Printer
 open TestHelper
 open TestHelper.DSL
 open TestHelper.Types

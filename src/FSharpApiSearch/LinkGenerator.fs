@@ -2,6 +2,8 @@
 
 type LinkGenerator = Api -> string option
 
+open FSharpApiSearch.Printer
+
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module LinkGenerator =
   open System.Web

@@ -1,22 +1,27 @@
 ﻿module FSharpApiSearch.Console.Program
 
 open FSharpApiSearch
+open FSharpApiSearch.Printer
 open System.Diagnostics
 open System
 open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
 let fsharpPrinter (result: Result) =
-  Console.Write(sprintf "%s: %s" (result.Api.Name.Print()) (result.Api.PrintSignature()))
+  Console.Write(sprintf "%s: %s" (FSharp.printName result.Api) (FSharp.printSignature result.Api))
   Console.ForegroundColor <- ConsoleColor.DarkGray
-  Console.WriteLine(sprintf ", %s, %s" (result.Api.PrintKind()) result.AssemblyName)
-  if result.Api.TypeConstraints.IsEmpty = false then
-    Console.WriteLine(sprintf "  %s" (result.Api.PrintTypeConstraints()))
+  Console.WriteLine(sprintf ", %s, %s" (FSharp.printKind result.Api) result.AssemblyName)
+  match FSharp.tryPrintTypeConstraints result.Api with
+  | Some constraints -> Console.WriteLine(sprintf "  %s" constraints)
+  | None -> ()
   
 let csharpPrinter (result: Result) =
-  Console.Write(result.Api.PrintCSharpSignatureAndName())
+  Console.Write(CSharp.printSignatureAndName result.Api)
   Console.ForegroundColor <- ConsoleColor.DarkGray
-  Console.WriteLine(sprintf ", %s, %s" (result.Api.PrintKind()) result.AssemblyName)
+  Console.WriteLine(sprintf ", %s, %s" (CSharp.printKind result.Api) result.AssemblyName)
+  match CSharp.tryPrintTypeConstraints result.Api with
+  | Some constraints -> Console.WriteLine(sprintf "  %s" constraints)
+  | None -> ()
 
 let getPrinter (args: Args) =
   match SearchOptions.Mode.Get args.SearchOptions with

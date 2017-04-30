@@ -69,6 +69,7 @@
     <Compile Include="TestHelper.fs" />
     <Compile Include="QueryParserTest.fs" />
     <Compile Include="TypesTest.fs" />
+    <Compile Include="PrinterTest.fs" />
     <Compile Include="MatcherTest.fs" />
     <Compile Include="ComputationExpressionMatcherTest.fs" />
     <Compile Include="ApiLoaderTest.fs" />

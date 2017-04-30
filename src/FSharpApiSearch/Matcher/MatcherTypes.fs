@@ -2,6 +2,7 @@
 
 open System.Diagnostics
 open FSharpApiSearch
+open FSharpApiSearch.Printer
 
 type Equations = {
   Equalities: (LowType * LowType) list

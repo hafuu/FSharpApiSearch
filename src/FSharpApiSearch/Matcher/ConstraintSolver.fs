@@ -3,6 +3,7 @@
 open System.Diagnostics
 open FSharpApiSearch.MatcherTypes
 open FSharpApiSearch.SpecialTypes
+open FSharpApiSearch.Printer
 
 let getFullTypeDefinition (ctx: Context) (baseType: LowType) =
   let rec getIdentity = function
@@ -223,7 +224,7 @@ let rec solve' (lowTypeMatcher: ILowTypeMatcher) (constraints: TypeConstraint li
     
   Debug.WriteLine("Begin solving type constraints.")
   Debug.WriteLine(sprintf "Equalities: %A" (List.map Equations.debugEquality testEqualities))
-  Debug.WriteLine(sprintf "Constraints: %A" (constraints |> List.map TypeConstraint.debug))
+  Debug.WriteLine(sprintf "Constraints: %A" (constraints |> List.map (fun c -> c.Debug())))
   Debug.Indent()
 
   let testConstraint constraint' contextBranches testeeSignature: Context seq = seq {

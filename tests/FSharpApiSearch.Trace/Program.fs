@@ -1,6 +1,7 @@
 ﻿module FSharpApiSearch.Trace.Program
 
 open FSharpApiSearch
+open FSharpApiSearch.Printer
 open FSharpApiSearch.Console
 open System
 open System.Diagnostics
@@ -40,7 +41,7 @@ let main argv =
         Console.Write("> ");
         let targetName = Console.ReadLine()
 
-        let target = apis |> Array.find (fun x -> x.Name.Print() = targetName)
+        let target = apis |> Array.find (fun x -> FSharp.printName x = targetName)
         let dummyDict: ApiDictionary = { AssemblyName = "dummy"; Api = [| target |]; TypeDefinitions = [||]; TypeAbbreviations = [||] }
         let result = Matcher.search dictionaries options [ dummyDict ] query
 

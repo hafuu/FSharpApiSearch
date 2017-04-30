@@ -2,6 +2,7 @@
 
 open System.Diagnostics
 open FSharpApiSearch.MatcherTypes
+open FSharpApiSearch.Printer
 open FSharp.Collections.ParallelSeq
 
 let internal test (lowTypeMatcher: ILowTypeMatcher) (apiMatchers: IApiMatcher list) (query: Query) (ctx: Context) (api: Api) =

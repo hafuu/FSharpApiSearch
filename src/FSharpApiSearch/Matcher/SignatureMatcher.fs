@@ -3,6 +3,7 @@
 open System.Diagnostics
 open FSharpApiSearch.MatcherTypes
 open FSharpApiSearch.SpecialTypes
+open FSharpApiSearch.Printer
 
 module Rules =
   let choiceRule runRules (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =

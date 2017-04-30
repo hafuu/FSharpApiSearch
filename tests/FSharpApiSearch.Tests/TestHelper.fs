@@ -1,6 +1,7 @@
 ﻿module TestHelper
 
 open FSharpApiSearch
+open FSharpApiSearch.Printer
 
 let defaultTestOptions =
   SearchOptions.defaultOptions
@@ -133,7 +134,7 @@ module DSL =
           match x.GenericParameters with
           | [] -> ""
           | args -> "`" + string args.Length
-        let name = Print.toDisplayName x.Name
+        let name = FSharpImpl.toDisplayName x.Name
         name + genericSuffix
       defName |> List.rev |> List.map toFullName |> String.concat "."
     { Name = defName; FullName = fullName; AssemblyName = "test"; Accessibility = Public; GenericParameters = defName.Head.GenericParameters; Abbreviated = original; Original = original }

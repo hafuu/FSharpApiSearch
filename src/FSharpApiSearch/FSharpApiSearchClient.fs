@@ -2,6 +2,7 @@
 
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open FSharpApiSearch.AssemblyLoader
+open FSharpApiSearch.Printer
 open FSharp.Collections.ParallelSeq
 
 type TargetSummary = {

@@ -2,6 +2,7 @@
 
 open System.Diagnostics
 open FSharpApiSearch.MatcherTypes
+open FSharpApiSearch.Printer
 
 module Context =
     let setEquations eqs ctx = { ctx with Equations = eqs }
