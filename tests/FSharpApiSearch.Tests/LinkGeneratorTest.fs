@@ -63,6 +63,8 @@ let msdocsTest = parameterize {
     "System.Random.new" , "unit -> Random", Some "system.random.-ctor?#System_Random__ctor"
     "System.Random.new" , "Seed:int -> Random", Some "system.random.-ctor?#System_Random__ctor_System_Int32_"
     "System.Progress<'T>.new" , "unit -> Progress<'T>" , Some "system.progress-1.-ctor?#System_Progress_1__ctor"
+    "System.String.Join", "separator:string * values:IEnumerable<'T> -> string", Some "system.string.join--1?#System_String_Join__1_System_String_System_Collections_Generic_IEnumerable___0__"
+    "System.String.Join", "separator:string * values:IEnumerable<string> -> string", Some "system.string.join?#System_String_Join_System_String_System_Collections_Generic_IEnumerable_System_String__"
   ]
   run (fun (name, signature, expected) -> test {
     let! apiDict = mscorlibApi

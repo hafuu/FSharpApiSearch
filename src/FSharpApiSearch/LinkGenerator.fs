@@ -162,11 +162,11 @@ module LinkGenerator =
           variableMemory.[variable] <- !variableId
           incr variableId
       
-      let convert (name: DisplayNameItem) =
+      let convert (modifiedString : string) (name: DisplayNameItem) =
         name.GenericParameters |> List.iter (fun p -> memory p.Name)
         if !wroteGeneric = false && name.GenericParameters.IsEmpty = false then
           wroteGeneric := true
-          urlName name + "-" + string name.GenericParameters.Length
+          urlName name + modifiedString + string name.GenericParameters.Length
         else
           urlName name
           
@@ -174,11 +174,13 @@ module LinkGenerator =
         match api.Kind with
         | ApiKind.Constructor ->
           [|
-            yield! Name.toDisplayName api.Name |> List.tail |> Seq.rev |> Seq.map convert
+            yield! Name.toDisplayName api.Name |> List.tail |> Seq.rev |> Seq.map (convert "-")
             yield "-ctor"
           |]
+        | ApiKind.Member(_ , _) when List.isEmpty ((Name.toDisplayName api.Name).Head.GenericParameters) = false ->
+          Name.toDisplayName api.Name |> Seq.rev |> Seq.map (convert "--") |> Seq.toArray
         | _ ->
-          Name.toDisplayName api.Name |> Seq.rev |> Seq.map convert |> Seq.toArray
+          Name.toDisplayName api.Name |> Seq.rev |> Seq.map (convert "-") |> Seq.toArray
 
       elems, variableMemory
 
@@ -199,10 +201,14 @@ module LinkGenerator =
       | Array (_, elem) -> sb.Append(parameterElement variableMemory elem).Append("__")
       | ByRef arg -> sb.Append(parameterElement variableMemory arg).Append("_")
       | Generic (id, args) ->
-        sb.Append(parameterElement variableMemory id)
-          .Append("__")
-          .AppendJoin("_", args, (parameterElement variableMemory))
-          .Append("_")
+        sb.Append(parameterElement variableMemory id) |> ignore
+        
+        match args.Head with
+        | Variable (_,_) -> sb.Append("__") |> ignore
+        | _ -> sb.Append("_") |> ignore
+
+        sb.AppendJoin("_", args, (parameterElement variableMemory))
+            .Append("_")
       | Variable (_, v) -> sb.Append("_").Append(variableMemory.[v.Name])
       | Delegate (d, _) -> sb.Append(parameterElement variableMemory d)
       | AbbreviationRoot root -> sb.Append(parameterElement variableMemory root)
