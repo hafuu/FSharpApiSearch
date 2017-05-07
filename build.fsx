@@ -3,6 +3,7 @@
 // --------------------------------------------------------------------------------------
 
 #r @"packages/build/FAKE/tools/FakeLib.dll"
+#r @"packages/build/FAKE/tools/ICSharpCode.SharpZipLib.dll"
 #r @"packages/build/FAKE.Persimmon/lib/net451/FAKE.Persimmon.dll"
 open Fake
 open Fake.Git
@@ -37,7 +38,7 @@ let summary = "F# API search engine"
 
 // Longer description of the project
 // (used as a description for NuGet package; line breaks are automatically cleaned up)
-let description = "Project has no description; update build.fsx"
+let description = "F# API search engine"
 
 // List of author names (for NuGet package)
 let authors = [ "hafuu" ]
@@ -48,19 +49,22 @@ let tags = ""
 // File system information
 let solutionFile  = "FSharpApiSearch.sln"
 
+// Default target configuration
+let configuration = "Release"
+
 // Pattern specifying assemblies to be tested using NUnit
-let testAssemblies = "tests/**/bin/Release/*Tests*.dll"
+let testAssemblies = "tests/**/bin" </> configuration </> "*Tests*.dll"
 
 // Git configuration (used for publishing documentation in gh-pages branch)
 // The profile where the project is posted
 let gitOwner = "hafuu"
-let gitHome = "https://github.com/" + gitOwner
+let gitHome = sprintf "%s/%s" "https://github.com" gitOwner
 
 // The name of the project on GitHub
 let gitName = "FSharpApiSearch"
 
 // The url for the raw files hosted
-let gitRaw = environVarOrDefault "gitRaw" "https://raw.github.com/hafuu"
+let gitRaw = environVarOrDefault "gitRaw" "https://raw.githubusercontent.com/hafuu"
 
 // --------------------------------------------------------------------------------------
 // END TODO: The rest of the file includes standard build steps
@@ -85,7 +89,8 @@ Target "AssemblyInfo" (fun _ ->
           Attribute.Product project
           Attribute.Description summary
           Attribute.Version release.AssemblyVersion
-          Attribute.FileVersion release.AssemblyVersion ]
+          Attribute.FileVersion release.AssemblyVersion
+          Attribute.Configuration configuration ]
 
     let getProjectDetails projectPath =
         let projectName = System.IO.Path.GetFileNameWithoutExtension(projectPath)
@@ -112,19 +117,23 @@ Target "AssemblyInfo" (fun _ ->
 Target "CopyBinaries" (fun _ ->
     !! "src/**/*.??proj"
     -- "src/**/*.shproj"
-    |>  Seq.map (fun f -> ((System.IO.Path.GetDirectoryName f) </> "bin/Release", "bin" </> (System.IO.Path.GetFileNameWithoutExtension f)))
+    |>  Seq.map (fun f -> ((System.IO.Path.GetDirectoryName f) </> "bin" </> configuration, "bin" </> (System.IO.Path.GetFileNameWithoutExtension f)))
     |>  Seq.iter (fun (fromDir, toDir) -> CopyDir toDir fromDir (fun _ -> true))
 )
 
 // --------------------------------------------------------------------------------------
 // Clean build results
 
-Target "Clean" (fun _ ->
-    CleanDirs ["bin"; "temp"]
-)
+let vsProjProps = 
+#if MONO
+    [ ("DefineConstants","MONO"); ("Configuration", configuration) ]
+#else
+    [ ("Configuration", configuration); ("Platform", "Any CPU") ]
+#endif
 
-Target "CleanDocs" (fun _ ->
-    CleanDirs ["docs/output"]
+Target "Clean" (fun _ ->
+    !! solutionFile |> MSBuildReleaseExt "" vsProjProps "Clean" |> ignore
+    CleanDirs ["bin"; "temp"; "docs/output"]
 )
 
 // --------------------------------------------------------------------------------------
@@ -132,11 +141,7 @@ Target "CleanDocs" (fun _ ->
 
 Target "Build" (fun _ ->
     !! solutionFile
-#if MONO
-    |> MSBuildReleaseExt "" [ ("DefineConstants","MONO") ] "Rebuild"
-#else
-    |> MSBuildRelease "" "Rebuild"
-#endif
+    |> MSBuildReleaseExt "" vsProjProps "Rebuild"
     |> ignore
 )
 
@@ -180,9 +185,33 @@ Target "NuGet" (fun _ ->
 Target "PublishNuget" (fun _ ->
     Paket.Push(fun p ->
         { p with
+            PublishUrl = "https://api.nuget.org/v3/index.json"
             WorkingDir = "bin" })
 )
 
+// --------------------------------------------------------------------------------------
+// Build a zip package
+
+let githubReleaseFilePath = "./bin" @@ (project + ".zip")
+
+module ZIP = Fake.ArchiveHelper.Zip
+
+Target "PackGithubRelease" (fun _ ->
+  use file = ZIP.createFile ZIP.ZipCompressionDefaults (fileInfo githubReleaseFilePath)
+
+  let add entry = ZIP.addZipEntry file { ArchiveEntryPath = project </> filename entry; InputFile = fileInfo entry }
+
+  !! ("./bin/FSharpApiSearch/" @@ "**" @@ "*.dll")
+  |> Seq.iter add
+
+  [
+    "./bin/FSharpApiSearch.Console/FSharpApiSearch.Console.exe"
+    "./bin/FSharpApiSearch.Console/FSharpApiSearch.Console.exe.config"
+    "./bin/FSharpApiSearch.Database/FSharpApiSearch.Database.exe"
+    "./bin/FSharpApiSearch.Database/FSharpApiSearch.Database.exe.config"
+  ]
+  |> Seq.iter add
+)
 
 // --------------------------------------------------------------------------------------
 // Generate the documentation
@@ -357,7 +386,7 @@ Target "Release" (fun _ ->
     // release on github
     createClient user pw
     |> createDraft gitOwner gitName release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes
-    // TODO: |> uploadFile "PATH_TO_FILE"
+    |> uploadFile githubReleaseFilePath
     |> releaseDraft
     |> Async.RunSynchronously
 )
@@ -369,38 +398,37 @@ Target "BuildPackage" DoNothing
 
 Target "All" DoNothing
 
-"Clean"
-  ==> "AssemblyInfo"
+"AssemblyInfo"
   ==> "Build"
   ==> "CopyBinaries"
   ==> "RunTests"
-  ==> "All"
-  =?> ("ReleaseDocs",isLocalBuild)
-
-"All"
+  //==> "GenerateReferenceDocs"
+  //==> "GenerateDocs"
 #if MONO
 #else
   =?> ("SourceLink", Pdbstr.tryFind().IsSome )
 #endif
   ==> "NuGet"
+  ==> "PackGithubRelease"
   ==> "BuildPackage"
+  ==> "All"
+  =?> ("ReleaseDocs",isLocalBuild)
 
-"CleanDocs"
-  ==> "GenerateHelp"
+"GenerateHelp"
   ==> "GenerateReferenceDocs"
   ==> "GenerateDocs"
-
-"CleanDocs"
-  ==> "GenerateHelpDebug"
 
 "GenerateHelpDebug"
   ==> "KeepRunning"
 
-"ReleaseDocs"
+"Clean"
   ==> "Release"
 
 "BuildPackage"
   ==> "PublishNuget"
   ==> "Release"
+
+//"ReleaseDocs"
+//  ==> "Release"
 
 RunTargetOrDefault "All"

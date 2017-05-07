@@ -703,8 +703,8 @@ NUGET
 GROUP Build
 NUGET
   remote: https://www.nuget.org/api/v2
-    FAKE (4.56)
-    FAKE.Lib (4.56)
+    FAKE (4.61.1)
+    FAKE.Lib (4.61.1)
     FAKE.Persimmon (1.0.4)
       FAKE.Lib (>= 4.1)
       Persimmon.Console (>= 1.0.2)
@@ -722,11 +722,11 @@ NUGET
       Microsoft.Bcl.Build (>= 1.0.14)
     Octokit (0.24)
       Microsoft.Net.Http  - framework: net10, net11, net20, net30, net35, net40, net40-full
-    Persimmon.Console (1.2)
+    Persimmon.Console (2.0.1)
     SourceLink.Fake (1.1)
 GITHUB
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (0cca21da332895437de5785210610bd055a77ac2)
+    modules/Octokit/Octokit.fsx (5df6bb2d94cbe28a476fd23e79e411dca6678c4c)
       Octokit (>= 0.20)
 GROUP Test
 NUGET
