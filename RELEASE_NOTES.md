@@ -1,3 +1,8 @@
+### 3.0.0-beta1
+* Support struct tuple
+* Remove `=>` syntax
+* Add C# mode
+
 ### 2.1.2 - 2017/1/26
 * Fix the computation expression builder url
 
