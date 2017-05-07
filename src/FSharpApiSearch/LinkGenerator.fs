@@ -147,7 +147,7 @@ module LinkGenerator =
         |> toLower
         |> Some
 
-  module internal MicrosoftDocs =
+  module internal DotNetApiBrowser =
     open SpecialTypes
     open SpecialTypes.LowType.Patterns
     open System.Collections.Generic
@@ -170,6 +170,8 @@ module LinkGenerator =
         else
           urlName name
           
+      let isGenericMember (api: Api) = List.isEmpty ((Name.toDisplayName api.Name).Head.GenericParameters) = false
+
       let elems =
         match api.Kind with
         | ApiKind.Constructor ->
@@ -177,8 +179,13 @@ module LinkGenerator =
             yield! Name.toDisplayName api.Name |> List.tail |> Seq.rev |> Seq.map (convert "-")
             yield "-ctor"
           |]
-        | ApiKind.Member(_ , _) when List.isEmpty ((Name.toDisplayName api.Name).Head.GenericParameters) = false ->
+
+        | ApiKind.ExtensionMember when isGenericMember api ->
           Name.toDisplayName api.Name |> Seq.rev |> Seq.map (convert "--") |> Seq.toArray
+
+        | ApiKind.Member(_ , _) when isGenericMember api ->
+          Name.toDisplayName api.Name |> Seq.rev |> Seq.map (convert "--") |> Seq.toArray
+
         | _ ->
           Name.toDisplayName api.Name |> Seq.rev |> Seq.map (convert "-") |> Seq.toArray
 
@@ -233,7 +240,7 @@ module LinkGenerator =
 
       sb
 
-    let generate (api: Api) =
+    let generate (view: string) (api: Api) =
       match api.Signature with
       | ApiSignature.ActivePatten _
       | ApiSignature.ModuleValue _
@@ -241,22 +248,22 @@ module LinkGenerator =
       | ApiSignature.ModuleDefinition _            
       | ApiSignature.TypeAbbreviation _
       | ApiSignature.TypeExtension _
-      | ApiSignature.ExtensionMember _
       | ApiSignature.ComputationExpressionBuilder _
       | ApiSignature.UnionCase _ -> None
 
       | ApiSignature.FullTypeDefinition _ ->
         let nameElems, _ = nameElementsAndVariableId api
-        let sb = StringBuilder().Append(urlPart nameElems)
+        let sb = StringBuilder().Append(urlPart nameElems).Append("?view=").Append(view)
         Some (string sb)
 
+      | ApiSignature.ExtensionMember (member' : Member)
       | ApiSignature.Constructor (_ , (member' : Member))
       | ApiSignature.InstanceMember (_ , (member' : Member))
       | ApiSignature.StaticMember (_ ,(member' : Member)) ->
         let nameElems, variableMemory = nameElementsAndVariableId api
-        let sb = StringBuilder().Append(urlPart nameElems).Append("?#").Append(hashPart nameElems variableMemory member')
+        let sb = StringBuilder().Append(urlPart nameElems).Append("?view=").Append(view).Append("#").Append(hashPart nameElems variableMemory member')
         Some (string sb)
 
   let fsharp baseUrl: LinkGenerator = fun api -> FSharp.generate api |> Option.map (fun apiUrl -> baseUrl + apiUrl)
   let msdn baseUrl: LinkGenerator = fun api -> Msdn.generate api |> Option.map (fun apiUrl -> baseUrl + apiUrl)
-  let msdocs baseUrl: LinkGenerator = fun api -> MicrosoftDocs.generate api |> Option.map (fun apiUrl -> baseUrl + apiUrl)
+  let dotNetApiBrowser baseUrl (view: string) : LinkGenerator = fun api -> DotNetApiBrowser.generate view api |> Option.map (fun apiUrl -> baseUrl + apiUrl)

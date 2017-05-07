@@ -46,30 +46,73 @@ let msdnTest = parameterize {
   })
 }
 
-let msdocsTest = parameterize {
+let dotNetApiBrowserTest = parameterize {
   source [
-    "System.Random", "type Random", Some "system.random"
-    "System.Progress", "type Progress<'T>", Some "system.progress-1"
-    "System.Random.Next", "unit -> int", Some "system.random.next?#System_Random_Next"
-    "System.Random.Next", "maxValue:int -> int", Some "system.random.next?#System_Random_Next_System_Int32_"
-    "System.Random.Next", "minValue:int * maxValue:int -> int", Some "system.random.next?#System_Random_Next_System_Int32_System_Int32_"
-    "System.Random.NextBytes", "buffer:byte[] -> unit", Some "system.random.nextbytes?#System_Random_NextBytes_System_Byte___"
-    "System.Lazy<'T>.Value", "'T", Some "system.lazy-1.value?#System_Lazy_1_Value"
+    "System.Random", "type Random", Some "system.random?view=netframework-4.7"
+    "System.Progress", "type Progress<'T>", Some "system.progress-1?view=netframework-4.7"
+    "System.Random.Next", "unit -> int", Some "system.random.next?view=netframework-4.7#System_Random_Next"
+    "System.Random.Next", "maxValue:int -> int", Some "system.random.next?view=netframework-4.7#System_Random_Next_System_Int32_"
+    "System.Random.Next", "minValue:int * maxValue:int -> int", Some "system.random.next?view=netframework-4.7#System_Random_Next_System_Int32_System_Int32_"
+    "System.Random.NextBytes", "buffer:byte[] -> unit", Some "system.random.nextbytes?view=netframework-4.7#System_Random_NextBytes_System_Byte___"
+    "System.Lazy<'T>.Value", "'T", Some "system.lazy-1.value?view=netframework-4.7#System_Lazy_1_Value"
     "System.Collections.Generic.Dictionary<'TKey, 'TValue>.ValueCollection<'TKey, 'TValue>.Enumerator<'TKey, 'TValue>.Current", "'TValue", 
-        Some "system.collections.generic.dictionary-2.valuecollection.enumerator.current?#System_Collections_Generic_Dictionary_2_ValueCollection_Enumerator_Current"
-    "System.String.Split", "separator:char[] -> string[]", Some "system.string.split?#System_String_Split_System_Char___"
-    "System.Collections.Generic.List<'T>.Reverse", "index:int * count:int -> unit" , Some "system.collections.generic.list-1.reverse?#System_Collections_Generic_List_1_Reverse_System_Int32_System_Int32_"
-    "System.Collections.Generic.Dictionary<'TKey, 'TValue>.TryGetValue" , "key:'TKey * value:byref<'TValue> -> bool", Some "system.collections.generic.dictionary-2.trygetvalue?#System_Collections_Generic_Dictionary_2_TryGetValue__0__1__"
-    "System.Random.new" , "unit -> Random", Some "system.random.-ctor?#System_Random__ctor"
-    "System.Random.new" , "Seed:int -> Random", Some "system.random.-ctor?#System_Random__ctor_System_Int32_"
-    "System.Progress<'T>.new" , "unit -> Progress<'T>" , Some "system.progress-1.-ctor?#System_Progress_1__ctor"
-    "System.String.Join", "separator:string * values:IEnumerable<'T> -> string", Some "system.string.join--1?#System_String_Join__1_System_String_System_Collections_Generic_IEnumerable___0__"
-    "System.String.Join", "separator:string * values:IEnumerable<string> -> string", Some "system.string.join?#System_String_Join_System_String_System_Collections_Generic_IEnumerable_System_String__"
+        Some "system.collections.generic.dictionary-2.valuecollection.enumerator.current?view=netframework-4.7#System_Collections_Generic_Dictionary_2_ValueCollection_Enumerator_Current"
+    "System.String.Split", "separator:char[] -> string[]", Some "system.string.split?view=netframework-4.7#System_String_Split_System_Char___"
+    "System.Collections.Generic.List<'T>.Reverse", "index:int * count:int -> unit" , Some "system.collections.generic.list-1.reverse?view=netframework-4.7#System_Collections_Generic_List_1_Reverse_System_Int32_System_Int32_"
+    "System.Collections.Generic.Dictionary<'TKey, 'TValue>.TryGetValue" , "key:'TKey * value:byref<'TValue> -> bool", Some "system.collections.generic.dictionary-2.trygetvalue?view=netframework-4.7#System_Collections_Generic_Dictionary_2_TryGetValue__0__1__"
+    "System.Random.new" , "unit -> Random", Some "system.random.-ctor?view=netframework-4.7#System_Random__ctor"
+    "System.Random.new" , "Seed:int -> Random", Some "system.random.-ctor?view=netframework-4.7#System_Random__ctor_System_Int32_"
+    "System.Progress<'T>.new" , "unit -> Progress<'T>" , Some "system.progress-1.-ctor?view=netframework-4.7#System_Progress_1__ctor"
+    "System.String.Join", "separator:string * values:IEnumerable<'T> -> string", Some "system.string.join--1?view=netframework-4.7#System_String_Join__1_System_String_System_Collections_Generic_IEnumerable___0__"
+    "System.String.Join", "separator:string * values:IEnumerable<string> -> string", Some "system.string.join?view=netframework-4.7#System_String_Join_System_String_System_Collections_Generic_IEnumerable_System_String__"
   ]
   run (fun (name, signature, expected) -> test {
     let! apiDict = mscorlibApi
     let api = apiDict.Api |> Array.find (fun a -> a.Name.Print() = name && a.Signature.Print() = signature)
-    let actual = LinkGenerator.MicrosoftDocs.generate api
+    let actual = LinkGenerator.DotNetApiBrowser.generate "netframework-4.7" api
+    do! actual |> assertEquals expected
+  })
+}
+
+let dotNetApiBrowserExtensionTest = parameterize {
+  source [
+    "System.Linq.Queryable.SelectMany", "source:IQueryable<'TSource> * selector:Expression<Func<'TSource, IEnumerable<'TResult>>> -> IQueryable<'TResult>", 
+        Some "system.linq.queryable.selectmany--2?view=netframework-4.7#System_Linq_Queryable_SelectMany__2_System_Linq_IQueryable___0__System_Linq_Expressions_Expression_System_Func___0_System_Collections_Generic_IEnumerable___1____"
+  ]
+  run (fun (name, signature, expected) -> test {
+    let! apiDict = systemCoreApi
+    let api = apiDict.Api |> Array.find (fun a -> a.Name.Print() = name && a.Signature.Print() = signature)
+    let actual = LinkGenerator.DotNetApiBrowser.generate "netframework-4.7" api
+    do! actual |> assertEquals expected
+  })
+}
+
+let dotNetApiBrowserViewTest = parameterize {
+  source [
+    "System.String", "type String", "netcore-1.0", Some "system.string?view=netcore-1.0"
+    "System.String", "type String", "netcore-1.1", Some "system.string?view=netcore-1.1"
+    "System.String", "type String", "netframework-4.5", Some "system.string?view=netframework-4.5"
+    "System.String", "type String", "netframework-4.5.1", Some "system.string?view=netframework-4.5.1"
+    "System.String", "type String", "netframework-4.5.2", Some "system.string?view=netframework-4.5.2"
+    "System.String", "type String", "netframework-4.6", Some "system.string?view=netframework-4.6"
+    "System.String", "type String", "netframework-4.6.1", Some "system.string?view=netframework-4.6.1"
+    "System.String", "type String", "netframework-4.6.2", Some "system.string?view=netframework-4.6.2"
+    "System.String", "type String", "netframework-4.7", Some "system.string?view=netframework-4.7"
+    "System.String", "type String", "netstandard-1.0", Some "system.string?view=netstandard-1.0"
+    "System.String", "type String", "netstandard-1.1", Some "system.string?view=netstandard-1.1"
+    "System.String", "type String", "netstandard-1.2", Some "system.string?view=netstandard-1.2"
+    "System.String", "type String", "netstandard-1.3", Some "system.string?view=netstandard-1.3"
+    "System.String", "type String", "netstandard-1.4", Some "system.string?view=netstandard-1.4"
+    "System.String", "type String", "netstandard-1.5", Some "system.string?view=netstandard-1.5"
+    "System.String", "type String", "netstandard-1.6", Some "system.string?view=netstandard-1.6"
+    "System.String", "type String", "xamarinios-10.8", Some "system.string?view=xamarinios-10.8"
+    "System.String", "type String", "xamarinandroid-7.1", Some "system.string?view=xamarinandroid-7.1"
+    "System.String", "type String", "xamarinmac-3.0", Some "system.string?view=xamarinmac-3.0"
+    ]
+  run (fun (name, signature, view, expected) -> test {
+    let! apiDict = mscorlibApi
+    let api = apiDict.Api |> Array.find (fun a -> a.Name.Print() = name && a.Signature.Print() = signature)
+    let actual = LinkGenerator.DotNetApiBrowser.generate view api
     do! actual |> assertEquals expected
   })
 }
