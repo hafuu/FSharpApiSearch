@@ -96,6 +96,11 @@ let mscorlibApi = test {
   return apiDictionary |> Array.find (fun x -> x.AssemblyName = "mscorlib")
 }
 
+let systemCoreApi = test {
+  let! apiDictionary = apiDictionary
+  return apiDictionary |> Array.find (fun x -> x.AssemblyName = "System.Core")
+}
+
 let valueTupleApi = test {
   let! apiDictionary = apiDictionary
   return apiDictionary |> Array.find (fun x -> x.AssemblyName = valueTupleAssemblyName)

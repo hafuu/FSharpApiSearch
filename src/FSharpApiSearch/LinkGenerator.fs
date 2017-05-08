@@ -118,7 +118,6 @@ module LinkGenerator =
 
       return sprintf "%s%s-%s-[fsharp]" namePart genericParamsPart kindPart |> toLower |> urlEncode
     }
-
   module internal Msdn =
     let isGeneric api = api.Name |> Name.toDisplayName |> List.exists (fun n -> List.isEmpty n.GenericParameters = false)
     let canGenerate (api: Api) =
@@ -147,7 +146,124 @@ module LinkGenerator =
         (Name.toDisplayName api.Name |> Seq.rev |> Seq.map urlName |> String.concat ".") + ".aspx"
         |> toLower
         |> Some
+
+  module internal DotNetApiBrowser =
+    open SpecialTypes
+    open SpecialTypes.LowType.Patterns
+    open System.Collections.Generic
+    open System.Text
+
+    let nameElementsAndVariableId (api: Api) =
+      let wroteGeneric = ref false
+      let variableId = ref 0
+      let variableMemory = Dictionary<string, int>()
+      let memory variable =
+        if variableMemory.ContainsKey(variable) = false then
+          variableMemory.[variable] <- !variableId
+          incr variableId
+      
+      let convert (modifiedString : string) (name: DisplayNameItem) =
+        name.GenericParameters |> List.iter (fun p -> memory p.Name)
+        if !wroteGeneric = false && name.GenericParameters.IsEmpty = false then
+          wroteGeneric := true
+          urlName name + modifiedString + string name.GenericParameters.Length
+        else
+          urlName name
+          
+      let isGenericMember (api: Api) = List.isEmpty ((Name.toDisplayName api.Name).Head.GenericParameters) = false
+
+      let elems =
+        match api.Kind with
+        | ApiKind.Constructor ->
+          [|
+            yield! Name.toDisplayName api.Name |> List.tail |> Seq.rev |> Seq.map (convert "-")
+            yield "-ctor"
+          |]
+
+        | ApiKind.ExtensionMember when isGenericMember api ->
+          Name.toDisplayName api.Name |> Seq.rev |> Seq.map (convert "--") |> Seq.toArray
+
+        | ApiKind.Member(_ , _) when isGenericMember api ->
+          Name.toDisplayName api.Name |> Seq.rev |> Seq.map (convert "--") |> Seq.toArray
+
+        | _ ->
+          Name.toDisplayName api.Name |> Seq.rev |> Seq.map (convert "-") |> Seq.toArray
+
+      elems, variableMemory
+
+    let urlPart elems (sb: StringBuilder) =
+      let elems = elems |> Seq.map toLower
+      sb.AppendJoin(".", elems)
+
+    let (|ByRef|_|) = function
+      | Generic (Identity (FullIdentity { Name = DisplayName ns }), [ arg ]) when urlName ns.Head = "byref" -> Some arg
+      | _ -> None
+
+    let rec parameterElement (variableMemory: Dictionary<string, int>) (t: LowType) (sb: StringBuilder) : StringBuilder =
+      match t with
+      | Unit -> sb
+      | Identity (FullIdentity { Name = name }) ->
+        let ns = Name.toDisplayName name |> Seq.rev
+        sb.AppendJoin("_", ns, (fun n sb -> sb.Append(urlName n)))
+      | Array (_, elem) -> sb.Append(parameterElement variableMemory elem).Append("__")
+      | ByRef arg -> sb.Append(parameterElement variableMemory arg).Append("_")
+      | Generic (id, args) ->
+        sb.Append(parameterElement variableMemory id) |> ignore
         
+        match args.Head with
+        | Variable (_,_) -> sb.Append("__") |> ignore
+        | _ -> sb.Append("_") |> ignore
+
+        sb.AppendJoin("_", args, (parameterElement variableMemory))
+            .Append("_")
+      | Variable (_, v) -> sb.Append("_").Append(variableMemory.[v.Name])
+      | Delegate (d, _) -> sb.Append(parameterElement variableMemory d)
+      | AbbreviationRoot root -> sb.Append(parameterElement variableMemory root)
+      | _ -> sb
+
+    let hasParameter (member': Member) =
+      match member'.Parameters with
+      | [] | [ [ { Type = Unit } ] ] -> false
+      | _ -> true
+
+    let hashPart (nameElems: string[]) (variableMemory: Dictionary<_, _>) (member': Member) (sb: StringBuilder) =
+      let nameElems = nameElems |> Seq.map (fun n -> n.Replace("-", "_"))
+      
+      sb.AppendJoin("_", nameElems) |> ignore
+
+      if hasParameter member' then
+        let parameters = member'.Parameters |> Seq.collect id |> Seq.map (fun p -> p.Type)
+        sb.Append("_")
+          .AppendJoin("_", parameters, (parameterElement variableMemory))
+          .Append("_")
+        |> ignore
+
+      sb
+
+    let generate (view: string) (api: Api) =
+      match api.Signature with
+      | ApiSignature.ActivePatten _
+      | ApiSignature.ModuleValue _
+      | ApiSignature.ModuleFunction _
+      | ApiSignature.ModuleDefinition _            
+      | ApiSignature.TypeAbbreviation _
+      | ApiSignature.TypeExtension _
+      | ApiSignature.ComputationExpressionBuilder _
+      | ApiSignature.UnionCase _ -> None
+
+      | ApiSignature.FullTypeDefinition _ ->
+        let nameElems, _ = nameElementsAndVariableId api
+        let sb = StringBuilder().Append(urlPart nameElems).Append("?view=").Append(view)
+        Some (string sb)
+
+      | ApiSignature.ExtensionMember (member' : Member)
+      | ApiSignature.Constructor (_ , (member' : Member))
+      | ApiSignature.InstanceMember (_ , (member' : Member))
+      | ApiSignature.StaticMember (_ ,(member' : Member)) ->
+        let nameElems, variableMemory = nameElementsAndVariableId api
+        let sb = StringBuilder().Append(urlPart nameElems).Append("?view=").Append(view).Append("#").Append(hashPart nameElems variableMemory member')
+        Some (string sb)
 
   let fsharp baseUrl: LinkGenerator = fun api -> FSharp.generate api |> Option.map (fun apiUrl -> baseUrl + apiUrl)
   let msdn baseUrl: LinkGenerator = fun api -> Msdn.generate api |> Option.map (fun apiUrl -> baseUrl + apiUrl)
+  let dotNetApiBrowser baseUrl (view: string) : LinkGenerator = fun api -> DotNetApiBrowser.generate view api |> Option.map (fun apiUrl -> baseUrl + apiUrl)

@@ -37,11 +37,18 @@ module internal Extensions =
   open System.Text
   type StringBuilder with
     member this.Append(print: StringBuilder -> StringBuilder) = print this
-    member this.AppendJoin(sep: string, xs: 'a list, print: 'a -> StringBuilder -> StringBuilder) : StringBuilder =
-      if xs.IsEmpty then
+    member this.AppendJoin(sep: string, xs: 'a seq, print: 'a -> StringBuilder -> StringBuilder) : StringBuilder =
+      if Seq.isEmpty xs then
         this
       else
-        print xs.Head this |> ignore
-        xs.Tail
-        |> List.iter (fun x -> this.Append(sep).Append(print x) |> ignore)
+        let first = ref true
+
+        for x in xs do
+          if !first then
+            this.Append(print x) |> ignore
+            first := false
+          else
+            this.Append(sep).Append(print x) |> ignore
         this
+
+    member this.AppendJoin(sep: string, xs: string seq) = this.AppendJoin(sep, xs, (fun x sb -> sb.Append(x)))
