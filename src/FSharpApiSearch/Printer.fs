@@ -397,6 +397,10 @@ module internal CSharpImpl =
 
   let toFSharpFunc xs = xs |> List.reduceBack (fun id ret -> Generic(SpecialTypes.LowType.FSharpFunc, [ id; ret ]))
 
+  let rec nestedArray acc = function
+    | Array (name, elem) -> nestedArray (name :: acc) elem
+    | x -> acc, x
+
   let rec printLowType t (sb: StringBuilder) =
     match t with
     | Wildcard name ->
@@ -408,15 +412,11 @@ module internal CSharpImpl =
     | Arrow xs -> printLowType (toFSharpFunc xs) sb
     | Tuple { Elements = xs; IsStruct = false } -> sb.Append("Tuple<").AppendJoin(", ", xs, printLowType).Append(">")
     | Tuple { Elements = xs; IsStruct = true } -> sb.Append("(").AppendJoin(", ", xs, printLowType).Append(")")
-    //| LowType.Patterns.Array (name, elem) ->
-    //  match elem with
-    //  | Tuple { IsStruct = false } | Arrow _ ->
-    //    sb.Append("(")
-    //      .Append(printLowType isDebug printIdentity elem)
-    //      .Append(")")
-    //      |> ignore
-    //  | _ -> sb.Append(printLowType isDebug printIdentity elem) |> ignore
-    //  sb.Append(name)
+    | Array (array, elem) ->
+      let arrays, elem = nestedArray [ array ] elem
+      sb.Append(printLowType elem) |> ignore
+      arrays |> Seq.rev |> Seq.iter (fun a -> sb.Append(a) |> ignore)
+      sb
     | Generic (id, args) -> sb.Append(printLowType id).Append("<").AppendJoin(", ", args, printLowType).Append(">")
     | TypeAbbreviation t -> sb.Append(printLowType t.Original)
     | Delegate (t, _) -> sb.Append(printLowType t)

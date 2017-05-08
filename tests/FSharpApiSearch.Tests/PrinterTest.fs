@@ -48,7 +48,6 @@ let printName_long_test = parameterize {
 
 let printApiSignatureTest =
   let Int32 = createType "System.Int32" []
-  let array t = createType "Microsoft.FSharp.Core.[]<'a>" [ t ]
   parameterize {
     source [
       moduleValue typeA, "a"
@@ -116,6 +115,22 @@ let debugPrintTest = parameterize {
     do! actual |> assertEquals expected
   })
 }
+
+let printCSharpLowTypeTest =
+  parameterize {
+    source[
+      (array (identity "A")), "A[]"
+      (array2D (identity "A")), "A[,]"
+      (array (generic (identity "A") [ identity "B" ])), "A<B>[]"
+      (array (array2D (identity "A"))), "A[][,]"
+    ]
+    run (fun (input, expected) -> test {
+      let sb = System.Text.StringBuilder()
+      do CSharpImpl.printLowType input sb |> ignore
+      let actual = sb.ToString()
+      do! actual |> assertEquals expected
+    })
+  }
 
 let printCSharpSignatureTest =
   let n = Name.ofString
