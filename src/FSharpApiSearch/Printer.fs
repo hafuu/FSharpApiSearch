@@ -493,6 +493,17 @@ module internal CSharpImpl =
     }
     printMethod name m false sb
 
+  let printFullTypeDefinition (td: FullTypeDefinition) (sb: StringBuilder) =
+    let kind =
+      match td.Kind with
+      | TypeDefinitionKind.Class
+      | TypeDefinitionKind.Record
+      | TypeDefinitionKind.Type
+      | TypeDefinitionKind.Union -> "class"
+      | TypeDefinitionKind.Interface -> "interface"
+      | TypeDefinitionKind.Enumeration -> "enum"
+    sb.Append(kind).Append(" ").Append(printNameItem td.Name.[0])
+
   let printApiSignature (name: Name) (apiSig: ApiSignature) (sb: StringBuilder) =
     let error name = failwithf "%s is not C# api." name
     let name = Name.toDisplayName name
@@ -504,7 +515,7 @@ module internal CSharpImpl =
     | ApiSignature.StaticMember (_, m) -> sb.Append("static ").Append(printMember name m)
     | ApiSignature.Constructor (_, m) -> sb.Append(printConstructor name m)
     | ApiSignature.ModuleDefinition _ -> error "Module"
-    | ApiSignature.FullTypeDefinition x -> sb.Append("type ").Append(printNameItem x.Name.[0])
+    | ApiSignature.FullTypeDefinition td -> sb.Append(printFullTypeDefinition td)
     | ApiSignature.TypeAbbreviation _ -> error "TypeAbbreviation"
     | ApiSignature.TypeExtension _ -> error "TypeExtension"
     | ApiSignature.ExtensionMember m -> sb.Append(printMethod name m true)
