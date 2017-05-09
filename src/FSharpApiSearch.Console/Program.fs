@@ -8,20 +8,33 @@ open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
 let fsharpPrinter (result: Result) =
-  Console.Write(sprintf "%s: %s" (FSharp.printName result.Api) (FSharp.printSignature result.Api))
+  Console.ForegroundColor <- ConsoleColor.DarkGray
+  Console.Write(FSharp.printAccessPath None result.Api)
+  Console.Write(".")
+  Console.ResetColor()
+  Console.Write(FSharp.printApiName result.Api)
+  Console.Write(" : ")
+  Console.Write(FSharp.printSignature result.Api)
   Console.ForegroundColor <- ConsoleColor.DarkGray
   Console.WriteLine(sprintf ", %s, %s" (FSharp.printKind result.Api) result.AssemblyName)
   match FSharp.tryPrintTypeConstraints result.Api with
   | Some constraints -> Console.WriteLine(sprintf "  %s" constraints)
   | None -> ()
+  Console.ResetColor()
   
 let csharpPrinter (result: Result) =
-  Console.Write(CSharp.printSignatureAndName result.Api)
+  Console.ForegroundColor <- ConsoleColor.DarkGray
+  Console.Write(CSharp.printAccessPath None result.Api)
+  Console.Write(".")
+  Console.ResetColor()
+  Console.Write(CSharp.printApiName result.Api)
+  Console.Write(CSharp.printSignature result.Api)
   Console.ForegroundColor <- ConsoleColor.DarkGray
   Console.WriteLine(sprintf ", %s, %s" (CSharp.printKind result.Api) result.AssemblyName)
   match CSharp.tryPrintTypeConstraints result.Api with
   | Some constraints -> Console.WriteLine(sprintf "  %s" constraints)
   | None -> ()
+  Console.ResetColor()
 
 let getPrinter (args: Args) =
   match SearchOptions.Language.Get args.SearchOptions with
@@ -34,7 +47,10 @@ let searchAndShowResult (client: Lazy<FSharpApiSearchClient>) (query: string) ar
   let printResult = getPrinter args
   let printXmlDoc result =
     match args.ShowXmlDocument, result.Api.Document with
-    | Enabled, Some doc -> Console.WriteLine(doc)
+    | Enabled, Some doc ->
+      Console.ForegroundColor <- ConsoleColor.DarkGray
+      Console.WriteLine(doc)
+      Console.ResetColor()
     | _ -> ()
   let results =
     client.Search(query, opt)

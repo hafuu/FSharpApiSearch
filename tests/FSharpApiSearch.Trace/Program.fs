@@ -41,7 +41,7 @@ let main argv =
         Console.Write("> ");
         let targetName = Console.ReadLine()
 
-        let target = apis |> Array.find (fun x -> FSharp.printName x = targetName)
+        let target = apis |> Array.find (fun x -> FSharp.printApiName x = targetName)
         let dummyDict: ApiDictionary = { AssemblyName = "dummy"; Api = [| target |]; TypeDefinitions = [||]; TypeAbbreviations = [||] }
         let result = Matcher.search dictionaries options [ dummyDict ] query
 

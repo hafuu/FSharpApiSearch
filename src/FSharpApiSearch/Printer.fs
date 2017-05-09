@@ -56,13 +56,25 @@ module internal FSharpImpl =
       sb.Append(toDisplayName ns.Head.Name)
 
   let printName_full (name: Name) (sb: StringBuilder) =
+    let print (name: DisplayName) (sb: StringBuilder) = sb.AppendJoin(".", List.rev name, printNameItem)
     match name with
     | LoadingName (_, n1, n2) ->
       match n2 with
       | [] -> sb.Append(n1)
       | n2 ->
-        sb.Append(n1).Append(".").Append(printDisplayName_full n2)
-    | DisplayName n -> sb.Append(printDisplayName_full n)
+        sb.Append(n1).Append(".").Append(print n2)
+    | DisplayName n -> sb.Append(print n)
+
+  let printApiName (name: Name) (sb: StringBuilder) =
+    let name = Name.toDisplayName name
+    sb.Append(printNameItem name.Head)
+
+  let printAccessPath depth (name: Name) (sb: StringBuilder) =
+    let ns = Name.toDisplayName name
+    let depth = Option.defaultValue (ns.Tail.Length) depth
+    
+    let pathes = List.truncate depth ns.Tail |> List.rev
+    sb.AppendJoin(".", pathes, printNameItem)
 
   let printIdentity_full (identity: Identity) (sb: StringBuilder) =
     match identity with
@@ -305,7 +317,10 @@ module internal FSharpImpl =
     | ApiSignature.ComputationExpressionBuilder builder -> sb.Append(printComputationExpressionBuilder isDebug builder)
 
 module FSharp =
-  let printName (api: Api) = StringBuilder().Append(FSharpImpl.printName_full api.Name).ToString()
+  let printFullName (api: Api) = StringBuilder().Append(FSharpImpl.printName_full api.Name).ToString()
+  let printApiName (api: Api) = StringBuilder().Append(FSharpImpl.printApiName api.Name).ToString()
+  let printAccessPath (depth: int option) (api: Api) = StringBuilder().Append(FSharpImpl.printAccessPath depth api.Name).ToString()
+
   let printSignature (api: Api) = StringBuilder().Append(FSharpImpl.printApiSignature false api.Signature).ToString()
   let printKind (api: Api) =
     match api.Signature with
@@ -342,6 +357,28 @@ module internal CSharpImpl =
         .Append("<")
           .AppendJoin(", ", args, (fun arg sb -> sb.Append(arg.Name)))
         .Append(">")
+
+  let printDisplayName_full xs (sb: StringBuilder) = sb.AppendJoin(".", List.rev xs, printNameItem)
+
+  let printName_full (name: Name) (sb: StringBuilder) =
+    match name with
+    | LoadingName (_, n1, n2) ->
+      match n2 with
+      | [] -> sb.Append(n1)
+      | n2 ->
+        sb.Append(n1).Append(".").Append(printDisplayName_full n2)
+    | DisplayName n -> sb.Append(printDisplayName_full n)
+
+  let printApiName (name: Name) (sb: StringBuilder) =
+    let name = Name.toDisplayName name
+    sb.Append(printNameItem name.Head)
+
+  let printAccessPath depth (name: Name) (sb: StringBuilder) =
+    let ns = Name.toDisplayName name
+    let depth = Option.defaultValue (ns.Tail.Length) depth
+    
+    let pathes = List.truncate depth ns.Tail |> List.rev
+    sb.AppendJoin(".", pathes, printNameItem)
 
   let csharpAlias =
     SpecialTypes.Identity.CSharp.aliases
@@ -409,24 +446,13 @@ module internal CSharpImpl =
     p.Name |> Option.iter (fun name -> sb.Append(" ").Append(name) |> ignore)
     sb
 
-  let printPropertyKind propKind (sb: StringBuilder) =
-    match propKind with
-    | PropertyKind.Get -> sb.Append("{ get; }")
-    | PropertyKind.Set -> sb.Append("{ set; }")
-    | PropertyKind.GetSet -> sb.Append("{ get; set; }")
-
   let printPropertyParameter (m: Member) (sb: StringBuilder) =
     let parameters = m.Parameters |> List.collect id
     sb.Append("[").AppendJoin(", ", parameters, printParameter).Append("]")
 
-  let printProperty (name: DisplayName) (m: Member) (sb: StringBuilder) =
-    sb.Append(printLowType m.ReturnParameter.Type)
-      .Append(" ").Append(printNameItem name.[1]).Append(".").Append(printNameItem name.[0])
-      |> ignore
+  let printProperty (m: Member) (sb: StringBuilder) =
     if List.isEmpty m.Parameters = false then sb.Append(printPropertyParameter m) |> ignore
-
-    let propKind = match m.Kind with MemberKind.Property propKind -> propKind | _ -> failwith "it is not property."
-    sb.Append(" ").Append(printPropertyKind propKind)
+    sb.Append(" : ").Append(printLowType m.ReturnParameter.Type)
 
   let printReturnParameter (p: Parameter) (sb: StringBuilder) =
     match p.Type with
@@ -445,27 +471,26 @@ module internal CSharpImpl =
         sb.Append("(") |> ignore
       sb.AppendJoin(", ", parameters, printParameter).Append(")")
 
-  let printMethod (name: DisplayName) (m: Member) (isExtension: bool) (sb: StringBuilder) =
-    sb.Append(printReturnParameter m.ReturnParameter)
-      .Append(" ").Append(printNameItem name.[1]).Append(".").Append(printNameItem name.[0])
-      .Append(printMethodParameter m isExtension)
+  let printMethod (m: Member) (isExtension: bool) (sb: StringBuilder) =
+    sb.Append(printMethodParameter m isExtension)
+      .Append(" : ")
+      .Append(printReturnParameter m.ReturnParameter)
 
-  let printField (name: DisplayName) (m: Member) (sb: StringBuilder) =
-    sb.Append(printLowType m.ReturnParameter.Type)
-      .Append(" ").Append(printNameItem name.[1]).Append(".").Append(printNameItem name.[0])
+  let printField (m: Member) (sb: StringBuilder) =
+    sb.Append(" : ").Append(printLowType m.ReturnParameter.Type)
 
-  let printMember (name: DisplayName) (m: Member) (sb: StringBuilder) =
+  let printMember (m: Member) (sb: StringBuilder) =
     match m.Kind with
-    | MemberKind.Property _ -> sb.Append(printProperty name m)
-    | MemberKind.Method -> sb.Append(printMethod name m false)
-    | MemberKind.Field -> sb.Append(printField name m)
+    | MemberKind.Property _ -> sb.Append(printProperty m)
+    | MemberKind.Method -> sb.Append(printMethod m false)
+    | MemberKind.Field -> sb.Append(printField m)
 
-  let printConstructor (name: DisplayName) (m: Member) (sb: StringBuilder) =
-    let typeName = name.[1]
-    sb.Append(printNameItem typeName).Append(".").Append(printNameItem typeName)
-      .Append(printMethodParameter m false)
+  let printConstructor (m: Member) (sb: StringBuilder) =
+    sb.Append(printMethodParameter m false).Append(" : void")
 
-  let printFunction (name: DisplayName) (fn: Function) (sb: StringBuilder) =
+  let printModuleValue (t: LowType) (sb: StringBuilder) = sb.Append(" : ").Append(printLowType t)
+
+  let printFunction (fn: Function) (sb: StringBuilder) =
     let m = {
       Name = "dummy"
       Kind = MemberKind.Method
@@ -473,7 +498,7 @@ module internal CSharpImpl =
       Parameters = fn |> List.take (List.length fn - 1)
       ReturnParameter = fn |> List.last |> List.head
     }
-    printMethod name m false sb
+    printMethod m false sb
 
   let printFullTypeDefinition (td: FullTypeDefinition) (sb: StringBuilder) =
     let kind =
@@ -484,23 +509,22 @@ module internal CSharpImpl =
       | TypeDefinitionKind.Union -> "class"
       | TypeDefinitionKind.Interface -> "interface"
       | TypeDefinitionKind.Enumeration -> "enum"
-    sb.Append(kind).Append(" ").Append(printNameItem td.Name.[0])
+    sb.Append(" : ").Append(kind).Append(" ").Append(printNameItem td.Name.[0])
 
-  let printApiSignature (name: Name) (apiSig: ApiSignature) (sb: StringBuilder) =
+  let printApiSignature (apiSig: ApiSignature) (sb: StringBuilder) =
     let error name = failwithf "%s is not C# api." name
-    let name = Name.toDisplayName name
     match apiSig with
-    | ApiSignature.ModuleValue t -> sb.Append("static ").Append(printLowType t).Append(" ").Append(printNameItem name.[1]).Append(".").Append(printNameItem name.[0]).Append(" ").Append(printPropertyKind PropertyKind.Get)
-    | ApiSignature.ModuleFunction fn -> sb.Append("static ").Append(printFunction name fn)
+    | ApiSignature.ModuleValue t -> sb.Append(printModuleValue t)
+    | ApiSignature.ModuleFunction fn -> sb.Append(printFunction fn)
     | ApiSignature.ActivePatten (_, _) -> error "ActivePattern"
-    | ApiSignature.InstanceMember (_, m) -> sb.Append(printMember name m)
-    | ApiSignature.StaticMember (_, m) -> sb.Append("static ").Append(printMember name m)
-    | ApiSignature.Constructor (_, m) -> sb.Append(printConstructor name m)
+    | ApiSignature.InstanceMember (_, m) -> sb.Append(printMember m)
+    | ApiSignature.StaticMember (_, m) -> sb.Append(printMember m)
+    | ApiSignature.Constructor (_, m) -> sb.Append(printConstructor m)
     | ApiSignature.ModuleDefinition _ -> error "Module"
     | ApiSignature.FullTypeDefinition td -> sb.Append(printFullTypeDefinition td)
     | ApiSignature.TypeAbbreviation _ -> error "TypeAbbreviation"
     | ApiSignature.TypeExtension _ -> error "TypeExtension"
-    | ApiSignature.ExtensionMember m -> sb.Append(printMethod name m true)
+    | ApiSignature.ExtensionMember m -> sb.Append(printMethod m true)
     | ApiSignature.UnionCase _ -> error "UnionCase"
     | ApiSignature.ComputationExpressionBuilder _ -> error "ComputationExpression"
 
@@ -536,9 +560,13 @@ module internal CSharpImpl =
 
     sb.AppendJoin(" ", c.Variables, print)
 
+  let printPropertyKind = function
+    | PropertyKind.Get -> "get"
+    | PropertyKind.Set -> "set"
+    | PropertyKind.GetSet -> "get set"
   let printMemberKind = function
     | MemberKind.Method -> "method"
-    | MemberKind.Property _ -> "property"
+    | MemberKind.Property p -> "property with " + printPropertyKind p
     | MemberKind.Field -> "field"
   let printMemberModifier = function
     | MemberModifier.Instance -> "instance"
@@ -558,7 +586,11 @@ module internal CSharpImpl =
     | ApiKind.TypeExtension _ -> failwith "It is not C# api."
 
 module CSharp =
-  let printSignatureAndName (api: Api) = StringBuilder().Append(CSharpImpl.printApiSignature api.Name api.Signature).ToString()
+  let printFullName (api: Api) = StringBuilder().Append(CSharpImpl.printName_full api.Name).ToString()
+  let printApiName (api: Api) = StringBuilder().Append(CSharpImpl.printApiName api.Name).ToString()
+  let printAccessPath (depth: int option) (api: Api) = StringBuilder().Append(CSharpImpl.printAccessPath depth api.Name).ToString()
+
+  let printSignature (api: Api) = StringBuilder().Append(CSharpImpl.printApiSignature api.Signature).ToString()
 
   let tryPrintTypeConstraints (api: Api) =
     let xs = api.TypeConstraints |> CSharpImpl.filterCSharpTypeConstraint

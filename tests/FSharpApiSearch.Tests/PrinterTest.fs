@@ -38,11 +38,29 @@ let printLowTypeTest = parameterize {
 let printName_long_test = parameterize {
   source[
     Name.ofString "A.B", "A.B"
-    Name.ofString "A.B<'C>", "A.B"
-    Name.ofString "A<'C>.B<'D>", "A<'C>.B"
+    Name.ofString "A.B<'C>", "A.B<'C>"
+    Name.ofString "A<'C>.B<'D>", "A<'C>.B<'D>"
   ]
   run (fun (input: Name, expected) -> test {
     do! input.Print() |> assertEquals expected
+  })
+}
+
+let printAccessPathTest = parameterize {
+  source [
+    "A.B.C.D", None, "A.B.C"
+    "A.B.C.D", Some 1, "C"
+    "A.B.C.D", Some 2, "B.C"
+    "A.B.C.D", Some 10, "A.B.C"
+
+    "A.B.C<'A>.D", None, "A.B.C<'A>"
+  ]
+  run (fun (input, depth, expected) -> test {
+    let name = Name.ofString input
+    let sb = System.Text.StringBuilder()
+    do FSharpImpl.printAccessPath depth name sb |> ignore
+    let actual = sb.ToString()
+    do! actual |> assertEquals expected
   })
 }
 
@@ -116,6 +134,24 @@ let debugPrintTest = parameterize {
   })
 }
 
+let printCSharpAccessPathTest = parameterize {
+  source [
+    "A.B.C.D", None, "A.B.C"
+    "A.B.C.D", Some 1, "C"
+    "A.B.C.D", Some 2, "B.C"
+    "A.B.C.D", Some 10, "A.B.C"
+
+    "A.B.C<'A>.D", None, "A.B.C<A>"
+  ]
+  run (fun (input, depth, expected) -> test {
+    let name = Name.ofString input
+    let sb = System.Text.StringBuilder()
+    do CSharpImpl.printAccessPath depth name sb |> ignore
+    let actual = sb.ToString()
+    do! actual |> assertEquals expected
+  })
+}
+
 let printCSharpLowTypeTest =
   parameterize {
     source[
@@ -132,41 +168,41 @@ let printCSharpLowTypeTest =
     })
   }
 
-let printCSharpSignatureTest =
+let printCSharpTest =
   let n = Name.ofString
   let t = createType "T" []
   parameterize {
     source [
-      api (n "M<'T>.value") (moduleValue (variable "'T")), "static T M<T>.value { get; }"
-      api (n "M.value") (moduleValue (fsharpList int)), "static FSharpList<int> M.value { get; }"
+      api (n "M<'T>.value") (moduleValue (variable "'T")), " : T"
+      api (n "M.value") (moduleValue (fsharpList int)), " : FSharpList<int>"
         
-      api (n "M.tuple") (moduleValue (tuple [ int; string ])), "static Tuple<int, string> M.tuple { get; }"
-      api (n "M.tuple") (moduleValue (structTuple [ int; string ])), "static (int, string) M.tuple { get; }"
+      api (n "M.tuple") (moduleValue (tuple [ int; string ])), " : Tuple<int, string>"
+      api (n "M.tuple") (moduleValue (structTuple [ int; string ])), " : (int, string)"
 
-      api (n "M.fn") (moduleFunction' [ [ ptype unit ]; [ ptype unit ] ]), "static void M.fn()"
-      api (n "M.fn<'T>") (moduleFunction' [ [ ptype (variable "'T") ]; [ ptype int ] ]), "static int M.fn<T>(T)"
+      api (n "M.fn") (moduleFunction' [ [ ptype unit ]; [ ptype unit ] ]), "() : void"
+      api (n "M.fn<'T>") (moduleFunction' [ [ ptype (variable "'T") ]; [ ptype int ] ]), "(T) : int"
 
-      api (n "T.method<'T>") (instanceMember t (method' "method" [ [ ptype t ] ] int)), "int T.method<T>(T)"
-      api (n "T.method") (instanceMember t (method' "method" [ [ ptype int >> pname "x"; ptype string >> pname "y" ] ] int)), "int T.method(int x, string y)"
-      api (n "T.method") (instanceMember t (method' "method" [ [ ptype unit ] ] unit)), "void T.method()"
-      api (n "T.method") (instanceMember t (method' "method" [ [ ptype unit; ptype int ] ] unit)), "void T.method(Unit, int)"
+      api (n "T.method<'T>") (instanceMember t (method' "method" [ [ ptype t ] ] int)), "(T) : int"
+      api (n "T.method") (instanceMember t (method' "method" [ [ ptype int >> pname "x"; ptype string >> pname "y" ] ] int)), "(int x, string y) : int"
+      api (n "T.method") (instanceMember t (method' "method" [ [ ptype unit ] ] unit)), "() : void"
+      api (n "T.method") (instanceMember t (method' "method" [ [ ptype unit; ptype int ] ] unit)), "(Unit, int) : void"
 
-      api (n "T.method") (staticMember t (method' "method" [ [ ptype unit ] ] unit)), "static void T.method()"
+      api (n "T.method") (staticMember t (method' "method" [ [ ptype unit ] ] unit)), "() : void"
 
-      api (n "T.prop") (instanceMember t (property' "prop" PropertyKind.Get [] int)), "int T.prop { get; }"
-      api (n "T.prop") (instanceMember t (property' "prop" PropertyKind.GetSet [ [ ptype string ] ] int)), "int T.prop[string] { get; set; }"
-      api (n "T.prop") (instanceMember t (property' "prop" PropertyKind.GetSet [ [ ptype string >> pname "x" ] ] int)), "int T.prop[string x] { get; set; }"
-      api (n "T.prop") (staticMember t (property' "prop" PropertyKind.Get [] int)), "static int T.prop { get; }"
+      api (n "T.prop") (instanceMember t (property' "prop" PropertyKind.Get [] int)), " : int"
+      api (n "T.prop") (instanceMember t (property' "prop" PropertyKind.GetSet [ [ ptype string ] ] int)), "[string] : int"
+      api (n "T.prop") (instanceMember t (property' "prop" PropertyKind.GetSet [ [ ptype string >> pname "x" ] ] int)), "[string x] : int"
+      api (n "T.prop") (staticMember t (property' "prop" PropertyKind.Get [] int)), " : int"
 
-      api (n "T.new") (constructor' t (method' "new" [ [ ptype unit ] ] t)), "T.T()"
-      api (n "T.new") (constructor' t (method' "new" [ [ ptype int >> pname "x"; ptype string >> pname "y" ] ] t)), "T.T(int x, string y)"
+      api (n "T.new") (constructor' t (method' "new" [ [ ptype unit ] ] t)), "() : void"
+      api (n "T.new") (constructor' t (method' "new" [ [ ptype int >> pname "x"; ptype string >> pname "y" ] ] t)), "(int x, string y) : void"
 
-      api (n "T.ext") (extensionMember (method' "ext" [ [ ptype int >> pname "x"; ptype int >> pname "y" ] ] unit)), "void T.ext(this int x, int y)"
+      api (n "T.ext") (extensionMember (method' "ext" [ [ ptype int >> pname "x"; ptype int >> pname "y" ] ] unit)), "(this int x, int y) : void"
 
-      api (n "T.byref") (instanceMember t (method' "method" [ [ ptype (byref int) >> pname "x"; ptype (out string) >> pname "y" ] ] (byref int))), "ref int T.byref(ref int x, out string y)"
+      api (n "T.byref") (instanceMember t (method' "method" [ [ ptype (byref int) >> pname "x"; ptype (out string) >> pname "y" ] ] (byref int))), "(ref int x, out string y) : ref int"
     ]
 
     run (fun (input: Api, expected) -> test {
-      do! CSharp.printSignatureAndName input |> assertEquals expected
+      do! CSharp.printSignature input |> assertEquals expected
     })
   }

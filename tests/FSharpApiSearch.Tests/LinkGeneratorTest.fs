@@ -9,16 +9,16 @@ open TestAssemblies
 
 let fsharpTest = parameterize {
   source [
-    "Microsoft.FSharp.Core.Operators.( >= )", Some "operators.%5b-%5d%3d-%5d%5b%27t%5d-function-%5bfsharp%5d"
+    "Microsoft.FSharp.Core.Operators.( >= )<'T>", Some "operators.%5b-%5d%3d-%5d%5b%27t%5d-function-%5bfsharp%5d"
     "Microsoft.FSharp.Core.Operators.( |Failure|_| )", Some "operators.failure-active-pattern-%5bfsharp%5d"
     "Microsoft.FSharp.Core.Operators.incr", Some "operators.incr-function-%5bfsharp%5d"
     "Microsoft.FSharp.Control.Async.Start", Some "async.start-method-%5bfsharp%5d"
     "Microsoft.FSharp.Control.Async.CancellationToken", Some "async.cancellationtoken-property-%5bfsharp%5d"
     "Microsoft.FSharp.Collections.Map<'Key, 'Value>.new", Some "collections.map%5b%27key%2c%27value%5d-constructor-%5bfsharp%5d"
-    "Microsoft.FSharp.Core.array", Some "core.array%5b%27t%5d-type-abbreviation-%5bfsharp%5d"
+    "Microsoft.FSharp.Core.array<'T>", Some "core.array%5b%27t%5d-type-abbreviation-%5bfsharp%5d"
     "Microsoft.FSharp.Core.unit", Some "core.unit-type-abbreviation-%5bfsharp%5d"
 
-    "Microsoft.FSharp.Core.[]", None
+    "Microsoft.FSharp.Core.[]<'T>", None
     "Microsoft.FSharp.Core.FSharpTypeFunc", Some "core.fsharptypefunc-class-%5bfsharp%5d"
 
     "Microsoft.FSharp.Control.AsyncBuilder", Some "control.asyncbuilder-class-%5bfsharp%5d"
@@ -49,7 +49,7 @@ let msdnTest = parameterize {
 let dotNetApiBrowserTest = parameterize {
   source [
     "System.Random", "type Random", Some "system.random?view=netframework-4.7"
-    "System.Progress", "type Progress<'T>", Some "system.progress-1?view=netframework-4.7"
+    "System.Progress<'T>", "type Progress<'T>", Some "system.progress-1?view=netframework-4.7"
     "System.Random.Next", "unit -> int", Some "system.random.next?view=netframework-4.7#System_Random_Next"
     "System.Random.Next", "maxValue:int -> int", Some "system.random.next?view=netframework-4.7#System_Random_Next_System_Int32_"
     "System.Random.Next", "minValue:int * maxValue:int -> int", Some "system.random.next?view=netframework-4.7#System_Random_Next_System_Int32_System_Int32_"
@@ -63,7 +63,7 @@ let dotNetApiBrowserTest = parameterize {
     "System.Random.new" , "unit -> Random", Some "system.random.-ctor?view=netframework-4.7#System_Random__ctor"
     "System.Random.new" , "Seed:int -> Random", Some "system.random.-ctor?view=netframework-4.7#System_Random__ctor_System_Int32_"
     "System.Progress<'T>.new" , "unit -> Progress<'T>" , Some "system.progress-1.-ctor?view=netframework-4.7#System_Progress_1__ctor"
-    "System.String.Join", "separator:string * values:IEnumerable<'T> -> string", Some "system.string.join--1?view=netframework-4.7#System_String_Join__1_System_String_System_Collections_Generic_IEnumerable___0__"
+    "System.String.Join<'T>", "separator:string * values:IEnumerable<'T> -> string", Some "system.string.join--1?view=netframework-4.7#System_String_Join__1_System_String_System_Collections_Generic_IEnumerable___0__"
     "System.String.Join", "separator:string * values:IEnumerable<string> -> string", Some "system.string.join?view=netframework-4.7#System_String_Join_System_String_System_Collections_Generic_IEnumerable_System_String__"
   ]
   run (fun (name, signature, expected) -> test {
@@ -76,7 +76,7 @@ let dotNetApiBrowserTest = parameterize {
 
 let dotNetApiBrowserExtensionTest = parameterize {
   source [
-    "System.Linq.Queryable.SelectMany", "source:IQueryable<'TSource> * selector:Expression<Func<'TSource, IEnumerable<'TResult>>> -> IQueryable<'TResult>", 
+    "System.Linq.Queryable.SelectMany<'TSource, 'TResult>", "source:IQueryable<'TSource> * selector:Expression<Func<'TSource, IEnumerable<'TResult>>> -> IQueryable<'TResult>", 
         Some "system.linq.queryable.selectmany--2?view=netframework-4.7#System_Linq_Queryable_SelectMany__2_System_Linq_IQueryable___0__System_Linq_Expressions_Expression_System_Func___0_System_Collections_Generic_IEnumerable___1____"
   ]
   run (fun (name, signature, expected) -> test {
