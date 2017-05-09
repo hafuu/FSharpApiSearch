@@ -195,10 +195,6 @@ module LinkGenerator =
       let elems = elems |> Seq.map toLower
       sb.AppendJoin(".", elems)
 
-    let (|ByRef|_|) = function
-      | Generic (Identity (FullIdentity { Name = DisplayName ns }), [ arg ]) when urlName ns.Head = "byref" -> Some arg
-      | _ -> None
-
     let rec parameterElement (variableMemory: Dictionary<string, int>) (t: LowType) (sb: StringBuilder) : StringBuilder =
       match t with
       | Unit -> sb
@@ -206,7 +202,7 @@ module LinkGenerator =
         let ns = Name.toDisplayName name |> Seq.rev
         sb.AppendJoin("_", ns, (fun n sb -> sb.Append(urlName n)))
       | Array (_, elem) -> sb.Append(parameterElement variableMemory elem).Append("__")
-      | ByRef arg -> sb.Append(parameterElement variableMemory arg).Append("_")
+      | ByRef (_, arg) -> sb.Append(parameterElement variableMemory arg).Append("_")
       | Generic (id, args) ->
         sb.Append(parameterElement variableMemory id) |> ignore
         

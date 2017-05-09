@@ -108,6 +108,9 @@ let private replaceTypeAbbreviation' nameEquality (table: TypeAbbreviation list)
           if SpecialTypes.Identity.valueTuples |> List.exists (fun tpl -> nameEquality tpl id) then
             yield Tuple { Elements = replacedArgs; IsStruct = true }
 
+          if nameEquality SpecialTypes.Identity.byref id then
+            yield ByRef (false, replacedArgs.Head)
+
           yield Generic (Identity id, replacedArgs)
         ]
 

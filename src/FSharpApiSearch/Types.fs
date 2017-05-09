@@ -106,6 +106,7 @@ type LowType =
   | Generic of LowType * LowType list
   | TypeAbbreviation of TypeAbbreviation
   | Delegate of delegateType: LowType * LowType list
+  | ByRef of isOut:bool * LowType
   | Choice of LowType list
 and TypeAbbreviation = {
   Abbreviation: LowType
@@ -541,6 +542,7 @@ module internal SpecialTypes =
 
     let valueTuples = [1..8] |> List.map (fun n -> valueTupleN n)
 
+    let byref = FullIdentity { AssemblyName = fscore; Name = Name.ofString "Microsoft.FSharp.Core.byref<'T>"; GenericParameterCount = 1 }
 
     module CSharp =
       let aliases =

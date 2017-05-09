@@ -18,6 +18,7 @@ module LowType =
     | Generic (id, args) -> List.collect collectVariableOrWildcardGroup (id :: args)
     | TypeAbbreviation t -> collectVariableOrWildcardGroup t.Original
     | Delegate (t, _) -> collectVariableOrWildcardGroup t
+    | ByRef (_, t) -> collectVariableOrWildcardGroup t
     | Choice xs -> List.collect collectVariableOrWildcardGroup xs
 
 module Equations =
@@ -275,6 +276,7 @@ module Rules =
     | Generic _ -> 1
     | TypeAbbreviation x -> distanceFromVariable x.Original
     | Delegate _ -> 1
+    | ByRef _ -> 1
     | Choice _ -> 1
   and seqDistance xs = xs |> Seq.sumBy (distanceFromVariable >> max 1)
 
@@ -397,6 +399,15 @@ module Rules =
       |> MatchingResult.mapMatched (Context.addDistance "delegate and arrow" 1)
     | _ -> Continue ctx
 
+  let byrefRule (lowTypeMatcher: ILowTypeMatcher) left right ctx =
+    match left, right with
+    | ByRef (_, left), ByRef (_, right)
+    | ByRef (_, left), right
+    | left, ByRef (_, right) ->
+      Debug.WriteLine("byref rule.")
+      lowTypeMatcher.Test left right ctx
+    | _ -> Continue ctx
+
 let instance options =
   let nameEquality = Identity.equalityFromOptions options
 
@@ -423,6 +434,8 @@ let instance options =
       match options.IgnoreParameterStyle with
       | Enabled -> yield Rules.delegateAndArrowRule_IgnoreParameterStyle
       | Disabled -> yield Rules.delegateAndArrowRule
+
+      yield Rules.byrefRule
 
       yield Rule.terminator
     ]

@@ -158,6 +158,8 @@ module internal Impl =
 
   let autoGenericVariableLen = "type '".Length
 
+  let isByRef (t: FSharpType) = t.HasTypeDefinition && t.TypeDefinition.IsByRef
+
   let rec fsharpTypeToLowType (t: FSharpType) =
     if Hack.isMeasure t then
       None
@@ -175,6 +177,11 @@ module internal Impl =
       }
     elif Hack.isFloat t then
       Some SpecialTypes.LowType.float
+    elif isByRef t then
+      option {
+        let! x = fsharpTypeToLowType (Hack.genericArguments t |> List.head)
+        return ByRef(false, x)
+      }
     elif t.HasTypeDefinition then
       let signature =
         match Hack.genericArguments t with
@@ -317,14 +324,6 @@ module internal Impl =
     |> Seq.toList
     |> List.distinct
 
-  let parameterSignature (t: FSharpMemberOrFunctionOrValue) =
-    let xs = [
-      for group in t.CurriedParameterGroups do
-        for parameter in group do
-          yield parameter.Type
-    ]
-    listLowType xs
-
   let private (|Fs_option|_|) = function
     | Generic (Identity (FullIdentity { AssemblyName = "FSharp.Core"; Name = LoadingName ("FSharp.Core", "Microsoft.FSharp.Core.option`1", []); GenericParameterCount = 1 }), [ p ]) -> Some p
     | _ -> None
@@ -339,6 +338,11 @@ module internal Impl =
     | IsOption p -> p
     | p -> p
 
+  let loadByRef (p: FSharpParameter) (t: LowType) =
+    match t with
+    | ByRef (_, t) -> ByRef (p.IsOutArg, t)
+    | _ -> t
+
   let curriedParameterGroups isFSharp (t: FSharpMemberOrFunctionOrValue) =
     seq {
       for group in t.CurriedParameterGroups do
@@ -352,6 +356,7 @@ module internal Impl =
                       unwrapFsOptionalParameter t
                     else
                       t
+                  let t = loadByRef p t
                   return { Name = p.Name; Type = t; IsOptional = p.IsOptionalArg }
                 }
             }
@@ -1006,6 +1011,7 @@ module internal Impl =
         let t = resolve_LowType context t
         let arrow = List.map (resolve_LowType context) arrow
         Delegate (t, arrow)
+      | ByRef (out, t) -> ByRef(out, resolve_LowType context t)
       | Choice (xs) -> Choice (List.map (resolve_LowType context) xs)
     and resolve_Identity cache = function
       | PartialIdentity _ as i -> i

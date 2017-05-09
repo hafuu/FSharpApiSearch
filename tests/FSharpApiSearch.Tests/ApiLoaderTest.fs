@@ -1099,10 +1099,9 @@ module CSharp =
 
   let byrefTest =
     let t = createType "CSharpLoadTestAssembly.ByRef" [] |> updateAssembly csharpAssemblyName
-    let byref t = createType "Microsoft.FSharp.Core.byref<'T>" [ t ] |> updateAssembly fscore
     parameterize {
       source [
-        "CSharpLoadTestAssembly.ByRef.F", [ staticMember t (method' "F" [ [ pname "a" >> ptype (byref int); pname "b" >> ptype (byref string) ] ] (byref int)) ]
+        "CSharpLoadTestAssembly.ByRef.F", [ staticMember t (method' "F" [ [ pname "a" >> ptype (byref int); pname "b" >> ptype (out string) ] ] (byref int)) ]
       ]
       run testApi
     }

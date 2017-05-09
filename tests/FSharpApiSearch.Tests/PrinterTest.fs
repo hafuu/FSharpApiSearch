@@ -162,6 +162,8 @@ let printCSharpSignatureTest =
       api (n "T.new") (constructor' t (method' "new" [ [ ptype int >> pname "x"; ptype string >> pname "y" ] ] t)), "T.T(int x, string y)"
 
       api (n "T.ext") (extensionMember (method' "ext" [ [ ptype int >> pname "x"; ptype int >> pname "y" ] ] unit)), "void T.ext(this int x, int y)"
+
+      api (n "T.byref") (instanceMember t (method' "method" [ [ ptype (byref int) >> pname "x"; ptype (out string) >> pname "y" ] ] (byref int))), "ref int T.byref(ref int x, out string y)"
     ]
 
     run (fun (input: Api, expected) -> test {

@@ -475,6 +475,16 @@ module RespectNameDifferenceTest_WithNonGreedy =
       "GenericOuter.GenericInner<'T, 'U>", moduleValue genericInner, Always true
     ]
 
+  let byrefTest =
+    matchTest [
+      "A", moduleValue (byref (identity "A")), Always true
+      "A", moduleValue (out (identity "A")), Always true
+
+      "A", moduleValue (out (identity "B")), Always false
+
+      "byref<A>", moduleValue (byref (identity "A")), Always true
+    ]
+
   let distanceTest = parameterize {
     source [
       "A * A", moduleValue (tuple [ typeA; typeA ]), 0

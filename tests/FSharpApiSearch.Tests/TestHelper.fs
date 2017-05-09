@@ -52,6 +52,9 @@ module DSL =
 
   let delegate' t xs = Delegate (t, xs)
 
+  let byref t = ByRef(false, t)
+  let out t = ByRef(true, t)
+
   let ptype t (x: Parameter) = { x with Type = t }
   let pname n (x: Parameter) = { x with Name = Some n }
   let popt (x: Parameter) = { x with IsOptional = true }

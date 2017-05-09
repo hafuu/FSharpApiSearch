@@ -120,6 +120,7 @@ module internal FSharpImpl =
     | Generic (id, args) -> sb.Append(printGeneric isDebug printIdentity id args)
     | TypeAbbreviation t -> sb.Append(printLowType isDebug printIdentity t.Abbreviation)
     | Delegate (t, _) -> sb.Append(printLowType isDebug printIdentity t)
+    | ByRef (_, t) -> sb.Append("byref<").Append(printLowType isDebug printIdentity t).Append(">")
     | Choice xs -> sb.Append(printChoice isDebug printIdentity xs)
   and printGeneric isDebug printIdentity id (args: _ list) (sb: StringBuilder) =
     sb.Append(printLowType isDebug printIdentity id)
@@ -162,28 +163,6 @@ module internal FSharpImpl =
 
   let printLowType_short isDebug t (sb: StringBuilder) = sb.Append(printLowType isDebug printIdentity_short t)
   let printLowType_full isDebug t (sb: StringBuilder) = sb.Append(printLowType isDebug printIdentity_full t)
-
-  let printAccessPath' (i: Identity) (sb: StringBuilder) =
-    let print (name: DisplayName) (sb: StringBuilder) =
-      let xs = List.tail name |> List.rev
-      sb.AppendJoin(".", xs, printNameItem)
-    match i with
-    | PartialIdentity p -> sb.Append(print p.Name)
-    | FullIdentity f ->
-      let name = Name.toDisplayName f.Name
-      sb.Append(print name)
-
-  let rec printAccessPath lowType (sb: StringBuilder) =
-    match lowType with
-    | Wildcard _ -> sb
-    | Variable _ -> sb
-    | Identity i -> sb.Append(printAccessPath' i)
-    | Arrow _ -> sb
-    | Tuple _ -> sb
-    | Generic (id, _) -> sb.Append(printAccessPath id)
-    | TypeAbbreviation t -> sb.Append(printAccessPath t.Abbreviation)
-    | Delegate _ -> sb
-    | Choice _ -> sb
 
   let printParameter tupleParen isDebug (p: Parameter) (sb: StringBuilder) =
     match p.IsOptional with
@@ -401,6 +380,8 @@ module internal CSharpImpl =
     | Array (name, elem) -> nestedArray (name :: acc) elem
     | x -> acc, x
 
+  let printRef isOut = if isOut then "out" else "ref"
+
   let rec printLowType t (sb: StringBuilder) =
     match t with
     | Wildcard name ->
@@ -420,6 +401,7 @@ module internal CSharpImpl =
     | Generic (id, args) -> sb.Append(printLowType id).Append("<").AppendJoin(", ", args, printLowType).Append(">")
     | TypeAbbreviation t -> sb.Append(printLowType t.Original)
     | Delegate (t, _) -> sb.Append(printLowType t)
+    | ByRef (isOut, t) -> sb.Append(printRef isOut).Append(" ").Append(printLowType t)
     | Choice xs -> sb.Append("(").AppendJoin(" or ", xs, printLowType).Append(")")
 
   let printParameter (p: Parameter) (sb: StringBuilder) =
