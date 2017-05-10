@@ -221,7 +221,7 @@ module CSharp =
       sepBy1 typeParser (pstring ",")
       |>> function
         | [ x ] -> x
-        | xs -> Tuple { Elements = xs; IsStruct = true }
+        | xs -> Tuple { Elements = xs; IsStruct = false }
     sepBy2 args (pstring "->") |>> Arrow
 
   do csharpSignatureRef := compose ptype [ array; structTuple; arrow ]

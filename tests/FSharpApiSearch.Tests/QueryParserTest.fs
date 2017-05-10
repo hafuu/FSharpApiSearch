@@ -251,7 +251,7 @@ module CSharp =
         "a -> a", (arrow [ identity "a"; identity "a" ])
         "(a -> b) -> c", (arrow [ (arrow [ identity "a"; identity "b" ]); identity "c" ])
         "(a -> b)", (arrow [ identity "a"; identity "b" ])
-        "a, b -> c", (arrow [ structTuple [ identity "a"; identity "b" ]; identity "c" ])
+        "a, b -> c", (arrow [ tuple [ identity "a"; identity "b" ]; identity "c" ])
         "(a, (b, c)) -> d", (arrow [ structTuple [ identity "a"; structTuple [ identity "b"; identity "c" ] ]; identity "d" ])
       ]
       run runSignatureTest
@@ -319,9 +319,9 @@ module CSharp =
         "test<a, b, c> : b", [ byName2 "test" [ "a"; "b"; "c" ] Compare ], SignatureQuery.Signature (queryVariable "'b")
         "*<a, b, c> : b", [ byName2 "*" [ "a"; "b"; "c" ] Any ], SignatureQuery.Signature (queryVariable "'b")
         "class.method<b> : a, c -> b", [ byName2 "method" [ "b" ] Compare; byName2 "class" [] Compare ],
-          SignatureQuery.Signature (arrow [ structTuple [ identity "a"; identity "c" ]; queryVariable "'b" ])
+          SignatureQuery.Signature (arrow [ tuple [ identity "a"; identity "c" ]; queryVariable "'b" ])
         "class<a>.method<b> : a, c -> b", [ byName2 "method" [ "b" ] Compare; byName2 "class" [ "a" ] Compare ],
-          SignatureQuery.Signature (arrow [ structTuple [ queryVariable "'a"; identity "c" ]; queryVariable "'b" ])
+          SignatureQuery.Signature (arrow [ tuple [ queryVariable "'a"; identity "c" ]; queryVariable "'b" ])
       ]
 
       run runByNameTest
