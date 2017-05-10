@@ -46,7 +46,7 @@ let msdnTest = parameterize {
   })
 }
 
-let dotNetApiBrowserTest = parameterize {
+let dotNetApiBrowserTest_mscotlib = parameterize {
   source [
     "System.Random", "type Random", Some "system.random?view=netframework-4.7"
     "System.Progress<'T>", "type Progress<'T>", Some "system.progress-1?view=netframework-4.7"
@@ -74,10 +74,14 @@ let dotNetApiBrowserTest = parameterize {
   })
 }
 
-let dotNetApiBrowserExtensionTest = parameterize {
+let dotNetApiBrowserTest_systemcore = parameterize {
   source [
     "System.Linq.Queryable.SelectMany<'TSource, 'TResult>", "source:IQueryable<'TSource> * selector:Expression<Func<'TSource, IEnumerable<'TResult>>> -> IQueryable<'TResult>", 
         Some "system.linq.queryable.selectmany--2?view=netframework-4.7#System_Linq_Queryable_SelectMany__2_System_Linq_IQueryable___0__System_Linq_Expressions_Expression_System_Func___0_System_Collections_Generic_IEnumerable___1____"
+    "System.Linq.Enumerable.Join<'TOuter, 'TInner, 'TKey, 'TResult>", "outer:IEnumerable<'TOuter> * inner:IEnumerable<'TInner> * outerKeySelector:Func<'TOuter, 'TKey> * innerKeySelector:Func<'TInner, 'TKey> * resultSelector:Func<'TOuter, 'TInner, 'TResult> * comparer:IEqualityComparer<'TKey> -> IEnumerable<'TResult>",
+        Some "system.linq.enumerable.join--4?view=netframework-4.7#System_Linq_Enumerable_Join__4_System_Collections_Generic_IEnumerable___0__System_Collections_Generic_IEnumerable___1__System_Func___0___2__System_Func___1___2__System_Func___0___1___3__System_Collections_Generic_IEqualityComparer___2__"
+    "System.Linq.EnumerableQuery<'T>.new", "enumerable:IEnumerable<'T> -> EnumerableQuery<'T>",
+        Some "system.linq.enumerablequery-1.-ctor?view=netframework-4.7#System_Linq_EnumerableQuery_1__ctor_System_Collections_Generic_IEnumerable__0__"
   ]
   run (fun (name, signature, expected) -> test {
     let! apiDict = systemCoreApi
