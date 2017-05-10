@@ -195,7 +195,7 @@ C#のクエリは、C#のシグネチャとは文法が異なります。
 メンバーや型を名前で検索するには`name : signature`と書きます。シグネチャを指定しない場合は、シグネチャ部分に`_`を指定します。
 
     > Length : string -> int
-    int String.Length { get; }, instance property, mscorlib
+    System.String.Length : int, instance property with get, mscorlib
 
 
     > Length : _
@@ -209,10 +209,10 @@ C#のクエリは、C#のシグネチャとは文法が異なります。
 例えば、`System.String.* : _`は`System.String`型の全てのAPIを表示します。
 
     > System.String.* : _
-    char String.Chars[int] { get; }, instance property, mscorlib
-    object String.Clone(), instance method, mscorlib
-    static int String.Compare(string strA, string strB, CultureInfo culture, CompareOptions options), static method, mscorlib
-    static int String.Compare(string strA, string strB, bool ignoreCase, CultureInfo culture), static method, mscorlib
+    System.Array.Length : int, instance property with get, mscorlib
+    System.Collections.BitArray.Length : int, instance property with get set, mscorlib
+    System.ComponentModel.DataObjectFieldAttribute.Length : int, instance property with get, System
+    System.ComponentModel.MaskedTextProvider.Length : int, instance property with get, System
     ...
 
 ### 型パラメーター
@@ -228,10 +228,10 @@ C#のクエリは、C#のシグネチャとは文法が異なります。
 このような場合に、ワイルドカード`?`が使えます。
 
     > <T> : List<T> -> ? -> int
-    int List<T>.BinarySearch(T item), instance method, mscorlib
-    int List<T>.FindIndex(Predicate<T> match), instance method, mscorlib
-    int List<T>.FindLastIndex(Predicate<T> match), instance method, mscorlib
-    int List<T>.IndexOf(T item), instance method, mscorlib
+    System.Collections.Generic.List<T>.BinarySearch(T item) : int, instance method, mscorlib
+    System.Collections.Generic.List<T>.FindIndex(Predicate<T> match) : int, instance method, mscorlib
+    System.Collections.Generic.List<T>.FindLastIndex(Predicate<T> match) : int, instance method, mscorlib
+    System.Collections.Generic.List<T>.IndexOf(T item) : int, instance method, mscorlib
     ...
 
 また、ワイルドカードに名前を付けることで、同じ名前を持つワイルドカードの位置には同一の型名が入るという条件を追加できます。
@@ -249,12 +249,27 @@ C#のクエリは、C#のシグネチャとは文法が異なります。
 メソッドを検索する場合は`receiver -> arg -> returnType`と書きます。
 多引数のメソッドは`receiver -> arg1, arg2 -> returnType`と書きます。
 
+    > <T> : List<T> -> T -> int
+    System.Collections.Generic.List<T>.BinarySearch(T item) : int, instance method, mscorlib
+    System.Collections.Generic.List<T>.IndexOf(T item) : int, instance method, mscorlib
+    ...
+
 プロパティを検索する場合は`receiver -> propertyType`と書きます。
 インデックス付きプロパティは`receiver -> index -> propertyType`と書きます。
+
+    > <T> : List<T> -> int
+    System.Collections.Generic.List<T>.Capacity : int, instance property with get set, mscorlib
+    System.Collections.Generic.List<T>.Count : int, instance property with get, mscorlib
+    ...
 
 #### 静的メンバー
 メソッドを検索する場合は`arg -> returnType`と書きます。
 プロパティを検索する場合は`propertyType`と書きます。
+
+    > string -> int
+    System.Convert.ToInt32(string value) : int, static method, mscorlib
+    System.Int32.Parse(string s) : int, static method, mscorlib
+	...
 
 このように、メンバーが属する型は静的メンバーのクエリには記述しません。
 
