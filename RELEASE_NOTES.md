@@ -1,3 +1,8 @@
+### 3.0.0-beta2
+* Change byref matching
+* Change the result format
+* Add the link generator to .Net Api Browser
+
 ### 3.0.0-beta1
 * Support struct tuple
 * Remove `=>` syntax
