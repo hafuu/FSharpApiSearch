@@ -545,10 +545,8 @@ module internal CSharpImpl =
       | Constraint.ValueTypeConstraints
       | Constraint.ReferenceTypeConstraints -> true)
 
-  let printConstraint (c: TypeConstraint) (sb: StringBuilder) =
-    let print (v: TypeVariable) (sb: StringBuilder) =
-      sb.Append("where ").Append(v.Name).Append(" : ") |> ignore
-
+  let printConstraints (xs: TypeConstraint list) (sb: StringBuilder) =
+    let printConstraint (c: TypeConstraint) (sb: StringBuilder) =
       match c.Constraint with
       | Constraint.SubtypeConstraints s -> sb.Append(printLowType s) |> ignore
       | Constraint.DefaultConstructorConstraints -> sb.Append("new()") |> ignore
@@ -558,7 +556,11 @@ module internal CSharpImpl =
 
       sb
 
-    sb.AppendJoin(" ", c.Variables, print)
+    let printVariable (variable: TypeVariable, constraints: TypeConstraint list) (sb: StringBuilder) =
+      sb.Append("where ").Append(variable.Name).Append(" : ").AppendJoin(", ", constraints, printConstraint)
+
+    let constraints = xs |> List.groupBy (fun c -> c.Variables.Head)
+    sb.AppendJoin(" ", constraints, printVariable)
 
   let printPropertyKind = function
     | PropertyKind.Get -> "get"
@@ -596,7 +598,7 @@ module CSharp =
     let xs = api.TypeConstraints |> CSharpImpl.filterCSharpTypeConstraint
     match xs with
     | [] -> None
-    | _ -> StringBuilder().AppendJoin(" ", xs, CSharpImpl.printConstraint).ToString() |> Some
+    | _ -> StringBuilder().Append(CSharpImpl.printConstraints api.TypeConstraints).ToString() |> Some
 
   let printKind (api: Api) = StringBuilder().Append(CSharpImpl.printApiKind api.Kind).ToString()
 

@@ -168,6 +168,22 @@ let printCSharpLowTypeTest =
     })
   }
 
+let printCSharpConstraints =
+  parameterize {
+    source [
+      [ constraint' [ "'T" ] (Constraint.SubtypeConstraints (identity "IA")) ], "where T : IA"
+      [ constraint' [ "'T" ] (Constraint.SubtypeConstraints (identity "IA")); constraint' [ "'T" ] (Constraint.SubtypeConstraints (identity "IB")) ], "where T : IA, IB"
+      [ constraint' [ "'T" ] (Constraint.SubtypeConstraints (identity "IA")); constraint' [ "'U" ] (Constraint.SubtypeConstraints (identity "IA")) ], "where T : IA where U : IA"
+
+    ]
+
+    run (fun (constraints, expected) -> test {
+      let api = { Name = Name.ofString "test"; Signature = moduleValue (identity "a"); TypeConstraints = constraints; Document = None }
+      let actual = CSharp.tryPrintTypeConstraints api
+      do! actual |> assertEquals (Some expected)
+    })
+  }
+
 let printCSharpTest =
   let n = Name.ofString
   let t = createType "T" []
