@@ -246,8 +246,9 @@ C#のクエリは、C#のシグネチャとは文法が異なります。
 
 ### メンバー検索
 #### インスタンスメンバー
-メソッドを検索する場合は`receiver -> arg -> returnType`と書きます。
-多引数のメソッドは`receiver -> arg1, arg2 -> returnType`と書きます。
+メソッドを検索する場合は`receiver -> (arg) -> returnType`と書きます。
+多引数のメソッドは`receiver -> (arg1, arg2) -> returnType`と書きます。
+引数部分の括弧は省略できます。引数または戻り値が無いAPIを検索したい場合は`()`と`void`を使用します。
 
     > <T> : List<T> -> T -> int
     System.Collections.Generic.List<T>.BinarySearch(T item) : int, instance method, mscorlib
@@ -263,7 +264,7 @@ C#のクエリは、C#のシグネチャとは文法が異なります。
     ...
 
 #### 静的メンバー
-メソッドを検索する場合は`arg -> returnType`と書きます。
+メソッドを検索する場合は`(arg) -> returnType`と書きます。
 プロパティを検索する場合は`propertyType`と書きます。
 
     > string -> int

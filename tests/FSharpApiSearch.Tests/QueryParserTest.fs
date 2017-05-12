@@ -252,7 +252,8 @@ module CSharp =
         "(a -> b) -> c", (arrow [ (arrow [ identity "a"; identity "b" ]); identity "c" ])
         "(a -> b)", (arrow [ identity "a"; identity "b" ])
         "a, b -> c", (arrow [ tuple [ identity "a"; identity "b" ]; identity "c" ])
-        "(a, (b, c)) -> d", (arrow [ structTuple [ identity "a"; structTuple [ identity "b"; identity "c" ] ]; identity "d" ])
+        "(a, (b, c)) -> d", (arrow [ tuple [ identity "a"; structTuple [ identity "b"; identity "c" ] ]; identity "d" ])
+        "((a, b)) -> c", (arrow [ structTuple [ identity "a"; identity "b" ]; identity "c" ])
       ]
       run runSignatureTest
     }

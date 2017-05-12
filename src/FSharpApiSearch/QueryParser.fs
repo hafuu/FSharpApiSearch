@@ -218,7 +218,9 @@ module CSharp =
 
   let arrow _ typeParser =
     let args =
-      sepBy1 typeParser (pstring ",")
+      let elems = sepBy1 typeParser (pstring ",")
+      let elemsWithParen = between (pcharAndTrim '(') (pcharAndTrim ')') elems
+      attempt elemsWithParen <|> attempt elems <|> (typeParser |>> List.singleton)
       |>> function
         | [ x ] -> x
         | xs -> Tuple { Elements = xs; IsStruct = false }
