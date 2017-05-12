@@ -294,6 +294,16 @@ module CSharp =
       run runSignatureTest
     }
 
+    let byrefTest = parameterize {
+      source [
+        "ref A -> B", (arrow [ byref (identity "A"); identity "B" ])
+        "out A[] -> B", (arrow [ out (queryArray (identity "A")); identity "B" ])
+        "string, out int -> bool", (arrow [ tuple [ identity "string"; out (identity "int") ]; identity "bool" ])
+      ]
+
+      run runSignatureTest
+    }
+
   module ByName =
     let runByNameTest (input, expectedName, expectedSignature) = runParseTest (input, QueryMethod.ByName (expectedName, expectedSignature))
 

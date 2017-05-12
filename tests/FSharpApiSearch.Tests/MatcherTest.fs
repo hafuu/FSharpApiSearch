@@ -483,12 +483,18 @@ module RespectNameDifferenceTest_WithNonGreedy =
       "A", moduleValue (out (identity "B")), Always false
 
       "byref<A>", moduleValue (byref (identity "A")), Always true
+      "byref<A>", moduleValue (identity "A"), Always true
+      "byref<A>", moduleValue (identity "B"), Always false
     ]
 
   let distanceTest = parameterize {
     source [
       "A * A", moduleValue (tuple [ typeA; typeA ]), 0
       "struct (A * A)", moduleValue (tuple [ typeA; typeA ]), 1
+
+      "byref<A>", moduleValue (byref (identity "A")), 0
+      "byref<A>", moduleValue (identity "A"), 1
+      "A", moduleValue (byref (identity "A")), 1
     ]
 
     run (distanceTest false { defaultTestOptions with GreedyMatching = Enabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled })

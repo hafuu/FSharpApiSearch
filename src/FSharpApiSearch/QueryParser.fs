@@ -161,12 +161,21 @@ module FSharp =
     | Failure (msg, _, _) -> failwithf "%s" msg
 
 module CSharp =
+  let ref = "ref"
+  let out = "out"
+  let keywords = [
+    ref
+    out
+  ]
+
   let punit = trim (skipString "void" <|> skipString "()") |>> fun _ -> SpecialTypes.LowType.Unit
 
   let pidentifier =
     let head = letter <|> pchar '_'
     let tail = letter <|> digit <|> anyOf "_'"
-    head .>>. manyChars tail |>> (fun (h, t) -> string h + t) <?> "identifier"
+    head .>>. manyChars tail |>> (fun (h, t) -> string h + t)
+    >>= (fun x -> if keywords |> List.exists ((=)x) then fail (sprintf "%s is the keyword." x) else preturn x)
+    <?> "identifier"
   
   let partialName = sepBy1 pidentifier (pchar '.') |>> (List.map (fun n -> { Name = SymbolName n; GenericParameters = [] } ) >> List.rev)
   let csharpSignature, csharpSignatureRef = createParserForwardedToRef()
@@ -216,6 +225,10 @@ module CSharp =
     let elems = attempt self <|> typeParser
     between (pcharAndTrim '(') (pcharAndTrim ')') (sepBy2 elems (pstring ",")) |>> fun xs -> Tuple { Elements = xs; IsStruct = true }
 
+  let byref _ typeParser =
+    trim ((pstring ref <|> pstring out) .>> spaces1 .>>. typeParser)
+    |>> (fun (refType, t) -> let isOut = refType = out in ByRef (isOut, t))
+
   let arrow _ typeParser =
     let args =
       let elems = sepBy1 typeParser (pstring ",")
@@ -226,7 +239,7 @@ module CSharp =
         | xs -> Tuple { Elements = xs; IsStruct = false }
     sepBy2 args (pstring "->") |>> Arrow
 
-  do csharpSignatureRef := compose ptype [ array; structTuple; arrow ]
+  do csharpSignatureRef := compose ptype [ array; structTuple; byref; arrow ]
 
   let rec replaceWithVariable (variableNames: Set<string>) = function
     | Identity (PartialIdentity { Name = [ { Name = SymbolName name } ] }) when Set.contains name variableNames ->

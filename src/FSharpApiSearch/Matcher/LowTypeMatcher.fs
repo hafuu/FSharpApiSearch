@@ -401,11 +401,14 @@ module Rules =
 
   let byrefRule (lowTypeMatcher: ILowTypeMatcher) left right ctx =
     match left, right with
-    | ByRef (_, left), ByRef (_, right)
-    | ByRef (_, left), right
-    | left, ByRef (_, right) ->
+    | ByRef (_, left), ByRef (_, right) ->
       Debug.WriteLine("byref rule.")
       lowTypeMatcher.Test left right ctx
+    | ByRef (_, left), right
+    | left, ByRef (_, right) ->
+      Debug.WriteLine("byref rule (byref and type).")
+      lowTypeMatcher.Test left right ctx
+      |> MatchingResult.mapMatched (Context.addDistance "byref and type" 1)
     | _ -> Continue ctx
 
 let instance options =
