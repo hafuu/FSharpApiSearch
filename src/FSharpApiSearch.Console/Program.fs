@@ -181,7 +181,7 @@ FSharpApiSearch.Console interactive mode directive:
       Console.WriteLine()
       loop client arg
     | invalidOption when invalidOption.StartsWith("#") ->
-      printfn "invalid option"
+      printfn "Invalid option. If you want to search with the flexible type, insert a space at the beginning of the query."
       loop client arg
     | query ->
       try

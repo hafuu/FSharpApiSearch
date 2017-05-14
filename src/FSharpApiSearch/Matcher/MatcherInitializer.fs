@@ -12,6 +12,7 @@ let collectFromSignatureQuery getTarget query =
   let (|Target|_|) t = getTarget t
   let rec f = function
     | Target x -> Seq.singleton x
+    | Identity _ | Wildcard _ | Variable _ -> Seq.empty
     | Arrow xs -> Seq.collect f xs
     | Tuple { Elements = xs } -> Seq.collect f xs
     | Generic (id, args) ->
@@ -20,7 +21,10 @@ let collectFromSignatureQuery getTarget query =
         Seq.collect f args
       ]
     | TypeAbbreviation { Original = o } -> f o
-    | _ -> Seq.empty
+    | ByRef (_, t) -> f t
+    | Choice xs -> Seq.collect f xs
+    | Delegate (t, _) -> f t
+    | Flexible t -> f t
   let results = 
     match query with
     | { Query.Method = QueryMethod.ByName (_, sigQuery) }
@@ -61,7 +65,11 @@ let initialEquations options query eqs =
 let queryTypes query (dictionaries: ApiDictionary[]) =
   collectPartialIdentities query
   |> Seq.map (fun id ->
-    let types = dictionaries |> Seq.collect (fun d -> d.TypeDefinitions) |> Seq.filter (fun td -> Identity.sameName (PartialIdentity id) (FullIdentity td.FullIdentity)) |> Seq.toArray
+    let types =
+      dictionaries
+      |> Seq.collect (fun d -> d.TypeDefinitions.Values)
+      |> Seq.filter (fun td -> Identity.sameName (PartialIdentity id) (FullIdentity td.FullIdentity) = Identity.IdentityEqualityResult.Matched)
+      |> Seq.toArray
     (id, types)
   )
   |> Map.ofSeq
@@ -123,7 +131,14 @@ let private replaceTypeAbbreviation' nameEquality (table: TypeAbbreviation list)
       Generic (id, replacedArgs)
     | Arrow xs -> Arrow (List.map replace xs)
     | Tuple x -> Tuple { x with Elements = List.map replace x.Elements }
-    | other -> other
+    | Flexible t -> Flexible (replace t)
+    | ByRef _ as x -> x
+    | Choice _ as x -> x
+    | Delegate _ as x -> x
+    | TypeAbbreviation _ as x -> x
+    | Variable _ as x -> x
+    | Wildcard _ as x -> x
+    
   let replaceSignatureQuery = function
     | SignatureQuery.Wildcard -> SignatureQuery.Wildcard
     | SignatureQuery.Signature lt -> SignatureQuery.Signature (replace lt)
@@ -139,7 +154,8 @@ let private replaceTypeAbbreviation' nameEquality (table: TypeAbbreviation list)
   | { Method = QueryMethod.ByComputationExpression ceQuery } -> { query with Method = QueryMethod.ByComputationExpression (replaceComputationExpressionQuery ceQuery) }
 
 let replaceTypeAbbreviation (table: TypeAbbreviation list) (options: SearchOptions) (query: Query) =
-  replaceTypeAbbreviation' (Identity.equalityFromOptions options) table query
+  let equality x y = Identity.equalityFromOptions options x y = Identity.IdentityEqualityResult.Matched
+  replaceTypeAbbreviation' equality table query
 
 let typeAbbreviationTableFromApiDictionary (dictionaries: ApiDictionary seq) =
   dictionaries |> Seq.collect (fun x -> x.TypeAbbreviations) |> Seq.filter (fun t -> t.Accessibility = Public) |> Seq.map (fun t -> t.TypeAbbreviation) |> Seq.toList

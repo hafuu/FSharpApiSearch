@@ -242,7 +242,7 @@ module FSharp =
   // bug #60
   let internalInterfaceTest = test {
     let! mscorDict = mscorlibApi
-    let tuple = mscorDict.TypeDefinitions |> Array.find (fun x -> x.Name = DisplayName.ofString "System.Tuple<'T1, 'T2>" && x.GenericParameters.Length = 2)
+    let tuple = mscorDict.TypeDefinitions.Values |> Seq.find (fun x -> x.Name = DisplayName.ofString "System.Tuple<'T1, 'T2>" && x.GenericParameters.Length = 2)
     let existsITuple = tuple.AllInterfaces |> Seq.exists (function Identity (FullIdentity i) -> i.Name = Name.ofString "System.ITuple" | _ -> false)
     do! existsITuple |> assertEquals false
   }
@@ -272,9 +272,9 @@ module FSharp =
   let loadModuleTest =
     parameterize {
       source [
-        "PublicModule", [ module' (DisplayName.ofString "PublicModule") Public ]
-        "PublicModule.NestedModule", [ module' (DisplayName.ofString "PublicModule.NestedModule") Public ]
-        "InternalModule", [ module' (DisplayName.ofString "InternalModule") Private ]
+        "PublicModule", [ module' (DisplayName.ofString "PublicModule") fsharpAssemblyName Public ]
+        "PublicModule.NestedModule", [ module' (DisplayName.ofString "PublicModule.NestedModule") fsharpAssemblyName Public ]
+        "InternalModule", [ module' (DisplayName.ofString "InternalModule") fsharpAssemblyName Private ]
       ]
       run testApi
     }

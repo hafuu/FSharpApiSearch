@@ -62,12 +62,18 @@ module FSharp =
 
   let dotNetGeneric = genericId .>>. between (pcharAndTrim '<') (pcharAndTrim '>') (sepBy1 fsharpSignature (pchar ',')) |>> (fun (id, parameter) -> createGeneric id parameter)
 
+  let flexible =
+    let prefix = pcharAndTrim '#'
+    let t = attempt dotNetGeneric <|> identity
+    prefix >>. t |>> Flexible
+
   let ptype =
     choice [
       attempt (between (pcharAndTrim '(') (pcharAndTrim ')') fsharpSignature)
       attempt dotNetGeneric
       attempt identity
       attempt variable
+      attempt flexible
       wildcard
     ]
   
@@ -204,12 +210,18 @@ module CSharp =
 
   let generic = genericId .>>. between (pcharAndTrim '<') (pcharAndTrim '>') (sepBy1 csharpSignature (pchar ',')) |>> (fun (id, parameter) -> createGeneric id parameter)
 
+  let flexible =
+    let prefix = pcharAndTrim '#'
+    let t = attempt generic <|> identity
+    prefix >>. t |>> Flexible
+
   let ptype =
     choice [
       attempt punit
       attempt (between (pcharAndTrim '(') (pcharAndTrim ')') csharpSignature)
       attempt generic
       attempt identity
+      attempt flexible
       wildcard
     ]
 

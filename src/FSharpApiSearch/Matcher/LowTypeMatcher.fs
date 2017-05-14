@@ -3,6 +3,8 @@
 open System.Diagnostics
 open FSharpApiSearch.MatcherTypes
 open FSharpApiSearch.Printer
+open FSharpApiSearch.SpecialTypes
+open FSharpApiSearch.SpecialTypes.LowType.Patterns
 
 module Context =
     let setEquations eqs ctx = { ctx with Equations = eqs }
@@ -19,6 +21,7 @@ module LowType =
     | TypeAbbreviation t -> collectVariableOrWildcardGroup t.Original
     | Delegate (t, _) -> collectVariableOrWildcardGroup t
     | ByRef (_, t) -> collectVariableOrWildcardGroup t
+    | Flexible t -> collectVariableOrWildcardGroup t
     | Choice xs -> List.collect collectVariableOrWildcardGroup xs
 
 module Equations =
@@ -241,12 +244,13 @@ module Rules =
       lowTypeMatcher.Test abbreviation.Original other ctx
     | _ -> Continue ctx
 
-  let testIdentity nameEquality leftIdentity rightIdentity ctx =
-    if nameEquality leftIdentity rightIdentity then
+  let testIdentity (nameEquality: Identity.Equality) leftIdentity rightIdentity ctx =
+    match nameEquality leftIdentity rightIdentity with
+    | Identity.IdentityEqualityResult.Matched ->
       Debug.WriteLine("There are same identities.")
       Matched ctx
-    else
-      Debug.WriteLine("There are deferent identities.")
+    | failed ->
+      Debug.WriteLine(sprintf "There are deferent identities. The reason is %A" failed)
       Failure
 
   let identityRule nameEquality _ left right ctx =
@@ -277,6 +281,7 @@ module Rules =
     | TypeAbbreviation x -> distanceFromVariable x.Original
     | Delegate _ -> 1
     | ByRef _ -> 1
+    | Flexible _ -> 0
     | Choice _ -> 1
   and seqDistance xs = xs |> Seq.sumBy (distanceFromVariable >> max 1)
 
@@ -411,6 +416,43 @@ module Rules =
       |> MatchingResult.mapMatched (Context.addDistance "byref and type" 1)
     | _ -> Continue ctx
 
+  let rec flexibleTarget ctx = function
+    | Identity id -> Some (TypeHierarchy.fullTypeDef ctx id, [])
+    | Generic (Identity id, args) -> Some (TypeHierarchy.fullTypeDef ctx id, args)
+    | ByRef _ as t -> flexibleTarget ctx t
+    | Delegate (t, _) -> flexibleTarget ctx t
+    | Tuple { Elements = xs } ->
+      let tpl = Identity.tupleN xs.Length
+      Some (TypeHierarchy.fullTypeDef ctx tpl, xs)
+    | Flexible t -> flexibleTarget ctx t
+    | TypeAbbreviation _ as t -> (|AbbreviationRoot|_|) t |> Option.bind (flexibleTarget ctx)
+    | Generic _ | Variable _ | Wildcard _ | Arrow _ | Choice _ -> None
+
+  let (|FlexibleTarget|_|) ctx = flexibleTarget ctx
+
+  let flexibleRule (lowTypeMatcher: ILowTypeMatcher) left right ctx =
+    match left, right with
+    | Flexible flexible, target
+    | target, Flexible flexible ->
+      match target with
+      | FlexibleTarget ctx (targetIdDef, targetArgs) ->
+        Debug.WriteLine("flexible rule.")
+
+        targetIdDef
+        |> Seq.collect (fun td -> TypeHierarchy.getSuperTypes ctx td targetArgs)
+        |> Seq.tryPick (fun target ->
+          match lowTypeMatcher.Test flexible target ctx with
+          | Matched ctx -> Some ctx
+          | _ -> None
+        )
+        |> function
+          | Some ctx -> Matched ctx
+          | None -> Failure
+
+      | _ -> Continue ctx
+
+    | _ -> Continue ctx
+
 let instance options =
   let nameEquality = Identity.equalityFromOptions options
 
@@ -439,6 +481,7 @@ let instance options =
       | Disabled -> yield Rules.delegateAndArrowRule
 
       yield Rules.byrefRule
+      yield Rules.flexibleRule
 
       yield Rule.terminator
     ]

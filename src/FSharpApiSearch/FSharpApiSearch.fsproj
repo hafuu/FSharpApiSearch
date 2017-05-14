@@ -69,6 +69,7 @@
     <Compile Include="Printer.fs" />
     <Compile Include="QueryParser.fs" />
     <Compile Include="Matcher\MatcherTypes.fs" />
+    <Compile Include="Matcher\TypeHierarchy.fs" />
     <Compile Include="Matcher\LowTypeMatcher.fs" />
     <Compile Include="Matcher\NameMatcher.fs" />
     <Compile Include="Matcher\SignatureMatcher.fs" />

@@ -52,3 +52,7 @@ module internal Extensions =
         this
 
     member this.AppendJoin(sep: string, xs: string seq) = this.AppendJoin(sep, xs, (fun x sb -> sb.Append(x)))
+
+module internal IDictionary =
+  open System.Collections.Generic
+  let empty<'k, 'v when 'k : equality> = dict (Seq.empty<'k * 'v>)

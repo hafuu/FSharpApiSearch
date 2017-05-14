@@ -42,7 +42,7 @@ let main argv =
         let targetName = Console.ReadLine()
 
         let target = apis |> Array.find (fun x -> FSharp.printFullName x = targetName)
-        let dummyDict: ApiDictionary = { AssemblyName = "dummy"; Api = [| target |]; TypeDefinitions = [||]; TypeAbbreviations = [||] }
+        let dummyDict: ApiDictionary = { AssemblyName = "dummy"; Api = [| target |]; TypeDefinitions = dict Seq.empty; TypeAbbreviations = [||] }
         let result = Matcher.search dictionaries options [ dummyDict ] query
 
         printfn "Result = %b" (Seq.isEmpty result = false)

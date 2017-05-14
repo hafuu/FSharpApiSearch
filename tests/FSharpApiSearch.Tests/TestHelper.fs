@@ -3,6 +3,8 @@
 open FSharpApiSearch
 open FSharpApiSearch.Printer
 
+let skipAll xs = xs |> Seq.map (Persimmon.Syntax.skip "skip")
+
 let defaultTestOptions =
   SearchOptions.defaultOptions
   |> SearchOptions.SwapOrderDepth.Set 0
@@ -54,6 +56,8 @@ module DSL =
 
   let byref t = ByRef(false, t)
   let out t = ByRef(true, t)
+
+  let flexible t = Flexible t
 
   let ptype t (x: Parameter) = { x with Type = t }
   let pname n (x: Parameter) = { x with Name = Some n }
@@ -110,7 +114,7 @@ module DSL =
     let uc = { DeclaringType = declaration; Name = name; Fields = fields } : UnionCase
     ApiSignature.UnionCase uc
 
-  let module' name accessibility = ApiSignature.ModuleDefinition { Name = name; Accessibility = accessibility }
+  let module' name assemblyName accessibility = ApiSignature.ModuleDefinition { Name = name; AssemblyName = assemblyName; Accessibility = accessibility }
 
   let constraint' vs c = { Variables = List.map tv vs; Constraint = c }
 

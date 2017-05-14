@@ -2,6 +2,7 @@
 
 open System.Text
 open System
+open System.Collections.Generic
 
 type TypeVariable = {
   Name: string
@@ -107,6 +108,7 @@ type LowType =
   | TypeAbbreviation of TypeAbbreviation
   | Delegate of delegateType: LowType * LowType list
   | ByRef of isOut:bool * LowType
+  | Flexible of LowType
   | Choice of LowType list
 and TypeAbbreviation = {
   Abbreviation: LowType
@@ -318,10 +320,11 @@ module UnionCase =
 
 type ModuleDefinition = {
   Name: DisplayName
+  AssemblyName: string
   Accessibility: Accessibility
 }
 with
-  member internal this.LowType = Identity (FullIdentity { Name = DisplayName this.Name; AssemblyName = "dummy assembly"; GenericParameterCount = 0 })
+  member internal this.LowType = Identity (FullIdentity { Name = DisplayName this.Name; AssemblyName = this.AssemblyName; GenericParameterCount = 0 })
 
 type ComputationExpressionBuilder = {
   BuilderType: LowType
@@ -373,7 +376,7 @@ with
 type ApiDictionary = {
   AssemblyName: string
   Api: Api[]
-  TypeDefinitions: FullTypeDefinition[]
+  TypeDefinitions: IDictionary<FullIdentity, FullTypeDefinition>
   TypeAbbreviations: TypeAbbreviationDefinition[]
 }
 with
@@ -627,42 +630,89 @@ module internal SpecialTypes =
 module internal Identity =
   open System
 
+  [<RequireQualifiedAccess>]
+  type IdentityEqualityResult =
+    | Matched
+    | GenericParameter of int * int
+    | Name
+    | AssemblyName
+  
+  let (<&&>) x y =
+    match x() with
+    | IdentityEqualityResult.Matched -> y()
+    | failed -> failed
+
   let testee (x: DisplayNameItem) =
     match x.Name with
     | SymbolName n -> n
     | OperatorName (_, n) -> n
     | WithCompiledName (n, _) -> n
 
-  let private testDisplayName cmp (xs: DisplayName) (ys: DisplayName) =
-    Seq.zip xs ys |> Seq.forall (fun (x, y) -> String.equalsWithComparer cmp (testee x) (testee y) && x.GenericParameters.Length = y.GenericParameters.Length)
+  let private forall (f: 'a -> IdentityEqualityResult) (xs: 'a seq) () : IdentityEqualityResult =
+    xs
+    |> Seq.tryPick (fun x ->
+      match f x with
+      | IdentityEqualityResult.Matched -> None
+      | failed -> Some failed)
+    |> function
+      | Some failed -> failed
+      | None -> IdentityEqualityResult.Matched
 
-  let testFullIdentity (x: FullIdentity) (y: FullIdentity) =
+  let private testGenericParameterCount (x: int) (y: int) () =
+    if x = y then
+      IdentityEqualityResult.Matched
+    else
+      IdentityEqualityResult.GenericParameter (x, y)
+
+  let private testString cmp x y () =
+    if String.equalsWithComparer cmp x y then
+      IdentityEqualityResult.Matched
+    else
+      IdentityEqualityResult.Name
+
+  let private testDisplayName cmp (xs: DisplayName) (ys: DisplayName) () =
+    let f = fun (x, y) -> testString cmp (testee x) (testee y) <&&> testGenericParameterCount x.GenericParameters.Length y.GenericParameters.Length
+    forall f (Seq.zip xs ys) ()
+
+  let private testAssemblyName (x: FullIdentity) (y: FullIdentity) () =
+    if x.AssemblyName = y.AssemblyName then
+      IdentityEqualityResult.Matched
+    else
+      IdentityEqualityResult.AssemblyName
+
+  let testFullIdentity (x: FullIdentity) (y: FullIdentity) () =
     match x.Name, y.Name with
     | (LoadingName _, _) | (_, LoadingName _) -> Name.loadingNameError()
-    | DisplayName xName, DisplayName yName -> x.AssemblyName = y.AssemblyName && testDisplayName StringComparer.InvariantCulture xName yName
+    | DisplayName xName, DisplayName yName -> testAssemblyName x y <&&> testDisplayName StringComparer.InvariantCulture xName yName
 
-  let private testPartialAndFullIdentity cmp (partial: PartialIdentity) (full: FullIdentity) =
-    let strEqual x y = String.equalsWithComparer cmp x y
+  let fullIdentityComparer =
+    { new IEqualityComparer<FullIdentity> with
+        member this.Equals(x, y) = testFullIdentity x y () = IdentityEqualityResult.Matched
+        member this.GetHashCode(x) =
+          let name = Name.toDisplayName x.Name
+          let nameHashItem = name |> List.map (fun n -> (n.Name, n.GenericParameters.Length))
+          hash (x.AssemblyName, x.GenericParameterCount, nameHashItem)
+    }
+
+  let private testPartialAndFullIdentity cmp (partial: PartialIdentity) (full: FullIdentity) () =
+    let strEqual x y () = testString cmp x y ()
     let testNameItem (p: DisplayNameItem, f: DisplayNameItem) =
       match p.GenericParameters, f.GenericParameters with
-      | [], _ -> strEqual (testee p) (testee f)
-      | _ -> strEqual (testee p) (testee f) && p.GenericParameters.Length = f.GenericParameters.Length
+      | [], _ -> strEqual (testee p) (testee f) ()
+      | _ -> strEqual (testee p) (testee f) <&&> testGenericParameterCount p.GenericParameters.Length f.GenericParameters.Length
     match full.Name with
-    | DisplayName fullName ->
-      partial.GenericParameterCount = full.GenericParameterCount
-      && (Seq.zip partial.Name fullName |> Seq.forall testNameItem)
+    | DisplayName fullName -> testGenericParameterCount partial.GenericParameterCount full.GenericParameterCount <&&> forall testNameItem (Seq.zip partial.Name fullName)
     | LoadingName _ -> Name.loadingNameError()
 
   let private sameName' cmp x y =
     match x, y with
-    | FullIdentity left, FullIdentity right -> testFullIdentity left right
+    | FullIdentity left, FullIdentity right -> testFullIdentity left right ()
     | FullIdentity full, PartialIdentity partial
-    | PartialIdentity partial, FullIdentity full -> testPartialAndFullIdentity cmp partial full
+    | PartialIdentity partial, FullIdentity full -> testPartialAndFullIdentity cmp partial full ()
     | PartialIdentity left, PartialIdentity right ->
-      left.GenericParameterCount = right.GenericParameterCount
-      && testDisplayName cmp left.Name right.Name
+      testGenericParameterCount left.GenericParameterCount right.GenericParameterCount <&&> testDisplayName cmp left.Name right.Name
 
-  type Equality = Identity -> Identity -> bool
+  type Equality = Identity -> Identity -> IdentityEqualityResult
 
   let sameName x y = sameName' StringComparer.InvariantCulture x y
   let sameNameIgnoreCase x y = sameName' StringComparer.InvariantCultureIgnoreCase x y

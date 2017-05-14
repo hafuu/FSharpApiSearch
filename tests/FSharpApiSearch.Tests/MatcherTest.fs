@@ -68,7 +68,7 @@ let matchTest trace abbTable (options, query, name, target, expected) = test {
   do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
   try
     let targetApi: Api = { Name = name; Signature = target; TypeConstraints = []; Document = None }
-    let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = [||]; TypeAbbreviations = Array.append TestHelper.fsharpAbbreviationTable abbTable }
+    let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = IDictionary.empty; TypeAbbreviations = Array.append TestHelper.fsharpAbbreviationTable abbTable }
     let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.length = 1
     do! actual |> assertEquals expected
   finally
@@ -80,7 +80,7 @@ let distanceTest trace opt (query, targetSig, expected) = test {
   do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
   try
     let targetApi: Api = { Name = Name.ofString "test"; Signature = targetSig; TypeConstraints = []; Document = None }
-    let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
+    let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = IDictionary.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
     let actual = Matcher.search [| dict |] opt [ dict ] query |> Seq.head
     do! actual.Distance |> assertEquals expected
   finally
@@ -269,7 +269,7 @@ let matchTypeAbbreviationTest =
 let assemblyNameTest =
   test {
     let api: Api = { Name = Name.ofString "test"; Signature = moduleValue int; TypeConstraints = []; Document = None }
-    let dummyDict = { AssemblyName = "dummyAssembly"; Api = [| api |]; TypeDefinitions = [||]; TypeAbbreviations = [||] }
+    let dummyDict = { AssemblyName = "dummyAssembly"; Api = [| api |]; TypeDefinitions = IDictionary.empty; TypeAbbreviations = [||] }
     let actual = Matcher.search Array.empty defaultTestOptions [ dummyDict ] "?" |> Seq.toList
     do! actual |> assertEquals [ { AssemblyName = "dummyAssembly"; Api = api; Distance = 0 } ]
   }
@@ -874,6 +874,7 @@ module TypeConstraintTest =
         Array';
         Tuple2; Tuple3;
       |]
+      |> ApiLoader.Impl.typeDefsDict
     TypeAbbreviations = [||]
   }
 
@@ -895,6 +896,7 @@ module TypeConstraintTest =
       [|
         Array1D
       |]
+      |> ApiLoader.Impl.typeDefsDict
     TypeAbbreviations = [||]
   }
 
@@ -926,6 +928,16 @@ module TypeConstraintTest =
       FullName = "Test.GenericChild`2"
       GenericParameters = [ tv "'a"; tv "'b" ]
       BaseType = Some (instantiate GenericParent [ variable "'a"; variable "'b" ])
+  }
+
+  let PartialApplyTypeAbbreviation = {
+    Name = DisplayName.ofString "Test.PartialApplyTypeAbbreviation<'a>"
+    FullName = "Test.PartialApplyTypeAbbreviation`1"
+    AssemblyName = "test"
+    Accessibility = Public
+    GenericParameters = [ tv "'x" ]
+    Abbreviated = instantiate GenericChild [ variable "'x"; instantiate Child [] ]
+    Original = instantiate GenericChild [ variable "'x"; instantiate Child [] ]
   }
 
   let AnotherGeneric = {
@@ -988,7 +1000,7 @@ module TypeConstraintTest =
 
   let GenericInterface = {
     empty with
-      Name = DisplayName.ofString "Test.GenericInterface"
+      Name = DisplayName.ofString "Test.GenericInterface<'a>"
       FullName = "Test.GenericInterface`1"
       GenericParameters = [ tv "'a" ]
   }
@@ -1203,8 +1215,9 @@ module TypeConstraintTest =
         EqualityType; NoEqualityType; DependenceEqualityType1; DependenceEqualityType2; DependenceEqualityType3;
         ComparisonType; NoComparisonType; DependenceComparisonType;
       |]
+      |> ApiLoader.Impl.typeDefsDict
     TypeAbbreviations =
-      [| TypeAbbreviationInterface |]
+      [| TypeAbbreviationInterface; PartialApplyTypeAbbreviation |]
   }
 
   let testConstraint trace (query, target, constraints, expected) = test {
@@ -1219,7 +1232,7 @@ module TypeConstraintTest =
     |]
 
     let options = { defaultTestOptions with GreedyMatching = Enabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled }
-    let dummyDict = { AssemblyName = "dummy"; Api = [| targetApi |]; TypeDefinitions = [||]; TypeAbbreviations = [||] }
+    let dummyDict = { AssemblyName = "dummy"; Api = [| targetApi |]; TypeDefinitions = IDictionary.empty; TypeAbbreviations = [||] }
     let actual = Matcher.search dictionaries options [ dummyDict ] query |> Seq.length = 1
     do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
     do! actual |> assertEquals expected
@@ -1326,6 +1339,82 @@ module TypeConstraintTest =
     ]
     run (testConstraint false)
   }
+
+  let runFlexibleTest trace greedy (query, target, expected) = test {
+      use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
+      do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
+      let targetApi: Api = { Name = Name.ofString "test"; Signature = target; TypeConstraints = []; Document = None }
+
+      let dictionaries = [|
+        mscorlibDict
+        fscoreLib
+        dictionary
+      |]
+
+      let options = { defaultTestOptions with GreedyMatching = greedy; RespectNameDifference = Enabled; IgnoreParameterStyle = Disabled; IgnoreCase = Disabled }
+      let dummyDict = { AssemblyName = "dummy"; Api = [| targetApi |]; TypeDefinitions = IDictionary.empty; TypeAbbreviations = [||] }
+      let actual = Matcher.search dictionaries options [ dummyDict ] query |> Seq.length = 1
+      do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
+      do! actual |> assertEquals expected
+    }
+
+  let flexibleTest =
+    let target td args = moduleValue (instantiate td args)
+    parameterize {
+      source [
+        "#Parent", (target Child []), true
+        "#Parent", (target Parent []), true
+        "#Parent", (target Object []), false
+
+        "#GenericParent<'a, 'b>", (target GenericChild [ variable "'a"; variable "'b"]), true
+        "#GenericParent<B, B>", (target GenericChild [ typeB; typeB]), true
+        "#GenericParent<B, B>", (target GenericChild [ typeB; typeA]), false
+        "#AnotherGeneric<'a, 'b>", (target GenericChild [ variable "'a"; variable "'b"]), false
+
+        "#GenericInterface<ImplA>", (target GenericInterfaceImplement []), true
+        "#GenericInterface<#IA>", (target GenericInterfaceImplement []), true
+        "#GenericInterface<#IB>", (target GenericInterfaceImplement []), false
+        "#GenericInterface<'a>", (target GenericInterfaceImplement []), false
+        "#GenericInterface<Child>", (target GenericInterfaceImplement []), false
+
+        "#OriginalTypeAbbreviatedInterface", (target AbbreviationImplement []), true
+        "#TypeAbbreviationInterface", (target AbbreviationImplement []), true
+        "#OriginalTypeAbbreviatedInterface", (moduleValue (typeAbbreviation TypeAbbreviationInterface.Abbreviated TypeAbbreviationInterface.LowType)), true
+        "#TypeAbbreviationInterface", (moduleValue (typeAbbreviation TypeAbbreviationInterface.Abbreviated TypeAbbreviationInterface.LowType)), true
+
+        "#GenericParent<'a, #Parent>",
+          (moduleValue (typeAbbreviation
+            (instantiate GenericChild [ variable "'T"; instantiate Child [] ])
+            (generic PartialApplyTypeAbbreviation.LowType [ variable "'T"; instantiate Child [] ] )
+          )), true
+        "#GenericParent<Child, Child>",// (moduleValue (generic (TypeAbbreviation PartialApplyTypeAbbreviation.TypeAbbreviation) [ instantiate Child [] ])), true
+          (moduleValue (typeAbbreviation
+            (instantiate GenericChild [ instantiate Child []; instantiate Child [] ])
+            (generic PartialApplyTypeAbbreviation.LowType [ instantiate Child []; instantiate Child [] ])
+          )), true
+        "#GenericParent<#Parent, #Parent>",// (moduleValue (generic (TypeAbbreviation PartialApplyTypeAbbreviation.TypeAbbreviation) [ instantiate Child [] ])), true
+          (moduleValue (typeAbbreviation
+            (instantiate GenericChild [ instantiate Child []; instantiate Child [] ])
+            (generic PartialApplyTypeAbbreviation.LowType [ instantiate Child []; instantiate Child [] ])
+          )), true
+
+        "#GenericParent<?, ?>", (typeAbbreviationApi PartialApplyTypeAbbreviation), true
+        "#Parent", (typeAbbreviationApi PartialApplyTypeAbbreviation), false
+      ]
+
+      run (runFlexibleTest false Disabled)
+    }
+
+  let flexibleWithGreedyTest =
+    parameterize {
+      source [
+        // indirect
+        "Child -> #Parent", (moduleFunction' [ [ ptype (variable "'a") ]; [ ptype (variable "'a") ] ]), true
+        "Object -> #Parent", (moduleFunction' [ [ ptype (variable "'a") ]; [ ptype (variable "'a") ] ]), false
+      ]
+
+      run (runFlexibleTest false Enabled)
+    }
 
   let nullnessConstraintTest = parameterize {
     source [
@@ -1617,7 +1706,7 @@ module ActivePatternTest =
     do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
     try
       let targetApi: Api = { Name = Name.ofString "test"; Signature = target; TypeConstraints = []; Document = None }
-      let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = Array.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
+      let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = IDictionary.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
       let options = defaultTestOptions
       let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.length = 1
       do! actual |> assertEquals expected
@@ -1977,7 +2066,7 @@ module InitializeTest =
         typeAbbreviationDef "A.conflict<'a>" (generic (identity "A.NonHidden") [ variable "'a" ])
         typeAbbreviationDef "B.conflict<'a>" (generic (identity "B.Type") [ variable "'a" ])
       |]
-      let dictionaries = Array.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = Array.empty; TypeAbbreviations = abbreviations }
+      let dictionaries = Array.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = IDictionary.empty; TypeAbbreviations = abbreviations }
       let actual =
         let storategy = MatcherInitializer.FSharpInitializeStorategy() :> MatcherInitializer.IInitializeStorategy
         let query = storategy.ParseQuery(query)
@@ -2003,7 +2092,7 @@ module InitializeTest =
       let abbreviations: TypeAbbreviationDefinition[] = [|
         typeAbbreviationDef "list<'a>" (generic (identity "List") [ variable "'a" ])
       |]
-      let dictionaries = Array.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = Array.empty; TypeAbbreviations = abbreviations }
+      let dictionaries = Array.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = IDictionary.empty; TypeAbbreviations = abbreviations }
       let actual =
         let storategy = MatcherInitializer.CSharpInitializeStorategy() :> MatcherInitializer.IInitializeStorategy
         let query = storategy.ParseQuery(query)

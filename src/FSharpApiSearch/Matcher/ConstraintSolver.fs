@@ -4,20 +4,7 @@ open System.Diagnostics
 open FSharpApiSearch.MatcherTypes
 open FSharpApiSearch.SpecialTypes
 open FSharpApiSearch.Printer
-
-let getFullTypeDefinition (ctx: Context) (baseType: LowType) =
-  let rec getIdentity = function
-    | Identity i -> i
-    | Generic (x, _) -> getIdentity x
-    | Tuple { Elements = xs } -> Identity.tupleN xs.Length
-    | TypeAbbreviation { Original = o } -> getIdentity o
-    | _ -> failwith "invalid base type."
-  match getIdentity baseType with
-  | FullIdentity full ->
-    ctx.ApiDictionaries.[full.AssemblyName].TypeDefinitions |> Seq.find (fun td -> Identity.testFullIdentity td.FullIdentity full)
-    |> Array.singleton
-  | PartialIdentity partial ->
-    ctx.QueryTypes.[partial]
+open FSharpApiSearch.TypeHierarchy
 
 let rec (|ConstraintTestee|_|) = function
   | Identity id -> Some (id, [])
@@ -31,7 +18,7 @@ let createConstraintSolver title testConstraint (testeeType: LowType) ctx = seq 
   | ConstraintTestee (testeeIdentity, testTypeArgs) ->
     let testees =
       match testeeIdentity with
-      | FullIdentity i -> ctx.ApiDictionaries.[i.AssemblyName].TypeDefinitions |> Seq.find (fun td -> Identity.testFullIdentity td.FullIdentity i) |> Array.singleton
+      | FullIdentity i -> ctx.ApiDictionaries.[i.AssemblyName].TypeDefinitions.[i] |> Array.singleton
       | PartialIdentity i -> ctx.QueryTypes.[i]
     for typeDef in testees do
       Debug.WriteLine(sprintf "Test %s: %s" title (typeDef.Debug()))
@@ -54,50 +41,6 @@ let createConstraintSolver title testConstraint (testeeType: LowType) ctx = seq 
   | _ -> ()
 }
 
-let transferVariableArgument (inheritArgs: Map<TypeVariable, LowType>) (baseType: LowType): LowType list =
-  let rec genericArguments = function
-    | Identity _ -> []
-    | Generic (_, args) -> args
-    | TypeAbbreviation { Original = o } -> genericArguments o
-    | _ -> failwith "invalid base type."
-  genericArguments baseType
-  |> List.map (function
-    | Variable (VariableSource.Target, v) -> inheritArgs.[v]
-    | a -> a)
-
-let instantiate (t: FullTypeDefinition) (args: LowType list) =
-  let id = Identity (FullIdentity t.FullIdentity)
-  match args with
-  | [] -> id
-  | _ -> Generic (id, args)
-
-let rec getInheritTypes (ctx: Context) (t: FullTypeDefinition) (args: LowType list): LowType seq = seq {
-  let argPair = List.zip t.GenericParameters args |> Map.ofList
-
-  let thisType = instantiate t args
-  yield thisType 
-
-  let parents = seq {
-    match t.BaseType with
-    | Some baseType -> yield baseType
-    | None -> ()
-
-    yield! t.AllInterfaces
-  }
-
-  for p in parents do
-    let baseTypeArgs = transferVariableArgument argPair p
-    let baseTypeDef =
-      let rec getFullIdentity = function
-        | Identity (FullIdentity full) -> full
-        | Generic (Identity (FullIdentity full), _) -> full
-        | TypeAbbreviation { Original = o } -> getFullIdentity o
-        | _ -> failwith "It is not full identity."
-      let full = getFullIdentity p
-      ctx.ApiDictionaries.[full.AssemblyName].TypeDefinitions |> Seq.find (fun td -> td.FullIdentity = full)
-    yield! getInheritTypes ctx baseTypeDef baseTypeArgs
-}
-
 let firstMatched f xs =
   xs
   |> Seq.tryPick (fun x -> match f x with Matched ctx -> Some ctx | _ -> None)
@@ -112,7 +55,7 @@ let testSubtypeConstraint (lowTypeMatcher: ILowTypeMatcher) (parentType: LowType
       let testees =
         match parentType with
         | Variable _ -> Seq.singleton (instantiate testeeTypeDef testeeArgs)
-        | _ -> getInheritTypes ctx testeeTypeDef testeeArgs
+        | _ -> getSuperTypes ctx testeeTypeDef testeeArgs
       testees
       |> firstMatched (fun t -> lowTypeMatcher.Test t parentType ctx)
     )

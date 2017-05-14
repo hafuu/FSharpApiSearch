@@ -105,6 +105,15 @@ module FSharp =
       run runSignatureTest
     }
 
+    let flexibleTest = parameterize {
+      source [
+        "#A", (flexible (identity "A"))
+        "#A<B>", (flexible (generic (identity "A") [ identity "B" ]))
+        "A<#B>", (generic (identity "A") [ flexible (identity "B") ])
+      ]
+      run runSignatureTest
+    }
+
   module ByName =
     let parseTest =
       let alpha = queryVariable "'a"
@@ -301,6 +310,15 @@ module CSharp =
         "string, out int -> bool", (arrow [ tuple [ identity "string"; out (identity "int") ]; identity "bool" ])
       ]
 
+      run runSignatureTest
+    }
+
+    let flexibleTest = parameterize {
+      source [
+        "#A", (flexible (identity "A"))
+        "#A<B>", (flexible (generic (identity "A") [ identity "B" ]))
+        "A<#B>", (generic (identity "A") [ flexible (identity "B") ])
+      ]
       run runSignatureTest
     }
 

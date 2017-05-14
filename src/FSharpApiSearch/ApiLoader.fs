@@ -817,7 +817,7 @@ module internal Impl =
     }
 
   let moduleDef xml name (e: FSharpEntity) =
-    let def: ModuleDefinition = { Name = name; Accessibility = accessibility e }
+    let def: ModuleDefinition = { Name = name; AssemblyName = e.Assembly.SimpleName; Accessibility = accessibility e }
     { Name = DisplayName name; Signature = ApiSignature.ModuleDefinition def; TypeConstraints = []; Document = tryGetXmlDoc xml e }
 
   let tryExtractSyntaxes typeDef customOperations =
@@ -928,6 +928,25 @@ module internal Impl =
       return! None
   }
 
+  let typeDefsDict (xs: FullTypeDefinition seq) =
+    let d =
+      xs
+      |> Seq.map (fun x -> x.FullIdentity, x)
+      |> dict
+    Dictionary(d, Identity.fullIdentityComparer)
+
+  let makeDefAndAbb (api: ApiDictionary) =
+    let types =
+      api.Api
+      |> Seq.choose (function { Signature = ApiSignature.FullTypeDefinition full } -> Some full | _ -> None)
+      |> typeDefsDict
+    let typeAbbreviations =
+      api.Api
+      |> Seq.choose (function { Signature = ApiSignature.TypeAbbreviation t } -> Some t | _ -> None)
+      |> Seq.toArray
+    { api with TypeDefinitions = types; TypeAbbreviations = typeAbbreviations }
+      
+
   let load (assembly: FSharpAssembly): ApiDictionary =
     let xml = tryGetXml assembly |> Option.map createXmlDocCache
     let api =
@@ -939,15 +958,9 @@ module internal Impl =
           | a -> DisplayName.ofString a
         collectApi xml accessPath e)
       |> Seq.toArray
-    let types =
-      api
-      |> Seq.choose (function { Signature = ApiSignature.FullTypeDefinition full } -> Some full | _ -> None)
-      |> Seq.toArray
-    let typeAbbreviations =
-      api
-      |> Seq.choose (function { Signature = ApiSignature.TypeAbbreviation t } -> Some t | _ -> None)
-      |> Seq.toArray
-    { AssemblyName = assembly.SimpleName; Api = api; TypeDefinitions = types; TypeAbbreviations = typeAbbreviations }
+    
+    let apiDict = { AssemblyName = assembly.SimpleName; Api = api; TypeDefinitions = IDictionary.empty; TypeAbbreviations = Array.empty }
+    makeDefAndAbb apiDict
 
   module NameResolve =
     type AssemblyCache = IDictionary<string, DisplayName>
@@ -1012,6 +1025,7 @@ module internal Impl =
         let arrow = List.map (resolve_LowType context) arrow
         Delegate (t, arrow)
       | ByRef (out, t) -> ByRef(out, resolve_LowType context t)
+      | Flexible t -> Flexible(resolve_LowType context t)
       | Choice (xs) -> Choice (List.map (resolve_LowType context) xs)
     and resolve_Identity cache = function
       | PartialIdentity _ as i -> i
@@ -1019,8 +1033,6 @@ module internal Impl =
 
     let resolve_Signature context apiSig = LowTypeVisitor.accept_ApiSignature (resolve_LowType context) apiSig
     let resolve_TypeConstraint context constraint' = LowTypeVisitor.accept_TypeConstraint (resolve_LowType context) constraint'
-    let resolve_FullTypeDefinition context fullTypeDef = LowTypeVisitor.accept_FullTypeDefinition (resolve_LowType context) fullTypeDef
-    let resolve_TypeAbbreviationDefinition context abbDef = LowTypeVisitor.accept_TypeAbbreviationDefinition (resolve_LowType context) abbDef
 
     let resolve_Api context (api: Api) =
       { api with
@@ -1034,12 +1046,7 @@ module internal Impl =
         Cache = cache
         ForwardingLogs = Dictionary<_, _>() :> IDictionary<_, _>
       }
-      let resolved =
-        { apiDic with
-            Api = Array.map (resolve_Api context) apiDic.Api
-            TypeDefinitions = Array.map (resolve_FullTypeDefinition context) apiDic.TypeDefinitions
-            TypeAbbreviations = Array.map (resolve_TypeAbbreviationDefinition context) apiDic.TypeAbbreviations
-        }
+      let resolved = { apiDic with Api = Array.map (resolve_Api context) apiDic.Api }
       let forwardingLogs = context.ForwardingLogs.Values :> seq<_>
       (resolved, forwardingLogs)
 
@@ -1049,7 +1056,7 @@ module internal Impl =
         |> Array.map (fun d ->
           let names =
             Seq.concat [
-              d.TypeDefinitions |> Seq.map (fun x -> x.FullName, x.Name)
+              d.TypeDefinitions |> Seq.map (fun (KeyValue(_, x)) -> x.FullName, x.Name)
               d.TypeAbbreviations |> Seq.map (fun x -> x.FullName, x.Name)
             ]
             |> dict
@@ -1123,7 +1130,11 @@ let loadWithLogs (assemblies: FSharpAssembly[]) =
   |> PSeq.toArray
   |> Impl.NameResolve.resolveLoadingName
   |> Array.map (fun (apiDict, logs) ->
-    (Impl.AutoGenericResolve.resolveAutoGeneric apiDict, logs)
+    let apiDict =
+      apiDict
+      |> Impl.AutoGenericResolve.resolveAutoGeneric
+      |> Impl.makeDefAndAbb
+    (apiDict, logs)
   )
 
 let load (assemblies: FSharpAssembly[]): ApiDictionary[] = loadWithLogs assemblies |> Array.map fst
@@ -1137,9 +1148,8 @@ module internal Serialization =
   let fromDumpObj (xs: T) =
     xs
     |> Array.map (fun (name, apis) ->
-      let typeDefs = apis |> Array.choose (fun a -> match a.Signature with ApiSignature.FullTypeDefinition td -> Some td | _ -> None)
-      let typeAbbs = apis |> Array.choose (fun a -> match a.Signature with ApiSignature.TypeAbbreviation ta -> Some ta | _ -> None)
-      { AssemblyName = name; Api = apis; TypeDefinitions = typeDefs; TypeAbbreviations = typeAbbs }
+      { AssemblyName = name; Api = apis; TypeDefinitions = IDictionary.empty; TypeAbbreviations = Array.empty }
+      |> Impl.makeDefAndAbb
     )
 
 let save (path: string) (dictionaries: ApiDictionary[]) : unit =
