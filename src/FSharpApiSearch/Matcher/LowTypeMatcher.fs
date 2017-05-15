@@ -9,21 +9,6 @@ open FSharpApiSearch.SpecialTypes.LowType.Patterns
 module Context =
     let setEquations eqs ctx = { ctx with Equations = eqs }
 
-module LowType =
-  let rec collectVariableOrWildcardGroup = function
-    | Wildcard (Some _) as w -> [ w ]
-    | Wildcard None -> []
-    | Variable _ as v -> [ v ]
-    | Identity _ -> []
-    | Arrow xs -> List.collect collectVariableOrWildcardGroup xs
-    | Tuple { Elements = xs } -> List.collect collectVariableOrWildcardGroup xs
-    | Generic (id, args) -> List.collect collectVariableOrWildcardGroup (id :: args)
-    | TypeAbbreviation t -> collectVariableOrWildcardGroup t.Original
-    | Delegate (t, _) -> collectVariableOrWildcardGroup t
-    | ByRef (_, t) -> collectVariableOrWildcardGroup t
-    | Flexible t -> collectVariableOrWildcardGroup t
-    | Choice xs -> List.collect collectVariableOrWildcardGroup xs
-
 module Equations =
   let sortTerm x y = if x < y then (x, y) else (y, x)
 
@@ -417,36 +402,57 @@ module Rules =
     | _ -> Continue ctx
 
   let rec flexibleTarget ctx = function
-    | Identity id -> Some (TypeHierarchy.fullTypeDef ctx id, [])
-    | Generic (Identity id, args) -> Some (TypeHierarchy.fullTypeDef ctx id, args)
+    | Identity id -> Some (id, [])
+    | Generic (Identity id, args) -> Some (id, args)
     | ByRef _ as t -> flexibleTarget ctx t
     | Delegate (t, _) -> flexibleTarget ctx t
     | Tuple { Elements = xs } ->
       let tpl = Identity.tupleN xs.Length
-      Some (TypeHierarchy.fullTypeDef ctx tpl, xs)
+      Some (tpl, xs)
     | Flexible t -> flexibleTarget ctx t
     | TypeAbbreviation _ as t -> (|AbbreviationRoot|_|) t |> Option.bind (flexibleTarget ctx)
     | Generic _ | Variable _ | Wildcard _ | Arrow _ | Choice _ -> None
 
   let (|FlexibleTarget|_|) ctx = flexibleTarget ctx
 
-  let flexibleRule (lowTypeMatcher: ILowTypeMatcher) left right ctx =
+  let testFlexible (lowTypeMatcher: ILowTypeMatcher) flexible targetId targetArgs ctx =
+    let targetIdDef = TypeHierarchy.fullTypeDef ctx targetId
+    targetIdDef
+    |> Seq.collect (fun td -> TypeHierarchy.getSuperTypes ctx td targetArgs)
+    |> Seq.tryPick (fun target ->
+      match lowTypeMatcher.Test flexible target ctx with
+      | Matched ctx -> Some (ctx, target)
+      | _ -> None
+    )
+
+  let flexibleCacheValue contextualType (lowTypeMatcher: ILowTypeMatcher) flexible targetId targetArgs ctx =
+    if contextualType() then
+      Contextual
+    else
+      testFlexible lowTypeMatcher flexible targetId targetArgs ctx
+      |> function
+        | Some (_, target) -> Subtype target
+        | None -> NonSubtype
+
+  let flexibleRule isContextual (lowTypeMatcher: ILowTypeMatcher) left right ctx =
     match left, right with
     | Flexible flexible, target
     | target, Flexible flexible ->
       match target with
-      | FlexibleTarget ctx (targetIdDef, targetArgs) ->
+      | FlexibleTarget ctx (targetId, targetArgs) ->
         Debug.WriteLine("flexible rule.")
 
-        targetIdDef
-        |> Seq.collect (fun td -> TypeHierarchy.getSuperTypes ctx td targetArgs)
-        |> Seq.tryPick (fun target ->
-          match lowTypeMatcher.Test flexible target ctx with
-          | Matched ctx -> Some ctx
-          | _ -> None
-        )
-        |> function
-          | Some ctx -> Matched ctx
+        let valueFactory _ =
+          let contextualType() = isContextual flexible || isContextual target
+          flexibleCacheValue contextualType lowTypeMatcher flexible targetId targetArgs ctx
+
+        let result = ctx.SubtypeCache.GetOrAdd((flexible, target), valueFactory)
+        match result with
+        | Subtype target -> lowTypeMatcher.Test flexible target ctx
+        | NonSubtype -> Failure
+        | Contextual ->
+          match testFlexible lowTypeMatcher flexible targetId targetArgs ctx with
+          | Some (ctx, _) -> Matched ctx
           | None -> Failure
 
       | _ -> Continue ctx
@@ -455,6 +461,13 @@ module Rules =
 
 let instance options =
   let nameEquality = Identity.equalityFromOptions options
+
+  let isContextual =
+    let f =
+      match options.GreedyMatching with
+      | Enabled -> LowType.collectVariableOrWildcardGroup
+      | Disabled -> LowType.collectWildcardGroup
+    f >> List.isEmpty >> not
 
   let rule =
     Rule.compose [
@@ -481,7 +494,7 @@ let instance options =
       | Disabled -> yield Rules.delegateAndArrowRule
 
       yield Rules.byrefRule
-      yield Rules.flexibleRule
+      yield Rules.flexibleRule isContextual
 
       yield Rule.terminator
     ]

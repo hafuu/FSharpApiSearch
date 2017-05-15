@@ -801,10 +801,13 @@ module LowTypeVisitor =
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module internal LowType =
   let rec applyVariable source (replacements: Map<TypeVariable, LowType>) = function
+    | Wildcard _ as w -> w
     | Variable (s, name) as oldValue when s = source ->
       match Map.tryFind name replacements with
       | Some newValue -> newValue
       | None -> oldValue
+    | Variable _ as v -> v
+    | Identity _ as i -> i
     | Generic (baseType, args) ->
       let baseType = applyVariable source replacements baseType
       let args = applyVariableToTargetList source replacements args
@@ -816,16 +819,54 @@ module internal LowType =
       let delegateType = applyVariable source replacements t
       let xs = applyVariableToTargetList source replacements xs
       Delegate (delegateType, xs)
-    | other -> other
+    | ByRef (isOut, t) -> ByRef (isOut, applyVariable source replacements t)
+    | Flexible t -> Flexible (applyVariable source replacements t)
+    | Choice xs -> Choice (applyVariableToTargetList source replacements xs)
   and applyVariableToTargetList source replacements xs = xs |> List.map (applyVariable source replacements)
+
+  let collectWildcardGroup x =
+    let rec f = function
+      | Wildcard (Some _) as w -> [ w ]
+      | Wildcard None -> []
+      | Variable _ -> []
+      | Identity _ -> []
+      | Arrow xs -> List.collect f xs
+      | Tuple { Elements = xs } -> List.collect f xs
+      | Generic (id, args) -> List.collect f (id :: args)
+      | TypeAbbreviation t -> f t.Original
+      | Delegate (t, _) -> f t
+      | ByRef (_, t) -> f t
+      | Flexible t -> f t
+      | Choice xs -> List.collect f xs
+    f x
 
   let collectVariables x =
     let rec f = function
+      | Wildcard _ -> []
       | Variable _ as v -> [ v ]
+      | Identity _ -> []
       | Arrow xs -> List.collect f xs
       | Tuple { Elements = xs } -> List.collect f xs
-      | Generic (id, args) -> List.concat [ f id; List.collect f args ]
-      | TypeAbbreviation t -> List.append (f t.Abbreviation) (f t.Original)
+      | Generic (id, args) -> List.collect f (id :: args)
+      | TypeAbbreviation t -> f t.Original
       | Delegate (t, _) -> f t
-      | _ -> []
-    f x |> List.distinct
+      | ByRef (_, t) -> f t
+      | Flexible t -> f t
+      | Choice xs -> List.collect f xs
+    f x
+
+  let collectVariableOrWildcardGroup x =
+    let rec f = function
+      | Wildcard (Some _) as w -> [ w ]
+      | Wildcard None -> []
+      | Variable _ as v -> [ v ]
+      | Identity _ -> []
+      | Arrow xs -> List.collect f xs
+      | Tuple { Elements = xs } -> List.collect f xs
+      | Generic (id, args) -> List.collect f (id :: args)
+      | TypeAbbreviation t -> f t.Original
+      | Delegate (t, _) -> f t
+      | ByRef (_, t) -> f t
+      | Flexible t -> f t
+      | Choice xs -> List.collect f xs
+    f x

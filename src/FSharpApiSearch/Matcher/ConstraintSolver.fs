@@ -211,7 +211,7 @@ let rec solve' (lowTypeMatcher: ILowTypeMatcher) (constraints: TypeConstraint li
     |> Seq.tryHead
     |> function
       | Some ctx ->
-        match ctx.Equations.Equalities |> List.take (ctx.Equations.Equalities.Length - initialCtx.Equations.Equalities.Length) with
+        match Context.newEquations initialCtx ctx with
         | [] -> Matched ctx
         | newEqualities ->
           Debug.WriteLine(sprintf "There are new equalities." )
