@@ -57,7 +57,7 @@ let dotNetApiBrowserTest = parameterize {
     "System.Lazy<'T>.Value", "'T", Some "system.lazy-1.value?view=netframework-4.7#System_Lazy_1_Value"
     "System.Collections.Generic.Dictionary<'TKey, 'TValue>.ValueCollection<'TKey, 'TValue>.Enumerator<'TKey, 'TValue>.Current", "'TValue", 
         Some "system.collections.generic.dictionary-2.valuecollection.enumerator.current?view=netframework-4.7#System_Collections_Generic_Dictionary_2_ValueCollection_Enumerator_Current"
-    "System.String.Split", "separator:char[] -> string[]", Some "system.string.split?view=netframework-4.7#System_String_Split_System_Char___"
+    "System.String.Split", "[<ParamArray>]separator:char[] -> string[]", Some "system.string.split?view=netframework-4.7#System_String_Split_System_Char___"
     "System.Collections.Generic.List<'T>.Reverse", "index:int * count:int -> unit" , Some "system.collections.generic.list-1.reverse?view=netframework-4.7#System_Collections_Generic_List_1_Reverse_System_Int32_System_Int32_"
     "System.Collections.Generic.Dictionary<'TKey, 'TValue>.TryGetValue" , "key:'TKey * value:byref<'TValue> -> bool", Some "system.collections.generic.dictionary-2.trygetvalue?view=netframework-4.7#System_Collections_Generic_Dictionary_2_TryGetValue__0__1__"
     "System.Random.new" , "unit -> Random", Some "system.random.-ctor?view=netframework-4.7#System_Random__ctor"

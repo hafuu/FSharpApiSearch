@@ -21,6 +21,7 @@ let variableB = variable "'b"
 
 let memberMethod = method' "test" [ [ ptype variableA; ptype typeB ] ] typeC
 let memberOptArgMethod = method' "test" [ [ popt >> pname "x" >> ptype variableA; ptype typeB ] ] typeC
+let memberParamArrayMethod = method' "test" [ [ pparams >> pname "xs" >> ptype (array int) ] ] typeC
 let memberCurriedMethod = method' "test" [ [ ptype variableA ]; [ ptype typeB ] ] typeC
 let memberProperty = member' "test" (MemberKind.Property PropertyKind.Get) [] typeA
 
@@ -89,6 +90,7 @@ let printApiSignatureTest =
       moduleValue (structTuple [ arrow [ typeA; typeB ]; typeC ]), "struct ((a -> b) * c)"
       instanceMember typeA memberMethod, "'a * b -> c"
       instanceMember typeA memberOptArgMethod, "?x:'a * b -> c"
+      instanceMember typeA memberParamArrayMethod, "[<ParamArray>]xs:int[] -> c"
       instanceMember typeA memberCurriedMethod, "'a -> b -> c"
       instanceMember typeA memberProperty, "a"
       staticMember typeA memberMethod, "'a * b -> c"
@@ -204,6 +206,7 @@ let printCSharpTest =
       api (n "T.method") (instanceMember t (method' "method" [ [ ptype unit; ptype int ] ] unit)), "(Unit, int) : void"
 
       api (n "T.method") (instanceMember t (method' "method" [ [ ptype int >> pname "x"; popt >> ptype string >> pname "y" ] ] unit)), "(int x, [string y]) : void"
+      api (n "T.method") (instanceMember t (method' "method" [ [ pparams >> ptype (array int) >> pname "xs" ] ] unit)), "(params int[] xs) : void"
 
       api (n "T.method") (staticMember t (method' "method" [ [ ptype unit ] ] unit)), "() : void"
 

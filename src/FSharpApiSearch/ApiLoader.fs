@@ -357,7 +357,7 @@ module internal Impl =
                     else
                       t
                   let t = loadByRef p t
-                  return { Name = p.Name; Type = t; IsOptional = p.IsOptionalArg }
+                  return { Name = p.Name; Type = t; IsOptional = p.IsOptionalArg; IsParamArray = p.IsParamArrayArg }
                 }
             }
           yield Seq.foldOptionMapping id group |> Option.map Seq.toList

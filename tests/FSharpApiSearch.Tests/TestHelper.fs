@@ -62,8 +62,9 @@ module DSL =
   let ptype t (x: Parameter) = { x with Type = t }
   let pname n (x: Parameter) = { x with Name = Some n }
   let popt (x: Parameter) = { x with IsOptional = true }
+  let pparams (x: Parameter) = { x with IsParamArray = true }
 
-  let createFunction fn = (List.map (List.map (fun f -> f { Name = None; Type = SpecialTypes.LowType.unit; IsOptional = false })) fn)
+  let createFunction fn = (List.map (List.map (fun f -> f { Name = None; Type = SpecialTypes.LowType.unit; IsOptional = false; IsParamArray = false })) fn)
 
   let member' name kind parameters returnType =
     { Name = name; Kind = kind; GenericParameters = []; Parameters = (createFunction parameters); ReturnParameter = Parameter.ofLowType returnType }

@@ -140,11 +140,12 @@ type Parameter = {
   Type: LowType
   Name: string option
   IsOptional: bool
+  IsParamArray: bool
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module internal Parameter =
-  let ofLowType t = { Name = None; Type = t; IsOptional = false }
+  let ofLowType t = { Name = None; Type = t; IsOptional = false; IsParamArray = false }
 
 type ParameterGroups = Parameter list list
 type Function = Parameter list list
@@ -314,7 +315,7 @@ type UnionCase = {
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module UnionCase =
   let toFunction (uc: UnionCase) =
-    let fields = uc.Fields |> List.map (fun field -> { Name = field.Name; Type = field.Type; IsOptional = false })
+    let fields = uc.Fields |> List.map (fun field -> { Name = field.Name; Type = field.Type; IsOptional = false; IsParamArray = false })
     let ret = Parameter.ofLowType uc.DeclaringType |> List.singleton
     [ fields; ret ]
 

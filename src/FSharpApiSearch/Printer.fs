@@ -178,6 +178,8 @@ module internal FSharpImpl =
   let printLowType_full isDebug t (sb: StringBuilder) = sb.Append(printLowType isDebug printIdentity_full t)
 
   let printParameter tupleParen isDebug (p: Parameter) (sb: StringBuilder) =
+    if p.IsParamArray then sb.Append("[<ParamArray>]") |> ignore
+
     match p.IsOptional with
     | true -> sb.Append("?") |> ignore
     | false -> ()
@@ -444,6 +446,7 @@ module internal CSharpImpl =
     | Choice xs -> sb.Append("(").AppendJoin(" or ", xs, printLowType).Append(")")
 
   let printParameter (p: Parameter) (sb: StringBuilder) =
+    if p.IsParamArray then sb.Append("params ") |> ignore
     if p.IsOptional then sb.Append("[") |> ignore
     sb.Append(printLowType p.Type) |> ignore
     p.Name |> Option.iter (fun name -> sb.Append(" ").Append(name) |> ignore)

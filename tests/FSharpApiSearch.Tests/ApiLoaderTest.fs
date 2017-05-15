@@ -699,6 +699,15 @@ module FSharp =
       run testApi
     }
 
+  let paramArrayTest =
+    let t = createType "ParamArray.X" [] |> updateAssembly fsharpAssemblyName
+    parameterize {
+      source [
+        "ParamArray.X.F", [ instanceMember t (method' "F" [ [ pparams >> pname "xs" >> ptype (array int) ] ] unit) ]
+      ]
+      run testApi
+    }
+
   let autoGenericTest = parameterize {
     source [
       "PublicModule.autoGenericFunction<'a>", [ moduleFunction' [ [ pname "x" >> ptype (variable "'a") ]; [ ptype (variable "'a") ] ] ]
@@ -1084,6 +1093,15 @@ module CSharp =
       source [
         "CSharpLoadTestAssembly.OptinalParameters.F", [ staticMember t (method' "F" [ [ popt >> pname "x" >> ptype int ] ] unit) ]
         "CSharpLoadTestAssembly.OptinalParameters.G", [ staticMember t (method' "G" [ [ popt >> pname "x" >> ptype (fsharpOption int) ] ] unit) ]
+      ]
+      run testApi
+    }
+
+  let paramArrayTest =
+    let t = createType "CSharpLoadTestAssembly.ParamArray" [] |> updateAssembly csharpAssemblyName
+    parameterize {
+      source [
+        "CSharpLoadTestAssembly.ParamArray.F", [ instanceMember t (method' "F" [ [ pparams >> pname "xs" >> ptype (array int) ] ] unit) ]
       ]
       run testApi
     }
