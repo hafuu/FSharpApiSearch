@@ -444,8 +444,10 @@ module internal CSharpImpl =
     | Choice xs -> sb.Append("(").AppendJoin(" or ", xs, printLowType).Append(")")
 
   let printParameter (p: Parameter) (sb: StringBuilder) =
+    if p.IsOptional then sb.Append("[") |> ignore
     sb.Append(printLowType p.Type) |> ignore
     p.Name |> Option.iter (fun name -> sb.Append(" ").Append(name) |> ignore)
+    if p.IsOptional then sb.Append("]") |> ignore
     sb
 
   let printPropertyParameter (m: Member) (sb: StringBuilder) =

@@ -203,6 +203,8 @@ let printCSharpTest =
       api (n "T.method") (instanceMember t (method' "method" [ [ ptype unit ] ] unit)), "() : void"
       api (n "T.method") (instanceMember t (method' "method" [ [ ptype unit; ptype int ] ] unit)), "(Unit, int) : void"
 
+      api (n "T.method") (instanceMember t (method' "method" [ [ ptype int >> pname "x"; popt >> ptype string >> pname "y" ] ] unit)), "(int x, [string y]) : void"
+
       api (n "T.method") (staticMember t (method' "method" [ [ ptype unit ] ] unit)), "() : void"
 
       api (n "T.prop") (instanceMember t (property' "prop" PropertyKind.Get [] int)), " : int"
