@@ -694,6 +694,7 @@ module FSharp =
       source [
         "OptionalParameters.X.F", [ instanceMember t (method' "F" [ [ pname "x" >> ptype int; popt >> pname "y" >> ptype string ] ] int) ]
         "OptionalParameters.X.G", [ instanceMember t (method' "G" [ [ pname "x" >> ptype (option string); popt >> pname "y" >> ptype (option int) ] ] (option string))]
+        "OptionalParameters.X.H", [ instanceMember t (method' "H" [ [ popt >> pname "x" >> ptype string ] ] string) ]
       ]
       run testApi
     }
