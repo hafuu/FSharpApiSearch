@@ -1,3 +1,8 @@
+### 3.0.0-beta3
+* Add flexible type matching
+* Improve results display
+* Fix C# parser
+
 ### 3.0.0-beta2
 * Change byref matching
 * Change the result format
