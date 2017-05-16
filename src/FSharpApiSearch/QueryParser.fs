@@ -259,7 +259,9 @@ module CSharp =
     | Generic (id, args) -> Generic (replaceWithVariable variableNames id, List.map (replaceWithVariable variableNames) args)
     | Tuple tpl -> Tuple { tpl with Elements = List.map (replaceWithVariable variableNames) tpl.Elements }
     | Arrow xs -> Arrow (List.map (replaceWithVariable variableNames) xs)
-    | other -> other
+    | ByRef (isOut, t) -> ByRef (isOut, replaceWithVariable variableNames t)
+    | Flexible t -> Flexible (replaceWithVariable variableNames t)
+    | (Wildcard _ | Variable _ | Identity _ | TypeAbbreviation _ | Delegate _ | Choice _) as t -> t
 
   let signatureWildcard = pstring "_" |> trim >>% SignatureQuery.Wildcard
 
