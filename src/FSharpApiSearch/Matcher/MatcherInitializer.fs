@@ -80,6 +80,7 @@ let initializeContext (dictionaries: ApiDictionary[]) (options: SearchOptions) (
     Equations = Equations.empty |> initialEquations options query
     QueryTypes = queryTypes query dictionaries
     ApiDictionaries = dictionaries |> Seq.map (fun d -> (d.AssemblyName, d)) |> Map.ofSeq
+    SubtypeCache = SubtypeCache.create()
   }
 
 let private replaceTypeAbbreviation' nameEquality (table: TypeAbbreviation list) (query: Query) =

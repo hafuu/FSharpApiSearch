@@ -3,6 +3,7 @@
 open System.Diagnostics
 open FSharpApiSearch
 open FSharpApiSearch.Printer
+open System.Collections.Concurrent
 
 type Equations = {
   Equalities: (LowType * LowType) list
@@ -17,11 +18,24 @@ module Equations =
 
   let empty = { Equalities = []; Inequalities = [] }
 
+type SubtypeResult =
+  | Subtype of LowType
+  | Contextual
+  | NonSubtype
+
+type SubtypeCache = ConcurrentDictionary<LowType * LowType, SubtypeResult>
+
+module SubtypeCache =
+  open System.Collections.Generic
+
+  let create() = SubtypeCache()
+
 type Context = {
   Distance: int
   Equations: Equations
   QueryTypes: Map<PartialIdentity, FullTypeDefinition[]>
   ApiDictionaries: Map<string, ApiDictionary>
+  SubtypeCache: SubtypeCache
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -30,6 +44,9 @@ module Context =
     let newDistance = ctx.Distance + x
     Debug.WriteLine(sprintf "Update distance from %d to %d by %s" ctx.Distance newDistance reason)
     { ctx with Distance = newDistance }
+
+  let newEquations (oldCtx: Context) (newCtx: Context) =
+    newCtx.Equations.Equalities |> List.take (newCtx.Equations.Equalities.Length - oldCtx.Equations.Equalities.Length)
 
 type MatchingResult =
   | Matched of Context
