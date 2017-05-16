@@ -290,6 +290,8 @@ module CSharp =
       source [
         "<a> : a -> b", (arrow [ queryVariable "'a"; identity "b" ])
         "<a, b> : a -> b", (arrow [ queryVariable "'a"; queryVariable "'b" ])
+        "<T> : #a<T>", (flexible (generic (identity "a") [ queryVariable "'T" ]))
+        "<T> : ref T", (byref (queryVariable "'T"))
       ]
 
       run runSignatureTest
