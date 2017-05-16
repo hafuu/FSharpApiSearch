@@ -605,7 +605,7 @@ module CSharp =
     let xs = api.TypeConstraints |> CSharpImpl.filterCSharpTypeConstraint
     match xs with
     | [] -> None
-    | _ -> StringBuilder().Append(CSharpImpl.printConstraints api.TypeConstraints).ToString() |> Some
+    | _ -> StringBuilder().Append(CSharpImpl.printConstraints xs).ToString() |> Some
 
   let printKind (api: Api) = StringBuilder().Append(CSharpImpl.printApiKind api.Kind).ToString()
 
