@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15
+VisualStudioVersion = 15.0.26430.6
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{63297B98-5CED-492C-A5B7-A5B4F73CF142}"
 	ProjectSection(SolutionItems) = preProject
@@ -51,6 +51,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Net40Assembly", "tests\Net4
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Net20Assembly", "tests\Net20Assembly\Net20Assembly.fsproj", "{7F986C73-F777-4778-A3FA-20C1B27C1EE0}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PerformanceTest", "tests\PerformanceTest\PerformanceTest.fsproj", "{3B42A705-701F-4C92-9D32-4A2CE7DE1997}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -97,6 +99,10 @@ Global
 		{7F986C73-F777-4778-A3FA-20C1B27C1EE0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7F986C73-F777-4778-A3FA-20C1B27C1EE0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7F986C73-F777-4778-A3FA-20C1B27C1EE0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3B42A705-701F-4C92-9D32-4A2CE7DE1997}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3B42A705-701F-4C92-9D32-4A2CE7DE1997}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3B42A705-701F-4C92-9D32-4A2CE7DE1997}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3B42A705-701F-4C92-9D32-4A2CE7DE1997}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -111,5 +117,6 @@ Global
 		{6273542C-01F5-4EBF-8AAB-9FCAA96BEA62} = {ED8079DD-2B06-4030-9F0F-DC548F98E1C4}
 		{7997B6DE-F044-461D-8388-BC375CA05C11} = {ED8079DD-2B06-4030-9F0F-DC548F98E1C4}
 		{7F986C73-F777-4778-A3FA-20C1B27C1EE0} = {ED8079DD-2B06-4030-9F0F-DC548F98E1C4}
+		{3B42A705-701F-4C92-9D32-4A2CE7DE1997} = {ED8079DD-2B06-4030-9F0F-DC548F98E1C4}
 	EndGlobalSection
 EndGlobal

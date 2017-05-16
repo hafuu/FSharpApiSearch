@@ -1,0 +1,4 @@
+﻿group App
+FSharp.Core
+FSharp.Compiler.Service
+FsPickler
