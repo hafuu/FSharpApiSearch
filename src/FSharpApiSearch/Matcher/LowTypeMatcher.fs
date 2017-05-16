@@ -91,6 +91,21 @@ module Rules =
     Debug.WriteLine("It reached the terminator.")
     Failure
 
+  let testLeftEqualities (lowTypeMatcher: ILowTypeMatcher) (leftEqualities: seq<_>) right ctx =
+    let mutable continue' = true
+    let mutable state = ctx
+    let e = leftEqualities.GetEnumerator()
+    while continue' && e.MoveNext() do
+      let (_, x) = e.Current
+      let result = lowTypeMatcher.Test right x state
+      match result with
+      | Matched ctx -> state <- ctx
+      | _ -> continue' <- false
+    if continue' then
+      Matched state
+    else
+      Failure
+
   let testVariableEquality (lowTypeMatcher: ILowTypeMatcher) left right (ctx: Context) =
     let left, right = Equations.sortTerm left right
     Debug.WriteLine(sprintf "Test equaliity of \"%s\" and \"%s\"." (LowType.debug left) (LowType.debug right))
@@ -108,8 +123,7 @@ module Rules =
                 (LowType.debug right)
                 (List.map Equations.debugEquality leftEqualities))
       let result =
-        leftEqualities
-        |> List.fold (fun result (_, x) -> MatchingResult.bindMatched (lowTypeMatcher.Test right x) result) (Matched ctx)
+        testLeftEqualities lowTypeMatcher leftEqualities right ctx
         |> MatchingResult.bindMatched (Equations.tryAddEquality left right)
       Debug.WriteLine(
         match result with
@@ -162,35 +176,35 @@ module Rules =
           rightTypes, leftTypes
       (Array.ofSeq s, Array.ofSeq l)
 
-    let result =
-      if short.Length <> long.Length && containsWildcard long then
-        Debug.WriteLine("There is a wildcard.")
-        None
-      else
-        short
-        |> Array.fold (fun state testee ->
-          match state with
-          | None -> None
-          | Some (ctx, back, forward, swapNumber) ->
-            Debug.WriteLine(sprintf "Test %s" (testee.Debug()))
-            Debug.Indent()
-            let result =
-              contains lowTypeMatcher testee back forward ctx
-              |> Option.map (fun (ctx, back, forward, swapped) -> (ctx, back, forward, swapNumber + swappedToInt swapped))
-            Debug.Unindent()
-            result
-        ) (Some (ctx, Array.empty, long, 0))
-
-    match result with
-    | Some (ctx, back, forward, swapNumber) ->
-      let complementNumber = back.Length + forward.Length
-      if swapNumber > swapNumberLimit then
-        Failure
-      elif complementNumber > complementNumberLimit then
-        Failure
-      else
+    let complementNumber = long.Length - short.Length
+    if complementNumber > complementNumberLimit then
+      Failure
+    elif short.Length <> long.Length && containsWildcard long then
+      Debug.WriteLine("There is a wildcard.")
+      Failure
+    else
+      let mutable continue' = true
+      let mutable state = ctx, Array.empty, long, 0
+      let enum = (short :> seq<_>).GetEnumerator()
+      while continue' && enum.MoveNext() do
+        let testee = enum.Current
+        let ctx, back, forward, swapNumber = state
+        Debug.WriteLine(sprintf "Test %s" (testee.Debug()))
+        Debug.Indent()
+        let result = contains lowTypeMatcher testee back forward ctx
+        Debug.Unindent()
+        match result with
+        | Some (ctx, back, forward, swapped)  ->
+          let swapNumber = swapNumber + swappedToInt swapped
+          state <- ctx, back, forward, swapNumber
+          continue' <- not (swapNumber > swapNumberLimit)
+        | None ->
+          continue' <- false
+      if continue' then
+        let ctx, _, _, swapNumber = state
         Matched (ctx |> Context.addDistance "swap and complement" (swapNumber + complementNumber))
-    | None -> Failure
+      else
+        Failure
 
   let testAllExactly (lowTypeMatcher: ILowTypeMatcher) (leftTypes: LowType seq) (rightTypes: LowType seq) (ctx: Context): MatchingResult =
     Debug.WriteLine(sprintf "Test %A and %A." (Seq.map LowType.debug leftTypes |> Seq.toList) (Seq.map LowType.debug rightTypes |> Seq.toList))
@@ -198,14 +212,24 @@ module Rules =
       Debug.WriteLine("The numbers of the parameters are different.")
       Failure
     else
-      Seq.zip leftTypes rightTypes
-      |> Seq.fold (fun result (left, right) ->
+      let mutable continue' = true
+      let mutable state = ctx
+      let leftEnum = leftTypes.GetEnumerator()
+      let rightEnum = rightTypes.GetEnumerator()
+      while continue' && leftEnum.MoveNext() && rightEnum.MoveNext() do
+        let left = leftEnum.Current
+        let right = rightEnum.Current
         Debug.WriteLine(sprintf "Test %s and %s." (LowType.debug left) (LowType.debug right))
         Debug.Indent()
-        let result = MatchingResult.bindMatched (lowTypeMatcher.Test left right) result
+        let result = lowTypeMatcher.Test left right state
         Debug.Unindent()
-        result
-      ) (Matched ctx)
+        match result with
+        | Matched ctx -> state <- ctx
+        | _ -> continue' <- false
+      if continue' then
+        Matched state
+      else
+        Failure
 
   let choiceRule (lowTypeMatcher: ILowTypeMatcher) left right ctx =
     match left, right with
