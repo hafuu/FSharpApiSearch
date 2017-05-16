@@ -55,9 +55,9 @@ type MatchingResult =
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module MatchingResult =
-  let inline bindContinue f = function Continue x -> f x | r -> r
-  let inline bindMatched f = function Matched x -> f x | r -> r
-  let inline mapMatched f = function Matched x -> Matched (f x) | Continue x -> Continue x | Failure -> Failure
+  let inline bindContinue f x = match x with Continue x -> f x | r -> r
+  let inline bindMatched f x = match x with Matched x -> f x | r -> r
+  let inline mapMatched f x = match x with Matched x -> Matched (f x) | Continue x -> Continue x | Failure -> Failure
 
   let toBool = function Matched _ -> true | _ -> false
 
@@ -98,7 +98,17 @@ module Rule =
   let terminator _ _ _ _ =
     Debug.WriteLine("It reached the terminator.")
     Failure
-  let inline compose (xs: Rule<_, _> seq): Rule<_, _> =
+  let compose (xs: Rule<_, _> seq): Rule<_, _> =
     fun test left right ctx ->
-      xs
-      |> Seq.fold (fun result rule -> result |> MatchingResult.bindContinue (run rule test left right)) (Continue ctx)
+      let mutable continue' = true
+      let mutable state = ctx
+      let mutable result = Continue ctx
+      let ruleEnum = xs.GetEnumerator()
+      while continue' && ruleEnum.MoveNext() do
+        let rule = ruleEnum.Current
+        let newResult = run rule test left right state
+        result <- newResult
+        match newResult with
+        | Continue ctx -> state <- ctx
+        | _ -> continue' <- false
+      result

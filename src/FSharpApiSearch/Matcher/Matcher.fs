@@ -6,21 +6,29 @@ open FSharpApiSearch.Printer
 open FSharp.Collections.ParallelSeq
 
 let internal test (lowTypeMatcher: ILowTypeMatcher) (apiMatchers: IApiMatcher list) (query: Query) (ctx: Context) (api: Api) =
-  apiMatchers
-  |> Seq.fold (fun state m ->
-    match state with
-    | Matched ctx ->
-      Debug.WriteLine(sprintf "Test \"%s\" and \"%s\" by %s. Equations: %s"
-        query.OriginalString
-        (ApiSignature.debug api.Signature)
-        m.Name
-        (Equations.debug ctx.Equations))
-      Debug.Indent()
-      let result = m.Test lowTypeMatcher query.Method api ctx
-      Debug.Unindent()
-      result
-    | _ -> Failure
-  ) (Matched ctx)
+  let mutable continue' = true
+  let mutable state = ctx
+  let enum = (apiMatchers :> seq<_>).GetEnumerator()
+
+  while continue' && enum.MoveNext() do
+    let m = enum.Current
+    Debug.WriteLine(sprintf "Test \"%s\" and \"%s\" by %s. Equations: %s"
+      query.OriginalString
+      (ApiSignature.debug api.Signature)
+      m.Name
+      (Equations.debug ctx.Equations))
+    Debug.Indent()
+    let result = m.Test lowTypeMatcher query.Method api state
+    Debug.Unindent()
+
+    match result with
+    | Matched ctx -> state <- ctx
+    | _ -> continue' <- false
+  
+  if continue' then
+    Matched state
+  else
+    Failure
 
 let private choose (options: SearchOptions) f xs=
   match options.Parallel with
