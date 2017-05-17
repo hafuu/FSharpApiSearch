@@ -154,7 +154,7 @@ module LinkGenerator =
     open System.Text
 
     let isGenericMember (api: Api) = List.isEmpty ((Name.toDisplayName api.Name).Head.GenericParameters) = false
-
+    
     let nameElementsAndVariableId (api: Api) =
       let wroteGeneric = ref false
       let variableId = ref 0
@@ -164,30 +164,42 @@ module LinkGenerator =
           variableMemory.[variable] <- !variableId
           incr variableId
       
-      let convert (modifiedString : string) (name: DisplayNameItem) =
+      let convert (forcedFlag: bool) (modifiedString : string) (name: DisplayNameItem) =
+        variableId := 0
         name.GenericParameters |> List.iter (fun p -> memory p.Name)
-        if !wroteGeneric = false && name.GenericParameters.IsEmpty = false then
+        if (forcedFlag) || (!wroteGeneric = false && name.GenericParameters.IsEmpty = false) then
           wroteGeneric := true
           urlName name + modifiedString + string name.GenericParameters.Length
         else
           urlName name
       
       let elems =
+        //printfn "%A" api
         match api.Kind with
         | ApiKind.Constructor ->
           [|
-            yield! Name.toDisplayName api.Name |> List.tail |> Seq.rev |> Seq.map (convert "-")
+            yield! Name.toDisplayName api.Name |> List.tail |> Seq.rev |> Seq.map (convert false "-")
             yield "-ctor"
           |]
 
         | ApiKind.ExtensionMember when isGenericMember api ->
-          Name.toDisplayName api.Name |> Seq.rev |> Seq.map (convert "--") |> Seq.toArray
+          Name.toDisplayName api.Name |> Seq.rev |> Seq.map (convert false "--") |> Seq.toArray
 
         | ApiKind.Member(_ , _) when isGenericMember api ->
-          Name.toDisplayName api.Name |> Seq.rev |> Seq.map (convert "--") |> Seq.toArray
+          Name.toDisplayName api.Name |> Seq.rev |> Seq.map (fun name ->
+                                                                match api.Signature with
+                                                                | ApiSignature.InstanceMember(_, mem)
+                                                                | ApiSignature.StaticMember(_,mem)  -> 
+                                                                    if mem.GenericParameters |> List.exists(fun x -> name.GenericParameters |> List.exists(fun y -> x.Name = y.Name)) then
+                                                                        convert true "--" name
+                                                                    else
+                                                                        convert false "-" name
+                                                                | _ -> 
+                                                                    convert false "-" name
+                                                    ) |> Seq.toArray
 
         | _ ->
-          Name.toDisplayName api.Name |> Seq.rev |> Seq.map (convert "-") |> Seq.toArray
+          Name.toDisplayName api.Name |> Seq.rev |> Seq.map (convert false "-") |> Seq.toArray
 
       elems, variableMemory
 
@@ -215,7 +227,15 @@ module LinkGenerator =
                 sb.Append("__").Append(variableMemory.[v.Name])
 
             | ApiKind.Member(_ , _) when isGenericMember api ->
-                sb.Append("__").Append(variableMemory.[v.Name])
+                match api.Signature with
+                | ApiSignature.InstanceMember(_, mem)
+                | ApiSignature.StaticMember(_,mem)  -> 
+                    if mem.GenericParameters |> List.exists(fun x -> x.Name = v.Name) then
+                        sb.Append("__").Append(variableMemory.[v.Name])
+                    else
+                        sb.Append("_").Append(variableMemory.[v.Name])
+                | _ -> 
+                    sb.Append("__").Append(variableMemory.[v.Name])
 
             | _ -> sb.Append("_").Append(variableMemory.[v.Name])
       | Delegate (d, _) -> sb.Append(parameterElement api variableMemory d)
