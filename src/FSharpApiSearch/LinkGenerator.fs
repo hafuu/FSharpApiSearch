@@ -153,6 +153,8 @@ module LinkGenerator =
     open System.Collections.Generic
     open System.Text
 
+    let isGenericMember (api: Api) = List.isEmpty ((Name.toDisplayName api.Name).Head.GenericParameters) = false
+
     let nameElementsAndVariableId (api: Api) =
       let wroteGeneric = ref false
       let variableId = ref 0
@@ -169,9 +171,7 @@ module LinkGenerator =
           urlName name + modifiedString + string name.GenericParameters.Length
         else
           urlName name
-          
-      let isGenericMember (api: Api) = List.isEmpty ((Name.toDisplayName api.Name).Head.GenericParameters) = false
-
+      
       let elems =
         match api.Kind with
         | ApiKind.Constructor ->
@@ -195,26 +195,31 @@ module LinkGenerator =
       let elems = elems |> Seq.map toLower
       sb.AppendJoin(".", elems)
 
-    let rec parameterElement (variableMemory: Dictionary<string, int>) (t: LowType) (sb: StringBuilder) : StringBuilder =
+    let rec parameterElement (api: Api) (variableMemory: Dictionary<string, int>) (t: LowType) (sb: StringBuilder) : StringBuilder =
       match t with
       | Unit -> sb
       | Identity (FullIdentity { Name = name }) ->
         let ns = Name.toDisplayName name |> Seq.rev
         sb.AppendJoin("_", ns, (fun n sb -> sb.Append(urlName n)))
-      | Array (_, elem) -> sb.Append(parameterElement variableMemory elem).Append("__")
-      | ByRef (_, arg) -> sb.Append(parameterElement variableMemory arg).Append("_")
+      | Array (_, elem) -> sb.Append(parameterElement api variableMemory elem).Append("__")
+      | ByRef (_, arg) -> sb.Append(parameterElement api variableMemory arg).Append("_")
       | Generic (id, args) ->
-        sb.Append(parameterElement variableMemory id) |> ignore
+        sb.Append(parameterElement api variableMemory id) |> ignore
         
-        match args.Head with
-        | Variable (_,_) -> sb.Append("__") |> ignore
-        | _ -> sb.Append("_") |> ignore
-
-        sb.AppendJoin("_", args, (parameterElement variableMemory))
+        sb.Append("_") |> ignore
+        sb.AppendJoin("_", args, (parameterElement api variableMemory))
             .Append("_")
-      | Variable (_, v) -> sb.Append("_").Append(variableMemory.[v.Name])
-      | Delegate (d, _) -> sb.Append(parameterElement variableMemory d)
-      | AbbreviationRoot root -> sb.Append(parameterElement variableMemory root)
+      | Variable (_, v) -> 
+            match api.Kind with
+            | ApiKind.ExtensionMember when isGenericMember api ->
+                sb.Append("__").Append(variableMemory.[v.Name])
+
+            | ApiKind.Member(_ , _) when isGenericMember api ->
+                sb.Append("__").Append(variableMemory.[v.Name])
+
+            | _ -> sb.Append("_").Append(variableMemory.[v.Name])
+      | Delegate (d, _) -> sb.Append(parameterElement api variableMemory d)
+      | AbbreviationRoot root -> sb.Append(parameterElement api variableMemory root)
       | _ -> sb
 
     let hasParameter (member': Member) =
@@ -222,7 +227,7 @@ module LinkGenerator =
       | [] | [ [ { Type = Unit } ] ] -> false
       | _ -> true
 
-    let hashPart (nameElems: string[]) (variableMemory: Dictionary<_, _>) (member': Member) (sb: StringBuilder) =
+    let hashPart (nameElems: string[]) (variableMemory: Dictionary<_, _>) (member': Member) (api: Api) (sb: StringBuilder) =
       let nameElems = nameElems |> Seq.map (fun n -> n.Replace("-", "_"))
       
       sb.AppendJoin("_", nameElems) |> ignore
@@ -230,7 +235,7 @@ module LinkGenerator =
       if hasParameter member' then
         let parameters = member'.Parameters |> Seq.collect id |> Seq.map (fun p -> p.Type)
         sb.Append("_")
-          .AppendJoin("_", parameters, (parameterElement variableMemory))
+          .AppendJoin("_", parameters, (parameterElement api variableMemory))
           .Append("_")
         |> ignore
 
@@ -257,7 +262,7 @@ module LinkGenerator =
       | ApiSignature.InstanceMember (_ , (member' : Member))
       | ApiSignature.StaticMember (_ ,(member' : Member)) ->
         let nameElems, variableMemory = nameElementsAndVariableId api
-        let sb = StringBuilder().Append(urlPart nameElems).Append("?view=").Append(view).Append("#").Append(hashPart nameElems variableMemory member')
+        let sb = StringBuilder().Append(urlPart nameElems).Append("?view=").Append(view).Append("#").Append(hashPart nameElems variableMemory member' api)
         Some (string sb)
 
   let fsharp baseUrl: LinkGenerator = fun api -> FSharp.generate api |> Option.map (fun apiUrl -> baseUrl + apiUrl)
