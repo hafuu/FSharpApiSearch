@@ -20,7 +20,7 @@ module Equations =
 
 type SubtypeResult =
   | Subtype of LowType
-  | Contextual
+  | Contextual of LowType option
   | NonSubtype
 
 type SubtypeCache = ConcurrentDictionary<LowType * LowType, SubtypeResult>

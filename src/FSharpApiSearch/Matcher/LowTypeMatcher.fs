@@ -450,13 +450,18 @@ module Rules =
     )
 
   let flexibleCacheValue contextualType (lowTypeMatcher: ILowTypeMatcher) flexible targetId targetArgs ctx =
-    if contextualType() then
-      Contextual
-    else
-      testFlexible lowTypeMatcher flexible targetId targetArgs ctx
-      |> function
-        | Some (_, target) -> Subtype target
-        | None -> NonSubtype
+    testFlexible lowTypeMatcher flexible targetId targetArgs ctx
+    |> function
+      | Some (_, target) ->
+        if contextualType() then
+          Contextual (Some target)
+        else
+          Subtype target
+      | None ->
+        if contextualType() then
+          Contextual None
+        else
+          NonSubtype
 
   let flexibleRule isContextual (lowTypeMatcher: ILowTypeMatcher) left right ctx =
     match left, right with
@@ -470,14 +475,18 @@ module Rules =
           let contextualType() = isContextual flexible || isContextual target
           flexibleCacheValue contextualType lowTypeMatcher flexible targetId targetArgs ctx
 
-        let result = ctx.SubtypeCache.GetOrAdd((flexible, target), valueFactory)
+        let key = (flexible, target)
+        let result = ctx.SubtypeCache.GetOrAdd(key, valueFactory)
         match result with
         | Subtype target -> lowTypeMatcher.Test flexible target ctx
         | NonSubtype -> Failure
-        | Contextual ->
+        | Contextual None ->
           match testFlexible lowTypeMatcher flexible targetId targetArgs ctx with
-          | Some (ctx, _) -> Matched ctx
+          | Some (ctx, target) ->
+            ctx.SubtypeCache.TryUpdate(key, (Contextual (Some target)), result) |> ignore
+            Matched ctx
           | None -> Failure
+        | Contextual (Some target) -> lowTypeMatcher.Test flexible target ctx
 
       | _ -> Continue ctx
 
