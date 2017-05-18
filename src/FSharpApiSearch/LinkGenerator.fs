@@ -153,61 +153,61 @@ module LinkGenerator =
     open System.Collections.Generic
     open System.Text
 
-    let isGenericMember (api: Api) = List.isEmpty ((Name.toDisplayName api.Name).Head.GenericParameters) = false
-    
+    type VariableMemory = Dictionary<string, string>
+
+    let variableId (kind: ApiKind) (name: DisplayName) =
+      let variableMemory = VariableMemory()
+      let memory (prefix: string) (n: DisplayNameItem) =
+        n.GenericParameters
+        |> List.iteri (fun variableId p ->
+          let variable = p.Name
+          if variableMemory.ContainsKey(variable) = false then
+            variableMemory.[variable] <- prefix + string variableId
+        )
+        
+      match kind with
+      | ApiKind.TypeDefinition ->
+        name |> List.iter (memory "_")
+      | _ ->
+        name.Head |> memory "__"
+        name.Tail |> List.iter (memory "_")
+      variableMemory
+
     let nameElementsAndVariableId (api: Api) =
-      let wroteGeneric = ref false
-      let variableId = ref 0
-      let variableMemory = Dictionary<string, int>()
-      let memory variable =
-        if variableMemory.ContainsKey(variable) = false then
-          variableMemory.[variable] <- !variableId
-          incr variableId
-      
-      let convert (forcedFlag: bool) (modifiedString : string) (name: DisplayNameItem) =
-        variableId := 0
-        name.GenericParameters |> List.iter (fun p -> memory p.Name)
-        if (forcedFlag) || (!wroteGeneric = false && name.GenericParameters.IsEmpty = false) then
-          wroteGeneric := true
-          urlName name + modifiedString + string name.GenericParameters.Length
+      let convert (modifiedString: string) ((wroteGeneric, result): bool * string list) (name: DisplayNameItem) =
+        if wroteGeneric = false && name.GenericParameters.IsEmpty = false then
+          let result = (urlName name + modifiedString + string name.GenericParameters.Length) :: result
+          true, result
         else
-          urlName name
+          let result = urlName name :: result
+          (wroteGeneric, result)
       
+      let name = Name.toDisplayName api.Name
+
+      let kind = api.Kind
+
       let elems =
-        //printfn "%A" api
-        match api.Kind with
-        | ApiKind.Constructor ->
-          [|
-            yield! Name.toDisplayName api.Name |> List.tail |> Seq.rev |> Seq.map (convert false "-")
+        let initState = false, []
+        [|
+          match kind with
+          | ApiKind.TypeDefinition ->
+            yield! name |> Seq.rev |> Seq.fold (convert "-") initState |> snd |> Seq.rev
+          | ApiKind.Constructor ->
+            yield! name.Tail |> Seq.rev |> Seq.fold (convert "-") initState |> snd |> Seq.rev
             yield "-ctor"
-          |]
+          | _ ->
+            yield! name.Tail |> Seq.rev |> Seq.fold (convert "-") initState |> snd |> Seq.rev
+            yield! convert "--" initState name.Head |> snd
+        |]
 
-        | ApiKind.ExtensionMember when isGenericMember api ->
-          Name.toDisplayName api.Name |> Seq.rev |> Seq.map (convert false "--") |> Seq.toArray
-
-        | ApiKind.Member(_ , _) when isGenericMember api ->
-          Name.toDisplayName api.Name |> Seq.rev |> Seq.map (fun name ->
-                                                                match api.Signature with
-                                                                | ApiSignature.InstanceMember(_, mem)
-                                                                | ApiSignature.StaticMember(_,mem)  -> 
-                                                                    if mem.GenericParameters |> List.exists(fun x -> name.GenericParameters |> List.exists(fun y -> x.Name = y.Name)) then
-                                                                        convert true "--" name
-                                                                    else
-                                                                        convert false "-" name
-                                                                | _ -> 
-                                                                    convert false "-" name
-                                                    ) |> Seq.toArray
-
-        | _ ->
-          Name.toDisplayName api.Name |> Seq.rev |> Seq.map (convert false "-") |> Seq.toArray
-
+      let variableMemory = variableId kind name
       elems, variableMemory
 
     let urlPart elems (sb: StringBuilder) =
       let elems = elems |> Seq.map toLower
       sb.AppendJoin(".", elems)
 
-    let rec parameterElement (api: Api) (variableMemory: Dictionary<string, int>) (t: LowType) (sb: StringBuilder) : StringBuilder =
+    let rec parameterElement (api: Api) (variableMemory: VariableMemory) (t: LowType) (sb: StringBuilder) : StringBuilder =
       match t with
       | Unit -> sb
       | Identity (FullIdentity { Name = name }) ->
@@ -221,23 +221,7 @@ module LinkGenerator =
         sb.Append("_") |> ignore
         sb.AppendJoin("_", args, (parameterElement api variableMemory))
             .Append("_")
-      | Variable (_, v) -> 
-            match api.Kind with
-            | ApiKind.ExtensionMember when isGenericMember api ->
-                sb.Append("__").Append(variableMemory.[v.Name])
-
-            | ApiKind.Member(_ , _) when isGenericMember api ->
-                match api.Signature with
-                | ApiSignature.InstanceMember(_, mem)
-                | ApiSignature.StaticMember(_,mem)  -> 
-                    if mem.GenericParameters |> List.exists(fun x -> x.Name = v.Name) then
-                        sb.Append("__").Append(variableMemory.[v.Name])
-                    else
-                        sb.Append("_").Append(variableMemory.[v.Name])
-                | _ -> 
-                    sb.Append("__").Append(variableMemory.[v.Name])
-
-            | _ -> sb.Append("_").Append(variableMemory.[v.Name])
+      | Variable (_, v) -> sb.Append(variableMemory.[v.Name])
       | Delegate (d, _) -> sb.Append(parameterElement api variableMemory d)
       | AbbreviationRoot root -> sb.Append(parameterElement api variableMemory root)
       | _ -> sb
@@ -247,7 +231,7 @@ module LinkGenerator =
       | [] | [ [ { Type = Unit } ] ] -> false
       | _ -> true
 
-    let hashPart (nameElems: string[]) (variableMemory: Dictionary<_, _>) (member': Member) (api: Api) (sb: StringBuilder) =
+    let hashPart (nameElems: string[]) (variableMemory: VariableMemory) (member': Member) (api: Api) (sb: StringBuilder) =
       let nameElems = nameElems |> Seq.map (fun n -> n.Replace("-", "_"))
       
       sb.AppendJoin("_", nameElems) |> ignore
