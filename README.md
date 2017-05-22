@@ -295,5 +295,6 @@ C#のクエリは、C#のシグネチャとは文法が異なります。
 ## 使用ライブラリ
 * [FSharp.Compiler.Service](http://fsharp.github.io/FSharp.Compiler.Service/)
 * [FParsec](http://www.quanttec.com/fparsec/)
-* [FsPickler](http://mbraceproject.github.io/FsPickler/)
 * [FSharp.Collections.ParallelSeq](http://fsprojects.github.io/FSharp.Collections.ParallelSeq/)
+* [MessagePack for C#](https://github.com/neuecc/MessagePack-CSharp)
+* [MessagePack.FSharpExtensions](https://github.com/pocketberserker/MessagePack.FSharpExtensions)
