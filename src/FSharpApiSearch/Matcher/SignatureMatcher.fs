@@ -157,6 +157,16 @@ module Rules =
     | { Parameters = [] } as m -> Some m
     | _ -> None
 
+  let extensionMemberRule testArrow (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
+    match left, right with
+    | SignatureQuery.Signature (Arrow [ leftReceiver; leftParams; leftReturnType ]), ApiSignature.ExtensionMember ({ Parameters = [ rightReceiver :: rightParams ] } as member' ) ->
+      Debug.WriteLine("extension member rule.")
+      let left = [ leftParams; leftReturnType ]
+      let right = { member' with Parameters = [ rightParams ] }
+      lowTypeMatcher.TestReceiver leftReceiver rightReceiver.Type ctx
+      |> MatchingResult.bindMatched (testArrow lowTypeMatcher left (Member.toFunction right))
+    | _ -> Continue ctx
+
   let staticMemberRule testArrow (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
     | SignatureQuery.Signature (Arrow _), StaticMember (NoArgsMember _) ->
@@ -182,14 +192,6 @@ module Rules =
   let (|InstanceMember|_|) = function
     | ApiSignature.InstanceMember (declaringType, member') -> Some (declaringType, member')
     | ApiSignature.TypeExtension { MemberModifier = MemberModifier.Instance; ExistingType = declaringType; Member = member' } -> Some (declaringType, member')
-    | ApiSignature.ExtensionMember ({ Parameters = [ declaringType :: parameters ] } as member') ->
-      let member' =
-        let ps =
-          match parameters with
-          | [] -> []
-          | _ -> [ parameters ]
-        { member' with Parameters = ps }
-      Some (declaringType.Type, member')
     | _ -> None
 
   let arrowAndInstanceMemberRule testArrow (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
@@ -264,6 +266,7 @@ let instance (options: SearchOptions) =
         yield Rules.moduleFunctionRule testArrow
         yield Rules.activePatternRule testArrow
 
+        yield Rule.continueFailure (Rules.extensionMemberRule testArrow)
         yield Rules.staticMemberRule testArrow
         yield Rules.constructorRule testArrow
         

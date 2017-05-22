@@ -98,6 +98,10 @@ module Rule =
   let terminator _ _ _ _ =
     Debug.WriteLine("It reached the terminator.")
     Failure
+  let continueFailure (rule: Rule<_, _>) matcher left right ctx =
+    match run rule matcher left right ctx with
+    | Failure -> Continue ctx
+    | (Matched _ | Continue _) as result -> result
   let compose (xs: Rule<_, _> seq): Rule<_, _> =
     fun test left right ctx ->
       let mutable continue' = true

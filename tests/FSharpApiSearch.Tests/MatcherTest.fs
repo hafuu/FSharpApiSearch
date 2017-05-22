@@ -1780,11 +1780,22 @@ module TypeExtensionTest =
     matchTest [
       "A -> B", extensionMember (method' "test" [ [ ptype typeA ] ] typeB), Always true
       "A -> B", extensionMember (method' "test" [ [ ptype typeA ] ] typeA), Always false
-      "A -> B", extensionMember (method' "test" [ [ ptype typeA ] ] typeA), Always false
+      "A -> B", extensionMember (method' "test" [ [ ptype typeB ] ] typeA), Always false
 
-      "A -> A -> B", extensionMember (method' "test" [ [ ptype typeA; ptype typeA ] ] typeB), WhenEnabled true
+      "A -> A -> B", extensionMember (method' "test" [ [ ptype typeA; ptype typeA ] ] typeB), Always true
       "A -> A -> A -> B", extensionMember (method' "test" [ [ ptype typeA; ptype typeA; ptype typeA ] ] typeB), WhenEnabled true
     ]
+
+  // bug #127
+  let distanceTest =
+    parameterize {
+      source [
+        "A -> B * C -> D", extensionMember (method' "test" [ [ ptype (identity "A"); ptype (identity "B"); ptype (identity "C") ] ] (identity "D")), 0
+        "A -> B -> C -> D", extensionMember (method' "test" [ [ ptype (identity "A"); ptype (identity "B"); ptype (identity "C") ] ] (identity "D")), 1
+        "A * B * C -> D", extensionMember (method' "test" [ [ ptype (identity "A"); ptype (identity "B"); ptype (identity "C") ] ] (identity "D")), 0
+      ]
+      run (distanceTest false defaultTestOptions)
+    }
 
 module SwapOrderTest =
   open MatcherTypes
