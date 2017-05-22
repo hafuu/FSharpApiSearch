@@ -1140,3 +1140,15 @@ module XmlDocTest =
       do! actual |> assertEquals expected
     })
   }
+
+let serializationTest = test {
+  let! fsDict = fsharpAssemblyApi
+  let! csDict = csharpAssemblyApi
+  let dictionaries = [| fsDict; csDict |]
+  use memory = new MemoryStream()
+  do ApiLoader.saveStream memory dictionaries
+  do memory.Position <- 0L
+  let actual = ApiLoader.loadFromStream memory
+  do! actual.[0].Api |> assertEquals dictionaries.[0].Api
+  do! actual.[1].Api |> assertEquals dictionaries.[1].Api
+}

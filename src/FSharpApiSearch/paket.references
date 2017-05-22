@@ -2,5 +2,6 @@ group App
 FSharp.Core
 FParsec
 FSharp.Compiler.Service
-FsPickler
 FSharp.Collections.ParallelSeq
+MessagePack
+MessagePack.FSharpExtensions

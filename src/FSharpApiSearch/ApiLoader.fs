@@ -4,10 +4,12 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open FSharpApiSearch.SpecialTypes
 open System.Text.RegularExpressions
 open System.IO
-open MBrace.FsPickler
 open System.Collections.Generic
 open System.Xml.Linq
 open FSharp.Collections.ParallelSeq
+open MessagePack
+open MessagePack.Resolvers
+open MessagePack.FSharp
 
 type TypeForward = {
   Type: string
@@ -1152,12 +1154,24 @@ module internal Serialization =
       |> Impl.makeDefAndAbb
     )
 
+let internal initMessagePack = lazy(
+  CompositeResolver.RegisterAndSetAsDefault(FSharpResolver.Instance, StandardResolver.Instance)
+)
+
+let internal saveStream (stream: Stream) (dictionaries: ApiDictionary[]) : unit =
+  initMessagePack.Force()
+
+  MessagePackSerializer.Serialize(stream, Serialization.toDumpObj dictionaries)
+
 let save (path: string) (dictionaries: ApiDictionary[]) : unit =
+  if File.Exists(path) then File.Delete(path)
   use file = File.OpenWrite(path)
-  let serializer = FsPickler.CreateBinarySerializer()
-  serializer.Serialize<Serialization.T>(file, Serialization.toDumpObj dictionaries)
+  saveStream file dictionaries
+
+let internal loadFromStream (stream: Stream) : ApiDictionary[] =
+  initMessagePack.Force()
+  MessagePackSerializer.Deserialize<Serialization.T>(stream) |> Serialization.fromDumpObj
 
 let loadFromFile (path: string) : ApiDictionary[] =
   use file = File.OpenRead(path)
-  let serializer = FsPickler.CreateBinarySerializer()
-  serializer.Deserialize<Serialization.T>(file) |> Serialization.fromDumpObj
+  loadFromStream file

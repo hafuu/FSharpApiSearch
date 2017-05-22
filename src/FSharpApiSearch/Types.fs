@@ -3,9 +3,13 @@
 open System.Text
 open System
 open System.Collections.Generic
+open MessagePack
 
+[<MessagePackObject>]
 type TypeVariable = {
+  [<Key(0)>]
   Name: string
+  [<Key(1)>]
   IsSolveAtCompileTime: bool
 }
 
@@ -15,13 +19,17 @@ module TypeVariable =
     if List.exists (fun prefix -> v.StartsWith(prefix)) [ "'"; "^" ] = false then failwithf "wrong variable name: %s" v
     { Name = v.TrimStart(''', '^'); IsSolveAtCompileTime = v.StartsWith("^") }
 
+[<MessagePackObject>]
 type NamePart =
   | SymbolName of name:string
   | OperatorName of name:string * compiledName:string
   | WithCompiledName of name:string * compiledName:string
 
+[<MessagePackObject>]
 type DisplayNameItem = {
+  [<Key(0)>]
   Name: NamePart
+  [<Key(1)>]
   GenericParameters: TypeVariable list
 }
 
@@ -65,6 +73,7 @@ module internal DisplayName =
     let head = { name.Head with Name = OperatorName (headName, compiledOpName) }
     head :: name.Tail
 
+[<MessagePackObject>]
 type Name =
   | LoadingName of assemblyName:string * accessPath:string * DisplayName // only api loading
   | DisplayName of DisplayName
@@ -80,24 +89,34 @@ module internal Name =
     | LoadingName _ -> loadingNameError()
     | DisplayName ns -> ns
 
+[<MessagePackObject>]
 type PartialIdentity = {
+  [<Key(0)>]
   Name: DisplayName
+  [<Key(1)>]
   GenericParameterCount: int
 }
 
+[<MessagePackObject>]
 type FullIdentity = {
+  [<Key(0)>]
   AssemblyName: string
+  [<Key(1)>]
   Name: Name
+  [<Key(2)>]
   GenericParameterCount: int
 }
 
+[<MessagePackObject>]
 type Identity =
   | PartialIdentity of PartialIdentity
   | FullIdentity of FullIdentity
 
 [<RequireQualifiedAccess>]
+[<MessagePackObject>]
 type VariableSource = Query | Target
 
+[<MessagePackObject>]
 type LowType =
   | Wildcard of string option
   | Variable of VariableSource * TypeVariable
@@ -110,36 +129,49 @@ type LowType =
   | ByRef of isOut:bool * LowType
   | Flexible of LowType
   | Choice of LowType list
-and TypeAbbreviation = {
+and [<MessagePackObject>] TypeAbbreviation = {
+  [<Key(0)>]
   Abbreviation: LowType
+  [<Key(1)>]
   Original: LowType
 }
-and TupleType = {
+and [<MessagePackObject>] TupleType = {
+  [<Key(0)>]
   Elements: LowType list
+  [<Key(1)>]
   IsStruct: bool
 }
 
+[<MessagePackObject>]
 type Accessibility =
   | Public
   | Private
   //| Internal
 
 [<RequireQualifiedAccess>]
+[<MessagePackObject>]
 type PropertyKind = Get | Set | GetSet
 
 [<RequireQualifiedAccess>]
+[<MessagePackObject>]
 type MemberKind =
   | Method
   | Property of PropertyKind
   | Field
 
 [<RequireQualifiedAccess>]
+[<MessagePackObject>]
 type MemberModifier = Instance | Static
 
+[<MessagePackObject>]
 type Parameter = {
+  [<Key(0)>]
   Type: LowType
+  [<Key(1)>]
   Name: string option
+  [<Key(2)>]
   IsOptional: bool
+  [<Key(3)>]
   IsParamArray: bool
 }
 
@@ -166,14 +198,21 @@ module internal Function =
     | [ one ] -> one
     | xs -> Arrow xs
 
+[<MessagePackObject>]
 type Member = {
+  [<Key(0)>]
   Name: string
+  [<Key(1)>]
   Kind: MemberKind
+  [<Key(2)>]
   GenericParameters: TypeVariable list
+  [<Key(3)>]
   Parameters: ParameterGroups
+  [<Key(4)>]
   ReturnParameter: Parameter
 }
 with
+  [<IgnoreMember>]
   member this.IsCurried = List.length this.Parameters > 1
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -185,6 +224,7 @@ module internal Member =
     | _ -> [ yield! m.Parameters; yield [ m.ReturnParameter ] ]
 
 [<RequireQualifiedAccess>]
+[<MessagePackObject>]
 type TypeDefinitionKind =
   | Class
   | Interface
@@ -193,6 +233,7 @@ type TypeDefinitionKind =
   | Record
   | Enumeration
 
+[<MessagePackObject>]
 type Constraint =
   | SubtypeConstraints of LowType
   | NullnessConstraints
@@ -206,42 +247,68 @@ type Constraint =
   | EqualityConstraints
   | ComparisonConstraints
 
+[<MessagePackObject>]
 type TypeConstraint = {
+  [<Key(0)>]
   Variables: TypeVariable list
+  [<Key(1)>]
   Constraint: Constraint
 }
 
+[<MessagePackObject>]
 type ConstraintStatus =
   | Satisfy
   | NotSatisfy
   | Dependence of TypeVariable list
 
+[<MessagePackObject>]
 type FullTypeDefinition = {
+  [<Key(0)>]
   Name: DisplayName
+  [<Key(1)>]
   FullName: string
+  [<Key(2)>]
   AssemblyName: string
+  [<Key(3)>]
   Accessibility: Accessibility
+  [<Key(4)>]
   Kind: TypeDefinitionKind
+  [<Key(5)>]
   BaseType: LowType option
+  [<Key(6)>]
   AllInterfaces: LowType list
+  [<Key(7)>]
   GenericParameters: TypeVariable list
+  [<Key(8)>]
   TypeConstraints: TypeConstraint list
+  [<Key(9)>]
   InstanceMembers: Member list
+  [<Key(10)>]
   StaticMembers: Member list
   
+  [<Key(11)>]
   ImplicitInstanceMembers: Member list  
+  [<Key(12)>]
   ImplicitStaticMembers: Member list
 
   // pre-compute for type constraints
+  [<Key(13)>]
   SupportNull: ConstraintStatus
+  [<Key(14)>]
   ReferenceType: ConstraintStatus
+  [<Key(15)>]
   ValueType: ConstraintStatus
+  [<Key(16)>]
   DefaultConstructor: ConstraintStatus
+  [<Key(17)>]
   Equality: ConstraintStatus
+  [<Key(18)>]
   Comparison: ConstraintStatus
 }
 with
+  [<IgnoreMember>]
   member internal this.FullIdentity = { AssemblyName = this.AssemblyName; Name = DisplayName this.Name; GenericParameterCount = this.GenericParameters.Length }
+  [<IgnoreMember>]
   member internal this.LowType =
     match this.GenericParameters with
     | [] -> Identity (FullIdentity this.FullIdentity)
@@ -250,17 +317,27 @@ with
       let id = Identity (FullIdentity this.FullIdentity)
       Generic (id, gps) 
 
+[<MessagePackObject>]
 type TypeAbbreviationDefinition = {
+  [<Key(0)>]
   Name: DisplayName
+  [<Key(1)>]
   FullName: string
+  [<Key(2)>]
   AssemblyName: string
+  [<Key(3)>]
   Accessibility: Accessibility
+  [<Key(4)>]
   GenericParameters: TypeVariable list
+  [<Key(5)>]
   Abbreviated: LowType
+  [<Key(6)>]
   Original: LowType
 }
 with
+  [<IgnoreMember>]
   member internal this.FullIdentity = { AssemblyName = this.AssemblyName; Name = DisplayName this.Name; GenericParameterCount = this.GenericParameters.Length }
+  [<IgnoreMember>]
   member internal this.TypeAbbreviation =
     let abbreviation =
       match this.GenericParameters with
@@ -274,14 +351,20 @@ with
       Original = this.Original
     }: TypeAbbreviation
 
+[<MessagePackObject>]
 type TypeExtension = {
+  [<Key(0)>]
   ExistingType: LowType
+  [<Key(1)>]
   Declaration: DisplayName
+  [<Key(2)>]
   MemberModifier: MemberModifier
+  [<Key(3)>]
   Member: Member
 }
 
 [<RequireQualifiedAccess>]
+[<MessagePackObject>]
 type ApiKind =
   | ModuleValue
   | Constructor
@@ -295,20 +378,28 @@ type ApiKind =
   | ComputationExpressionBuilder
 
 [<RequireQualifiedAccess>]
+[<MessagePackObject>]
 type ActivePatternKind =
   | ActivePattern
   | PartialActivePattern
 
 [<RequireQualifiedAccess>]
+[<MessagePackObject>]
 type UnionCaseField = {
+  [<Key(0)>]
   Name: string option
+  [<Key(1)>]
   Type: LowType
 }
 
 [<RequireQualifiedAccess>]
+[<MessagePackObject>]
 type UnionCase = {
+  [<Key(0)>]
   DeclaringType: LowType
+  [<Key(1)>]
   Name: string
+  [<Key(2)>]
   Fields: UnionCaseField list
 }
 
@@ -319,21 +410,31 @@ module UnionCase =
     let ret = Parameter.ofLowType uc.DeclaringType |> List.singleton
     [ fields; ret ]
 
+[<MessagePackObject>]
 type ModuleDefinition = {
+  [<Key(0)>]
   Name: DisplayName
+  [<Key(1)>]
   AssemblyName: string
+  [<Key(2)>]
   Accessibility: Accessibility
 }
 with
+  [<IgnoreMember>]
   member internal this.LowType = Identity (FullIdentity { Name = DisplayName this.Name; AssemblyName = this.AssemblyName; GenericParameterCount = 0 })
 
+[<MessagePackObject>]
 type ComputationExpressionBuilder = {
+  [<Key(0)>]
   BuilderType: LowType
+  [<Key(1)>]
   ComputationExpressionTypes: LowType list
+  [<Key(2)>]
   Syntaxes: string list
 }
 
 [<RequireQualifiedAccess>]
+[<MessagePackObject>]
 type ApiSignature =
   | ModuleValue of LowType
   | ModuleFunction of Function
@@ -351,13 +452,19 @@ type ApiSignature =
   | UnionCase of UnionCase
   | ComputationExpressionBuilder of ComputationExpressionBuilder
 
+[<MessagePackObject>]
 type Api = {
+  [<Key(0)>]
   Name: Name
+  [<Key(1)>]
   Signature: ApiSignature
+  [<Key(2)>]
   TypeConstraints: TypeConstraint list
+  [<Key(3)>]
   Document: string option
 }
 with
+  [<IgnoreMember>]
   member this.Kind =
     match this.Signature with
     | ApiSignature.ModuleValue _ -> ApiKind.ModuleValue
@@ -374,13 +481,19 @@ with
     | ApiSignature.UnionCase _ -> ApiKind.UnionCase
     | ApiSignature.ComputationExpressionBuilder _ -> ApiKind.ComputationExpressionBuilder
 
+[<MessagePackObject>]
 type ApiDictionary = {
+  [<Key(0)>]
   AssemblyName: string
+  [<Key(1)>]
   Api: Api[]
+  [<Key(2)>]
   TypeDefinitions: IDictionary<FullIdentity, FullTypeDefinition>
+  [<Key(3)>]
   TypeAbbreviations: TypeAbbreviationDefinition[]
 }
 with
+  [<IgnoreMember>]
   member this.PublicApiNumber =
     this.Api
     |> Seq.filter (function
