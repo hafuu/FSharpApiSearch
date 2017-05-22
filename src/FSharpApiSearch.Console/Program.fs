@@ -7,7 +7,7 @@ open System
 open System.IO
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
-let fsharpPrinter (result: Result) =
+let fsharpPrinter args (result: Result) =
   Console.ForegroundColor <- ConsoleColor.DarkGray
   Console.Write(FSharp.printAccessPath None result.Api)
   Console.Write(".")
@@ -16,13 +16,16 @@ let fsharpPrinter (result: Result) =
   Console.Write(" : ")
   Console.Write(FSharp.printSignature result.Api)
   Console.ForegroundColor <- ConsoleColor.DarkGray
-  Console.WriteLine(sprintf ", %s, %s" (FSharp.printKind result.Api) result.AssemblyName)
+  Console.Write(", {0}", FSharp.printKind result.Api)
+  Console.Write(", {0}", result.AssemblyName)
+  if args.ShowDistance = Enabled then Console.Write(", {0}", result.Distance)
+  Console.WriteLine()
   match FSharp.tryPrintTypeConstraints result.Api with
   | Some constraints -> Console.WriteLine(sprintf "  %s" constraints)
   | None -> ()
   Console.ResetColor()
   
-let csharpPrinter (result: Result) =
+let csharpPrinter args (result: Result) =
   Console.ForegroundColor <- ConsoleColor.DarkGray
   Console.Write(CSharp.printAccessPath None result.Api)
   Console.Write(".")
@@ -30,7 +33,10 @@ let csharpPrinter (result: Result) =
   Console.Write(CSharp.printApiName result.Api)
   Console.Write(CSharp.printSignature result.Api)
   Console.ForegroundColor <- ConsoleColor.DarkGray
-  Console.WriteLine(sprintf ", %s, %s" (CSharp.printKind result.Api) result.AssemblyName)
+  Console.Write(", {0}", CSharp.printKind result.Api)
+  Console.Write(", {0}", result.AssemblyName)
+  if args.ShowDistance = Enabled then Console.Write(", {0}", result.Distance)
+  Console.WriteLine()
   match CSharp.tryPrintTypeConstraints result.Api with
   | Some constraints -> Console.WriteLine(sprintf "  %s" constraints)
   | None -> ()
@@ -38,8 +44,8 @@ let csharpPrinter (result: Result) =
 
 let getPrinter (args: Args) =
   match SearchOptions.Language.Get args.SearchOptions with
-  | FSharp -> fsharpPrinter
-  | CSharp -> csharpPrinter
+  | FSharp -> fsharpPrinter args
+  | CSharp -> csharpPrinter args
 
 let searchAndShowResult (client: Lazy<FSharpApiSearchClient>) (query: string) args =
   let opt = args.SearchOptions
@@ -122,6 +128,7 @@ module Interactive =
     setting Language.tryParse name lens target str
 
   let ShowXmlDocument = { Get = (fun x -> x.ShowXmlDocument); Set = (fun value x -> { x with ShowXmlDocument = value }) }
+  let ShowDistance = { Get = (fun x -> x.ShowDistance); Set = (fun value x -> { x with ShowDistance = value }) }
   let StackTrace = { Get = (fun x -> x.StackTrace); Set = (fun value x -> { x with StackTrace = value }) }
 
   let helpMessage = """
@@ -172,6 +179,7 @@ FSharpApiSearch.Console interactive mode directive:
     | OptionSetting "#complement" SearchOptions.Complement arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | LanguageSetting "#language" SearchOptions.Language arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#xmldoc" ShowXmlDocument arg newArg -> loop client newArg
+    | OptionSetting "#distance" ShowDistance arg newArg -> loop client newArg
     | OptionSetting "#stacktrace" StackTrace arg newArg -> loop client newArg
     | "#clear" ->
       Console.Clear()

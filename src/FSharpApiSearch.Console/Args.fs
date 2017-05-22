@@ -10,6 +10,7 @@ type Args = {
   Targets: string list
   SearchOptions: SearchOptions
   ShowXmlDocument: OptionStatus
+  ShowDistance: OptionStatus
   StackTrace: OptionStatus
   Help: bool
 }
@@ -20,7 +21,7 @@ module Args =
 
   let empty =
     let defaultOpt = SearchOptions.defaultOptions |> SearchOptions.Parallel.Set Enabled
-    { Query = None; Targets = []; SearchOptions = defaultOpt; ShowXmlDocument = Disabled; StackTrace = Disabled; Help = false }
+    { Query = None; Targets = []; SearchOptions = defaultOpt; ShowXmlDocument = Disabled; ShowDistance = Disabled; StackTrace = Disabled; Help = false }
 
   let boolToOptionStatus = function true -> Enabled | false -> Disabled
 
@@ -34,6 +35,7 @@ module Args =
     | Language "--language" lang :: rest -> parse { arg with SearchOptions = SearchOptions.Language.Set lang arg.SearchOptions } rest
     | (KeyValue "--target" t | KeyValue "-t" t) :: rest -> parse { arg with Targets = t :: arg.Targets } rest
     | Status "--xmldoc" v :: rest -> parse { arg with ShowXmlDocument = boolToOptionStatus v } rest
+    | Status "--distance" v :: rest -> parse { arg with ShowDistance = boolToOptionStatus v } rest
     | Status "--stacktrace" v :: rest -> parse { arg with StackTrace = boolToOptionStatus v } rest
     | ("--help" | "-h") :: rest -> parse { arg with Help = true } rest
     | query :: rest ->
