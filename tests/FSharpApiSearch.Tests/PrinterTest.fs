@@ -76,6 +76,9 @@ let printApiSignatureTest =
       moduleFunction' [ [ pname "x" >> ptype typeA; pname "y" >> ptype typeB ]; [ ptype typeB ] ], "x:a * y:b -> b"
       moduleFunction' [ [ pname "x" >> ptype typeA ]; [ pname "y" >> ptype typeB ]; [ ptype typeB ] ], "x:a -> y:b -> b"
 
+      moduleFunction' [ [ ptype (tuple [ typeA; typeB ]) ]; [ ptype typeB ] ], "a * b -> b"
+      moduleFunction' [ [ pname "x" >> ptype (tuple [ typeA; typeB ]) ]; [ ptype typeB ] ], "x:(a * b) -> b"
+
       moduleValue variableA, "'a"
       moduleValue (variable "^a"), "^a"
       moduleValue (array typeA), "a[]"

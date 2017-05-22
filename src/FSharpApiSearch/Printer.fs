@@ -188,8 +188,10 @@ module internal FSharpImpl =
     | Some name -> sb.Append(name).Append(":") |> ignore
     | None -> ()
 
+    let hasName = p.Name |> Option.isSome
+
     match p with
-    | { Type = Tuple _ } when tupleParen ->
+    | { Type = Tuple _ } when tupleParen || hasName ->
       sb.Append("(")
         .Append(printLowType_short isDebug p.Type)
         .Append(")")
