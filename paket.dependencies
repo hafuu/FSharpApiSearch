@@ -3,7 +3,7 @@ group App
 
   nuget FSharp.Core >= 4.1.17
   nuget FParsec >= 1.0.2
-  nuget FSharp.Compiler.Service >= 12.0.2
+  nuget FSharp.Compiler.Service >= 12.0.8
   nuget FSharp.Collections.ParallelSeq >= 1.0.2
   nuget MessagePack >= 1.2.2
   nuget MessagePack.FSharpExtensions >= 1.1.0
