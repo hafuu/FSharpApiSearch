@@ -102,14 +102,15 @@ module Rule =
     match run rule matcher left right ctx with
     | Failure -> Continue ctx
     | (Matched _ | Continue _) as result -> result
-  let compose (xs: Rule<_, _> seq): Rule<_, _> =
+  let compose (xs: Rule<_, _>[]): Rule<_, _> =
     fun test left right ctx ->
       let mutable continue' = true
       let mutable state = ctx
       let mutable result = Continue ctx
-      let ruleEnum = xs.GetEnumerator()
-      while continue' && ruleEnum.MoveNext() do
-        let rule = ruleEnum.Current
+      let mutable index = 0
+      while continue' && index < xs.Length do
+        let rule = xs.[index]
+        index <- index + 1
         let newResult = run rule test left right state
         result <- newResult
         match newResult with

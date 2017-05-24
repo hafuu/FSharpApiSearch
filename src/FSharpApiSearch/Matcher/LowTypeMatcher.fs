@@ -91,15 +91,17 @@ module Rules =
     Debug.WriteLine("It reached the terminator.")
     Failure
 
-  let testLeftEqualities (lowTypeMatcher: ILowTypeMatcher) (leftEqualities: seq<_>) right ctx =
+  let testLeftEqualities (lowTypeMatcher: ILowTypeMatcher) (leftEqualities: _ list) right ctx =
     let mutable continue' = true
     let mutable state = ctx
-    let e = leftEqualities.GetEnumerator()
-    while continue' && e.MoveNext() do
-      let (_, x) = e.Current
+    let mutable tail = leftEqualities
+    while continue' && not tail.IsEmpty do
+      let (_, x) = tail.Head
       let result = lowTypeMatcher.Test right x state
       match result with
-      | Matched ctx -> state <- ctx
+      | Matched ctx ->
+        state <- ctx
+        tail <- tail.Tail
       | _ -> continue' <- false
     if continue' then
       Matched state
@@ -185,9 +187,10 @@ module Rules =
     else
       let mutable continue' = true
       let mutable state = ctx, Array.empty, long, 0
-      let enum = (short :> seq<_>).GetEnumerator()
-      while continue' && enum.MoveNext() do
-        let testee = enum.Current
+      let mutable shortIndex = 0
+      while continue' && shortIndex < short.Length do
+        let testee = short.[shortIndex]
+        shortIndex <- shortIndex + 1
         let ctx, back, forward, swapNumber = state
         Debug.WriteLine(sprintf "Test %s" (testee.Debug()))
         Debug.Indent()
@@ -503,7 +506,7 @@ let instance options =
     f >> List.isEmpty >> not
 
   let rule =
-    Rule.compose [
+    Rule.compose [|
       yield Rules.choiceRule
       yield Rules.typeAbbreviationRule
       yield Rules.wildcardGroupRule
@@ -530,7 +533,7 @@ let instance options =
       yield Rules.flexibleRule isContextual
 
       yield Rule.terminator
-    ]
+    |]
 
   { new ILowTypeMatcher with
       member this.Test left right ctx =

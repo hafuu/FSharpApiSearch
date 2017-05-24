@@ -259,7 +259,7 @@ let instance (options: SearchOptions) =
 
   let rec run (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     let rule =
-      Rule.compose [
+      Rule.compose [|
         yield Rules.choiceRule run
 
         yield Rules.moduleValueRule
@@ -281,7 +281,7 @@ let instance (options: SearchOptions) =
         yield Rules.typeAbbreviationRule
 
         yield Rule.terminator
-      ]
+      |]
     Rule.run rule lowTypeMatcher left right ctx
 
   { new IApiMatcher with
