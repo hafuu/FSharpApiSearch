@@ -123,6 +123,9 @@ module FSharp =
 
       let Compare = NameMatchMethod.StringCompare
       let Regex = NameMatchMethod.Regex
+      let StartsWith = NameMatchMethod.StartsWith
+      let EndsWith = NameMatchMethod.EndsWith
+      let Contains = NameMatchMethod.Contains
       let Any = NameMatchMethod.Any
 
       let byName expected method = { Expected = expected; GenericParameters = []; MatchMethod = method }
@@ -141,11 +144,12 @@ module FSharp =
           ".ctor : _", [ byName ".ctor" Compare ], SignatureQuery.Wildcard
           "A..ctor : _", [ byName ".ctor" Compare; byName "A" Compare ], SignatureQuery.Wildcard
 
-          "ma* : _", [ byName "^ma.*$" Regex ], SignatureQuery.Wildcard
+          "ma* : _", [ byName "ma" StartsWith ], SignatureQuery.Wildcard
           "m*p : _", [ byName "^m.*p$" Regex ], SignatureQuery.Wildcard
-          "*ap : _", [ byName "^.*ap$" Regex ], SignatureQuery.Wildcard
-          "A.ma* : _", [ byName "^ma.*$" Regex; byName "A" Compare ], SignatureQuery.Wildcard
-          "A.*ap : _", [ byName "^.*ap$" Regex; byName "A" Compare ], SignatureQuery.Wildcard
+          "*a* : _", [ byName "a" Contains ], SignatureQuery.Wildcard
+          "*ap : _", [ byName "ap" EndsWith ], SignatureQuery.Wildcard
+          "A.ma* : _", [ byName "ma" StartsWith; byName "A" Compare ], SignatureQuery.Wildcard
+          "A.*ap : _", [ byName "ap" EndsWith; byName "A" Compare ], SignatureQuery.Wildcard
         ]
         run (fun (input, expectedName, expectedSig) -> test {
           let actual = QueryParser.FSharp.parse input
@@ -329,6 +333,9 @@ module CSharp =
 
     let Compare = NameMatchMethod.StringCompare
     let Regex = NameMatchMethod.Regex
+    let StartsWith = NameMatchMethod.StartsWith
+    let EndsWith = NameMatchMethod.EndsWith
+    let Contains = NameMatchMethod.Contains
     let Any = NameMatchMethod.Any
 
     let byName expected method = { Expected = expected; GenericParameters = []; MatchMethod = method }
@@ -339,7 +346,7 @@ module CSharp =
         "a.b : _", [ byName "b" Compare; byName "a" Compare ], SignatureQuery.Wildcard
         "* : _", [ byName "*" Any ], SignatureQuery.Wildcard
         "a.* : b", [ byName "*" Any; byName "a" Compare ], SignatureQuery.Signature (identity "b")
-        "a* : _", [ byName "^a.*$" Regex ], SignatureQuery.Wildcard
+        "a* : _", [ byName "a" StartsWith ], SignatureQuery.Wildcard
       ]
 
       run runByNameTest

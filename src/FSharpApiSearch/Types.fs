@@ -527,13 +527,23 @@ type SignatureQuery =
 type NameMatchMethod =
   | StringCompare
   | Regex
+  | StartsWith
+  | EndsWith
+  | Contains
   | Any
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module NameMatchMethod =
   let ofString (str: string) : string * NameMatchMethod =
+    let asteriskNumber = Seq.filter ((=)'*') str |> Seq.length
     if str = "*" then
       str, NameMatchMethod.Any
+    elif asteriskNumber = 1 && str.EndsWith("*") then
+      str.TrimEnd('*'), NameMatchMethod.StartsWith
+    elif asteriskNumber = 1 && str.StartsWith("*") then
+      str.TrimStart('*'), NameMatchMethod.EndsWith
+    elif asteriskNumber = 2 && str.StartsWith("*") && str.EndsWith("*") then
+      str.Trim('*'), NameMatchMethod.Contains
     elif str.Contains("*") then
       let pattern = sprintf "^%s$" (str.Replace("*",".*"))
       pattern, NameMatchMethod.Regex

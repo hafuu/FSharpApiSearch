@@ -143,6 +143,7 @@ let partialNameMatchTest =
 
       "map : _", Name.ofString "semaphore", listMap, false
       "*map* : _", Name.ofString "semaphore", listMap, true
+      "*map* : _", Name.ofString "xxxxxxxxxxxxxxx", listMap, false
     ]
     run (fun (query, targetName, targetSig, expected) -> matchTest false [||] (defaultTestOptions, query, targetName, targetSig, expected))
   }  

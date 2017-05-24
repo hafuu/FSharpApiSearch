@@ -18,6 +18,10 @@ let queries = [
   " #seq<#obj> -> int"
   " #seq<'a> -> int"
   " #seq<?a> -> ?a"
+  "List*.* : _"
+  "*List.* : _"
+  "*List*.* : _"
+  "*L*t*.* : _"
 ]
 
 [<EntryPoint>]
