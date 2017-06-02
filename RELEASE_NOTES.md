@@ -1,3 +1,8 @@
+### 3.0.0-beta4
+* Fix bugs
+* Improve performance
+* Change seliarization library to MessagePack from FsPickler
+
 ### 3.0.0-beta3
 * Add flexible type matching
 * Improve results display
