@@ -287,7 +287,7 @@ module Rules =
     | Wildcard _ -> 0
     | Variable _ -> 0
     | Identity _ -> 1
-    | Arrow xs -> seqDistance xs
+    | Arrow (ps, ret) -> seqDistance ps + distanceFromVariable ret
     | Tuple _ -> 1
     | Generic _ -> 1
     | TypeAbbreviation x -> distanceFromVariable x.Original
@@ -333,20 +333,20 @@ module Rules =
       testArrow lowTypeMatcher leftElems rightElems ctx
     | _ -> Continue ctx
 
-  let testArrow_IgnoreParameterStyle (lowTypeMatcher: ILowTypeMatcher) leftElems rightElems ctx =
-    match leftElems, rightElems with
-    | [ _; _ ], [ _; _ ] ->
-      lowTypeMatcher.TestArrow leftElems rightElems ctx
-    | [ Tuple { Elements = leftArgs }; leftRet ], _ ->
-      let leftElems = seq { yield! leftArgs; yield leftRet }
-      lowTypeMatcher.TestArrow leftElems rightElems ctx
+  let testArrow_IgnoreParameterStyle (lowTypeMatcher: ILowTypeMatcher) (left: Arrow) (right: Arrow) ctx =
+    match left, right with
+    | ([ _ ], _), ([ _ ], _) ->
+      lowTypeMatcher.TestArrow left right ctx
+    | ([ Tuple { Elements = leftArgs } ], leftRet), _ ->
+      let left = leftArgs, leftRet
+      lowTypeMatcher.TestArrow left right ctx
       |> MatchingResult.mapMatched (Context.addDistance "parameter style" 1)
-    | _, [ Tuple { Elements = rightArgs }; rightRet ] ->
-      let rightElems = seq { yield! rightArgs; yield rightRet }
-      lowTypeMatcher.TestArrow leftElems rightElems ctx
+    | _, ([ Tuple { Elements = rightArgs } ], rightRet) ->
+      let right = rightArgs, rightRet
+      lowTypeMatcher.TestArrow left right ctx
       |> MatchingResult.mapMatched (Context.addDistance "parameter style" 1)
     | _, _ ->
-      lowTypeMatcher.TestArrow leftElems rightElems ctx
+      lowTypeMatcher.TestArrow left right ctx
 
   let arrowRule_IgnoreParameterStyle lowTypeMatcher left right ctx =
     match left, right with

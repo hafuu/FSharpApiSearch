@@ -1836,9 +1836,9 @@ module SwapOrderTest =
 
       "A * B -> A", moduleFunction' [ [ ptype typeB ]; [ ptype typeA ]; [ ptype typeA ] ], WhenEnabled true
 
-      "(A -> B -> B) -> A", moduleFunction' [ [ ptype (Arrow [ typeB; typeA; typeB ]) ]; [ ptype typeA ] ], WhenEnabled true
-      "(A * B -> B) -> A", moduleFunction' [ [ ptype (Arrow [ typeB; typeA; typeB ]) ]; [ ptype typeA ] ], WhenEnabled true
-      "(B -> B -> A) -> A", moduleFunction' [ [ ptype (Arrow [ typeB; typeA; typeB ]) ]; [ ptype typeA ] ], Always false
+      "(A -> B -> B) -> A", moduleFunction' [ [ ptype (arrow [ typeB; typeA; typeB ]) ]; [ ptype typeA ] ], WhenEnabled true
+      "(A * B -> B) -> A", moduleFunction' [ [ ptype (arrow [ typeB; typeA; typeB ]) ]; [ ptype typeA ] ], WhenEnabled true
+      "(B -> B -> A) -> A", moduleFunction' [ [ ptype (arrow [ typeB; typeA; typeB ]) ]; [ ptype typeA ] ], Always false
 
       "(A * B) -> A", moduleFunction' [ [ ptype (tuple [ typeB; typeA ]) ]; [ ptype typeA ] ], WhenEnabled true
       "(A * B * A) -> A", moduleFunction' [ [ ptype (tuple [ typeB; typeA; typeA ]) ]; [ ptype typeA ] ], WhenEnabled true

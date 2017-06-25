@@ -109,7 +109,7 @@ module FSharp =
 
   let tuple _ typeParser = sepBy2 typeParser (pstring "*") |>> fun xs -> Tuple { Elements = xs; IsStruct = false }
 
-  let arrow _ typeParser = sepBy2 typeParser (pstring "->") |>> fun xs -> Arrow xs
+  let arrow _ typeParser = sepBy2 typeParser (pstring "->") |>> (Arrow.ofLowTypeList >> Arrow)
 
   do fsharpSignatureRef := compose ptype [ array; structTuple; mlGeneric; tuple; arrow ]
 
@@ -119,7 +119,7 @@ module FSharp =
   let allPatterns =
     trim (skipString "...") >>. skipString "->" >>. fsharpSignature
     >>= function
-        | Arrow [ x; y ] -> preturn (ActivePatternSignature.AnyParameter (x, y))
+        | Arrow ([ x ], y) -> preturn (ActivePatternSignature.AnyParameter (x, y))
         | _ -> fail "parse error"
   let activePattern = fsharpSignature |>> ActivePatternSignature.Specified
   let activePatternQuery = trim activePatternKind .>> skipString ":" .>>. (attempt allPatterns <|> activePattern) |>> (fun (kind, sig') -> QueryMethod.ByActivePattern { Kind = kind; Signature = sig' })
@@ -249,7 +249,7 @@ module CSharp =
       |>> function
         | [ x ] -> x
         | xs -> Tuple { Elements = xs; IsStruct = false }
-    sepBy2 args (pstring "->") |>> Arrow
+    sepBy2 args (pstring "->") |>> (Arrow.ofLowTypeList >> Arrow)
 
   do csharpSignatureRef := compose ptype [ array; structTuple; byref; arrow ]
 
@@ -258,7 +258,7 @@ module CSharp =
         Variable (VariableSource.Query, { Name = name; IsSolveAtCompileTime = false })
     | Generic (id, args) -> Generic (replaceWithVariable variableNames id, List.map (replaceWithVariable variableNames) args)
     | Tuple tpl -> Tuple { tpl with Elements = List.map (replaceWithVariable variableNames) tpl.Elements }
-    | Arrow xs -> Arrow (List.map (replaceWithVariable variableNames) xs)
+    | Arrow (ps, ret) -> Arrow (List.map (replaceWithVariable variableNames) ps, replaceWithVariable variableNames ret)
     | ByRef (isOut, t) -> ByRef (isOut, replaceWithVariable variableNames t)
     | Flexible t -> Flexible (replaceWithVariable variableNames t)
     | (Wildcard _ | Variable _ | Identity _ | TypeAbbreviation _ | Delegate _ | Choice _) as t -> t

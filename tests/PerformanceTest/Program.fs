@@ -13,6 +13,7 @@ type TestResult = {
 let queries = [
   "seq<'a> -> 'a"
   "?a -> ?a"
+  "?a -> ?b -> ?a"
   "('a -> 'b) -> ?<'a> -> ?<'b>"
   "int -> #seq<'a>"
   " #seq<#obj> -> int"

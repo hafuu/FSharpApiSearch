@@ -121,11 +121,11 @@ type LowType =
   | Wildcard of string option
   | Variable of VariableSource * TypeVariable
   | Identity of Identity
-  | Arrow of LowType list
+  | Arrow of Arrow
   | Tuple of TupleType
   | Generic of LowType * LowType list
   | TypeAbbreviation of TypeAbbreviation
-  | Delegate of delegateType: LowType * LowType list
+  | Delegate of delegateType: LowType * Arrow
   | ByRef of isOut:bool * LowType
   | Flexible of LowType
   | Choice of LowType list
@@ -141,6 +141,13 @@ and [<MessagePackObject>] TupleType = {
   [<Key(1)>]
   IsStruct: bool
 }
+and Arrow = LowType list * LowType // parameters and return type
+
+module internal Arrow =
+  let ofLowTypeList xs =
+    let ps = List.take (List.length xs - 1) xs
+    let ret = List.last xs
+    ps, ret
 
 [<MessagePackObject>]
 type Accessibility =
@@ -180,23 +187,25 @@ module internal Parameter =
   let ofLowType t = { Name = None; Type = t; IsOptional = false; IsParamArray = false }
 
 type ParameterGroups = Parameter list list
-type Function = Parameter list list
+type Function = ParameterGroups * Parameter
 
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module internal Function =
-  let toLowTypeList (fn: Parameter list list) =
+module internal ParameterGroups =
+  let toLowTypeList (pg: ParameterGroups) =
     [
-      for ps in fn do
+      for ps in pg do
         match ps with
         | [] -> ()
         | [ one ] -> yield one.Type
         | many -> yield Tuple { Elements = List.map (fun x -> x.Type) many; IsStruct = false }
     ]
-  let toArrow (fn: Parameter list list) =
-    let xs = toLowTypeList fn
-    match xs with
-    | [ one ] -> one
-    | xs -> Arrow xs
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module internal Function =
+  let toArrow (fn: Function) : Arrow =
+    let ps, ret = fn
+    let ps = ParameterGroups.toLowTypeList ps
+    let ret = ret.Type
+    ps, ret
 
 [<MessagePackObject>]
 type Member = {
@@ -217,11 +226,8 @@ with
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module internal Member =
-  let toArrow m = Function.toArrow [ yield! m.Parameters; yield [ m.ReturnParameter ] ]
-  let toFunction m =
-    match m.Parameters with
-    | [] -> [ [ m.ReturnParameter ] ]
-    | _ -> [ yield! m.Parameters; yield [ m.ReturnParameter ] ]
+  let toFunction m = m.Parameters, m.ReturnParameter
+  let toArrow m = Function.toArrow (toFunction m)
 
 [<RequireQualifiedAccess>]
 [<MessagePackObject>]
@@ -405,10 +411,10 @@ type UnionCase = {
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module UnionCase =
-  let toFunction (uc: UnionCase) =
+  let toFunction (uc: UnionCase) : Function =
     let fields = uc.Fields |> List.map (fun field -> { Name = field.Name; Type = field.Type; IsOptional = false; IsParamArray = false })
-    let ret = Parameter.ofLowType uc.DeclaringType |> List.singleton
-    [ fields; ret ]
+    let ret = Parameter.ofLowType uc.DeclaringType
+    [ fields ], ret
 
 [<MessagePackObject>]
 type ModuleDefinition = {
@@ -851,9 +857,9 @@ module LowTypeVisitor =
     
   let accept_Parameter visitor (p: Parameter) = { p with Type = visitor p.Type }
 
-  let accept_ParameterGroups visitor (groups: ParameterGroups) = groups |> List.map (List.map (accept_Parameter visitor))
+  let accept_ParameterGroups visitor (groups: ParameterGroups) : ParameterGroups = groups |> List.map (List.map (accept_Parameter visitor))
 
-  let accept_Function visitor func = accept_ParameterGroups visitor func
+  let accept_Function visitor ((pg, ret): Function) : Function = (accept_ParameterGroups visitor pg, accept_Parameter visitor ret)
 
   let accept_Member visitor (member': Member) =
     { member' with
@@ -936,60 +942,72 @@ module internal LowType =
       let args = applyVariableToTargetList source replacements args
       Generic (baseType, args)
     | Tuple x -> Tuple { x with Elements = applyVariableToTargetList source replacements x.Elements }
-    | Arrow xs -> Arrow (applyVariableToTargetList source replacements xs)
+    | Arrow arrow -> Arrow (applyVariableToArrow source replacements arrow)
     | TypeAbbreviation t -> TypeAbbreviation { Abbreviation = applyVariable source replacements t.Abbreviation; Original = applyVariable source replacements t.Original }
-    | Delegate (t, xs) ->
+    | Delegate (t, arrow) ->
       let delegateType = applyVariable source replacements t
-      let xs = applyVariableToTargetList source replacements xs
-      Delegate (delegateType, xs)
+      let arrow = applyVariableToArrow source replacements arrow
+      Delegate (delegateType, arrow)
     | ByRef (isOut, t) -> ByRef (isOut, applyVariable source replacements t)
     | Flexible t -> Flexible (applyVariable source replacements t)
     | Choice xs -> Choice (applyVariableToTargetList source replacements xs)
   and applyVariableToTargetList source replacements xs = xs |> List.map (applyVariable source replacements)
+  and applyVariableToArrow source replacements arrow =
+    let ps, ret = arrow
+    (applyVariableToTargetList source replacements ps, applyVariable source replacements ret)
 
   let collectWildcardGroup x =
+    let result = ResizeArray()
+    let add x = result.Add(x)
     let rec f = function
-      | Wildcard (Some _) as w -> [ w ]
-      | Wildcard None -> []
-      | Variable _ -> []
-      | Identity _ -> []
-      | Arrow xs -> List.collect f xs
-      | Tuple { Elements = xs } -> List.collect f xs
-      | Generic (id, args) -> List.collect f (id :: args)
+      | Wildcard (Some _) as w -> add w
+      | Wildcard None -> ()
+      | Variable _ -> ()
+      | Identity _ -> ()
+      | Arrow (ps, ret) -> List.iter f ps; f ret
+      | Tuple { Elements = xs } -> List.iter f xs
+      | Generic (id, args) -> f id; List.iter f args
       | TypeAbbreviation t -> f t.Original
       | Delegate (t, _) -> f t
       | ByRef (_, t) -> f t
       | Flexible t -> f t
-      | Choice xs -> List.collect f xs
+      | Choice xs -> List.iter f xs
     f x
+    List.ofSeq result
 
   let collectVariables x =
+    let result = ResizeArray()
+    let add x = result.Add(x)
     let rec f = function
-      | Wildcard _ -> []
-      | Variable _ as v -> [ v ]
-      | Identity _ -> []
-      | Arrow xs -> List.collect f xs
-      | Tuple { Elements = xs } -> List.collect f xs
-      | Generic (id, args) -> List.collect f (id :: args)
+      | Wildcard _ -> ()
+      | Variable _ as v -> add v
+      | Identity _ -> ()
+      | Arrow (ps, ret) -> List.iter f ps; f ret
+      | Tuple { Elements = xs } -> List.iter f xs
+      | Generic (id, args) -> f id; List.iter f args
       | TypeAbbreviation t -> f t.Original
       | Delegate (t, _) -> f t
       | ByRef (_, t) -> f t
       | Flexible t -> f t
-      | Choice xs -> List.collect f xs
+      | Choice xs -> List.iter f xs
     f x
+    List.ofSeq result
 
   let collectVariableOrWildcardGroup x =
+    let result = ResizeArray()
+    let add x = result.Add(x)
     let rec f = function
-      | Wildcard (Some _) as w -> [ w ]
-      | Wildcard None -> []
-      | Variable _ as v -> [ v ]
-      | Identity _ -> []
-      | Arrow xs -> List.collect f xs
-      | Tuple { Elements = xs } -> List.collect f xs
-      | Generic (id, args) -> List.collect f (id :: args)
+      | Wildcard (Some _) as w -> add w
+      | Wildcard None -> ()
+      | Variable _ as v -> add v
+      | Identity _ -> ()
+      | Arrow (ps, ret) -> List.iter f ps; f ret
+      | Tuple { Elements = xs } -> List.iter f xs
+      | Generic (id, args) -> f id; List.iter f args
       | TypeAbbreviation t -> f t.Original
       | Delegate (t, _) -> f t
       | ByRef (_, t) -> f t
       | Flexible t -> f t
-      | Choice xs -> List.collect f xs
+      | Choice xs -> List.iter f xs
     f x
+    List.ofSeq result

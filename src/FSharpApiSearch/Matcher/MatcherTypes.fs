@@ -68,17 +68,10 @@ type ILowTypeMatcher =
 
 [<AutoOpen>]
 module Extensions =
-  let private paramsAndRet (xs: 'a seq) =
-    let xs = Array.ofSeq xs
-    let ps = Array.take (xs.Length - 1) xs
-    let ret = Array.last xs
-    (ps, ret)
   type ILowTypeMatcher with
-    member this.TestArrow (leftTypes: LowType seq) (rightTypes: LowType seq) (ctx: Context) =
-      let leftParams, leftRet = paramsAndRet leftTypes
-      let rightParams, rightRet = paramsAndRet rightTypes
-      this.Test leftRet rightRet ctx
-      |> MatchingResult.bindMatched (this.TestAll leftParams rightParams)
+    member this.TestArrow (left: Arrow) (right: Arrow) (ctx: Context) =
+      this.Test (snd left) (snd right) ctx
+      |> MatchingResult.bindMatched (this.TestAll (fst left) (fst right))
 
     member this.TestReceiver (left: LowType) (right: LowType) (ctx: Context) =
       match left, right with

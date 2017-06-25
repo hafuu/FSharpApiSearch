@@ -74,7 +74,7 @@ let normalizeGetterMethod (m: Member) =
       let elems = List.map (fun x -> x.Type) propertyIndex
       Tuple { Elements = elems; IsStruct = false }
     | _ -> failwith "Curried getter is invalid."
-  Arrow [ indexOrUnit; m.ReturnParameter.Type ]
+  Arrow ([ indexOrUnit ], m.ReturnParameter.Type)
 
 let normalizeSetterMethod (m: Member) =
   let parameters =
@@ -84,12 +84,12 @@ let normalizeSetterMethod (m: Member) =
       let elements = [ yield! propertyIndex; yield m.ReturnParameter ] |> List.map (fun x -> x.Type)
       Tuple { Elements = elements; IsStruct = false }
     | _ -> failwith "Curried setter is invalid."
-  Arrow [ parameters; LowType.Unit ]
+  Arrow ([ parameters ], LowType.Unit)
 
-let normalizeMethod (m: Member) = Member.toArrow m
+let normalizeMethod (m: Member) = Arrow (Member.toArrow m)
 
 let testMemberConstraint (lowTypeMatcher: ILowTypeMatcher) modifier (expectedMember: Member) =
-  let normalizedExpectedMember = Member.toArrow expectedMember
+  let normalizedExpectedMember = Arrow (Member.toArrow expectedMember)
 
   createConstraintSolver
     "member constraints"

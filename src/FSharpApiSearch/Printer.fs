@@ -117,7 +117,7 @@ module internal FSharpImpl =
       | None -> sb.Append("?")
     | Variable (source, v) -> sb.Append(printTypeVariable isDebug source v)
     | Identity i -> sb.Append(printIdentity i)
-    | Arrow xs -> sb.Append(printArrow isDebug printIdentity xs)
+    | Arrow arrow -> sb.Append(printArrow isDebug printIdentity arrow)
     | Tuple { Elements = xs; IsStruct = false } -> sb.Append(printTuple isDebug printIdentity xs)
     | Tuple { Elements = xs; IsStruct = true } -> sb.Append(printStructTuple isDebug printIdentity xs)
     | LowType.Patterns.Array (name, elem) ->
@@ -140,7 +140,7 @@ module internal FSharpImpl =
       .Append("<")
       .AppendJoin(", ", args, (printLowType isDebug printIdentity))
       .Append(">")
-  and printArrow isDebug printIdentity (xs: _ list) (sb: StringBuilder) =
+  and printArrow isDebug printIdentity (arrow: Arrow) (sb: StringBuilder) =
     let printItem lowType (sb: StringBuilder) =
       match lowType with
       | Arrow _ as a ->
@@ -148,7 +148,8 @@ module internal FSharpImpl =
           .Append(printLowType isDebug printIdentity a)
           .Append(")")
       | x -> sb.Append(printLowType isDebug printIdentity x)
-    sb.AppendJoin(" -> ", xs, printItem)
+    let ps, ret = arrow
+    sb.AppendJoin(" -> ", ps, printItem).Append(" -> ").Append(printItem ret)
   and printTuple isDebug printIdentity (xs: _ list) (sb: StringBuilder) =
     let printItem lowType (sb: StringBuilder) =
       match lowType with
@@ -201,8 +202,12 @@ module internal FSharpImpl =
         .Append(")")
     | _ -> sb.Append(printLowType_short isDebug p.Type)
 
-  let printParameterGroups tupleParen isDebug (func: Parameter list list) (sb: StringBuilder) =
-    sb.AppendJoin(" -> ", func, (fun ps sb -> sb.AppendJoin(" * ", ps, printParameter tupleParen isDebug)))
+  let printParameterGroups tupleParen isDebug (pg: ParameterGroups) (sb: StringBuilder) =
+    sb.AppendJoin(" -> ", pg, (fun ps sb -> sb.AppendJoin(" * ", ps, printParameter tupleParen isDebug)))
+
+  let printFunction tupleParen isDebug (func: Function) (sb: StringBuilder) =
+    let ps, ret = func
+    sb.Append(printParameterGroups tupleParen isDebug ps).Append(" -> ").Append(printParameter tupleParen isDebug ret)
 
   let printMember isDebug (m: Member) (sb: StringBuilder) =
     match m.Parameters with
@@ -273,7 +278,7 @@ module internal FSharpImpl =
     if uc.Fields.IsEmpty then
       sb.Append(printLowType_short isDebug uc.DeclaringType)
     else
-      sb.Append(printParameterGroups true isDebug (UnionCase.toFunction uc))
+      sb.Append(printFunction true isDebug (UnionCase.toFunction uc))
 
   let printModule (m: ModuleDefinition) (sb: StringBuilder) = sb.Append("module ").Append(toDisplayName m.Name.Head.Name)
 
@@ -296,8 +301,8 @@ module internal FSharpImpl =
   let printApiSignature isDebug apiSig (sb: StringBuilder) =
     match apiSig with
     | ApiSignature.ModuleValue t -> sb.Append(printLowType_short isDebug t)
-    | ApiSignature.ModuleFunction fn -> sb.Append(printParameterGroups false isDebug fn)
-    | ApiSignature.ActivePatten (_, fn) -> sb.Append(printParameterGroups false isDebug fn)
+    | ApiSignature.ModuleFunction fn -> sb.Append(printFunction false isDebug fn)
+    | ApiSignature.ActivePatten (_, fn) -> sb.Append(printFunction false isDebug fn)
     | ApiSignature.InstanceMember (declaringType, m) ->
       if isDebug then
         sb.Append(printLowType_short isDebug declaringType)
@@ -416,7 +421,7 @@ module internal CSharpImpl =
     | FullIdentity i -> sb.Append(printName_short i.Name)
     | PartialIdentity i -> sb.Append(printDisplayName_short i.Name)
 
-  let toFSharpFunc xs = xs |> List.reduceBack (fun id ret -> Generic(SpecialTypes.LowType.FSharpFunc, [ id; ret ]))
+  let toFSharpFunc (ps, ret) = List.foldBack (fun id ret -> Generic (SpecialTypes.LowType.FSharpFunc, [ id; ret ])) ps ret
 
   let rec nestedArray acc = function
     | Array (name, elem) -> nestedArray (name :: acc) elem
@@ -432,7 +437,7 @@ module internal CSharpImpl =
       | None -> sb.Append("?")
     | Variable (_, v) -> sb.Append(v.Name)
     | Identity i -> sb.Append(printIdentity i)
-    | Arrow xs -> printLowType (toFSharpFunc xs) sb
+    | Arrow arrow -> printLowType (toFSharpFunc arrow) sb
     | Tuple { Elements = xs; IsStruct = false } -> sb.Append("Tuple<").AppendJoin(", ", xs, printLowType).Append(">")
     | Tuple { Elements = xs; IsStruct = true } -> sb.Append("(").AppendJoin(", ", xs, printLowType).Append(")")
     | Array (array, elem) ->
@@ -504,8 +509,8 @@ module internal CSharpImpl =
       Name = "dummy"
       Kind = MemberKind.Method
       GenericParameters = []
-      Parameters = fn |> List.take (List.length fn - 1)
-      ReturnParameter = fn |> List.last |> List.head
+      Parameters = fst fn
+      ReturnParameter = snd fn
     }
     printMethod m false sb
 

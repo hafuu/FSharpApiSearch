@@ -4,13 +4,10 @@ open System.Diagnostics
 open FSharpApiSearch.MatcherTypes
 
 let testAllParameter (lowTypeMatcher: ILowTypeMatcher) activePatternType returnType (right: Function) ctx =
-  let left = Arrow [ activePatternType; returnType ]
-  let rightElems =
-    if right.Length >= 2 then
-      right.[(right.Length - 2)..(right.Length - 1)]
-    else
-      failwith "invalid active pattern arguments."
-  let right = Function.toArrow rightElems
+  let left = Arrow ([ activePatternType ], returnType)
+  let right =
+    let ps, ret = Function.toArrow right
+    Arrow ([ List.last ps ], ret)
   lowTypeMatcher.Test left right ctx
 
 let test (lowTypeMatcher: ILowTypeMatcher) (query: ActivePatternQuery) (api: Api) ctx =
@@ -20,7 +17,7 @@ let test (lowTypeMatcher: ILowTypeMatcher) (query: ActivePatternQuery) (api: Api
     | ActivePatternSignature.AnyParameter (activePatternType, returnType) ->
       testAllParameter lowTypeMatcher activePatternType returnType right ctx
     | ActivePatternSignature.Specified left ->
-      let right = Function.toArrow right
+      let right = Arrow (Function.toArrow right)
       lowTypeMatcher.Test left right ctx
   | _ -> Failure
 

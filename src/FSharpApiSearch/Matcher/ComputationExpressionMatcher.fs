@@ -29,9 +29,9 @@ let private append options xs ys =
 
 let test (lowTypeMatcher: ILowTypeMatcher) (builderTypes: LowType) (ctx: Context) (api: Api) =
   match api.Signature with
-  | ApiSignature.ModuleValue (TypeAbbreviation { Original = Arrow xs }) -> lowTypeMatcher.Test builderTypes (List.last xs) ctx
+  | ApiSignature.ModuleValue (TypeAbbreviation { Original = Arrow (_, ret) }) -> lowTypeMatcher.Test builderTypes ret ctx
   | ApiSignature.ModuleValue value -> lowTypeMatcher.Test builderTypes value ctx
-  | ApiSignature.ModuleFunction xs -> lowTypeMatcher.Test builderTypes ((xs |> List.last |> List.last).Type) ctx
+  | ApiSignature.ModuleFunction (_, ret) -> lowTypeMatcher.Test builderTypes ret.Type ctx
   | _ -> Failure
 
 let testComputationExpressionTypes (lowTypeMatcher: ILowTypeMatcher) ctx queryCeType ceTypes =

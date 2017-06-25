@@ -50,9 +50,9 @@ module DSL =
       Generic (Identity (PartialIdentity id), args)
     | _ -> Generic (id, args)
 
-  let arrow xs = Arrow xs
+  let arrow xs = Arrow (Arrow.ofLowTypeList xs)
 
-  let delegate' t xs = Delegate (t, xs)
+  let delegate' t xs = Delegate (t, Arrow.ofLowTypeList xs)
 
   let byref t = ByRef(false, t)
   let out t = ByRef(true, t)
@@ -64,10 +64,19 @@ module DSL =
   let popt (x: Parameter) = { x with IsOptional = true }
   let pparams (x: Parameter) = { x with IsParamArray = true }
 
-  let createFunction fn = (List.map (List.map (fun f -> f { Name = None; Type = SpecialTypes.LowType.unit; IsOptional = false; IsParamArray = false })) fn)
+  let private defaultParameterValue = { Name = None; Type = SpecialTypes.LowType.unit; IsOptional = false; IsParamArray = false }
+
+  let createParameterGroups xs : ParameterGroups = xs |> List.map (List.map (fun f -> f defaultParameterValue))
+    
+  let createFunction fn : Function =
+    let parameters = List.take (List.length fn - 1) fn |> createParameterGroups
+    let ret =
+      let f = fn |> List.last |> List.last
+      f defaultParameterValue
+    parameters, ret
 
   let member' name kind parameters returnType =
-    { Name = name; Kind = kind; GenericParameters = []; Parameters = (createFunction parameters); ReturnParameter = Parameter.ofLowType returnType }
+    { Name = name; Kind = kind; GenericParameters = []; Parameters = (createParameterGroups parameters); ReturnParameter = Parameter.ofLowType returnType }
 
   let property' name kind parameters returnType = member' name (MemberKind.Property kind) parameters returnType
   let method' name parameters returnType = member' name MemberKind.Method parameters returnType

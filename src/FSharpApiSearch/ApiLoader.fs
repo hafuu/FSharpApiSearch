@@ -168,7 +168,7 @@ module internal Impl =
     elif t.IsFunctionType then
       option {
         let! xs = toFlatArrow t
-        return Arrow xs
+        return Arrow (Arrow.ofLowTypeList xs)
       }
     elif t.IsGenericParameter then
       Some (Variable (VariableSource, t.GenericParameter.TypeVariable))
@@ -227,7 +227,7 @@ module internal Impl =
         let replacements = Seq.zip (genericParameters td) genericArguments |> Map.ofSeq
         return LowType.applyVariableToTargetList VariableSource replacements methodParameters
       }
-      return arrow
+      return (Arrow.ofLowTypeList arrow)
     }
   and abbreviationRoot (t: FSharpType) =
     if t.IsAbbreviation then
@@ -237,7 +237,7 @@ module internal Impl =
     elif t.IsFunctionType then
       option {
         let! xs = toFlatArrow t
-        return Arrow xs
+        return Arrow (Arrow.ofLowTypeList xs)
       }
     else
       fsharpTypeToLowType t
@@ -411,15 +411,15 @@ module internal Impl =
       let! parameters = curriedParameterGroups isFSharp x
       let! returnType = fsharpTypeToLowType x.ReturnParameter.Type
       let returnParam = Parameter.ofLowType returnType
-      let arrow = [ yield! parameters; yield [ returnParam ] ]
+      let func = parameters, returnParam
       let target =
         if x.IsActivePattern then
           let kind = if x.DisplayName.Contains("|_|") then ActivePatternKind.PartialActivePattern else ActivePatternKind.ActivePattern
-          ApiSignature.ActivePatten (kind, arrow)
+          ApiSignature.ActivePatten (kind, func)
         else
-          match arrow with
-          | [ [ value ] ] -> ApiSignature.ModuleValue value.Type
-          | _ -> ApiSignature.ModuleFunction arrow
+          match parameters with
+          | [] -> ApiSignature.ModuleValue returnType
+          | _ -> ApiSignature.ModuleFunction func
       let name = x.GetDisplayName :: declaringModuleName
       return { Name = DisplayName name; Signature = target; TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
     }
@@ -1015,7 +1015,7 @@ module internal Impl =
       | Wildcard _ as w -> w
       | Variable _ as v -> v
       | Identity i -> Identity (resolve_Identity context i)
-      | Arrow xs -> Arrow (List.map (resolve_LowType context) xs)
+      | Arrow arrow -> Arrow (resolve_Arrow context arrow)
       | Tuple x -> Tuple { x with Elements = List.map (resolve_LowType context) x.Elements }
       | Generic (id, args) ->
         let id = resolve_LowType context id
@@ -1024,7 +1024,7 @@ module internal Impl =
       | TypeAbbreviation a -> TypeAbbreviation { Abbreviation = resolve_LowType context a.Abbreviation; Original = resolve_LowType context a.Original }
       | Delegate (t, arrow) ->
         let t = resolve_LowType context t
-        let arrow = List.map (resolve_LowType context) arrow
+        let arrow = resolve_Arrow context arrow
         Delegate (t, arrow)
       | ByRef (out, t) -> ByRef(out, resolve_LowType context t)
       | Flexible t -> Flexible(resolve_LowType context t)
@@ -1032,6 +1032,11 @@ module internal Impl =
     and resolve_Identity cache = function
       | PartialIdentity _ as i -> i
       | FullIdentity full -> FullIdentity { full with Name = resolve_Name cache full.Name }
+    and resolve_Arrow context arrow =
+      let ps, ret = arrow
+      let ps = List.map (resolve_LowType context) ps
+      let ret = resolve_LowType context ret
+      (ps, ret)
 
     let resolve_Signature context apiSig = LowTypeVisitor.accept_ApiSignature (resolve_LowType context) apiSig
     let resolve_TypeConstraint context constraint' = LowTypeVisitor.accept_TypeConstraint (resolve_LowType context) constraint'

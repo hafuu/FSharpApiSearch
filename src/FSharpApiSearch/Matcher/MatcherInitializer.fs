@@ -10,33 +10,33 @@ let buildMatchers options apiMatchers =
 
 let collectFromSignatureQuery getTarget query =
   let (|Target|_|) t = getTarget t
+
+  let results = ResizeArray()
+  let add x = results.Add(x)
+
   let rec f = function
-    | Target x -> Seq.singleton x
-    | Identity _ | Wildcard _ | Variable _ -> Seq.empty
-    | Arrow xs -> Seq.collect f xs
-    | Tuple { Elements = xs } -> Seq.collect f xs
-    | Generic (id, args) ->
-      Seq.concat [
-        f id
-        Seq.collect f args
-      ]
+    | Target x -> add x
+    | Identity _ | Wildcard _ | Variable _ -> ()
+    | Arrow (ps, ret) -> List.iter f ps; f ret
+    | Tuple { Elements = xs } -> List.iter f xs
+    | Generic (id, args) -> f id; List.iter f args
     | TypeAbbreviation { Original = o } -> f o
     | ByRef (_, t) -> f t
-    | Choice xs -> Seq.collect f xs
+    | Choice xs -> List.iter f xs
     | Delegate (t, _) -> f t
     | Flexible t -> f t
-  let results = 
-    match query with
-    | { Query.Method = QueryMethod.ByName (_, sigQuery) }
-    | { Query.Method = QueryMethod.BySignature sigQuery } ->
-      match sigQuery with
-      | SignatureQuery.Wildcard -> Seq.empty
-      | SignatureQuery.Signature lt -> f lt
-    | { Query.Method = QueryMethod.ByActivePattern apQuery } ->
-      match apQuery with
-      | { ActivePatternQuery.Signature = ActivePatternSignature.AnyParameter (x, y) } -> Seq.collect f [ x; y ]
-      | { ActivePatternQuery.Signature = ActivePatternSignature.Specified x } -> f x
-    | { Query.Method = QueryMethod.ByComputationExpression ceQuery } -> f ceQuery.Type
+
+  match query with
+  | { Query.Method = QueryMethod.ByName (_, sigQuery) }
+  | { Query.Method = QueryMethod.BySignature sigQuery } ->
+    match sigQuery with
+    | SignatureQuery.Wildcard -> ()
+    | SignatureQuery.Signature lt -> f lt
+  | { Query.Method = QueryMethod.ByActivePattern apQuery } ->
+    match apQuery with
+    | { ActivePatternQuery.Signature = ActivePatternSignature.AnyParameter (x, y) } -> f x; f y
+    | { ActivePatternQuery.Signature = ActivePatternSignature.Specified x } -> f x
+  | { Query.Method = QueryMethod.ByComputationExpression ceQuery } -> f ceQuery.Type
 
   results |> Seq.distinct |> Seq.toList
     
@@ -130,7 +130,7 @@ let private replaceTypeAbbreviation' nameEquality (table: TypeAbbreviation list)
     | Generic (id, args) ->
       let replacedArgs = args |> List.map replace
       Generic (id, replacedArgs)
-    | Arrow xs -> Arrow (List.map replace xs)
+    | Arrow (ps, ret) -> Arrow (List.map replace ps, replace ret)
     | Tuple x -> Tuple { x with Elements = List.map replace x.Elements }
     | Flexible t -> Flexible (replace t)
     | ByRef _ as x -> x
