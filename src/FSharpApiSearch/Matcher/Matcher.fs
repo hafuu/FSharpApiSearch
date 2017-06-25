@@ -5,13 +5,15 @@ open FSharpApiSearch.MatcherTypes
 open FSharpApiSearch.Printer
 open FSharp.Collections.ParallelSeq
 
-let internal test (lowTypeMatcher: ILowTypeMatcher) (apiMatchers: IApiMatcher list) (query: Query) (ctx: Context) (api: Api) =
+let internal test (lowTypeMatcher: ILowTypeMatcher) (apiMatchers: IApiMatcher[]) (query: Query) (ctx: Context) (api: Api) =
   let mutable continue' = true
   let mutable state = ctx
-  let enum = (apiMatchers :> seq<_>).GetEnumerator()
+  let mutable index = 0
 
-  while continue' && enum.MoveNext() do
-    let m = enum.Current
+  while continue' && index < apiMatchers.Length do
+    let m = apiMatchers.[index]
+    index <- index + 1
+
     Debug.WriteLine(sprintf "Test \"%s\" and \"%s\" by %s. Equations: %s"
       query.OriginalString
       (ApiSignature.debug api.Signature)
@@ -35,7 +37,7 @@ let private choose (options: SearchOptions) f xs=
   | Enabled -> PSeq.choose f xs :> seq<_>
   | Disabled -> Seq.choose f xs
 
-let internal search' (targets: ApiDictionary seq) (options: SearchOptions) (lowTypeMatcher: ILowTypeMatcher) (apiMatchers: IApiMatcher list) (query: Query) (initialContext: Context) =
+let internal search' (targets: ApiDictionary seq) (options: SearchOptions) (lowTypeMatcher: ILowTypeMatcher) (apiMatchers: IApiMatcher[]) (query: Query) (initialContext: Context) =
   targets
   |> Seq.collect (fun dic -> dic.Api |> Seq.map (fun api -> (dic, api)))
   |> choose options (fun (dic, api) ->

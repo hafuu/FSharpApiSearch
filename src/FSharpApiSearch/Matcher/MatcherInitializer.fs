@@ -5,7 +5,7 @@ open FSharpApiSearch.MatcherTypes
 
 let buildMatchers options apiMatchers =
   let lowTypeMatcher = LowTypeMatcher.instance options
-  let apiMatchers = apiMatchers |> List.map (fun f -> f options)
+  let apiMatchers = apiMatchers |> Array.map (fun f -> f options)
   (lowTypeMatcher, apiMatchers)
 
 let collectFromSignatureQuery getTarget query =
@@ -162,7 +162,7 @@ let typeAbbreviationTableFromApiDictionary (dictionaries: ApiDictionary seq) =
   dictionaries |> Seq.collect (fun x -> x.TypeAbbreviations) |> Seq.filter (fun t -> t.Accessibility = Public) |> Seq.map (fun t -> t.TypeAbbreviation) |> Seq.toList
 
 type IInitializeStorategy =
-  abstract Matchers: SearchOptions -> ILowTypeMatcher * IApiMatcher list
+  abstract Matchers: SearchOptions -> ILowTypeMatcher * IApiMatcher[]
   abstract ParseQuery: string -> Query
   abstract InitializeQuery: Query * ApiDictionary[] * SearchOptions -> Query
   abstract InitialContext: Query * ApiDictionary[] * SearchOptions -> Context
@@ -170,14 +170,14 @@ type IInitializeStorategy =
 type FSharpInitializeStorategy() =
   interface IInitializeStorategy with
     member this.Matchers(options) =
-      [
+      [|
         NameMatcher.instance
         SignatureMatcher.instance
         ActivePatternMatcher.instance
         ConstraintSolver.instance
         NonPublicFilter.instance
         ComputationExpressionMatcher.Filter.instance
-      ]
+      |]
       |> buildMatchers options
     member this.ParseQuery(queryStr) = QueryParser.FSharp.parse queryStr
     member this.InitializeQuery(query, dictionaries, options) =
@@ -196,12 +196,12 @@ let csharpAliases =
 type CSharpInitializeStorategy() =
   interface IInitializeStorategy with
     member this.Matchers(options) =
-      [
+      [|
         NameMatcher.instance
         CSharpFilter.instance
         SignatureMatcher.instance
         NonPublicFilter.instance
-      ]
+      |]
       |> buildMatchers options
     member this.ParseQuery(queryStr) = QueryParser.CSharp.parse queryStr
     member this.InitializeQuery(query, _, options) =
