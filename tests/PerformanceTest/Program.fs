@@ -11,6 +11,8 @@ type TestResult = {
 }
 
 let queries = [
+  "ToString"
+  "seq<'t>"
   "seq<'a> -> 'a"
   "?a -> ?a"
   "?a -> ?b -> ?a"
