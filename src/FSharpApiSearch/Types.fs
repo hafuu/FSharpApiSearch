@@ -566,6 +566,7 @@ type ByName = {
 type QueryMethod =
   | ByName of ByName list * SignatureQuery
   | BySignature of SignatureQuery
+  | ByNameOrSignature of ByName list * SignatureQuery
   | ByActivePattern of ActivePatternQuery
   | ByComputationExpression of ComputationExpressionQuery
 

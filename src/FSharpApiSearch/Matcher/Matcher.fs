@@ -14,14 +14,7 @@ let internal test (lowTypeMatcher: ILowTypeMatcher) (apiMatchers: IApiMatcher[])
     let m = apiMatchers.[index]
     index <- index + 1
 
-    Debug.WriteLine(sprintf "Test \"%s\" and \"%s\" by %s. Equations: %s"
-      query.OriginalString
-      (ApiSignature.debug api.Signature)
-      m.Name
-      (Equations.debug ctx.Equations))
-    Debug.Indent()
-    let result = m.Test lowTypeMatcher query.Method api state
-    Debug.Unindent()
+    let result = ApiMatcher.test lowTypeMatcher m query api state
 
     match result with
     | Matched ctx -> state <- ctx
@@ -53,8 +46,8 @@ let internal storategy options =
 
 let search (dictionaries: ApiDictionary[]) (options: SearchOptions) (targets: ApiDictionary seq) (queryStr: string) =
   let storategy = storategy options
-  let lowTypeMatcher, apiMatchers = storategy.Matchers(options)
   let query = storategy.InitializeQuery(storategy.ParseQuery(queryStr), dictionaries, options)
+  let lowTypeMatcher, apiMatchers = storategy.Matchers(options, query)
   let initialContext = storategy.InitialContext(query, dictionaries, options)
 
   match query.Method with

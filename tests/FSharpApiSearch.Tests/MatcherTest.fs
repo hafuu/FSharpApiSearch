@@ -121,6 +121,19 @@ let nameMatchTest =
       "B.* : _", typeAConstructorName, typeAConstructor, false
       "B..ctor : _", typeAConstructorName, typeAConstructor, false
       "B : _", typeAConstructorName, typeAConstructor, false
+
+      // name or signature
+      "a", Name.ofString "a", (moduleValue (identity "x")), true
+      "a", Name.ofString "b", (moduleValue (identity "x")), false
+      "a", Name.ofString "b", (moduleValue (identity "a")), true
+
+      "a.b", Name.ofString "a.b", (moduleValue (identity "x")), true
+      "a.b", Name.ofString "x.b", (moduleValue (identity "x")), false
+
+      "a", Name.ofString "a<'t>", (moduleValue (identity "x")), true
+      "a<'t>", Name.ofString "a<'t>", (moduleValue (identity "x")), true
+      "a<'t>", Name.ofString "a<'t, 'u>", (moduleValue (identity "x")), false
+      "a<'t, 'u>", Name.ofString "a<'t, 'u>", (moduleValue (identity "x")), true
     ]
     run (fun (query, targetName, targetSig, expected) -> matchTest false [||] (defaultTestOptions, query, targetName, targetSig, expected))
   }
@@ -1984,85 +1997,103 @@ module InitializeTest =
       typeAbbreviation (identity "String") (identity "string")
       identity "string"
     ]
+    
+  let bySignature s = QueryMethod.BySignature (SignatureQuery.Signature s)
+  let byNameOrSignature name s = QueryMethod.ByNameOrSignature (name, SignatureQuery.Signature s)
+
   let fsharpTypeAbbreviationTest =  parameterize {
     source [
-      "a", (identity "a")
-      "string", string
-      "Option<string>", (generic (identity "Option") [ string ])
+      "a", byNameOrSignature [ byName "a" Compare ] (identity "a")
+      "string", byNameOrSignature [ byName "string" Compare ] string
+      "Option<string>", bySignature (generic (identity "Option") [ string ])
       "'a list",
-        choice [
-          typeAbbreviation (generic (identity "List") [ queryVariable "'a" ]) (generic (identity "list") [ queryVariable "'a" ])
-          generic (identity "list") [ queryVariable "'a" ]
-        ]
+        byNameOrSignature [ byGenericName "list" [ "T0" ] Compare ]
+          (choice [
+            typeAbbreviation (generic (identity "List") [ queryVariable "'a" ]) (generic (identity "list") [ queryVariable "'a" ])
+            generic (identity "list") [ queryVariable "'a" ]
+          ])
       "'b list",
-        choice [
-          typeAbbreviation (generic (identity "List") [ queryVariable "'b" ]) (generic (identity "list") [ queryVariable "'b" ])
-          generic (identity "list") [ queryVariable "'b" ]
-        ]
+        byNameOrSignature [ byGenericName "list" [ "T0" ] Compare ]
+          (choice [
+            typeAbbreviation (generic (identity "List") [ queryVariable "'b" ]) (generic (identity "list") [ queryVariable "'b" ])
+            generic (identity "list") [ queryVariable "'b" ]
+          ])
       "int list",
-        choice [
-          typeAbbreviation (generic (identity "List") [ identity "int" ]) (generic (identity "list") [ identity "int" ])
-          generic (identity "list") [ identity "int" ]
-        ]
+        bySignature
+          (choice [
+            typeAbbreviation (generic (identity "List") [ identity "int" ]) (generic (identity "list") [ identity "int" ])
+            generic (identity "list") [ identity "int" ]
+          ])
       "string list",
-        choice [
-          typeAbbreviation (generic (identity "List") [ string ]) (generic (identity "list") [ identity "string" ])
-          generic (identity "list") [ string ]
-        ]
-      "map<'a, 'b, 'c>", (generic (identity "map") [ queryVariable "'a"; queryVariable "'b"; queryVariable "'c" ])
-      "list", (identity "list")
+        bySignature
+          (choice [
+            typeAbbreviation (generic (identity "List") [ string ]) (generic (identity "list") [ identity "string" ])
+            generic (identity "list") [ string ]
+          ])
+      "map<'a, 'b, 'c>", byNameOrSignature [ byGenericName "map" [ "T0"; "T1"; "T2" ] Compare ] (generic (identity "map") [ queryVariable "'a"; queryVariable "'b"; queryVariable "'c" ])
+      "list", byNameOrSignature [ byName "list" Compare ] (identity "list")
       "intList",
-        choice [
-          typeAbbreviation (generic (identity "List") [ identity "int" ]) (identity "intList")
-          identity "intList"
-        ]
+        byNameOrSignature [ byName "intList" Compare ]
+          (choice [
+            typeAbbreviation (generic (identity "List") [ identity "int" ]) (identity "intList")
+            identity "intList"
+          ])
       "intKeyMap<'value>",
-        choice [
-          typeAbbreviation (generic (identity "Map") [ identity "int"; queryVariable "'value" ]) (generic (identity "intKeyMap") [ queryVariable "'value" ])
-          generic (identity "intKeyMap") [ queryVariable "'value" ]
-        ]
+        byNameOrSignature [ byGenericName "intKeyMap" [ "T0" ] Compare ]
+          (choice [
+            typeAbbreviation (generic (identity "Map") [ identity "int"; queryVariable "'value" ]) (generic (identity "intKeyMap") [ queryVariable "'value" ])
+            generic (identity "intKeyMap") [ queryVariable "'value" ]
+          ])
       "reverseArg<'front, 'end>",
-        choice [
-          typeAbbreviation (generic (identity "ReverseArg") [ queryVariable "'end"; queryVariable "'front" ]) (generic (identity "reverseArg") [ queryVariable "'front"; queryVariable "'end" ])
-          generic (identity "reverseArg") [ queryVariable "'front"; queryVariable "'end" ]
-        ]
+        byNameOrSignature [ byGenericName "reverseArg" [ "T0"; "T1" ] Compare ]
+          (choice [
+            typeAbbreviation (generic (identity "ReverseArg") [ queryVariable "'end"; queryVariable "'front" ]) (generic (identity "reverseArg") [ queryVariable "'front"; queryVariable "'end" ])
+            generic (identity "reverseArg") [ queryVariable "'front"; queryVariable "'end" ]
+          ])
       "samemap<int>",
-        choice [
-          typeAbbreviation (generic (identity "Map") [ identity "int"; identity "int" ]) (generic (identity "samemap") [ identity "int" ])
-          generic (identity "samemap") [ identity "int" ]
-        ]
+        bySignature
+          (choice [
+            typeAbbreviation (generic (identity "Map") [ identity "int"; identity "int" ]) (generic (identity "samemap") [ identity "int" ])
+            generic (identity "samemap") [ identity "int" ]
+          ])
       "conflict",
-        choice [
-          typeAbbreviation (identity "A.NonHidden") (identity "conflict")
-          typeAbbreviation (identity "B.Type") (identity "conflict")
-          identity "conflict"
-        ]
+        byNameOrSignature [ byName "conflict" Compare ]
+         (choice [
+            typeAbbreviation (identity "A.NonHidden") (identity "conflict")
+            typeAbbreviation (identity "B.Type") (identity "conflict")
+            identity "conflict"
+          ])
       "B.conflict",
-        choice [
-          typeAbbreviation (identity "B.Type") (identity "B.conflict")
-          identity "B.conflict"
-        ]
+        byNameOrSignature [ byName "conflict" Compare; byName "B" Compare ]
+          (choice [
+            typeAbbreviation (identity "B.Type") (identity "B.conflict")
+            identity "B.conflict"
+          ])
       "A.conflict",
-        choice [
-          typeAbbreviation (identity "A.NonHidden") (identity "A.conflict")
-          identity "A.conflict"
-        ]
+        byNameOrSignature [ byName "conflict" Compare; byName "A" Compare ]
+          (choice [
+            typeAbbreviation (identity "A.NonHidden") (identity "A.conflict")
+            identity "A.conflict"
+          ])
       "conflict<'a>",
-        choice [
-          typeAbbreviation (generic (identity "A.NonHidden") [ queryVariable "'a" ]) (generic (identity "conflict") [ queryVariable "'a" ])
-          typeAbbreviation (generic (identity "B.Type") [ queryVariable "'a" ]) (generic (identity "conflict") [ queryVariable "'a" ])
-          generic (identity "conflict") [ queryVariable "'a" ]
-        ]
+        byNameOrSignature [ byGenericName "conflict" [ "T0" ] Compare ]
+          (choice [
+            typeAbbreviation (generic (identity "A.NonHidden") [ queryVariable "'a" ]) (generic (identity "conflict") [ queryVariable "'a" ])
+            typeAbbreviation (generic (identity "B.Type") [ queryVariable "'a" ]) (generic (identity "conflict") [ queryVariable "'a" ])
+            generic (identity "conflict") [ queryVariable "'a" ]
+          ])
       "B.conflict<'a>",
-        choice [
-          typeAbbreviation (generic (identity "B.Type") [ queryVariable "'a" ]) (generic (identity "B.conflict") [ queryVariable "'a" ])
-          generic (identity "B.conflict") [ queryVariable "'a" ]
-        ]
+        byNameOrSignature [ byGenericName "conflict" [ "T0" ] Compare; byName "B" Compare ]
+          (choice [
+            typeAbbreviation (generic (identity "B.Type") [ queryVariable "'a" ]) (generic (identity "B.conflict") [ queryVariable "'a" ])
+            generic (identity "B.conflict") [ queryVariable "'a" ]
+          ])
       "A.conflict<'a>",
-        choice [
-          typeAbbreviation (generic (identity "A.NonHidden") [ queryVariable "'a" ]) (generic (identity "A.conflict") [ queryVariable "'a" ])
-          generic (identity "A.conflict") [ queryVariable "'a" ]
-        ]
+        byNameOrSignature [ byGenericName "conflict" [ "T0" ] Compare; byName "A" Compare ]
+          (choice [
+            typeAbbreviation (generic (identity "A.NonHidden") [ queryVariable "'a" ]) (generic (identity "A.conflict") [ queryVariable "'a" ])
+            generic (identity "A.conflict") [ queryVariable "'a" ]
+          ])
     ]
     run (fun (query, expected) -> test {
       let abbreviations: TypeAbbreviationDefinition[] = [|
@@ -2083,21 +2114,22 @@ module InitializeTest =
         let storategy = MatcherInitializer.FSharpInitializeStorategy() :> MatcherInitializer.IInitializeStorategy
         let query = storategy.ParseQuery(query)
         storategy.InitializeQuery(query, dictionaries, TestHelper.defaultTestOptions)
-      let expected: Query = { OriginalString = query; Method = QueryMethod.BySignature (SignatureQuery.Signature expected) }
+      let expected: Query = { OriginalString = query; Method = expected }
       do! actual |> assertEquals expected
     })
   }
 
   let csharpAliasTest = parameterize {
     source [
-      "a", (identity "a")
+      "a", byNameOrSignature [ byName "a" Compare ] (identity "a")
       "int",
-        choice [
-          typeAbbreviation (SpecialTypes.LowType.ofDotNetType typeof<System.Int32>) (identity "int")
-          identity "int"
-        ]
-      "<int> : int", (queryVariable "'int")
-      "list<a>", (generic (identity "list") [ identity "a" ])
+        byNameOrSignature [ byName "int" Compare ]
+          (choice [
+            typeAbbreviation (SpecialTypes.LowType.ofDotNetType typeof<System.Int32>) (identity "int")
+            identity "int"
+          ])
+      "<int> : int", bySignature (queryVariable "'int")
+      "list<a>", bySignature (generic (identity "list") [ identity "a" ])
     ]
 
     run (fun (query, expected) -> test {
@@ -2109,7 +2141,7 @@ module InitializeTest =
         let storategy = MatcherInitializer.CSharpInitializeStorategy() :> MatcherInitializer.IInitializeStorategy
         let query = storategy.ParseQuery(query)
         storategy.InitializeQuery(query, dictionaries, TestHelper.defaultTestOptions)
-      let expected: Query = { OriginalString = query; Method = QueryMethod.BySignature (SignatureQuery.Signature expected) }
+      let expected: Query = { OriginalString = query; Method = expected }
       do! actual |> assertEquals expected
     })
   }

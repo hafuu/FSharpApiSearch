@@ -25,6 +25,6 @@ let instance (_: SearchOptions) =
   { new IApiMatcher with
       member this.Name = "Active Pattern Matcher"
       member this.Test lowTypeMatcher query api ctx =
-        match query with
+        match query.Method with
         | QueryMethod.ByActivePattern activePatternQuery -> test lowTypeMatcher activePatternQuery api ctx
         | _ -> Matched ctx }

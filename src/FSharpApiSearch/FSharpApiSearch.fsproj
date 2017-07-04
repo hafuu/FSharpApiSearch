@@ -73,6 +73,7 @@
     <Compile Include="Matcher\LowTypeMatcher.fs" />
     <Compile Include="Matcher\NameMatcher.fs" />
     <Compile Include="Matcher\SignatureMatcher.fs" />
+    <Compile Include="Matcher\NameOrSignatureMatcher.fs" />
     <Compile Include="Matcher\ActivePatternMatcher.fs" />
     <Compile Include="Matcher\ConstraintSolver.fs" />
     <Compile Include="Matcher\NonPublicFilter.fs" />

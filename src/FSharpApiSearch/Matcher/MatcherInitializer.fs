@@ -28,7 +28,8 @@ let collectFromSignatureQuery getTarget query =
 
   match query with
   | { Query.Method = QueryMethod.ByName (_, sigQuery) }
-  | { Query.Method = QueryMethod.BySignature sigQuery } ->
+  | { Query.Method = QueryMethod.BySignature sigQuery }
+  | { Query.Method = QueryMethod.ByNameOrSignature (_, sigQuery) }->
     match sigQuery with
     | SignatureQuery.Wildcard -> ()
     | SignatureQuery.Signature lt -> f lt
@@ -151,6 +152,7 @@ let private replaceTypeAbbreviation' nameEquality (table: TypeAbbreviation list)
   match query with
   | { Method = QueryMethod.ByName (name, sigQuery) } -> { query with Method = QueryMethod.ByName (name, replaceSignatureQuery sigQuery) }
   | { Method = QueryMethod.BySignature sigQuery } -> { query with Method = QueryMethod.BySignature (replaceSignatureQuery sigQuery) }
+  | { Method = QueryMethod.ByNameOrSignature (name, sigQuery) } -> { query with Method = QueryMethod.ByNameOrSignature (name, replaceSignatureQuery sigQuery) }
   | { Method = QueryMethod.ByActivePattern apQuery } -> { query with Method = QueryMethod.ByActivePattern { apQuery with Signature = replaceActivePatternSignature apQuery.Signature } }
   | { Method = QueryMethod.ByComputationExpression ceQuery } -> { query with Method = QueryMethod.ByComputationExpression (replaceComputationExpressionQuery ceQuery) }
 
@@ -162,21 +164,34 @@ let typeAbbreviationTableFromApiDictionary (dictionaries: ApiDictionary seq) =
   dictionaries |> Seq.collect (fun x -> x.TypeAbbreviations) |> Seq.filter (fun t -> t.Accessibility = Public) |> Seq.map (fun t -> t.TypeAbbreviation) |> Seq.toList
 
 type IInitializeStorategy =
-  abstract Matchers: SearchOptions -> ILowTypeMatcher * IApiMatcher[]
+  abstract Matchers: SearchOptions * Query -> ILowTypeMatcher * IApiMatcher[]
   abstract ParseQuery: string -> Query
   abstract InitializeQuery: Query * ApiDictionary[] * SearchOptions -> Query
   abstract InitialContext: Query * ApiDictionary[] * SearchOptions -> Context
 
 type FSharpInitializeStorategy() =
   interface IInitializeStorategy with
-    member this.Matchers(options) =
+    member this.Matchers(options, query) =
       [|
-        NameMatcher.instance
-        SignatureMatcher.instance
-        ActivePatternMatcher.instance
-        ConstraintSolver.instance
-        NonPublicFilter.instance
-        ComputationExpressionMatcher.Filter.instance
+        yield NonPublicFilter.instance
+
+        match query.Method with
+        | QueryMethod.ByName _ ->
+          yield NameMatcher.instance
+          yield SignatureMatcher.instance
+        | QueryMethod.BySignature _ ->
+          yield SignatureMatcher.instance
+        | QueryMethod.ByNameOrSignature _ ->
+          yield NameOrSignatureMatcher.instance
+        | QueryMethod.ByActivePattern _ ->
+          yield ActivePatternMatcher.instance
+        | QueryMethod.ByComputationExpression _ ->
+          yield ComputationExpressionMatcher.Filter.instance
+
+        match options.GreedyMatching with
+        | Enabled ->
+          yield ConstraintSolver.instance
+        | Disabled -> ()
       |]
       |> buildMatchers options
     member this.ParseQuery(queryStr) = QueryParser.FSharp.parse queryStr
@@ -195,12 +210,21 @@ let csharpAliases =
 
 type CSharpInitializeStorategy() =
   interface IInitializeStorategy with
-    member this.Matchers(options) =
+    member this.Matchers(options, query) =
       [|
-        NameMatcher.instance
-        CSharpFilter.instance
-        SignatureMatcher.instance
-        NonPublicFilter.instance
+        yield CSharpFilter.instance
+        yield NonPublicFilter.instance
+
+        match query.Method with
+        | QueryMethod.ByName _ ->
+          yield NameMatcher.instance
+          yield SignatureMatcher.instance
+        | QueryMethod.BySignature _ ->
+          yield SignatureMatcher.instance
+        | QueryMethod.ByNameOrSignature _ ->
+          yield NameOrSignatureMatcher.instance
+        | QueryMethod.ByActivePattern _ -> ()
+        | QueryMethod.ByComputationExpression _ -> ()
       |]
       |> buildMatchers options
     member this.ParseQuery(queryStr) = QueryParser.CSharp.parse queryStr

@@ -9,13 +9,12 @@ open TestHelper.Types
 
 module FSharp =
   module BySignature =
-    let runParseTest (input, expectedSignature) = test {
+    let runSignatureTest (input, expected) = test {
       let actual = QueryParser.FSharp.parse input
-      let expected: Query = { OriginalString = input; Method = QueryMethod.BySignature expectedSignature }
+      let bySig = QueryMethod.BySignature (SignatureQuery.Signature expected)
+      let expected: Query = { OriginalString = input; Method = QueryParser.singleTypeAsNameQuery bySig }
       do! actual |> assertEquals expected
     }
-
-    let runSignatureTest (input, expected) = runParseTest (input, SignatureQuery.Signature expected)
 
     let parseTest = parameterize {
       source [
@@ -121,15 +120,6 @@ module FSharp =
       let option_alpha = generic (identity "option") [ alpha ]
       let option_beta = generic (identity "option") [ beta ]
 
-      let Compare = NameMatchMethod.StringCompare
-      let Regex = NameMatchMethod.Regex
-      let StartsWith = NameMatchMethod.StartsWith
-      let EndsWith = NameMatchMethod.EndsWith
-      let Contains = NameMatchMethod.Contains
-      let Any = NameMatchMethod.Any
-
-      let byName expected method = { Expected = expected; GenericParameters = []; MatchMethod = method }
-
       parameterize {
         source [
           "map : _", [ byName "map" Compare  ], SignatureQuery.Wildcard
@@ -154,6 +144,27 @@ module FSharp =
         run (fun (input, expectedName, expectedSig) -> test {
           let actual = QueryParser.FSharp.parse input
           let expected: Query = { OriginalString = input; Method = QueryMethod.ByName (expectedName, expectedSig) }
+          do! actual |> assertEquals expected
+        })
+      }
+
+  module ByNameOrSignature =
+    let bySignature s = QueryMethod.BySignature (SignatureQuery.Signature s)
+    let byNameOrSignature name s = QueryMethod.ByNameOrSignature (name, SignatureQuery.Signature s)
+    let byNameQuery name s = QueryMethod.ByName (name, SignatureQuery.Signature s)
+
+    let parseTest =
+      parameterize {
+        source [
+          "a", byNameOrSignature [ byName "a" Compare ] (identity "a")
+          "a -> a", bySignature (arrow [ identity "a"; identity "a" ])
+          "a<'b>", byNameOrSignature [ byGenericName "a" [ "T0" ] Compare ] (generic (identity "a") [ queryVariable "'b" ])
+          "a<b>", bySignature (generic (identity "a") [ identity "b" ])
+          "name : a", byNameQuery [ byName "name" Compare ] (identity "a")
+        ]
+        run (fun (input, expected) -> test {
+          let actual = QueryParser.FSharp.parse input
+          let expected: Query = { OriginalString = input; Method = expected }
           do! actual |> assertEquals expected
         })
       }
@@ -225,7 +236,9 @@ module CSharp =
     do! actual |> assertEquals expected
   }
   module BySignature =
-    let runSignatureTest (input, expected) = runParseTest (input, QueryMethod.BySignature (SignatureQuery.Signature expected))
+    let runSignatureTest (input, expected) =
+      let bySig = QueryMethod.BySignature (SignatureQuery.Signature expected)
+      runParseTest (input, QueryParser.singleTypeAsNameQuery bySig)
 
     let parseTest = parameterize {
       source [

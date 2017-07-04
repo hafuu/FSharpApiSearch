@@ -81,7 +81,19 @@ module Extensions =
 
 type IApiMatcher =
   abstract Name: string
-  abstract Test: ILowTypeMatcher -> QueryMethod -> Api -> Context -> MatchingResult
+  abstract Test: ILowTypeMatcher -> Query -> Api -> Context -> MatchingResult
+
+module ApiMatcher =
+  let test (lowTypeMatcher: ILowTypeMatcher) (apiMatcher: IApiMatcher) (query: Query) (api: Api) (ctx: Context) =
+    Debug.WriteLine(sprintf "Test \"%s\" and \"%s\" by %s. Equations: %s"
+      query.OriginalString
+      (ApiSignature.debug api.Signature)
+      apiMatcher.Name
+      (Equations.debug ctx.Equations))
+    Debug.Indent()
+    let result = apiMatcher.Test lowTypeMatcher query api ctx
+    Debug.Unindent()
+    result
 
 type Rule<'Left, 'Right> = ILowTypeMatcher -> 'Left -> 'Right -> Context -> MatchingResult
 

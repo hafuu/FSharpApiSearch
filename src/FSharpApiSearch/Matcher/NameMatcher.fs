@@ -35,12 +35,12 @@ let test' strOpt (expected: ByName list) (actualNames: DisplayNameItem list) =
         | SymbolName n -> n
         | OperatorName (_, n) -> n
         | WithCompiledName (n, _) -> n
-      cmp strOpt byName.Expected actualName
+      cmp strOpt byName.Expected actualName && (let expectedLen = byName.GenericParameters.Length in if expectedLen > 0 then expectedLen = actual.GenericParameters.Length else true)
     )
 
 let test strOpt query (api: Api) ctx =
   match query with
-  | QueryMethod.ByName (expected, _) ->
+  | QueryMethod.ByName (expected, _) | QueryMethod.ByNameOrSignature (expected, _) ->
     match api.Name, api.Kind with
     | DisplayName actualName, ApiKind.Constructor ->
       let name_type = List.tail actualName
@@ -56,4 +56,4 @@ let instance (options: SearchOptions) =
   let strOpt = stringOptions options.IgnoreCase
   { new IApiMatcher with
       member this.Name = "Name Matcher"
-      member this.Test lowTypeMatcher query api ctx = test strOpt query api ctx }
+      member this.Test lowTypeMatcher query api ctx = test strOpt query.Method api ctx }

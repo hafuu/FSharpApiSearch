@@ -156,6 +156,17 @@ module DSL =
       defName |> List.rev |> List.map toFullName |> String.concat "."
     { Name = defName; FullName = fullName; AssemblyName = "test"; Accessibility = Public; GenericParameters = defName.Head.GenericParameters; Abbreviated = original; Original = original }
 
+  let Compare = NameMatchMethod.StringCompare
+  let Regex = NameMatchMethod.Regex
+  let StartsWith = NameMatchMethod.StartsWith
+  let EndsWith = NameMatchMethod.EndsWith
+  let Contains = NameMatchMethod.Contains
+  let Any = NameMatchMethod.Any
+
+  let byGenericName expected genericParameters method = { Expected = expected; GenericParameters = genericParameters; MatchMethod = method }
+  let byName expected method = byGenericName expected [] method
+  
+
 open DSL
 
 type FullTypeDefinition with

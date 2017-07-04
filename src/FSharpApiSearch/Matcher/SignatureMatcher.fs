@@ -245,6 +245,7 @@ module Rules =
 let tryGetSignatureQuery = function
   | QueryMethod.BySignature s -> Some s
   | QueryMethod.ByName (_, s) -> Some s
+  | QueryMethod.ByNameOrSignature (_, s) -> Some s
   | QueryMethod.ByActivePattern _ -> None
   | QueryMethod.ByComputationExpression _ -> None
 
@@ -284,7 +285,7 @@ let instance (options: SearchOptions) =
   { new IApiMatcher with
       member this.Name = "Signature Matcher"
       member this.Test lowTypeMatcher query api ctx =
-        match tryGetSignatureQuery query with
+        match tryGetSignatureQuery query.Method with
         | Some (SignatureQuery.Wildcard) -> Matched ctx
         | Some s -> run lowTypeMatcher s api.Signature ctx
         | None -> Matched ctx }
