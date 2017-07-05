@@ -29,18 +29,6 @@ let csharpAssemblyPath =
     Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
     , csharpAssemblyName + ".dll")
 
-let net40AssemblyName = @"Net40Assembly"
-let net40AssemblyPath =
-  Path.Combine(
-    Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
-    , net40AssemblyName + ".dll")
-
-let net20AssemblyName = @"Net20Assembly"
-let net20AssemblyPath =
-  Path.Combine(
-    Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
-    , net20AssemblyName + ".dll")
-
 let valueTupleAssemblyName = @"System.ValueTuple"
 let valueTupleAssemblyPath =
   Path.Combine(
@@ -50,8 +38,6 @@ let valueTupleAssemblyPath =
 let assemblies = test {
   let assemblies = [ 
     yield Path.GetFullPath(fsharpAssemblyPath)
-    yield Path.GetFullPath(net40AssemblyPath)
-    yield Path.GetFullPath(net20AssemblyPath)
     yield Path.GetFullPath(csharpAssemblyPath)
     yield Path.GetFullPath(valueTupleAssemblyPath)
     yield! FSharpApiSearch.FSharpApiSearchClient.DefaultReferences
@@ -69,16 +55,6 @@ let apiDictionary = test {
 let fsharpAssemblyApi = test {
   let! apiDictionary = apiDictionary
   return apiDictionary |> Array.find (fun x -> x.AssemblyName = fsharpAssemblyName)
-}
-
-let net40AssemblyApi = test {
-  let! apiDictionary = apiDictionary
-  return apiDictionary |> Array.find (fun x -> x.AssemblyName = net40AssemblyName)
-}
-
-let net20AssemblyApi = test {
-  let! apiDictionary = apiDictionary
-  return apiDictionary |> Array.find (fun x -> x.AssemblyName = net20AssemblyName)
 }
 
 let csharpAssemblyApi = test {

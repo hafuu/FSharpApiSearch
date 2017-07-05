@@ -77,11 +77,6 @@
     <Compile Include="LinkGeneratorTest.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Net20Assembly\Net20Assembly.fsproj">
-      <Name>Net20Assembly</Name>
-      <Project>{7f986c73-f777-4778-a3fa-20c1b27c1ee0}</Project>
-      <Private>True</Private>
-    </ProjectReference>
     <ProjectReference Include="..\CSharpLoadTestAssembly\CSharpLoadTestAssembly.csproj">
       <Name>CSharpLoadTestAssembly</Name>
       <Project>{6273542c-01f5-4ebf-8aab-9fcaa96bea62}</Project>
@@ -90,11 +85,6 @@
     <ProjectReference Include="..\LoadTestAssembly\LoadTestAssembly.fsproj">
       <Name>LoadTestAssembly</Name>
       <Project>{c05f3812-b549-4220-9853-eb4bbbf6c78b}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\Net40Assembly\Net40Assembly.fsproj">
-      <Name>Net40Assembly</Name>
-      <Project>{7997b6de-f044-461d-8388-bc375ca05c11}</Project>
       <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\SearchTestAssembly\SearchTestAssembly.fsproj">
