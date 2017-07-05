@@ -134,6 +134,10 @@ let nameMatchTest =
       "a<'t>", Name.ofString "a<'t>", (moduleValue (identity "x")), true
       "a<'t>", Name.ofString "a<'t, 'u>", (moduleValue (identity "x")), false
       "a<'t, 'u>", Name.ofString "a<'t, 'u>", (moduleValue (identity "x")), true
+
+      "a : _", Name.ofString "a<'x>", (moduleValue (identity "x")), true
+      "a<'t> : _", Name.ofString "a<'x>", (moduleValue (identity "x")), true
+      "a<'t, 'u> : _", Name.ofString "a<'x>", (moduleValue (identity "x")), false
     ]
     run (fun (query, targetName, targetSig, expected) -> matchTest false [||] (defaultTestOptions, query, targetName, targetSig, expected))
   }

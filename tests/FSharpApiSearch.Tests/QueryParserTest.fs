@@ -140,6 +140,9 @@ module FSharp =
           "*ap : _", [ byName "ap" EndsWith ], SignatureQuery.Wildcard
           "A.ma* : _", [ byName "ma" StartsWith; byName "A" Compare ], SignatureQuery.Wildcard
           "A.*ap : _", [ byName "ap" EndsWith; byName "A" Compare ], SignatureQuery.Wildcard
+
+          "A<'t> : _", [ byGenericName "A" [ "t" ] Compare ], SignatureQuery.Wildcard
+          "A<'t>.B<'u> : _", [ byGenericName "B" [ "u" ] Compare; byGenericName "A" [ "t" ] Compare ], SignatureQuery.Wildcard
         ]
         run (fun (input, expectedName, expectedSig) -> test {
           let actual = QueryParser.FSharp.parse input

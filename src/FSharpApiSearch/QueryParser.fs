@@ -162,10 +162,15 @@ module FSharp =
       let tail = letter <|> digit <|> anyOf "_'*"
       head .>>. manyChars tail |>> (fun (h, t) -> string h + t)
     let ctor = pstring ".ctor"
-    (ctor <|> pident)
-    |>> (fun n ->
+    let genericPart =
+      let variable = trim (skipChar ''' >>. pidentifier)
+      let xs = sepBy1 variable (pchar ',')
+      between (pchar '<') (pchar '>') xs
+
+    (ctor <|> pident) .>>. opt genericPart
+    |>> (fun (n, genericPart) ->
       let expected, matchMethod = NameMatchMethod.ofString n
-      { Expected = expected; GenericParameters = []; MatchMethod = matchMethod })
+      { Expected = expected; GenericParameters = Option.defaultValue [] genericPart; MatchMethod = matchMethod })
     <?> "identifier"
 
   let signatureWildcard = pstring "_" |> trim >>% SignatureQuery.Wildcard
