@@ -88,17 +88,26 @@ F#のクエリは基本的にはF#のシグネチャと同じです。FSharpApiS
 | 判別共用体                   | `'a -> Option<'a>`                                       |
 | メンバー                     | `'a list -> int`                                         |
 | コンストラクター             | `Uri : _`<br>`Uri.new : _`<br>`Uri..ctor : _`            |
-| 名前 (関数名、メンバー名等)  | `head : 'a list -> 'a`                                   |
+| 名前 (関数名、メンバー名等)  | `head : 'a list -> 'a`<br>`head`                         |
 | アクティブパターン           | `(\|\|) : ... -> Expr -> ?`                              |
 | 型、型略称、モジュール       | `List<'T>`                                               |
 | コンピュテーション式         | `{ let! } : Async<'T>`                                   |
 | フレキシブル型               | `#seq<'a> -> 'a`                                         |
 
 ### 名前検索
-名前で検索するには`name : signature`と書きます。シグネチャを指定しない場合は、シグネチャ部分に`_`を指定します。
+名前で検索するには`name : signature`または`name`と書きます。シグネチャを指定しない場合は、シグネチャ部分に`_`を指定します。
 
     > id : 'a -> 'a
     Microsoft.FSharp.Core.Operators.id: 'T -> 'T, module value, FSharp.Core
+
+    > choose
+    Microsoft.FSharp.Collections.Array.Parallel.choose: ('T -> option<'U>) -> 'T[] -> 'U[], module value, FSharp.Core
+    Microsoft.FSharp.Collections.Array.choose: ('T -> option<'U>) -> 'T[] -> 'U[], module value, FSharp.Core
+    Microsoft.FSharp.Collections.List.choose: ('T -> option<'U>) -> list<'T> -> list<'U>, module value, FSharp.Core
+    Microsoft.FSharp.Collections.Seq.choose: ('T -> option<'U>) -> seq<'T> -> seq<'U>, module value, FSharp.Core
+    Microsoft.FSharp.Control.Event.choose: ('T -> option<'U>) -> IEvent<'Del, 'T> -> IEvent<'U>, module value, FSharp.Core
+      when 'Del : delegate and 'Del :> Delegate
+    Microsoft.FSharp.Control.Observable.choose: ('T -> option<'U>) -> IObservable<'T> -> IObservable<'U>, module value, FSharp.Core
 
     > choose : _
     Microsoft.FSharp.Collections.Array.Parallel.choose: ('T -> option<'U>) -> 'T[] -> 'U[], module value, FSharp.Core
@@ -189,16 +198,22 @@ C#のクエリは、C#のシグネチャとは文法が異なります。
 | メンバー                     | `object -> () -> string`<br>`string -> int`              |
 | コンストラクター             | `Uri : _`<br>`Uri..ctor : _`                             |
 | 型パラメーター               | `<T> : List<T> -> int`                                   |
-| 名前 (メンバー名等)          | `Length : string -> int`                                 |
+| 名前 (メンバー名等)          | `Length : string -> int`<br>`Length`                     |
 | 型                           | `List`                                                   |
 | フレキシブル型               | `<T> : #IEnumerable<T> -> T`                             |
 
 ### 名前検索
-メンバーや型を名前で検索するには`name : signature`と書きます。シグネチャを指定しない場合は、シグネチャ部分に`_`を指定します。
+メンバーや型を名前で検索するには`name : signature`または`name`と書きます。シグネチャを指定しない場合は、シグネチャ部分に`_`を指定します。
 
     > Length : string -> int
     System.String.Length : int, instance property with get, mscorlib
 
+	> Length
+    int Array.Length { get; }, instance property, mscorlib
+    int BitArray.Length { get; set; }, instance property, mscorlib
+    long BufferedStream.Length { get; }, instance property, mscorlib
+    long FileInfo.Length { get; }, instance property, mscorlib
+	...
 
     > Length : _
     int Array.Length { get; }, instance property, mscorlib
