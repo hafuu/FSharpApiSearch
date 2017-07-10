@@ -81,10 +81,13 @@ module LinkGenerator =
         sb
       
       let genericParamsPart (sb: StringBuilder) =
-        if string namePart = "Operators.[=]" then
+        let temp_sb = StringBuilder()
+        let name = namePart temp_sb
+        
+        if string name = "Operators.[=]" then
           sb.Append("'t")
-        elif string namePart = "ExtraTopLevelOperators.array2D" then
-          sb.Append("'t")
+        elif string name = "ExtraTopLevelOperators.array2D" then
+          sb.Append("['t]")
         else
           match genericParameters api with
           | [] -> sb.Append("")
