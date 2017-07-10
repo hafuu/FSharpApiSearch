@@ -11,8 +11,7 @@ module FSharp =
   module BySignature =
     let runSignatureTest (input, expected) = test {
       let actual = QueryParser.FSharp.parse input
-      let bySig = QueryMethod.BySignature (SignatureQuery.Signature expected)
-      let expected: Query = { OriginalString = input; Method = QueryParser.singleTypeAsNameQuery bySig }
+      let expected: Query = { OriginalString = input; Method = QueryMethod.BySignature (SignatureQuery.Signature expected) }
       do! actual |> assertEquals expected
     }
 
@@ -151,27 +150,6 @@ module FSharp =
         })
       }
 
-  module ByNameOrSignature =
-    let bySignature s = QueryMethod.BySignature (SignatureQuery.Signature s)
-    let byNameOrSignature name s = QueryMethod.ByNameOrSignature (name, SignatureQuery.Signature s)
-    let byNameQuery name s = QueryMethod.ByName (name, SignatureQuery.Signature s)
-
-    let parseTest =
-      parameterize {
-        source [
-          "a", byNameOrSignature [ byName "a" Compare ] (identity "a")
-          "a -> a", bySignature (arrow [ identity "a"; identity "a" ])
-          "a<'b>", byNameOrSignature [ byGenericName "a" [ "T0" ] Compare ] (generic (identity "a") [ queryVariable "'b" ])
-          "a<b>", bySignature (generic (identity "a") [ identity "b" ])
-          "name : a", byNameQuery [ byName "name" Compare ] (identity "a")
-        ]
-        run (fun (input, expected) -> test {
-          let actual = QueryParser.FSharp.parse input
-          let expected: Query = { OriginalString = input; Method = expected }
-          do! actual |> assertEquals expected
-        })
-      }
-
   module ByActivePattern =
     let parseTest =
       parameterize {
@@ -240,8 +218,7 @@ module CSharp =
   }
   module BySignature =
     let runSignatureTest (input, expected) =
-      let bySig = QueryMethod.BySignature (SignatureQuery.Signature expected)
-      runParseTest (input, QueryParser.singleTypeAsNameQuery bySig)
+      runParseTest (input, QueryMethod.BySignature (SignatureQuery.Signature expected))
 
     let parseTest = parameterize {
       source [

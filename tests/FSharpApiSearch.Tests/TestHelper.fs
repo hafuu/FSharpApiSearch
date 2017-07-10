@@ -9,6 +9,7 @@ let defaultTestOptions =
   SearchOptions.defaultOptions
   |> SearchOptions.SwapOrderDepth.Set 0
   |> SearchOptions.ComplementDepth.Set 0
+  |> SearchOptions.ShortLetterAsVariable.Set 0
   |> SearchOptions.Parallel.Set Disabled
 
 module DSL =

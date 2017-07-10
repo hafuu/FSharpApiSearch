@@ -2123,6 +2123,44 @@ module InitializeTest =
     })
   }
 
+  let byNameOrSignatureTest =
+    let byNameQuery name s = QueryMethod.ByName (name, SignatureQuery.Signature s)
+    parameterize {
+      source [
+        "a", byNameOrSignature [ byName "a" Compare ] (identity "a")
+        "a<'b>", byNameOrSignature [ byGenericName "a" [ "T0" ] Compare ] (generic (identity "a") [ queryVariable "'b" ])
+        "a<b>", bySignature (generic (identity "a") [ identity "b" ])
+        "a -> a", bySignature (arrow [ identity "a"; identity "a" ])
+        "name : a", byNameQuery [ byName "name" Compare ] (identity "a")
+      ]
+      run (fun (query, expected) -> test {
+        let dictionaries = Array.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = IDictionary.empty; TypeAbbreviations = Array.empty }
+        let actual =
+          let storategy = MatcherInitializer.FSharpInitializeStorategy() :> MatcherInitializer.IInitializeStorategy
+          let query = storategy.ParseQuery(query)
+          storategy.InitializeQuery(query, dictionaries, TestHelper.defaultTestOptions)
+        let expected: Query = { OriginalString = query; Method = expected }
+        do! actual |> assertEquals expected
+      })
+    }
+
+  let singleLetterAsVariableTest = parameterize {
+    source [
+      "a -> bb -> a<b>", bySignature (arrow [ queryVariable "'a"; identity "bb"; generic (queryVariable "'a") [ queryVariable "'b" ] ])
+      "aa * b", bySignature (tuple [ identity "aa"; queryVariable "'b" ])
+    ]
+    run (fun (query, expected) -> test {
+      let dictionaries = Array.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = IDictionary.empty; TypeAbbreviations = Array.empty }
+      let actual =
+        let storategy = MatcherInitializer.FSharpInitializeStorategy() :> MatcherInitializer.IInitializeStorategy
+        let query = storategy.ParseQuery(query)
+        let options = TestHelper.defaultTestOptions |> SearchOptions.SingleLetterAsVariable.Set Enabled
+        storategy.InitializeQuery(query, dictionaries, options)
+      let expected: Query = { OriginalString = query; Method = expected }
+      do! actual |> assertEquals expected
+    })
+  }
+
   let csharpAliasTest = parameterize {
     source [
       "a", byNameOrSignature [ byName "a" Compare ] (identity "a")

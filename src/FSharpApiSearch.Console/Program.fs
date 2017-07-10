@@ -148,6 +148,8 @@ FSharpApiSearch.Console interactive mode directive:
       Enables of disables to swap parameters and tuple elements.
   #complement [enable|disable]
       Enables of disables to complement parameters and tuple elements.
+  #single-letter-as-variable [enable|disable]
+      Enables or disables to convert a single letter to a type variable name.
   #xmldoc [enable|disable]
       Enables or disables to show xml document of API.
   #language [F#|fsharp|C#|csharp]
@@ -177,6 +179,7 @@ FSharpApiSearch.Console interactive mode directive:
     | OptionSetting "#ignore-case" SearchOptions.IgnoreCase arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#swap-order" SearchOptions.SwapOrder arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#complement" SearchOptions.Complement arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
+    | OptionSetting "#single-letter-as-variable" SearchOptions.SingleLetterAsVariable arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | LanguageSetting "#language" SearchOptions.Language arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#xmldoc" ShowXmlDocument arg newArg -> loop client newArg
     | OptionSetting "#distance" ShowDistance arg newArg -> loop client newArg
@@ -221,6 +224,9 @@ options:
       The default is enabled.
   --complement[+|-]
       Enables or disables to complement parameters and tuple elements.
+      The default is enabled.
+  --single-letter-as-variable[+|-]
+      Enables or disables to convert a single letter to a type variable name.
       The default is enabled.
   --language:[F#|fsharp|C#|csharp]
       Specifies the language.

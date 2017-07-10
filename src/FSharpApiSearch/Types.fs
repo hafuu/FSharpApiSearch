@@ -594,13 +594,24 @@ type SearchOptions = internal {
   IgnoreCase: OptionStatus
   SwapOrderDepth: int
   ComplementDepth: int
+  ShortLetterAsVariable: int
   Parallel: OptionStatus
   Language: Language
 }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module SearchOptions =
-  let defaultOptions = { GreedyMatching = Disabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled; SwapOrderDepth = 2; ComplementDepth = 2; Parallel = Disabled; Language = FSharp }
+  let defaultOptions = {
+    GreedyMatching = Disabled
+    RespectNameDifference = Enabled
+    IgnoreParameterStyle = Enabled
+    IgnoreCase = Enabled
+    SwapOrderDepth = 2
+    ComplementDepth = 2
+    ShortLetterAsVariable = 1
+    Parallel = Disabled
+    Language = FSharp
+  }
 
   let private statusToInt enabledValue = function
     | Enabled -> enabledValue
@@ -614,10 +625,16 @@ module SearchOptions =
   let RespectNameDifference = { Get = (fun x -> x.RespectNameDifference); Set = (fun value x -> { x with RespectNameDifference = value }) }
   let IgnoreParameterStyle = { Get = (fun x -> x.IgnoreParameterStyle); Set = (fun value x -> { x with IgnoreParameterStyle = value }) }
   let IgnoreCase = { Get = (fun x -> x.IgnoreCase); Set = (fun value x -> { x with IgnoreCase = value }) }
-  let SwapOrderDepth = { Get = (fun x -> x.SwapOrderDepth); Set = (fun value x -> { x with SwapOrderDepth = max 0 value }) }
+  
+  let internal SwapOrderDepth = { Get = (fun x -> x.SwapOrderDepth); Set = (fun value x -> { x with SwapOrderDepth = max 0 value }) }
   let SwapOrder = { Get = SwapOrderDepth.Get >> intToStatus; Set = statusToInt defaultOptions.SwapOrderDepth >> SwapOrderDepth.Set }
-  let ComplementDepth = { Get = (fun x -> x.ComplementDepth); Set = (fun value x -> { x with ComplementDepth = max 0 value }) }
+  
+  let internal ComplementDepth = { Get = (fun x -> x.ComplementDepth); Set = (fun value x -> { x with ComplementDepth = max 0 value }) }
   let Complement = { Get = ComplementDepth.Get >> intToStatus; Set = statusToInt defaultOptions.ComplementDepth >> ComplementDepth.Set }
+  
+  let internal ShortLetterAsVariable = { Get = (fun x -> x.ShortLetterAsVariable); Set = (fun value x -> { x with ShortLetterAsVariable = max 0 value }) }
+  let SingleLetterAsVariable = { Get = ShortLetterAsVariable.Get >> intToStatus; Set = statusToInt defaultOptions.ShortLetterAsVariable >> ShortLetterAsVariable.Set }
+
   let Parallel = { Get = (fun x -> x.Parallel); Set = (fun value x -> { x with Parallel = value }) }
   let Language = { Get = (fun x -> x.Language); Set = (fun value x -> { x with Language = value }) }
 
@@ -927,6 +944,29 @@ module LowTypeVisitor =
     | ApiSignature.ExtensionMember m -> ApiSignature.ExtensionMember (accept_Member visitor m)
     | ApiSignature.UnionCase uc -> ApiSignature.UnionCase (accept_UnionCase visitor uc)
     | ApiSignature.ComputationExpressionBuilder b -> ApiSignature.ComputationExpressionBuilder (accept_ComputationExpressionBuilder visitor b)
+
+  let accept_SignatureQuery (visitor: Visitor) = function
+    | SignatureQuery.Signature s -> SignatureQuery.Signature (visitor s)
+    | SignatureQuery.Wildcard as x -> x
+
+  let accept_ActivePatternQuery (visitor: Visitor) (query: ActivePatternQuery) =
+    let apsig =
+      match query.Signature with
+      | ActivePatternSignature.AnyParameter (x, y) -> ActivePatternSignature.AnyParameter (visitor x, visitor y)
+      | ActivePatternSignature.Specified x -> ActivePatternSignature.Specified (visitor x)
+    { query with Signature = apsig }
+
+  let accept_ComputationExpressionQuery (visitor: Visitor) (query: ComputationExpressionQuery) =
+    { query with Type = visitor query.Type }
+
+  let accept_QueryMethod (visitor: Visitor) = function
+    | QueryMethod.ByName (ns, sigQuery) -> QueryMethod.ByName (ns, accept_SignatureQuery visitor sigQuery)
+    | QueryMethod.BySignature sigQuery -> QueryMethod.BySignature (accept_SignatureQuery visitor sigQuery)
+    | QueryMethod.ByNameOrSignature (ns, sigQuery) -> QueryMethod.ByNameOrSignature (ns, accept_SignatureQuery visitor sigQuery)
+    | QueryMethod.ByActivePattern a -> QueryMethod.ByActivePattern (accept_ActivePatternQuery visitor a)
+    | QueryMethod.ByComputationExpression ce -> QueryMethod.ByComputationExpression (accept_ComputationExpressionQuery visitor ce)
+
+  let accept_Query (visitor: Visitor) (query: Query) = { query with Method = accept_QueryMethod visitor query.Method }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module internal LowType =

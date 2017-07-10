@@ -20,32 +20,6 @@ let compose firstParser (ps: _ list) =
 let parray =
   between (pchar '[') (pchar ']') (manyChars (pchar ',')) |>> fun x -> "[" + x + "]"
 
-let singleTypeAsNameQuery (method: QueryMethod) =
-  let isSymbolName (x: DisplayNameItem) = match x.Name with SymbolName _ -> true | _ -> false
-  let (|AsNameQuery|_|) (t: LowType) =
-    match t with
-    | Identity (PartialIdentity pi) -> Some pi.Name
-    | Generic (Identity (PartialIdentity pi), args) when args |> List.forall (function Variable _ -> true | _ -> false) -> Some pi.Name
-    | _ -> None
-    |> Option.filter (List.forall isSymbolName)
-  match method with
-  | QueryMethod.BySignature (SignatureQuery.Signature (AsNameQuery name) as bySig) ->
-    let expected =
-      name
-      |> List.map (fun n ->
-        {
-          Expected = match n.Name with SymbolName s -> s | _ -> failwith "It is not symbol name."
-          GenericParameters = n.GenericParameters |> List.map (fun v -> v.Name)
-          MatchMethod = NameMatchMethod.StringCompare
-        }
-      )
-    QueryMethod.ByNameOrSignature (expected, bySig)
-  | QueryMethod.BySignature _ as x -> x
-  | QueryMethod.ByName _ as x -> x
-  | QueryMethod.ByNameOrSignature _ as x -> x
-  | QueryMethod.ByActivePattern _ as x -> x
-  | QueryMethod.ByComputationExpression _ as x -> x
-
 module FSharp =
   let struct' = "struct"
   let keywords = [
@@ -194,7 +168,7 @@ module FSharp =
 
   let parse (queryStr: string) =
     match runParserOnString (query .>> eof) () "" queryStr with
-    | Success (queryMethod, _, _) -> { OriginalString = queryStr; Method = queryMethod |> singleTypeAsNameQuery }: Query
+    | Success (queryMethod, _, _) -> { OriginalString = queryStr; Method = queryMethod }: Query
     | Failure (msg, _, _) -> failwithf "%s" msg
 
 module CSharp =
@@ -338,5 +312,5 @@ module CSharp =
 
   let parse (queryStr: string) =
     match runParserOnString (query .>> eof) () "" queryStr with
-    | Success (queryMethod, _, _) -> { OriginalString = queryStr; Method = queryMethod |> singleTypeAsNameQuery }: Query
+    | Success (queryMethod, _, _) -> { OriginalString = queryStr; Method = queryMethod }: Query
     | Failure (msg, _, _) -> failwithf "%s" msg

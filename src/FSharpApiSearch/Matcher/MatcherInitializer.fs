@@ -163,6 +163,52 @@ let replaceTypeAbbreviation (table: TypeAbbreviation list) (options: SearchOptio
 let typeAbbreviationTableFromApiDictionary (dictionaries: ApiDictionary seq) =
   dictionaries |> Seq.collect (fun x -> x.TypeAbbreviations) |> Seq.filter (fun t -> t.Accessibility = Public) |> Seq.map (fun t -> t.TypeAbbreviation) |> Seq.toList
 
+let singleTypeAsNameQuery (query: Query) =
+  let isSymbolName (x: DisplayNameItem) = match x.Name with SymbolName _ -> true | _ -> false
+  let (|AsNameQuery|_|) (t: LowType) =
+    match t with
+    | Identity (PartialIdentity pi) -> Some pi.Name
+    | Generic (Identity (PartialIdentity pi), args) when args |> List.forall (function Variable _ -> true | _ -> false) -> Some pi.Name
+    | _ -> None
+    |> Option.filter (List.forall isSymbolName)
+  let method =
+    match query.Method with
+    | QueryMethod.BySignature (SignatureQuery.Signature (AsNameQuery name) as bySig) ->
+      let expected =
+        name
+        |> List.map (fun n ->
+          {
+            Expected = match n.Name with SymbolName s -> s | _ -> failwith "It is not symbol name."
+            GenericParameters = n.GenericParameters |> List.map (fun v -> v.Name)
+            MatchMethod = NameMatchMethod.StringCompare
+          }
+        )
+      QueryMethod.ByNameOrSignature (expected, bySig)
+    | QueryMethod.BySignature _ as x -> x
+    | QueryMethod.ByName _ as x -> x
+    | QueryMethod.ByNameOrSignature _ as x -> x
+    | QueryMethod.ByActivePattern _ as x -> x
+    | QueryMethod.ByComputationExpression _ as x -> x
+  { query with Method = method }
+
+let shortLetterAsVariable (threshold: int) (query: Query) =
+  let rec update = function
+    | Identity (PartialIdentity { Name = [ { Name = SymbolName name } ] }) when name.Length <= threshold -> Variable (VariableSource.Query, { Name = name; IsSolveAtCompileTime = false })
+    | Identity _ as i -> i
+    | Wildcard _ as w -> w
+    | Variable _ as v -> v
+    | Arrow (ps, ret) -> Arrow (List.map update ps, update ret)
+    | Tuple tpl -> Tuple { tpl with Elements = List.map update tpl.Elements }
+    | Generic (id, ps) -> Generic (update id, List.map update ps)
+    | TypeAbbreviation _ as t -> t
+    | Delegate _ as d -> d
+    | ByRef _ as b -> b
+    | Flexible _ as f -> f
+    | Choice xs -> Choice (List.map update xs)
+
+  LowTypeVisitor.accept_Query update query
+
+
 type IInitializeStorategy =
   abstract Matchers: SearchOptions * Query -> ILowTypeMatcher * IApiMatcher[]
   abstract ParseQuery: string -> Query
@@ -198,6 +244,8 @@ type FSharpInitializeStorategy() =
     member this.InitializeQuery(query, dictionaries, options) =
       let table = typeAbbreviationTableFromApiDictionary dictionaries
       query
+      |> shortLetterAsVariable options.ShortLetterAsVariable
+      |> singleTypeAsNameQuery
       |> replaceTypeAbbreviation table options
     member this.InitialContext(query, dictionaries, options) = initializeContext dictionaries options query
 
@@ -230,5 +278,7 @@ type CSharpInitializeStorategy() =
     member this.ParseQuery(queryStr) = QueryParser.CSharp.parse queryStr
     member this.InitializeQuery(query, _, options) =
       query
+      |> shortLetterAsVariable options.ShortLetterAsVariable
+      |> singleTypeAsNameQuery
       |> replaceTypeAbbreviation csharpAliases options
     member this.InitialContext(query, dictionaries, options) = initializeContext dictionaries options query
