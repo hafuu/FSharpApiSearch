@@ -2163,7 +2163,7 @@ module InitializeTest =
 
   let csharpAliasTest = parameterize {
     source [
-      "a", byNameOrSignature [ byName "a" Compare ] (identity "a")
+      "A", byNameOrSignature [ byName "A" Compare ] (identity "A")
       "int",
         byNameOrSignature [ byName "int" Compare ]
           (choice [
@@ -2171,7 +2171,7 @@ module InitializeTest =
             identity "int"
           ])
       "<int> : int", bySignature (queryVariable "'int")
-      "list<a>", bySignature (generic (identity "list") [ identity "a" ])
+      "List<A>", bySignature (generic (identity "List") [ identity "A" ])
     ]
 
     run (fun (query, expected) -> test {

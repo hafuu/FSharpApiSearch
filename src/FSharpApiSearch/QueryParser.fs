@@ -181,21 +181,37 @@ module CSharp =
 
   let punit = trim (skipString "void" <|> skipString "()") |>> fun _ -> SpecialTypes.LowType.Unit
 
+  let identifierHead = letter <|> pchar '_'
+  let identifierTail = letter <|> digit <|> anyOf "_'"
+
   let pidentifier =
-    let head = letter <|> pchar '_'
-    let tail = letter <|> digit <|> anyOf "_'"
-    head .>>. manyChars tail |>> (fun (h, t) -> string h + t)
+    identifierHead .>>. manyChars identifierTail |>> (fun (h, t) -> string h + t)
     >>= (fun x -> if keywords |> List.exists ((=)x) then fail (sprintf "%s is the keyword." x) else preturn x)
     <?> "identifier"
   
   let partialName = sepBy1 pidentifier (pchar '.') |>> (List.map (fun n -> { Name = SymbolName n; GenericParameters = [] } ) >> List.rev)
   let csharpSignature, csharpSignatureRef = createParserForwardedToRef()
 
+  let lowerOnlyVariable =
+    lower .>>. manyChars identifierTail
+    >>= (fun (head, tail) ->
+      let str = string head + tail
+      if String.exists isUpper str then
+        fail (sprintf "%s contains upper cases." str)
+      elif SpecialTypes.Identity.CSharp.aliases |> List.map fst |> List.contains str then
+        fail (sprintf "%s is a C# alias." str)
+      else
+        preturn (Variable (VariableSource.Query, { Name = str; IsSolveAtCompileTime = false }))
+    )
+    |> trim
+    <?> "variable"
+
   let identity = partialName |>> (function name -> Identity (PartialIdentity { Name = name; GenericParameterCount = 0 })) |> trim <?> "identity"
   let wildcard = pchar '?' >>. opt pidentifier |>> Wildcard |> trim <?> "wildcard"
 
   let genericId =
     choice [
+      attempt lowerOnlyVariable
       attempt identity
       wildcard
     ]
@@ -225,6 +241,7 @@ module CSharp =
       attempt punit
       attempt (between (pcharAndTrim '(') (pcharAndTrim ')') csharpSignature)
       attempt generic
+      attempt lowerOnlyVariable
       attempt identity
       attempt flexible
       wildcard

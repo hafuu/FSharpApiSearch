@@ -222,10 +222,13 @@ module CSharp =
 
     let parseTest = parameterize {
       source [
-        "a", (identity "a")
-        "a_'2", (identity "a_'2")
-        "a.b", (identity "a.b")
-        "a.b.c", (identity "a.b.c")
+        "A", (identity "A")
+        "A_'2", (identity "A_'2")
+        "A.B", (identity "A.B")
+        "A.B.C", (identity "A.B.C")
+
+        "aBc", (identity "aBc")
+        "aBc<D>", (generic (identity "aBc") [ identity "D" ])
       ]
 
       run runSignatureTest
@@ -236,39 +239,39 @@ module CSharp =
         "?", (wildcard)
         "?a", (wildcardGroup "a")
         "? -> ?", (arrow [ wildcard; wildcard ])
-        "a<?, ?b>", (generic (identity "a") [ wildcard; wildcardGroup "b" ])
+        "A<?, ?b>", (generic (identity "A") [ wildcard; wildcardGroup "b" ])
       ]
       run runSignatureTest
     }
 
     let dotNetGenericTest = parameterize {
       source [
-        "a<b, c>", (generic (identity "a") [ identity "b"; identity "c" ])
-        "a<b<c>, d>", (generic (identity "a") [ generic (identity "b") [ identity "c" ]; identity "d" ])
-        "a -> b<c, d> -> d", (arrow [ identity "a"; generic (identity "b") [ identity "c"; identity "d" ]; identity "d" ])
-        "?<b, c>", (generic wildcard [ identity "b"; identity "c" ])
-        "?a<b, c>", (generic (wildcardGroup "a") [ identity "b"; identity "c" ])
+        "A<B, C>", (generic (identity "A") [ identity "B"; identity "C" ])
+        "A<B<C>, D>", (generic (identity "A") [ generic (identity "B") [ identity "C" ]; identity "D" ])
+        "A -> B<C, D> -> D", (arrow [ identity "A"; generic (identity "B") [ identity "C"; identity "D" ]; identity "D" ])
+        "?<B, C>", (generic wildcard [ identity "B"; identity "C" ])
+        "?a<B, C>", (generic (wildcardGroup "a") [ identity "B"; identity "C" ])
       ]
       run runSignatureTest
     }
 
     let arrowTest = parameterize {
       source [
-        "a -> a", (arrow [ identity "a"; identity "a" ])
-        "(a -> b) -> c", (arrow [ (arrow [ identity "a"; identity "b" ]); identity "c" ])
-        "(a -> b)", (arrow [ identity "a"; identity "b" ])
-        "a, b -> c", (arrow [ tuple [ identity "a"; identity "b" ]; identity "c" ])
-        "(a, (b, c)) -> d", (arrow [ tuple [ identity "a"; structTuple [ identity "b"; identity "c" ] ]; identity "d" ])
-        "((a, b)) -> c", (arrow [ structTuple [ identity "a"; identity "b" ]; identity "c" ])
+        "A -> A", (arrow [ identity "A"; identity "A" ])
+        "(A -> B) -> C", (arrow [ (arrow [ identity "A"; identity "B" ]); identity "C" ])
+        "(A -> B)", (arrow [ identity "A"; identity "B" ])
+        "A, B -> C", (arrow [ tuple [ identity "A"; identity "B" ]; identity "C" ])
+        "(A, (B, C)) -> D", (arrow [ tuple [ identity "A"; structTuple [ identity "B"; identity "C" ] ]; identity "D" ])
+        "((A, B)) -> C", (arrow [ structTuple [ identity "A"; identity "B" ]; identity "C" ])
       ]
       run runSignatureTest
     }
 
     let tupleTest = parameterize {
       source [
-        "(a, b)", (structTuple [ identity "a"; identity "b" ])
-        "(a, (b, c), d)", (structTuple [ identity "a"; structTuple [ identity "b"; identity "c" ]; identity "d" ])
-        "a<(b, c), d>", (generic (identity "a") [ structTuple [ identity "b"; identity "c" ]; identity "d" ])
+        "(A, B)", (structTuple [ identity "A"; identity "B" ])
+        "(A, (B, C), D)", (structTuple [ identity "A"; structTuple [ identity "B"; identity "C" ]; identity "D" ])
+        "A<(B, C), D>", (generic (identity "A") [ structTuple [ identity "B"; identity "C" ]; identity "D" ])
         
       ]
       run runSignatureTest
@@ -276,19 +279,23 @@ module CSharp =
 
     let arrayTest = parameterize {
       source [
-        "a[]", (queryArray (identity "a" ))
-        "a[][,]", (queryArray (queryArray2D (identity "a")))
-        "a<b>[]", (queryArray (generic (identity "a") [ identity "b" ]))
+        "A[]", (queryArray (identity "A" ))
+        "A[][,]", (queryArray (queryArray2D (identity "A")))
+        "A<B>[]", (queryArray (generic (identity "A") [ identity "B" ]))
       ]
       run runSignatureTest
     }
 
     let variableTest = parameterize {
       source [
-        "<a> : a -> b", (arrow [ queryVariable "'a"; identity "b" ])
-        "<a, b> : a -> b", (arrow [ queryVariable "'a"; queryVariable "'b" ])
-        "<T> : #a<T>", (flexible (generic (identity "a") [ queryVariable "'T" ]))
+        "<A> : A -> B", (arrow [ queryVariable "'A"; identity "B" ])
+        "<A, B> : A -> B", (arrow [ queryVariable "'A"; queryVariable "'B" ])
+        "<T> : #A<T>", (flexible (generic (identity "A") [ queryVariable "'T" ]))
         "<T> : ref T", (byref (queryVariable "'T"))
+
+        "v", (queryVariable "'v")
+        "variable", (queryVariable "'variable")
+        "A<var1, var2>", (generic (identity "A") [ queryVariable "'var1"; queryVariable "'var2" ])
       ]
 
       run runSignatureTest
@@ -338,7 +345,7 @@ module CSharp =
       source [
         "a.b : _", [ byName "b" Compare; byName "a" Compare ], SignatureQuery.Wildcard
         "* : _", [ byName "*" Any ], SignatureQuery.Wildcard
-        "a.* : b", [ byName "*" Any; byName "a" Compare ], SignatureQuery.Signature (identity "b")
+        "a.* : B", [ byName "*" Any; byName "a" Compare ], SignatureQuery.Signature (identity "B")
         "a* : _", [ byName "a" StartsWith ], SignatureQuery.Wildcard
       ]
 
@@ -347,12 +354,12 @@ module CSharp =
 
     let byNameAndVariableTest = parameterize {
       source [
-        "test<a, b, c> : b", [ byName2 "test" [ "a"; "b"; "c" ] Compare ], SignatureQuery.Signature (queryVariable "'b")
-        "*<a, b, c> : b", [ byName2 "*" [ "a"; "b"; "c" ] Any ], SignatureQuery.Signature (queryVariable "'b")
-        "class.method<b> : a, c -> b", [ byName2 "method" [ "b" ] Compare; byName2 "class" [] Compare ],
-          SignatureQuery.Signature (arrow [ tuple [ identity "a"; identity "c" ]; queryVariable "'b" ])
-        "class<a>.method<b> : a, c -> b", [ byName2 "method" [ "b" ] Compare; byName2 "class" [ "a" ] Compare ],
-          SignatureQuery.Signature (arrow [ tuple [ queryVariable "'a"; identity "c" ]; queryVariable "'b" ])
+        "test<A, B, C> : B", [ byName2 "test" [ "A"; "B"; "C" ] Compare ], SignatureQuery.Signature (queryVariable "'B")
+        "*<A, B, C> : B", [ byName2 "*" [ "A"; "B"; "C" ] Any ], SignatureQuery.Signature (queryVariable "'B")
+        "class.method<B> : A, C -> B", [ byName2 "method" [ "B" ] Compare; byName2 "class" [] Compare ],
+          SignatureQuery.Signature (arrow [ tuple [ identity "A"; identity "C" ]; queryVariable "'B" ])
+        "class<A>.method<B> : A, C -> B", [ byName2 "method" [ "B" ] Compare; byName2 "class" [ "A" ] Compare ],
+          SignatureQuery.Signature (arrow [ tuple [ queryVariable "'A"; identity "C" ]; queryVariable "'B" ])
       ]
 
       run runByNameTest
