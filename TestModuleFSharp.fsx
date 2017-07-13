@@ -19,7 +19,7 @@ let temp = ApiLoader.loadFromFile database
             |> Array.collect (fun x -> x.Api)
 let sw = Stopwatch()
 sw.Start()
-for i = 0 to 10000 do
+for i = 0 to 2000 do
   temp |> Array.choose (fun api -> LinkGenerator.fsharp "" api) |> ignore
 
 sw.Stop()

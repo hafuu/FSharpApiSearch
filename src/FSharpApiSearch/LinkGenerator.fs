@@ -61,80 +61,73 @@ module LinkGenerator =
 
     let isArray (n: DisplayNameItem) = (urlName n).StartsWith("[")
 
-    let generate (api: Api) = option {
+    let namePart (api: Api) (ns: DisplayName) (sb: StringBuilder) =
+      let path = urlName (List.item 1 ns)
+      let name = urlName ns.Head
+      sb.Append(path).Append(".") |> ignore
+      if isActivePattern api then
+        sb.Append(name.[3..(name.Length - 4)].Replace("|_", "").Replace("|", "h"))
+      elif name.StartsWith("( ") then
+        replaceOp name sb
+      else
+        sb.Append(name)
+
+    let genericParamsPart (api: Api) (ns: DisplayName) (sb: StringBuilder) =
+      match ns with
+      | { Name = OperatorName ("( = )", _) } :: { Name = SymbolName "Operators" } :: _ -> sb.Append("'t")
+      | { Name = WithCompiledName ("array2D", "CreateArray2D") } :: { Name = SymbolName "ExtraTopLevelOperators" } :: _ -> sb.Append("['t]")
+      | _ ->
+        match genericParameters api with
+        | [] -> sb.Append("")
+        | genericParams ->
+          sb.Append("[")
+            .AppendJoin(",",(genericParams |> Seq.map (fun v -> v.Print())))
+            .Append("]")
+
+    let kindPart (api: Api) (ns: DisplayName) : string option =
+      match api.Signature with
+      | ApiSignature.ActivePatten _ -> Some "active-pattern"
+      | ApiSignature.ModuleValue _ when ns.Head.GenericParameters.IsEmpty = false -> Some "type-function"
+      | ApiSignature.ModuleValue _
+      | ApiSignature.ModuleFunction _ -> Some "function"
+      | ApiSignature.InstanceMember (_, m) | ApiSignature.StaticMember (_, m) when m.Kind = MemberKind.Method -> Some "method"
+      | ApiSignature.InstanceMember (_, m) | ApiSignature.StaticMember (_, m) when m.Kind = MemberKind.Field -> None
+      | ApiSignature.InstanceMember _ | ApiSignature.StaticMember _ -> Some "property"
+      | ApiSignature.Constructor _ -> Some "constructor"
+      | ApiSignature.ModuleDefinition _ -> Some "module"
+      | ApiSignature.FullTypeDefinition td  ->
+        if isArray td.Name.Head then
+          None
+        else
+          match td.Kind with
+          | TypeDefinitionKind.Class -> Some "class"
+          | TypeDefinitionKind.Interface -> Some "interface"
+          | TypeDefinitionKind.Type -> Some "type"
+          | TypeDefinitionKind.Union -> Some "union"
+          | TypeDefinitionKind.Record -> Some "record"
+          | TypeDefinitionKind.Enumeration -> Some "enumeration"
+      | ApiSignature.TypeAbbreviation _ -> Some "type-abbreviation"
+      | ApiSignature.TypeExtension _ ->
+        match urlName (Seq.last ns) with
+        | "System" -> Some "extension-method"
+        | _ -> Some "method"
+      | ApiSignature.ExtensionMember _ -> Some "extension-method"
+      | ApiSignature.UnionCase _ -> None
+      | ApiSignature.ComputationExpressionBuilder _ -> Some "class"
+
+    let generate (api: Api) =
       let ns =
         let ns = Name.toDisplayName api.Name
         match api.Signature with
         | ApiSignature.Constructor _ -> ns.Tail // skip "new"
         | _ -> ns
-      let namePart (sb: StringBuilder) =
-        let path = urlName (ns.Item 1)
-        sb.Append(path).Append(".") |> ignore
-        let name =
-          let name = urlName ns.Head
-          if isActivePattern api then
-            sb.Append(name.[3..(name.Length - 4)].Replace("|_", "").Replace("|", "h"))
-          elif name.StartsWith("( ") then
-            replaceOp name sb
-          else
-            sb.Append(name)
-        sb
-      
-      let genericParamsPart (sb: StringBuilder) =
-        let temp_sb = StringBuilder()
-        let name = namePart temp_sb
-        
-        if string name = "Operators.[=]" then
-          sb.Append("'t")
-        elif string name = "ExtraTopLevelOperators.array2D" then
-          sb.Append("['t]")
-        else
-          match genericParameters api with
-          | [] -> sb.Append("")
-          | genericParams ->
-            sb.Append("[")
-              .AppendJoin(",",(genericParams |> Seq.map (fun v -> v.Print())))
-              .Append("]")
-      
-      let kindPart (sb: StringBuilder) =
-        match api.Signature with
-        | ApiSignature.ActivePatten _ -> sb.Append("active-pattern")
-        | ApiSignature.ModuleValue _ when ns.Head.GenericParameters.IsEmpty = false -> sb.Append("type-function")
-        | ApiSignature.ModuleValue _
-        | ApiSignature.ModuleFunction _ -> sb.Append("function")
-        | ApiSignature.InstanceMember (_, m) | ApiSignature.StaticMember (_, m) when m.Kind = MemberKind.Method -> sb.Append("method")
-        | ApiSignature.InstanceMember (_, m) | ApiSignature.StaticMember (_, m) when m.Kind = MemberKind.Field -> sb
-        | ApiSignature.InstanceMember _ | ApiSignature.StaticMember _ -> sb.Append("property")
-        | ApiSignature.Constructor _ -> sb.Append("constructor")
-        | ApiSignature.ModuleDefinition _ -> sb.Append("module")
-        | ApiSignature.FullTypeDefinition td  ->
-          if isArray td.Name.Head then
-            sb
-          else
-            match td.Kind with
-            | TypeDefinitionKind.Class -> sb.Append("class")
-            | TypeDefinitionKind.Interface -> sb.Append("interface")
-            | TypeDefinitionKind.Type -> sb.Append("type")
-            | TypeDefinitionKind.Union -> sb.Append("union")
-            | TypeDefinitionKind.Record -> sb.Append("record")
-            | TypeDefinitionKind.Enumeration -> sb.Append("enumeration")
-        | ApiSignature.TypeAbbreviation _ -> sb.Append("type-abbreviation")
-        | ApiSignature.TypeExtension _ ->
-          match urlName (Seq.last ns) with
-          | "System" -> sb.Append("extension-method")
-          | _ -> sb.Append("method")
-        | ApiSignature.ExtensionMember _ -> sb.Append("extension-method")
-        | ApiSignature.UnionCase _ -> sb
-        | ApiSignature.ComputationExpressionBuilder _ -> sb.Append("class")
+      kindPart api ns
+      |> Option.map (fun kind ->
+        let sb = StringBuilder()
+        sb.Append(namePart api ns).Append(genericParamsPart api ns).Append("-").Append(kind).Append("-[fsharp]") |> ignore
+        string sb |> toLower |> urlEncode
+      )
 
-      let sb = StringBuilder().Append(namePart).Append(genericParamsPart).Append("-")
-      let preLength = sb.Length
-      do sb.Append(kindPart) |> ignore
-      if preLength = sb.Length then
-        return! None
-      else
-        return (string (sb.Append("-[fsharp]"))) |> toLower |> urlEncode
-    }
   module internal Msdn =
     let isGeneric api = api.Name |> Name.toDisplayName |> List.exists (fun n -> List.isEmpty n.GenericParameters = false)
     let canGenerate (api: Api) =
