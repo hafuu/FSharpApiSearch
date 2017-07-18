@@ -13,7 +13,7 @@ module LinkGenerator =
   let internal toLower (str: string) = str.ToLower()
   let internal urlEncode (str: string) = HttpUtility.UrlEncode(str)
 
-  let urlName (n: DisplayNameItem) =
+  let internal urlName (n: DisplayNameItem) =
     match n.Name with
     | SymbolName n -> n
     | OperatorName (n, _) -> n
