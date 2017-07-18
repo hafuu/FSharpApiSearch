@@ -967,8 +967,7 @@ module internal Impl =
   module NameResolve =
     type AssemblyCache = IDictionary<string, DisplayName>
     type NameCache = (string * AssemblyCache)[]
-
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+    
     module NameCache =
       let tryGetValue key (cache: NameCache) = cache |> Array.tryFind (fun (k, _) -> k = key) |> Option.map snd
       let getValue key (cache: NameCache) = cache |> Array.find (fun (k, _) -> k = key) |> snd

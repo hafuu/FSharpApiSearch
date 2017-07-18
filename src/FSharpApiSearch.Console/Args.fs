@@ -15,7 +15,6 @@ type Args = {
   Help: bool
 }
 
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Args =
   open FSharpApiSearch.CommandLine
 

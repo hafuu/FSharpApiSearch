@@ -13,7 +13,6 @@ type TypeVariable = {
   IsSolveAtCompileTime: bool
 }
 
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module TypeVariable =
   let ofString (v: string) =
     if List.exists (fun prefix -> v.StartsWith(prefix)) [ "'"; "^" ] = false then failwithf "wrong variable name: %s" v
@@ -35,7 +34,6 @@ type DisplayNameItem = {
 
 type DisplayName = DisplayNameItem list
 
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module internal DisplayName =
   open System.Text.RegularExpressions
 
@@ -77,8 +75,7 @@ module internal DisplayName =
 type Name =
   | LoadingName of assemblyName:string * accessPath:string * DisplayName // only api loading
   | DisplayName of DisplayName
-
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+  
 module internal Name =
   let ofString (name: string) = DisplayName (DisplayName.ofString name)
   let ofCompiledName name compiledName = DisplayName (DisplayName.ofString2 name compiledName)
@@ -182,7 +179,6 @@ type Parameter = {
   IsParamArray: bool
 }
 
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module internal Parameter =
   let ofLowType t = { Name = None; Type = t; IsOptional = false; IsParamArray = false }
 
@@ -198,8 +194,7 @@ module internal ParameterGroups =
         | [ one ] -> yield one.Type
         | many -> yield Tuple { Elements = List.map (fun x -> x.Type) many; IsStruct = false }
     ]
-
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+    
 module internal Function =
   let toArrow (fn: Function) : Arrow =
     let ps, ret = fn
@@ -223,8 +218,7 @@ type Member = {
 with
   [<IgnoreMember>]
   member this.IsCurried = List.length this.Parameters > 1
-
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+  
 module internal Member =
   let toFunction m = m.Parameters, m.ReturnParameter
   let toArrow m = Function.toArrow (toFunction m)
@@ -409,7 +403,6 @@ type UnionCase = {
   Fields: UnionCaseField list
 }
 
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module UnionCase =
   let toFunction (uc: UnionCase) : Function =
     let fields = uc.Fields |> List.map (fun field -> { Name = field.Name; Type = field.Type; IsOptional = false; IsParamArray = false })
@@ -537,8 +530,7 @@ type NameMatchMethod =
   | EndsWith
   | Contains
   | Any
-
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+  
 module NameMatchMethod =
   let ofString (str: string) : string * NameMatchMethod =
     let asteriskNumber = Seq.filter ((=)'*') str |> Seq.length
@@ -599,7 +591,6 @@ type SearchOptions = internal {
   Language: Language
 }
 
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module SearchOptions =
   let defaultOptions = {
     GreedyMatching = Disabled
@@ -773,8 +764,7 @@ module internal SpecialTypes =
           | TypeAbbreviation _ -> (|AbbreviationRoot|_|) original
           | _ -> Some original
         | _ -> None
-
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+        
 module internal Identity =
   open System
 
@@ -967,8 +957,7 @@ module LowTypeVisitor =
     | QueryMethod.ByComputationExpression ce -> QueryMethod.ByComputationExpression (accept_ComputationExpressionQuery visitor ce)
 
   let accept_Query (visitor: Visitor) (query: Query) = { query with Method = accept_QueryMethod visitor query.Method }
-
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+  
 module internal LowType =
   let rec applyVariable source (replacements: Map<TypeVariable, LowType>) = function
     | Wildcard _ as w -> w

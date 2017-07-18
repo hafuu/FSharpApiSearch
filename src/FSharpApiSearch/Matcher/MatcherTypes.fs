@@ -10,7 +10,6 @@ type Equations = {
   Inequalities: (LowType * LowType) list
 }
 
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Equations =
   let debugEquality (left, right) = LowType.debug left + " = " + LowType.debug right
   let debugInequality (left, right) = LowType.debug left + " <> " + LowType.debug right
@@ -38,7 +37,6 @@ type Context = {
   SubtypeCache: SubtypeCache
 }
 
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Context =
   let addDistance reason x (ctx: Context) =
     let newDistance = ctx.Distance + x
@@ -53,7 +51,6 @@ type MatchingResult =
   | Continue of Context
   | Failure
 
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module MatchingResult =
   let inline bindContinue f x = match x with Continue x -> f x | r -> r
   let inline bindMatched f x = match x with Matched x -> f x | r -> r
@@ -97,7 +94,6 @@ module ApiMatcher =
 
 type Rule<'Left, 'Right> = ILowTypeMatcher -> 'Left -> 'Right -> Context -> MatchingResult
 
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Rule =
   let run (rule: Rule<_, _>) matcher left right ctx = rule matcher left right ctx
   let terminator _ _ _ _ =

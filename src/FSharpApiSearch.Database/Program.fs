@@ -11,7 +11,6 @@ type Args = {
   Help: bool
 }
 
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Args =
   let defaultArg = {
     AssemblyResolver =
