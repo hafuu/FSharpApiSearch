@@ -197,11 +197,16 @@ let fparsecLinkTest = parameterize {
     "FParsec.Primitives.Inline.Many<'T, 'State, 'Result, 'U>", "stateFromFirstElement:('T -> 'State) * foldState:('State -> 'T -> 'State) * resultFromState:('State -> 'Result) * elementParser:Parser<'T, 'U> * ?firstElementParser:Parser<'T, 'U> * ?resultForEmptySequence:(unit -> 'Result) -> Parser<'Result, 'U>", Some "primitives.html#members.Inline..Many"
     "FParsec.Error.ParserError.new", "Position * userState:obj * ErrorMessageList -> ParserError", None
     "FParsec.Error.ParserError.Position", "Position", Some "error.html#members.Position"
-    ]
+
+    "FParsec.Primitives.ParserCombinator", "type ParserCombinator, { if/then; let!; return; return!; try/finally; try/with }", Some "primitives.html#members.ParserCombinator"
+    "FParsec.Primitives.preturn<'a, 'u>", "'a -> Parser<'a, 'u>", Some "primitives.html#members.preturn"
+    "FParsec.Primitives.( .>>. )<'a, 'b, 'u>", "Parser<'a, 'u> -> Parser<'b, 'u> -> Parser<'a * 'b, 'u>", Some "primitives.html#members...:62::62:.."
+
+  ]
   run (fun (name, signature, expected) -> test {
-  let! apiDict = fparsecApi
-  let api = apiDict.Api |> Array.find (fun a -> a.Name.Print() = name && a.Signature.Print() = signature)
-  let actual = LinkGenerator.FParsec.generate api
-  do! actual |> assertEquals expected 
+    let! apiDict = fparsecApi
+    let api = apiDict.Api |> Array.find (fun a -> a.Name.Print() = name && a.Signature.Print() = signature)
+    let actual = LinkGenerator.FParsec.generate api
+    do! actual |> assertEquals expected 
   })
 }
