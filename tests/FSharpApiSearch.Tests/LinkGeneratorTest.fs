@@ -200,8 +200,11 @@ let fparsecLinkTest = parameterize {
 
     "FParsec.Primitives.ParserCombinator", "type ParserCombinator, { if/then; let!; return; return!; try/finally; try/with }", Some "primitives.html#members.ParserCombinator"
     "FParsec.Primitives.preturn<'a, 'u>", "'a -> Parser<'a, 'u>", Some "primitives.html#members.preturn"
-    "FParsec.Primitives.( .>>. )<'a, 'b, 'u>", "Parser<'a, 'u> -> Parser<'b, 'u> -> Parser<'a * 'b, 'u>", Some "primitives.html#members...:62::62:.."
-
+    "FParsec.Primitives.( .>>. )<'a, 'u, 'b>", "Parser<'a, 'u> -> Parser<'b, 'u> -> Parser<'a * 'b, 'u>", Some "primitives.html#members...:62::62:.."
+    
+    "FParsec.Internals.referenceEquals<'a>", "x:'a -> y:'a -> bool", None
+    "FParsec.CharParsers.NumberLiteralResultFlags.IsNaN", "NumberLiteralResultFlags", None
+    "FParsec.Emit", "module Emit", None
   ]
   run (fun (name, signature, expected) -> test {
     let! apiDict = fparsecApi
