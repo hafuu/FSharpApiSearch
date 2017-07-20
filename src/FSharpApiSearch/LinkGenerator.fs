@@ -281,11 +281,18 @@ module LinkGenerator =
   module internal FParsec =
     open System.Text
     
-    let urlPart (api: Api) (sb: StringBuilder) =
-      let names = api.Name |> Name.toDisplayName |> List.rev 
+    let moduleName (api: Api) =
+      let names = api.Name |> Name.toDisplayName |> List.rev
       match names with
-      | { Name = SymbolName ("FParsec")} :: url :: _ -> sb.Append(url |> urlName |> toLower).Append(".html")
-      | _ -> sb
+      | { Name = SymbolName ("FParsec") } :: { Name = SymbolName moduleName } :: _ ->
+        if moduleName = "Internals" || moduleName = "Emit" then
+          None
+        else
+          Some moduleName
+      | _ -> None
+
+    let urlPart (moduleName: string) (sb: StringBuilder) =
+      sb.Append(toLower moduleName).Append(".html")
 
     let opReplaceTable =
       dict [
@@ -313,11 +320,8 @@ module LinkGenerator =
       sb.Append("members.").Append(urlName ns.[1]).Append("..").Append(urlName ns.[0])
 
     let generate (api: Api) =
-      let moduleName = (api.Name |> Name.toDisplayName |> List.rev).[1] |> urlName
-      if  moduleName = "Internals" || 
-          moduleName = "Emit" then
-        None
-      else
+      moduleName api
+      |> Option.bind (fun moduleName ->
         match api.Signature with
         | ApiSignature.ActivePatten _    
         | ApiSignature.TypeExtension _
@@ -326,7 +330,7 @@ module LinkGenerator =
         | ApiSignature.Constructor _ -> None
       
         | ApiSignature.ModuleDefinition _ ->
-          let sb = StringBuilder().Append(urlPart api)
+          let sb = StringBuilder().Append(urlPart moduleName)
           Some (string sb)  
 
         | ApiSignature.ComputationExpressionBuilder _
@@ -335,17 +339,17 @@ module LinkGenerator =
         | ApiSignature.TypeAbbreviation _
         | ApiSignature.FullTypeDefinition _ 
         | ApiSignature.InstanceMember _ ->
-          let sb = StringBuilder().Append(urlPart api).Append("#").Append(api.Name |> Name.toDisplayName |> membersPart)
+          let sb = StringBuilder().Append(urlPart moduleName).Append("#").Append(api.Name |> Name.toDisplayName |> membersPart)
           Some (string sb)
 
         | ApiSignature.StaticMember (_, mem) ->
           match mem.Kind with
           | MemberKind.Method ->
-            let sb = StringBuilder().Append(urlPart api).Append("#").Append(api.Name |> Name.toDisplayName |> staticMembersPart)
+            let sb = StringBuilder().Append(urlPart moduleName).Append("#").Append(api.Name |> Name.toDisplayName |> staticMembersPart)
             Some (string sb)
           | _ -> None
-  
-      
+      )
+
   let fsharp baseUrl: LinkGenerator = fun api -> FSharp.generate api |> Option.map (fun apiUrl -> baseUrl + apiUrl)
   let msdn baseUrl: LinkGenerator = fun api -> Msdn.generate api |> Option.map (fun apiUrl -> baseUrl + apiUrl)
   let dotNetApiBrowser baseUrl (view: string) : LinkGenerator = fun api -> DotNetApiBrowser.generate view api |> Option.map (fun apiUrl -> baseUrl + apiUrl)

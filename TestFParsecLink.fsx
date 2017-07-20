@@ -15,6 +15,7 @@ ApiLoader.loadFromFile database
 |> Array.filter (fun x -> x.AssemblyName = "FParsec")
 |> Array.collect (fun x -> x.Api)
 |> Array.choose (fun api ->
-  LinkGenerator.fparsec "http://www.quanttec.com/fparsec/reference/" api
-  |> Option.map (fun link -> api, link))
-|> Array.iter (fun (api, link) -> printfn "%s: %s" (api.Name.Print()) link)
+  match LinkGenerator.fparsec "http://www.quanttec.com/fparsec/reference/" api with
+  | Some link -> printfn "%s: %s" (api.Name.Print()) link
+  | None -> printfn "%s: None" (api.Name.Print())
+)
