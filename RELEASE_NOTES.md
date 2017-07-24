@@ -1,3 +1,14 @@
+### 3.0.0
+* Add subtype matching
+* Add name search by single type query
+* Add C# mode (experimental) and `--language` option
+* Support struct tuple
+* Add `--single-letter-as-variable` option
+* Add the link generator to .Net Api Browser
+* Add the link generator to the reference of FParsec
+* Remove `=>` syntax
+* Change serialization library to MessagePack from FsPickler
+
 ### 3.0.0-beta4
 * Fix bugs
 * Improve performance
