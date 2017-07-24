@@ -1026,7 +1026,7 @@ module internal Impl =
         let arrow = resolve_Arrow context arrow
         Delegate (t, arrow)
       | ByRef (out, t) -> ByRef(out, resolve_LowType context t)
-      | Flexible t -> Flexible(resolve_LowType context t)
+      | Subtype t -> Subtype(resolve_LowType context t)
       | Choice (xs) -> Choice (List.map (resolve_LowType context) xs)
     and resolve_Identity cache = function
       | PartialIdentity _ as i -> i

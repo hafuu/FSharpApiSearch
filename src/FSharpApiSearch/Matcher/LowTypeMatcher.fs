@@ -293,7 +293,7 @@ module Rules =
     | TypeAbbreviation x -> distanceFromVariable x.Original
     | Delegate _ -> 1
     | ByRef _ -> 1
-    | Flexible _ -> 0
+    | LowType.Subtype _ -> 0
     | Choice _ -> 1
   and seqDistance xs = xs |> Seq.sumBy (distanceFromVariable >> max 1)
 
@@ -428,32 +428,32 @@ module Rules =
       |> MatchingResult.mapMatched (Context.addDistance "byref and type" 1)
     | _ -> Continue ctx
 
-  let rec flexibleTarget ctx = function
+  let rec subtypeTarget ctx = function
     | Identity id -> Some (id, [])
     | Generic (Identity id, args) -> Some (id, args)
-    | ByRef _ as t -> flexibleTarget ctx t
-    | Delegate (t, _) -> flexibleTarget ctx t
+    | ByRef _ as t -> subtypeTarget ctx t
+    | Delegate (t, _) -> subtypeTarget ctx t
     | Tuple { Elements = xs } ->
       let tpl = Identity.tupleN xs.Length
       Some (tpl, xs)
-    | Flexible t -> flexibleTarget ctx t
-    | TypeAbbreviation _ as t -> (|AbbreviationRoot|_|) t |> Option.bind (flexibleTarget ctx)
+    | LowType.Subtype t -> subtypeTarget ctx t
+    | TypeAbbreviation _ as t -> (|AbbreviationRoot|_|) t |> Option.bind (subtypeTarget ctx)
     | Generic _ | Variable _ | Wildcard _ | Arrow _ | Choice _ -> None
 
-  let (|FlexibleTarget|_|) ctx = flexibleTarget ctx
+  let (|SubtypeTarget|_|) ctx = subtypeTarget ctx
 
-  let testFlexible (lowTypeMatcher: ILowTypeMatcher) flexible targetId targetArgs ctx =
+  let testSubtype (lowTypeMatcher: ILowTypeMatcher) baseType targetId targetArgs ctx =
     let targetIdDef = TypeHierarchy.fullTypeDef ctx targetId
     targetIdDef
     |> Seq.collect (fun td -> TypeHierarchy.getSuperTypes ctx td targetArgs)
     |> Seq.tryPick (fun target ->
-      match lowTypeMatcher.Test flexible target ctx with
+      match lowTypeMatcher.Test baseType target ctx with
       | Matched ctx -> Some (ctx, target)
       | _ -> None
     )
 
-  let flexibleCacheValue contextualType (lowTypeMatcher: ILowTypeMatcher) flexible targetId targetArgs ctx =
-    testFlexible lowTypeMatcher flexible targetId targetArgs ctx
+  let subtypeCacheValue contextualType (lowTypeMatcher: ILowTypeMatcher) baseType targetId targetArgs ctx =
+    testSubtype lowTypeMatcher baseType targetId targetArgs ctx
     |> function
       | Some (_, target) ->
         if contextualType() then
@@ -466,30 +466,30 @@ module Rules =
         else
           NonSubtype
 
-  let flexibleRule isContextual (lowTypeMatcher: ILowTypeMatcher) left right ctx =
+  let subtypeRule isContextual (lowTypeMatcher: ILowTypeMatcher) left right ctx =
     match left, right with
-    | Flexible flexible, target
-    | target, Flexible flexible ->
+    | LowType.Subtype baseType, target
+    | target, LowType.Subtype baseType ->
       match target with
-      | FlexibleTarget ctx (targetId, targetArgs) ->
-        Debug.WriteLine("flexible rule.")
+      | SubtypeTarget ctx (targetId, targetArgs) ->
+        Debug.WriteLine("subtype rule.")
 
         let valueFactory _ =
-          let contextualType() = isContextual flexible || isContextual target
-          flexibleCacheValue contextualType lowTypeMatcher flexible targetId targetArgs ctx
+          let contextualType() = isContextual baseType || isContextual target
+          subtypeCacheValue contextualType lowTypeMatcher baseType targetId targetArgs ctx
 
-        let key = (flexible, target)
+        let key = (baseType, target)
         let result = ctx.SubtypeCache.GetOrAdd(key, valueFactory)
         match result with
-        | Subtype target -> lowTypeMatcher.Test flexible target ctx
+        | Subtype target -> lowTypeMatcher.Test baseType target ctx
         | NonSubtype -> Failure
         | Contextual None ->
-          match testFlexible lowTypeMatcher flexible targetId targetArgs ctx with
+          match testSubtype lowTypeMatcher baseType targetId targetArgs ctx with
           | Some (ctx, target) ->
             ctx.SubtypeCache.TryUpdate(key, (Contextual (Some target)), result) |> ignore
             Matched ctx
           | None -> Failure
-        | Contextual (Some target) -> lowTypeMatcher.Test flexible target ctx
+        | Contextual (Some target) -> lowTypeMatcher.Test baseType target ctx
 
       | _ -> Continue ctx
 
@@ -530,7 +530,7 @@ let instance options =
       | Disabled -> yield Rules.delegateAndArrowRule
 
       yield Rules.byrefRule
-      yield Rules.flexibleRule isContextual
+      yield Rules.subtypeRule isContextual
 
       yield Rule.terminator
     |]

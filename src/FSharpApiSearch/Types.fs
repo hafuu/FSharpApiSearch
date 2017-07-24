@@ -124,7 +124,7 @@ type LowType =
   | TypeAbbreviation of TypeAbbreviation
   | Delegate of delegateType: LowType * Arrow
   | ByRef of isOut:bool * LowType
-  | Flexible of LowType
+  | Subtype of LowType
   | Choice of LowType list
 and [<MessagePackObject>] TypeAbbreviation = {
   [<Key(0)>]
@@ -979,7 +979,7 @@ module internal LowType =
       let arrow = applyVariableToArrow source replacements arrow
       Delegate (delegateType, arrow)
     | ByRef (isOut, t) -> ByRef (isOut, applyVariable source replacements t)
-    | Flexible t -> Flexible (applyVariable source replacements t)
+    | Subtype t -> Subtype (applyVariable source replacements t)
     | Choice xs -> Choice (applyVariableToTargetList source replacements xs)
   and applyVariableToTargetList source replacements xs = xs |> List.map (applyVariable source replacements)
   and applyVariableToArrow source replacements arrow =
@@ -1000,7 +1000,7 @@ module internal LowType =
       | TypeAbbreviation t -> f t.Original
       | Delegate (t, _) -> f t
       | ByRef (_, t) -> f t
-      | Flexible t -> f t
+      | Subtype t -> f t
       | Choice xs -> List.iter f xs
     f x
     List.ofSeq result
@@ -1018,7 +1018,7 @@ module internal LowType =
       | TypeAbbreviation t -> f t.Original
       | Delegate (t, _) -> f t
       | ByRef (_, t) -> f t
-      | Flexible t -> f t
+      | Subtype t -> f t
       | Choice xs -> List.iter f xs
     f x
     List.ofSeq result
@@ -1037,7 +1037,7 @@ module internal LowType =
       | TypeAbbreviation t -> f t.Original
       | Delegate (t, _) -> f t
       | ByRef (_, t) -> f t
-      | Flexible t -> f t
+      | Subtype t -> f t
       | Choice xs -> List.iter f xs
     f x
     List.ofSeq result

@@ -222,7 +222,7 @@ module Rules =
 
   let moduleDefRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
-    | SignatureQuery.Signature (Arrow _ | Wildcard _ | Variable _ | Flexible _), ApiSignature.ModuleDefinition _ -> Failure
+    | SignatureQuery.Signature (Arrow _ | Wildcard _ | Variable _ | LowType.Subtype _), ApiSignature.ModuleDefinition _ -> Failure
     | SignatureQuery.Signature left, ApiSignature.ModuleDefinition moduleDef ->
       Debug.WriteLine("module def rule.")
       let right = moduleDef.LowType
@@ -232,7 +232,7 @@ module Rules =
   let typeAbbreviationRule (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
     | SignatureQuery.Signature (Arrow _ | Wildcard _ | Variable _), ApiSignature.TypeAbbreviation _ -> Failure
-    | SignatureQuery.Signature (Flexible _ as left), ApiSignature.TypeAbbreviation { Original = right } ->
+    | SignatureQuery.Signature (LowType.Subtype _ as left), ApiSignature.TypeAbbreviation { Original = right } ->
       Debug.WriteLine("type abbreviation rule.")
       lowTypeMatcher.Test left right ctx
     | SignatureQuery.Signature left, ApiSignature.TypeAbbreviation abbreviationDef ->

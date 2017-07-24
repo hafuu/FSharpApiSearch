@@ -1358,7 +1358,7 @@ module TypeConstraintTest =
     run (testConstraint false)
   }
 
-  let runFlexibleTest trace greedy (query, target, expected) = test {
+  let runSubtypeTest trace greedy (query, target, expected) = test {
       use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
       do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
       let targetApi: Api = { Name = Name.ofString "test"; Signature = target; TypeConstraints = []; Document = None }
@@ -1376,7 +1376,7 @@ module TypeConstraintTest =
       do! actual |> assertEquals expected
     }
 
-  let flexibleTest =
+  let subtypeTest =
     let target td args = moduleValue (instantiate td args)
     parameterize {
       source [
@@ -1420,10 +1420,10 @@ module TypeConstraintTest =
         "#Parent", (typeAbbreviationApi PartialApplyTypeAbbreviation), false
       ]
 
-      run (runFlexibleTest false Disabled)
+      run (runSubtypeTest false Disabled)
     }
 
-  let flexibleWithGreedyTest =
+  let subtypeWithGreedyTest =
     parameterize {
       source [
         // indirect
@@ -1431,7 +1431,7 @@ module TypeConstraintTest =
         "Object -> #Parent", (moduleFunction' [ [ ptype (variable "'a") ]; [ ptype (variable "'a") ] ]), false
       ]
 
-      run (runFlexibleTest false Enabled)
+      run (runSubtypeTest false Enabled)
     }
 
   let nullnessConstraintTest = parameterize {

@@ -24,7 +24,7 @@ let collectFromSignatureQuery getTarget query =
     | ByRef (_, t) -> f t
     | Choice xs -> List.iter f xs
     | Delegate (t, _) -> f t
-    | Flexible t -> f t
+    | LowType.Subtype t -> f t
 
   match query with
   | { Query.Method = QueryMethod.ByName (_, sigQuery) }
@@ -133,7 +133,7 @@ let private replaceTypeAbbreviation' nameEquality (table: TypeAbbreviation list)
       Generic (id, replacedArgs)
     | Arrow (ps, ret) -> Arrow (List.map replace ps, replace ret)
     | Tuple x -> Tuple { x with Elements = List.map replace x.Elements }
-    | Flexible t -> Flexible (replace t)
+    | LowType.Subtype t -> LowType.Subtype (replace t)
     | ByRef _ as x -> x
     | Choice _ as x -> x
     | Delegate _ as x -> x
@@ -203,7 +203,7 @@ let shortLetterAsVariable (threshold: int) (query: Query) =
     | TypeAbbreviation _ as t -> t
     | Delegate _ as d -> d
     | ByRef _ as b -> b
-    | Flexible _ as f -> f
+    | LowType.Subtype _ as f -> f
     | Choice xs -> Choice (List.map update xs)
 
   LowTypeVisitor.accept_Query update query

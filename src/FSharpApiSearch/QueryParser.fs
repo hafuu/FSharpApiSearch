@@ -62,10 +62,10 @@ module FSharp =
 
   let dotNetGeneric = genericId .>>. between (pcharAndTrim '<') (pcharAndTrim '>') (sepBy1 fsharpSignature (pchar ',')) |>> (fun (id, parameter) -> createGeneric id parameter)
 
-  let flexible =
+  let subtype =
     let prefix = pcharAndTrim '#'
     let t = attempt dotNetGeneric <|> identity
-    prefix >>. t |>> Flexible
+    prefix >>. t |>> Subtype
 
   let ptype =
     choice [
@@ -73,7 +73,7 @@ module FSharp =
       attempt dotNetGeneric
       attempt identity
       attempt variable
-      attempt flexible
+      attempt subtype
       wildcard
     ]
   
@@ -231,10 +231,10 @@ module CSharp =
 
   let generic = genericId .>>. between (pcharAndTrim '<') (pcharAndTrim '>') (sepBy1 csharpSignature (pchar ',')) |>> (fun (id, parameter) -> createGeneric id parameter)
 
-  let flexible =
+  let subtype =
     let prefix = pcharAndTrim '#'
     let t = attempt generic <|> identity
-    prefix >>. t |>> Flexible
+    prefix >>. t |>> Subtype
 
   let ptype =
     choice [
@@ -243,7 +243,7 @@ module CSharp =
       attempt generic
       attempt lowerOnlyVariable
       attempt identity
-      attempt flexible
+      attempt subtype
       wildcard
     ]
 
@@ -282,7 +282,7 @@ module CSharp =
     | Tuple tpl -> Tuple { tpl with Elements = List.map (replaceWithVariable variableNames) tpl.Elements }
     | Arrow (ps, ret) -> Arrow (List.map (replaceWithVariable variableNames) ps, replaceWithVariable variableNames ret)
     | ByRef (isOut, t) -> ByRef (isOut, replaceWithVariable variableNames t)
-    | Flexible t -> Flexible (replaceWithVariable variableNames t)
+    | Subtype t -> Subtype (replaceWithVariable variableNames t)
     | (Wildcard _ | Variable _ | Identity _ | TypeAbbreviation _ | Delegate _ | Choice _) as t -> t
 
   let signatureWildcard = pstring "_" |> trim >>% SignatureQuery.Wildcard

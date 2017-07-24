@@ -103,11 +103,11 @@ module FSharp =
       run runSignatureTest
     }
 
-    let flexibleTest = parameterize {
+    let subtypeTest = parameterize {
       source [
-        "#A", (flexible (identity "A"))
-        "#A<B>", (flexible (generic (identity "A") [ identity "B" ]))
-        "A<#B>", (generic (identity "A") [ flexible (identity "B") ])
+        "#A", (subtype (identity "A"))
+        "#A<B>", (subtype (generic (identity "A") [ identity "B" ]))
+        "A<#B>", (generic (identity "A") [ subtype (identity "B") ])
       ]
       run runSignatureTest
     }
@@ -290,7 +290,7 @@ module CSharp =
       source [
         "<A> : A -> B", (arrow [ queryVariable "'A"; identity "B" ])
         "<A, B> : A -> B", (arrow [ queryVariable "'A"; queryVariable "'B" ])
-        "<T> : #A<T>", (flexible (generic (identity "A") [ queryVariable "'T" ]))
+        "<T> : #A<T>", (subtype (generic (identity "A") [ queryVariable "'T" ]))
         "<T> : ref T", (byref (queryVariable "'T"))
 
         "v", (queryVariable "'v")
@@ -319,11 +319,11 @@ module CSharp =
       run runSignatureTest
     }
 
-    let flexibleTest = parameterize {
+    let subtypeTest = parameterize {
       source [
-        "#A", (flexible (identity "A"))
-        "#A<B>", (flexible (generic (identity "A") [ identity "B" ]))
-        "A<#B>", (generic (identity "A") [ flexible (identity "B") ])
+        "#A", (subtype (identity "A"))
+        "#A<B>", (subtype (generic (identity "A") [ identity "B" ]))
+        "A<#B>", (generic (identity "A") [ subtype (identity "B") ])
       ]
       run runSignatureTest
     }

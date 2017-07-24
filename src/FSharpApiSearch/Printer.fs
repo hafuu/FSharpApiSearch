@@ -133,7 +133,7 @@ module internal FSharpImpl =
     | TypeAbbreviation t -> sb.Append(printLowType isDebug printIdentity t.Abbreviation)
     | Delegate (t, _) -> sb.Append(printLowType isDebug printIdentity t)
     | ByRef (_, t) -> sb.Append("byref<").Append(printLowType isDebug printIdentity t).Append(">")
-    | Flexible t -> sb.Append("#").Append(printLowType isDebug printIdentity t)
+    | Subtype t -> sb.Append("#").Append(printLowType isDebug printIdentity t)
     | Choice xs -> sb.Append(printChoice isDebug printIdentity xs)
   and printGeneric isDebug printIdentity id (args: _ list) (sb: StringBuilder) =
     sb.Append(printLowType isDebug printIdentity id)
@@ -449,7 +449,7 @@ module internal CSharpImpl =
     | TypeAbbreviation t -> sb.Append(printLowType t.Original)
     | Delegate (t, _) -> sb.Append(printLowType t)
     | ByRef (isOut, t) -> sb.Append(printRef isOut).Append(" ").Append(printLowType t)
-    | Flexible t -> sb.Append("#").Append(printLowType t)
+    | Subtype t -> sb.Append("#").Append(printLowType t)
     | Choice xs -> sb.Append("(").AppendJoin(" or ", xs, printLowType).Append(")")
 
   let printParameter (p: Parameter) (sb: StringBuilder) =
