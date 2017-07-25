@@ -15,5 +15,5 @@ summary
     F# API search engine
 description
     F# API search engine
-
-
+excludeddependencies
+    FSharp.Core
