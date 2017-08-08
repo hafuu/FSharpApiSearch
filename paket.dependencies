@@ -32,3 +32,5 @@ group Test
   nuget Persimmon.Console
   nuget Persimmon.MuscleAssert
   nuget System.ValueTuple
+
+  nuget BenchmarkDotNet
