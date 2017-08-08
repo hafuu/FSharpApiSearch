@@ -90,7 +90,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.5.1' Or $(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3' Or $(TargetFrameworkVersion) == 'v4.6' Or $(TargetFrameworkVersion) == 'v4.6.1' Or $(TargetFrameworkVersion) == 'v4.6.2' Or $(TargetFrameworkVersion) == 'v4.6.3' Or $(TargetFrameworkVersion) == 'v4.7')">
       <ItemGroup>
         <Reference Include="FSharp.Core">
-          <HintPath>..\..\packages\app\FSharp.Core\lib\net45\FSharp.Core.dll</HintPath>
+          <HintPath>..\..\packages\test\FSharp.Core\lib\net45\FSharp.Core.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -99,7 +99,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid' And ($(TargetFrameworkVersion) == 'v7.0' Or $(TargetFrameworkVersion) == 'v7.1')) Or ($(TargetFrameworkIdentifier) == 'MonoTouch') Or ($(TargetFrameworkIdentifier) == 'Xamarin.tvOS') Or ($(TargetFrameworkIdentifier) == 'Xamarin.watchOS') Or ($(TargetFrameworkIdentifier) == 'Xamarin.iOS') Or ($(TargetFrameworkIdentifier) == 'Xamarin.Mac')">
       <ItemGroup>
         <Reference Include="FSharp.Core">
-          <HintPath>..\..\packages\app\FSharp.Core\lib\netstandard1.6\FSharp.Core.dll</HintPath>
+          <HintPath>..\..\packages\test\FSharp.Core\lib\netstandard1.6\FSharp.Core.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -110,7 +110,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v1.2')">
       <ItemGroup>
         <Reference Include="System.Collections">
-          <HintPath>..\..\packages\app\System.Collections\ref\netstandard1.0\System.Collections.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Collections\ref\netstandard1.0\System.Collections.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -119,7 +119,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.3' Or $(TargetFrameworkVersion) == 'v1.4' Or $(TargetFrameworkVersion) == 'v1.5' Or $(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Collections">
-          <HintPath>..\..\packages\app\System.Collections\ref\netstandard1.3\System.Collections.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Collections\ref\netstandard1.3\System.Collections.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -130,7 +130,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid' And ($(TargetFrameworkVersion) == 'v7.0' Or $(TargetFrameworkVersion) == 'v7.1'))">
       <ItemGroup>
         <Reference Include="System.Collections.Concurrent">
-          <HintPath>..\..\packages\app\System.Collections.Concurrent\lib\netstandard1.3\System.Collections.Concurrent.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Collections.Concurrent\lib\netstandard1.3\System.Collections.Concurrent.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -139,7 +139,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Collections.Concurrent">
-          <HintPath>..\..\packages\app\System.Collections.Concurrent\ref\netstandard1.3\System.Collections.Concurrent.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Collections.Concurrent\ref\netstandard1.3\System.Collections.Concurrent.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -150,7 +150,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Console">
-          <HintPath>..\..\packages\app\System.Console\ref\netstandard1.3\System.Console.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Console\ref\netstandard1.3\System.Console.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -161,7 +161,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v1.2')">
       <ItemGroup>
         <Reference Include="System.Diagnostics.Debug">
-          <HintPath>..\..\packages\app\System.Diagnostics.Debug\ref\netstandard1.0\System.Diagnostics.Debug.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Diagnostics.Debug\ref\netstandard1.0\System.Diagnostics.Debug.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -170,7 +170,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.3' Or $(TargetFrameworkVersion) == 'v1.4' Or $(TargetFrameworkVersion) == 'v1.5' Or $(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Diagnostics.Debug">
-          <HintPath>..\..\packages\app\System.Diagnostics.Debug\ref\netstandard1.3\System.Diagnostics.Debug.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Diagnostics.Debug\ref\netstandard1.3\System.Diagnostics.Debug.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -181,7 +181,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid' And ($(TargetFrameworkVersion) == 'v7.0' Or $(TargetFrameworkVersion) == 'v7.1')) Or ($(TargetFrameworkIdentifier) == 'Xamarin.tvOS') Or ($(TargetFrameworkIdentifier) == 'Xamarin.watchOS')">
       <ItemGroup>
         <Reference Include="System.Diagnostics.DiagnosticSource">
-          <HintPath>..\..\packages\app\System.Diagnostics.DiagnosticSource\lib\netstandard1.3\System.Diagnostics.DiagnosticSource.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Diagnostics.DiagnosticSource\lib\netstandard1.3\System.Diagnostics.DiagnosticSource.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -192,7 +192,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Diagnostics.Tools">
-          <HintPath>..\..\packages\app\System.Diagnostics.Tools\ref\netstandard1.0\System.Diagnostics.Tools.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Diagnostics.Tools\ref\netstandard1.0\System.Diagnostics.Tools.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -203,7 +203,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.3' Or $(TargetFrameworkVersion) == 'v1.4')">
       <ItemGroup>
         <Reference Include="System.Diagnostics.Tracing">
-          <HintPath>..\..\packages\app\System.Diagnostics.Tracing\ref\netstandard1.3\System.Diagnostics.Tracing.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Diagnostics.Tracing\ref\netstandard1.3\System.Diagnostics.Tracing.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -212,7 +212,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.5' Or $(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Diagnostics.Tracing">
-          <HintPath>..\..\packages\app\System.Diagnostics.Tracing\ref\netstandard1.5\System.Diagnostics.Tracing.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Diagnostics.Tracing\ref\netstandard1.5\System.Diagnostics.Tracing.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -223,7 +223,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v1.2')">
       <ItemGroup>
         <Reference Include="System.Globalization">
-          <HintPath>..\..\packages\app\System.Globalization\ref\netstandard1.0\System.Globalization.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Globalization\ref\netstandard1.0\System.Globalization.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -232,7 +232,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.3' Or $(TargetFrameworkVersion) == 'v1.4' Or $(TargetFrameworkVersion) == 'v1.5' Or $(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Globalization">
-          <HintPath>..\..\packages\app\System.Globalization\ref\netstandard1.3\System.Globalization.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Globalization\ref\netstandard1.3\System.Globalization.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -243,7 +243,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Globalization.Calendars">
-          <HintPath>..\..\packages\app\System.Globalization.Calendars\ref\netstandard1.3\System.Globalization.Calendars.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Globalization.Calendars\ref\netstandard1.3\System.Globalization.Calendars.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -254,7 +254,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Globalization.Extensions">
-          <HintPath>..\..\packages\app\System.Globalization.Extensions\ref\netstandard1.3\System.Globalization.Extensions.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Globalization.Extensions\ref\netstandard1.3\System.Globalization.Extensions.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -265,7 +265,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v1.2')">
       <ItemGroup>
         <Reference Include="System.IO">
-          <HintPath>..\..\packages\app\System.IO\ref\netstandard1.0\System.IO.dll</HintPath>
+          <HintPath>..\..\packages\test\System.IO\ref\netstandard1.0\System.IO.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -274,7 +274,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.3' Or $(TargetFrameworkVersion) == 'v1.4')">
       <ItemGroup>
         <Reference Include="System.IO">
-          <HintPath>..\..\packages\app\System.IO\ref\netstandard1.3\System.IO.dll</HintPath>
+          <HintPath>..\..\packages\test\System.IO\ref\netstandard1.3\System.IO.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -283,7 +283,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.5' Or $(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.IO">
-          <HintPath>..\..\packages\app\System.IO\ref\netstandard1.5\System.IO.dll</HintPath>
+          <HintPath>..\..\packages\test\System.IO\ref\netstandard1.5\System.IO.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -294,7 +294,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.IO.FileSystem">
-          <HintPath>..\..\packages\app\System.IO.FileSystem\ref\netstandard1.3\System.IO.FileSystem.dll</HintPath>
+          <HintPath>..\..\packages\test\System.IO.FileSystem\ref\netstandard1.3\System.IO.FileSystem.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -305,7 +305,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid' And ($(TargetFrameworkVersion) == 'v7.0' Or $(TargetFrameworkVersion) == 'v7.1'))">
       <ItemGroup>
         <Reference Include="System.IO.FileSystem.Primitives">
-          <HintPath>..\..\packages\app\System.IO.FileSystem.Primitives\lib\netstandard1.3\System.IO.FileSystem.Primitives.dll</HintPath>
+          <HintPath>..\..\packages\test\System.IO.FileSystem.Primitives\lib\netstandard1.3\System.IO.FileSystem.Primitives.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -314,7 +314,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.IO.FileSystem.Primitives">
-          <HintPath>..\..\packages\app\System.IO.FileSystem.Primitives\ref\netstandard1.3\System.IO.FileSystem.Primitives.dll</HintPath>
+          <HintPath>..\..\packages\test\System.IO.FileSystem.Primitives\ref\netstandard1.3\System.IO.FileSystem.Primitives.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -325,7 +325,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v1.2' Or $(TargetFrameworkVersion) == 'v1.3' Or $(TargetFrameworkVersion) == 'v1.4' Or $(TargetFrameworkVersion) == 'v1.5')">
       <ItemGroup>
         <Reference Include="System.Linq">
-          <HintPath>..\..\packages\app\System.Linq\ref\netstandard1.0\System.Linq.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Linq\ref\netstandard1.0\System.Linq.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -334,7 +334,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid' And ($(TargetFrameworkVersion) == 'v7.0' Or $(TargetFrameworkVersion) == 'v7.1'))">
       <ItemGroup>
         <Reference Include="System.Linq">
-          <HintPath>..\..\packages\app\System.Linq\lib\netstandard1.6\System.Linq.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Linq\lib\netstandard1.6\System.Linq.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -343,7 +343,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Linq">
-          <HintPath>..\..\packages\app\System.Linq\ref\netstandard1.6\System.Linq.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Linq\ref\netstandard1.6\System.Linq.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -354,7 +354,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid' And ($(TargetFrameworkVersion) == 'v7.0' Or $(TargetFrameworkVersion) == 'v7.1'))">
       <ItemGroup>
         <Reference Include="System.Linq.Expressions">
-          <HintPath>..\..\packages\app\System.Linq.Expressions\lib\netstandard1.6\System.Linq.Expressions.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Linq.Expressions\lib\netstandard1.6\System.Linq.Expressions.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -363,7 +363,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Linq.Expressions">
-          <HintPath>..\..\packages\app\System.Linq.Expressions\ref\netstandard1.6\System.Linq.Expressions.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Linq.Expressions\ref\netstandard1.6\System.Linq.Expressions.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -374,7 +374,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Linq.Queryable">
-          <HintPath>..\..\packages\app\System.Linq.Queryable\ref\netstandard1.0\System.Linq.Queryable.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Linq.Queryable\ref\netstandard1.0\System.Linq.Queryable.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -383,7 +383,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid' And ($(TargetFrameworkVersion) == 'v7.0' Or $(TargetFrameworkVersion) == 'v7.1'))">
       <ItemGroup>
         <Reference Include="System.Linq.Queryable">
-          <HintPath>..\..\packages\app\System.Linq.Queryable\lib\netstandard1.3\System.Linq.Queryable.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Linq.Queryable\lib\netstandard1.3\System.Linq.Queryable.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -415,7 +415,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Net.Http">
-          <HintPath>..\..\packages\app\System.Net.Http\ref\netstandard1.3\System.Net.Http.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Net.Http\ref\netstandard1.3\System.Net.Http.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -447,7 +447,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Net.Primitives">
-          <HintPath>..\..\packages\app\System.Net.Primitives\ref\netstandard1.3\System.Net.Primitives.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Net.Primitives\ref\netstandard1.3\System.Net.Primitives.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -458,7 +458,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Net.Requests">
-          <HintPath>..\..\packages\app\System.Net.Requests\ref\netstandard1.3\System.Net.Requests.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Net.Requests\ref\netstandard1.3\System.Net.Requests.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -469,7 +469,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid' And ($(TargetFrameworkVersion) == 'v7.0' Or $(TargetFrameworkVersion) == 'v7.1'))">
       <ItemGroup>
         <Reference Include="System.Net.WebHeaderCollection">
-          <HintPath>..\..\packages\app\System.Net.WebHeaderCollection\lib\netstandard1.3\System.Net.WebHeaderCollection.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Net.WebHeaderCollection\lib\netstandard1.3\System.Net.WebHeaderCollection.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -478,7 +478,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Net.WebHeaderCollection">
-          <HintPath>..\..\packages\app\System.Net.WebHeaderCollection\ref\netstandard1.3\System.Net.WebHeaderCollection.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Net.WebHeaderCollection\ref\netstandard1.3\System.Net.WebHeaderCollection.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -489,7 +489,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid' And ($(TargetFrameworkVersion) == 'v7.0' Or $(TargetFrameworkVersion) == 'v7.1'))">
       <ItemGroup>
         <Reference Include="System.ObjectModel">
-          <HintPath>..\..\packages\app\System.ObjectModel\lib\netstandard1.3\System.ObjectModel.dll</HintPath>
+          <HintPath>..\..\packages\test\System.ObjectModel\lib\netstandard1.3\System.ObjectModel.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -498,7 +498,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.ObjectModel">
-          <HintPath>..\..\packages\app\System.ObjectModel\ref\netstandard1.3\System.ObjectModel.dll</HintPath>
+          <HintPath>..\..\packages\test\System.ObjectModel\ref\netstandard1.3\System.ObjectModel.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -509,7 +509,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v1.2')">
       <ItemGroup>
         <Reference Include="System.Reflection">
-          <HintPath>..\..\packages\app\System.Reflection\ref\netstandard1.0\System.Reflection.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Reflection\ref\netstandard1.0\System.Reflection.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -518,7 +518,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.3' Or $(TargetFrameworkVersion) == 'v1.4')">
       <ItemGroup>
         <Reference Include="System.Reflection">
-          <HintPath>..\..\packages\app\System.Reflection\ref\netstandard1.3\System.Reflection.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Reflection\ref\netstandard1.3\System.Reflection.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -527,7 +527,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.5' Or $(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Reflection">
-          <HintPath>..\..\packages\app\System.Reflection\ref\netstandard1.5\System.Reflection.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Reflection\ref\netstandard1.5\System.Reflection.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -538,7 +538,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.4' Or $(TargetFrameworkVersion) == 'v1.5' Or $(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Reflection.Emit">
-          <HintPath>..\..\packages\app\System.Reflection.Emit\ref\netstandard1.1\System.Reflection.Emit.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Reflection.Emit\ref\netstandard1.1\System.Reflection.Emit.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -547,7 +547,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCore' And $(TargetFrameworkVersion) == 'v5.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.4' Or $(TargetFrameworkVersion) == 'v1.5' Or $(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid' And ($(TargetFrameworkVersion) == 'v7.0' Or $(TargetFrameworkVersion) == 'v7.1'))">
       <ItemGroup>
         <Reference Include="System.Reflection.Emit">
-          <HintPath>..\..\packages\app\System.Reflection.Emit\lib\netstandard1.3\System.Reflection.Emit.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Reflection.Emit\lib\netstandard1.3\System.Reflection.Emit.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -558,7 +558,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.4' Or $(TargetFrameworkVersion) == 'v1.5' Or $(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Reflection.Emit.ILGeneration">
-          <HintPath>..\..\packages\app\System.Reflection.Emit.ILGeneration\ref\netstandard1.0\System.Reflection.Emit.ILGeneration.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Reflection.Emit.ILGeneration\ref\netstandard1.0\System.Reflection.Emit.ILGeneration.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -567,7 +567,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCore' And $(TargetFrameworkVersion) == 'v5.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.4' Or $(TargetFrameworkVersion) == 'v1.5' Or $(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid' And ($(TargetFrameworkVersion) == 'v7.0' Or $(TargetFrameworkVersion) == 'v7.1'))">
       <ItemGroup>
         <Reference Include="System.Reflection.Emit.ILGeneration">
-          <HintPath>..\..\packages\app\System.Reflection.Emit.ILGeneration\lib\netstandard1.3\System.Reflection.Emit.ILGeneration.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Reflection.Emit.ILGeneration\lib\netstandard1.3\System.Reflection.Emit.ILGeneration.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -578,7 +578,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.4' Or $(TargetFrameworkVersion) == 'v1.5' Or $(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Reflection.Emit.Lightweight">
-          <HintPath>..\..\packages\app\System.Reflection.Emit.Lightweight\ref\netstandard1.0\System.Reflection.Emit.Lightweight.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Reflection.Emit.Lightweight\ref\netstandard1.0\System.Reflection.Emit.Lightweight.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -587,7 +587,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETCore' And $(TargetFrameworkVersion) == 'v5.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.4' Or $(TargetFrameworkVersion) == 'v1.5' Or $(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid' And ($(TargetFrameworkVersion) == 'v7.0' Or $(TargetFrameworkVersion) == 'v7.1'))">
       <ItemGroup>
         <Reference Include="System.Reflection.Emit.Lightweight">
-          <HintPath>..\..\packages\app\System.Reflection.Emit.Lightweight\lib\netstandard1.3\System.Reflection.Emit.Lightweight.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Reflection.Emit.Lightweight\lib\netstandard1.3\System.Reflection.Emit.Lightweight.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -598,7 +598,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v1.2' Or $(TargetFrameworkVersion) == 'v1.3' Or $(TargetFrameworkVersion) == 'v1.4' Or $(TargetFrameworkVersion) == 'v1.5' Or $(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Reflection.Extensions">
-          <HintPath>..\..\packages\app\System.Reflection.Extensions\ref\netstandard1.0\System.Reflection.Extensions.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Reflection.Extensions\ref\netstandard1.0\System.Reflection.Extensions.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -609,7 +609,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v1.2' Or $(TargetFrameworkVersion) == 'v1.3' Or $(TargetFrameworkVersion) == 'v1.4' Or $(TargetFrameworkVersion) == 'v1.5' Or $(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Reflection.Primitives">
-          <HintPath>..\..\packages\app\System.Reflection.Primitives\ref\netstandard1.0\System.Reflection.Primitives.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Reflection.Primitives\ref\netstandard1.0\System.Reflection.Primitives.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -620,7 +620,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid' And ($(TargetFrameworkVersion) == 'v7.0' Or $(TargetFrameworkVersion) == 'v7.1'))">
       <ItemGroup>
         <Reference Include="System.Reflection.TypeExtensions">
-          <HintPath>..\..\packages\app\System.Reflection.TypeExtensions\lib\netstandard1.5\System.Reflection.TypeExtensions.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Reflection.TypeExtensions\lib\netstandard1.5\System.Reflection.TypeExtensions.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -629,7 +629,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Reflection.TypeExtensions">
-          <HintPath>..\..\packages\app\System.Reflection.TypeExtensions\ref\netstandard1.5\System.Reflection.TypeExtensions.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Reflection.TypeExtensions\ref\netstandard1.5\System.Reflection.TypeExtensions.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -640,7 +640,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v1.2' Or $(TargetFrameworkVersion) == 'v1.3' Or $(TargetFrameworkVersion) == 'v1.4' Or $(TargetFrameworkVersion) == 'v1.5' Or $(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Resources.ResourceManager">
-          <HintPath>..\..\packages\app\System.Resources.ResourceManager\ref\netstandard1.0\System.Resources.ResourceManager.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Resources.ResourceManager\ref\netstandard1.0\System.Resources.ResourceManager.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -651,7 +651,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1')">
       <ItemGroup>
         <Reference Include="System.Runtime">
-          <HintPath>..\..\packages\app\System.Runtime\ref\netstandard1.0\System.Runtime.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Runtime\ref\netstandard1.0\System.Runtime.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -660,7 +660,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v1.2'">
       <ItemGroup>
         <Reference Include="System.Runtime">
-          <HintPath>..\..\packages\app\System.Runtime\ref\netstandard1.2\System.Runtime.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Runtime\ref\netstandard1.2\System.Runtime.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -669,7 +669,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.3' Or $(TargetFrameworkVersion) == 'v1.4')">
       <ItemGroup>
         <Reference Include="System.Runtime">
-          <HintPath>..\..\packages\app\System.Runtime\ref\netstandard1.3\System.Runtime.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Runtime\ref\netstandard1.3\System.Runtime.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -678,7 +678,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.5' Or $(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Runtime">
-          <HintPath>..\..\packages\app\System.Runtime\ref\netstandard1.5\System.Runtime.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Runtime\ref\netstandard1.5\System.Runtime.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -689,7 +689,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v1.2')">
       <ItemGroup>
         <Reference Include="System.Runtime.Extensions">
-          <HintPath>..\..\packages\app\System.Runtime.Extensions\ref\netstandard1.0\System.Runtime.Extensions.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Runtime.Extensions\ref\netstandard1.0\System.Runtime.Extensions.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -698,7 +698,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.3' Or $(TargetFrameworkVersion) == 'v1.4')">
       <ItemGroup>
         <Reference Include="System.Runtime.Extensions">
-          <HintPath>..\..\packages\app\System.Runtime.Extensions\ref\netstandard1.3\System.Runtime.Extensions.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Runtime.Extensions\ref\netstandard1.3\System.Runtime.Extensions.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -707,7 +707,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.5' Or $(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Runtime.Extensions">
-          <HintPath>..\..\packages\app\System.Runtime.Extensions\ref\netstandard1.5\System.Runtime.Extensions.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Runtime.Extensions\ref\netstandard1.5\System.Runtime.Extensions.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -718,7 +718,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.3' Or $(TargetFrameworkVersion) == 'v1.4' Or $(TargetFrameworkVersion) == 'v1.5' Or $(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Runtime.Handles">
-          <HintPath>..\..\packages\app\System.Runtime.Handles\ref\netstandard1.3\System.Runtime.Handles.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Runtime.Handles\ref\netstandard1.3\System.Runtime.Handles.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -729,7 +729,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Runtime.InteropServices">
-          <HintPath>..\..\packages\app\System.Runtime.InteropServices\ref\netcoreapp1.1\System.Runtime.InteropServices.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Runtime.InteropServices\ref\netcoreapp1.1\System.Runtime.InteropServices.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -738,7 +738,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v1.1'">
       <ItemGroup>
         <Reference Include="System.Runtime.InteropServices">
-          <HintPath>..\..\packages\app\System.Runtime.InteropServices\ref\netstandard1.1\System.Runtime.InteropServices.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Runtime.InteropServices\ref\netstandard1.1\System.Runtime.InteropServices.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -747,7 +747,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v1.2'">
       <ItemGroup>
         <Reference Include="System.Runtime.InteropServices">
-          <HintPath>..\..\packages\app\System.Runtime.InteropServices\ref\netstandard1.2\System.Runtime.InteropServices.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Runtime.InteropServices\ref\netstandard1.2\System.Runtime.InteropServices.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -756,7 +756,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.3' Or $(TargetFrameworkVersion) == 'v1.4')">
       <ItemGroup>
         <Reference Include="System.Runtime.InteropServices">
-          <HintPath>..\..\packages\app\System.Runtime.InteropServices\ref\netstandard1.3\System.Runtime.InteropServices.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Runtime.InteropServices\ref\netstandard1.3\System.Runtime.InteropServices.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -765,7 +765,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.5' Or $(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v1.0')">
       <ItemGroup>
         <Reference Include="System.Runtime.InteropServices">
-          <HintPath>..\..\packages\app\System.Runtime.InteropServices\ref\netstandard1.5\System.Runtime.InteropServices.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Runtime.InteropServices\ref\netstandard1.5\System.Runtime.InteropServices.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -776,7 +776,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Runtime.Numerics">
-          <HintPath>..\..\packages\app\System.Runtime.Numerics\ref\netstandard1.1\System.Runtime.Numerics.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Runtime.Numerics\ref\netstandard1.1\System.Runtime.Numerics.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -785,7 +785,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid' And ($(TargetFrameworkVersion) == 'v7.0' Or $(TargetFrameworkVersion) == 'v7.1'))">
       <ItemGroup>
         <Reference Include="System.Runtime.Numerics">
-          <HintPath>..\..\packages\app\System.Runtime.Numerics\lib\netstandard1.3\System.Runtime.Numerics.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Runtime.Numerics\lib\netstandard1.3\System.Runtime.Numerics.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -796,7 +796,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Security.Cryptography.Algorithms">
-          <HintPath>..\..\packages\app\System.Security.Cryptography.Algorithms\ref\netstandard1.6\System.Security.Cryptography.Algorithms.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Security.Cryptography.Algorithms\ref\netstandard1.6\System.Security.Cryptography.Algorithms.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -807,7 +807,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Security.Cryptography.Cng">
-          <HintPath>..\..\packages\app\System.Security.Cryptography.Cng\ref\netstandard1.6\System.Security.Cryptography.Cng.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Security.Cryptography.Cng\ref\netstandard1.6\System.Security.Cryptography.Cng.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -818,7 +818,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Security.Cryptography.Csp">
-          <HintPath>..\..\packages\app\System.Security.Cryptography.Csp\ref\netstandard1.3\System.Security.Cryptography.Csp.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Security.Cryptography.Csp\ref\netstandard1.3\System.Security.Cryptography.Csp.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -829,7 +829,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Security.Cryptography.Encoding">
-          <HintPath>..\..\packages\app\System.Security.Cryptography.Encoding\ref\netstandard1.3\System.Security.Cryptography.Encoding.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Security.Cryptography.Encoding\ref\netstandard1.3\System.Security.Cryptography.Encoding.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -840,7 +840,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid' And ($(TargetFrameworkVersion) == 'v7.0' Or $(TargetFrameworkVersion) == 'v7.1')) Or ($(TargetFrameworkIdentifier) == 'Xamarin.tvOS') Or ($(TargetFrameworkIdentifier) == 'Xamarin.watchOS')">
       <ItemGroup>
         <Reference Include="System.Security.Cryptography.OpenSsl">
-          <HintPath>..\..\packages\app\System.Security.Cryptography.OpenSsl\lib\netstandard1.6\System.Security.Cryptography.OpenSsl.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Security.Cryptography.OpenSsl\lib\netstandard1.6\System.Security.Cryptography.OpenSsl.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -849,7 +849,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Security.Cryptography.OpenSsl">
-          <HintPath>..\..\packages\app\System.Security.Cryptography.OpenSsl\ref\netstandard1.6\System.Security.Cryptography.OpenSsl.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Security.Cryptography.OpenSsl\ref\netstandard1.6\System.Security.Cryptography.OpenSsl.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -860,7 +860,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid' And ($(TargetFrameworkVersion) == 'v7.0' Or $(TargetFrameworkVersion) == 'v7.1'))">
       <ItemGroup>
         <Reference Include="System.Security.Cryptography.Primitives">
-          <HintPath>..\..\packages\app\System.Security.Cryptography.Primitives\lib\netstandard1.3\System.Security.Cryptography.Primitives.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Security.Cryptography.Primitives\lib\netstandard1.3\System.Security.Cryptography.Primitives.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -869,7 +869,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Security.Cryptography.Primitives">
-          <HintPath>..\..\packages\app\System.Security.Cryptography.Primitives\ref\netstandard1.3\System.Security.Cryptography.Primitives.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Security.Cryptography.Primitives\ref\netstandard1.3\System.Security.Cryptography.Primitives.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -880,7 +880,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Security.Cryptography.X509Certificates">
-          <HintPath>..\..\packages\app\System.Security.Cryptography.X509Certificates\ref\netstandard1.4\System.Security.Cryptography.X509Certificates.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Security.Cryptography.X509Certificates\ref\netstandard1.4\System.Security.Cryptography.X509Certificates.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -891,7 +891,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v1.2')">
       <ItemGroup>
         <Reference Include="System.Text.Encoding">
-          <HintPath>..\..\packages\app\System.Text.Encoding\ref\netstandard1.0\System.Text.Encoding.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Text.Encoding\ref\netstandard1.0\System.Text.Encoding.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -900,7 +900,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.3' Or $(TargetFrameworkVersion) == 'v1.4' Or $(TargetFrameworkVersion) == 'v1.5' Or $(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Text.Encoding">
-          <HintPath>..\..\packages\app\System.Text.Encoding\ref\netstandard1.3\System.Text.Encoding.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Text.Encoding\ref\netstandard1.3\System.Text.Encoding.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -911,7 +911,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="System.Text.RegularExpressions">
-          <HintPath>..\..\packages\app\System.Text.RegularExpressions\ref\netcoreapp1.1\System.Text.RegularExpressions.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Text.RegularExpressions\ref\netcoreapp1.1\System.Text.RegularExpressions.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -920,7 +920,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid' And ($(TargetFrameworkVersion) == 'v7.0' Or $(TargetFrameworkVersion) == 'v7.1'))">
       <ItemGroup>
         <Reference Include="System.Text.RegularExpressions">
-          <HintPath>..\..\packages\app\System.Text.RegularExpressions\lib\netstandard1.6\System.Text.RegularExpressions.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Text.RegularExpressions\lib\netstandard1.6\System.Text.RegularExpressions.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -929,7 +929,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v1.0')">
       <ItemGroup>
         <Reference Include="System.Text.RegularExpressions">
-          <HintPath>..\..\packages\app\System.Text.RegularExpressions\ref\netstandard1.6\System.Text.RegularExpressions.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Text.RegularExpressions\ref\netstandard1.6\System.Text.RegularExpressions.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -940,7 +940,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v1.2')">
       <ItemGroup>
         <Reference Include="System.Threading">
-          <HintPath>..\..\packages\app\System.Threading\ref\netstandard1.0\System.Threading.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Threading\ref\netstandard1.0\System.Threading.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -949,7 +949,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.3' Or $(TargetFrameworkVersion) == 'v1.4' Or $(TargetFrameworkVersion) == 'v1.5' Or $(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid' And ($(TargetFrameworkVersion) == 'v7.0' Or $(TargetFrameworkVersion) == 'v7.1'))">
       <ItemGroup>
         <Reference Include="System.Threading">
-          <HintPath>..\..\packages\app\System.Threading\lib\netstandard1.3\System.Threading.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Threading\lib\netstandard1.3\System.Threading.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -958,7 +958,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.3' Or $(TargetFrameworkVersion) == 'v1.4' Or $(TargetFrameworkVersion) == 'v1.5' Or $(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Threading">
-          <HintPath>..\..\packages\app\System.Threading\ref\netstandard1.3\System.Threading.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Threading\ref\netstandard1.3\System.Threading.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -969,7 +969,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v1.2')">
       <ItemGroup>
         <Reference Include="System.Threading.Tasks">
-          <HintPath>..\..\packages\app\System.Threading.Tasks\ref\netstandard1.0\System.Threading.Tasks.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Threading.Tasks\ref\netstandard1.0\System.Threading.Tasks.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -978,7 +978,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.3' Or $(TargetFrameworkVersion) == 'v1.4' Or $(TargetFrameworkVersion) == 'v1.5' Or $(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Threading.Tasks">
-          <HintPath>..\..\packages\app\System.Threading.Tasks\ref\netstandard1.3\System.Threading.Tasks.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Threading.Tasks\ref\netstandard1.3\System.Threading.Tasks.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -989,7 +989,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Threading.Tasks.Parallel">
-          <HintPath>..\..\packages\app\System.Threading.Tasks.Parallel\ref\netstandard1.1\System.Threading.Tasks.Parallel.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Threading.Tasks.Parallel\ref\netstandard1.1\System.Threading.Tasks.Parallel.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -998,7 +998,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid' And ($(TargetFrameworkVersion) == 'v7.0' Or $(TargetFrameworkVersion) == 'v7.1'))">
       <ItemGroup>
         <Reference Include="System.Threading.Tasks.Parallel">
-          <HintPath>..\..\packages\app\System.Threading.Tasks.Parallel\lib\netstandard1.3\System.Threading.Tasks.Parallel.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Threading.Tasks.Parallel\lib\netstandard1.3\System.Threading.Tasks.Parallel.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1009,7 +1009,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid' And ($(TargetFrameworkVersion) == 'v7.0' Or $(TargetFrameworkVersion) == 'v7.1'))">
       <ItemGroup>
         <Reference Include="System.Threading.Thread">
-          <HintPath>..\..\packages\app\System.Threading.Thread\lib\netstandard1.3\System.Threading.Thread.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Threading.Thread\lib\netstandard1.3\System.Threading.Thread.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1018,7 +1018,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Threading.Thread">
-          <HintPath>..\..\packages\app\System.Threading.Thread\ref\netstandard1.3\System.Threading.Thread.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Threading.Thread\ref\netstandard1.3\System.Threading.Thread.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1029,7 +1029,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid' And ($(TargetFrameworkVersion) == 'v7.0' Or $(TargetFrameworkVersion) == 'v7.1'))">
       <ItemGroup>
         <Reference Include="System.Threading.ThreadPool">
-          <HintPath>..\..\packages\app\System.Threading.ThreadPool\lib\netstandard1.3\System.Threading.ThreadPool.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Threading.ThreadPool\lib\netstandard1.3\System.Threading.ThreadPool.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1038,7 +1038,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Threading.ThreadPool">
-          <HintPath>..\..\packages\app\System.Threading.ThreadPool\ref\netstandard1.3\System.Threading.ThreadPool.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Threading.ThreadPool\ref\netstandard1.3\System.Threading.ThreadPool.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>
@@ -1049,7 +1049,7 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETStandard' And ($(TargetFrameworkVersion) == 'v1.6' Or $(TargetFrameworkVersion) == 'v2.0')) Or ($(TargetFrameworkIdentifier) == '.NETCoreApp' And ($(TargetFrameworkVersion) == 'v1.0' Or $(TargetFrameworkVersion) == 'v1.1' Or $(TargetFrameworkVersion) == 'v2.0'))">
       <ItemGroup>
         <Reference Include="System.Threading.Timer">
-          <HintPath>..\..\packages\app\System.Threading.Timer\ref\netstandard1.2\System.Threading.Timer.dll</HintPath>
+          <HintPath>..\..\packages\test\System.Threading.Timer\ref\netstandard1.2\System.Threading.Timer.dll</HintPath>
           <Private>False</Private>
           <Paket>True</Paket>
         </Reference>

@@ -1,4 +1,4 @@
-﻿group App
+﻿group Test
 FSharp.Core
 FSharp.Compiler.Service
 MessagePack

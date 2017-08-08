@@ -1,5 +1,3 @@
-group App
-FSharp.Core
-
 group Test
+FSharp.Core
 System.ValueTuple

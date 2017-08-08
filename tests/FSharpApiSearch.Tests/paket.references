@@ -1,8 +1,6 @@
-group App
+group Test
 FSharp.Core
 FSharp.Compiler.Service
-
-group Test
 Persimmon
 Persimmon.Console
 Persimmon.MuscleAssert
