@@ -81,7 +81,7 @@ let dotNetApiBrowserTest = parameterize {
     // 13
     mscorlibApi, "System.Progress<'T>.new" , "unit -> Progress<'T>" , Some "system.progress-1.-ctor?view=netframework-4.7#System_Progress_1__ctor"
     // 14
-    mscorlibApi, "System.String.Join<'T>", "separator:string * values:IEnumerable<'T> -> string", Some "system.string.join--1?view=netframework-4.7#System_String_Join__1_System_String_System_Collections_Generic_IEnumerable___0__"
+    mscorlibApi, "System.String.Join<'T>", "separator:string * values:IEnumerable<'T> -> string", Some "system.string.join?view=netframework-4.7#System_String_Join__1_System_String_System_Collections_Generic_IEnumerable___0__"
     // 15
     mscorlibApi, "System.String.Join", "separator:string * values:IEnumerable<string> -> string", Some "system.string.join?view=netframework-4.7#System_String_Join_System_String_System_Collections_Generic_IEnumerable_System_String__"
     // 16
@@ -95,11 +95,11 @@ let dotNetApiBrowserTest = parameterize {
     // 20
     mscorlibApi, "System.Security.Claims.ClaimsIdentity.new", "identity:IIdentity * claims:IEnumerable<Claim> -> ClaimsIdentity", Some "system.security.claims.claimsidentity.-ctor?view=netframework-4.7#System_Security_Claims_ClaimsIdentity__ctor_System_Security_Principal_IIdentity_System_Collections_Generic_IEnumerable_System_Security_Claims_Claim__"
     // 21
-    systemCoreApi, "System.Linq.ParallelEnumerable.Min<'TSource>", "source:ParallelQuery<'TSource> -> 'TSource", Some "system.linq.parallelenumerable.min--1?view=netframework-4.7#System_Linq_ParallelEnumerable_Min__1_System_Linq_ParallelQuery___0__"
+    systemCoreApi, "System.Linq.ParallelEnumerable.Min<'TSource>", "source:ParallelQuery<'TSource> -> 'TSource", Some "system.linq.parallelenumerable.min?view=netframework-4.7#System_Linq_ParallelEnumerable_Min__1_System_Linq_ParallelQuery___0__"
     // 22
     systemCoreApi, "System.Linq.ParallelEnumerable.Max", "source:ParallelQuery<int> -> int", Some "system.linq.parallelenumerable.max?view=netframework-4.7#System_Linq_ParallelEnumerable_Max_System_Linq_ParallelQuery_System_Int32__"
     // 23
-    mscorlibApi, "System.Array.ConvertAll<'TInput, 'TOutput>", "array:'TInput[] * converter:Converter<'TInput, 'TOutput> -> 'TOutput[]", Some "system.array.convertall--2?view=netframework-4.7#System_Array_ConvertAll__2___0___System_Converter___0___1__"
+    mscorlibApi, "System.Array.ConvertAll<'TInput, 'TOutput>", "array:'TInput[] * converter:Converter<'TInput, 'TOutput> -> 'TOutput[]", Some "system.array.convertall?view=netframework-4.7#System_Array_ConvertAll__2___0___System_Converter___0___1__"
     // 24
     systemCoreApi, "System.Collections.Generic.HashSet<'T>.IsSubsetOf", "other:IEnumerable<'T> -> bool", Some "system.collections.generic.hashset-1.issubsetof?view=netframework-4.7#System_Collections_Generic_HashSet_1_IsSubsetOf_System_Collections_Generic_IEnumerable__0__"
     // 25
@@ -107,9 +107,9 @@ let dotNetApiBrowserTest = parameterize {
     // 26
     mscorlibApi, "System.Diagnostics.Tracing.EventSource.SendCommand", "eventSource:EventSource * command:EventCommand * commandArguments:IDictionary<string, string> -> unit", Some "system.diagnostics.tracing.eventsource.sendcommand?view=netframework-4.7#System_Diagnostics_Tracing_EventSource_SendCommand_System_Diagnostics_Tracing_EventSource_System_Diagnostics_Tracing_EventCommand_System_Collections_Generic_IDictionary_System_String_System_String__"
     // 27
-    mscorlibApi, "System.Collections.Generic.List<'T>.ConvertAll<'TOutput>", "converter:Converter<'T, 'TOutput> -> List<'TOutput>", Some "system.collections.generic.list-1.convertall--1?view=netframework-4.7#System_Collections_Generic_List_1_ConvertAll__1_System_Converter__0___0__"
+    mscorlibApi, "System.Collections.Generic.List<'T>.ConvertAll<'TOutput>", "converter:Converter<'T, 'TOutput> -> List<'TOutput>", Some "system.collections.generic.list-1.convertall?view=netframework-4.7#System_Collections_Generic_List_1_ConvertAll__1_System_Converter__0___0__"
     // 28
-    systemCoreApi, "System.Linq.Queryable.Aggregate<'TSource, 'TAccumulate>" ,"source:IQueryable<'TSource> * seed:'TAccumulate * func:Expression<Func<'TAccumulate, 'TSource, 'TAccumulate>> -> 'TAccumulate", Some "system.linq.queryable.aggregate--2?view=netframework-4.7#System_Linq_Queryable_Aggregate__2_System_Linq_IQueryable___0____1_System_Linq_Expressions_Expression_System_Func___1___0___1___"
+    systemCoreApi, "System.Linq.Queryable.Aggregate<'TSource, 'TAccumulate>" ,"source:IQueryable<'TSource> * seed:'TAccumulate * func:Expression<Func<'TAccumulate, 'TSource, 'TAccumulate>> -> 'TAccumulate", Some "system.linq.queryable.aggregate?view=netframework-4.7#System_Linq_Queryable_Aggregate__2_System_Linq_IQueryable___0____1_System_Linq_Expressions_Expression_System_Func___1___0___1___"
     // 29
     systemCoreApi, "System.IO.Pipes.PipeAccessRule", "type PipeAccessRule", Some "system.io.pipes.pipeaccessrule?view=netframework-4.7"
     // 30
@@ -131,7 +131,7 @@ let dotNetApiBrowserTest = parameterize {
         Some "system.collections.generic.hashset-1.getobjectdata?view=netframework-4.7#System_Collections_Generic_HashSet_1_GetObjectData_System_Runtime_Serialization_SerializationInfo_System_Runtime_Serialization_StreamingContext_"
     // 38
     systemCoreApi, "System.Linq.Enumerable.Join<'TOuter, 'TInner, 'TKey, 'TResult>", "outer:IEnumerable<'TOuter> * inner:IEnumerable<'TInner> * outerKeySelector:Func<'TOuter, 'TKey> * innerKeySelector:Func<'TInner, 'TKey> * resultSelector:Func<'TOuter, 'TInner, 'TResult> * comparer:IEqualityComparer<'TKey> -> IEnumerable<'TResult>",
-        Some "system.linq.enumerable.join--4?view=netframework-4.7#System_Linq_Enumerable_Join__4_System_Collections_Generic_IEnumerable___0__System_Collections_Generic_IEnumerable___1__System_Func___0___2__System_Func___1___2__System_Func___0___1___3__System_Collections_Generic_IEqualityComparer___2__"
+        Some "system.linq.enumerable.join?view=netframework-4.7#System_Linq_Enumerable_Join__4_System_Collections_Generic_IEnumerable___0__System_Collections_Generic_IEnumerable___1__System_Func___0___2__System_Func___1___2__System_Func___0___1___3__System_Collections_Generic_IEqualityComparer___2__"
     // 39
     systemCoreApi, "System.IO.Pipes.PipeSecurity.new", "unit -> PipeSecurity", Some "system.io.pipes.pipesecurity.-ctor?view=netframework-4.7#System_IO_Pipes_PipeSecurity__ctor"
     // 40
@@ -142,14 +142,16 @@ let dotNetApiBrowserTest = parameterize {
         Some "system.linq.enumerablequery-1.-ctor?view=netframework-4.7#System_Linq_EnumerableQuery_1__ctor_System_Collections_Generic_IEnumerable__0__"
     // 42
     systemCoreApi, "System.Runtime.CompilerServices.CallSiteOps.MoveRule<'T>", "cache:RuleCache<'T> * rule:'T * i:int -> unit",
-        Some "system.runtime.compilerservices.callsiteops.moverule--1?view=netframework-4.7#System_Runtime_CompilerServices_CallSiteOps_MoveRule__1_System_Runtime_CompilerServices_RuleCache___0____0_System_Int32_"
+        Some "system.runtime.compilerservices.callsiteops.moverule?view=netframework-4.7#System_Runtime_CompilerServices_CallSiteOps_MoveRule__1_System_Runtime_CompilerServices_RuleCache___0____0_System_Int32_"
     // 43
     systemCoreApi, "System.Linq.Expressions.Expression.ListInit", "newExpression:NewExpression * initializers:IEnumerable<Expression> -> ListInitExpression",
         Some "system.linq.expressions.expression.listinit?view=netframework-4.7#System_Linq_Expressions_Expression_ListInit_System_Linq_Expressions_NewExpression_System_Collections_Generic_IEnumerable_System_Linq_Expressions_Expression__"
      // 44
     systemCoreApi, "System.Linq.Queryable.SelectMany<'TSource, 'TResult>", "source:IQueryable<'TSource> * selector:Expression<Func<'TSource, IEnumerable<'TResult>>> -> IQueryable<'TResult>", 
-        Some "system.linq.queryable.selectmany--2?view=netframework-4.7#System_Linq_Queryable_SelectMany__2_System_Linq_IQueryable___0__System_Linq_Expressions_Expression_System_Func___0_System_Collections_Generic_IEnumerable___1____"
-  ]
+        Some "system.linq.queryable.selectmany?view=netframework-4.7#System_Linq_Queryable_SelectMany__2_System_Linq_IQueryable___0__System_Linq_Expressions_Expression_System_Func___0_System_Collections_Generic_IEnumerable___1____"
+    //special
+    systemCoreApi, "System.Linq.Enumerable.SingleOrDefault<'TSource>", "source:IEnumerable<'TSource> -> 'TSource", Some "system.linq.enumerable.singleordefault?view=netframework-4.7#System_Linq_Enumerable_SingleOrDefault__1_System_Collections_Generic_IEnumerable___0__"
+    ]
   run (fun (dict, name, signature, expected) -> test {
     let! apiDict = dict
     let api = apiDict.Api |> Array.find (fun a -> a.Name.Print() = name && a.Signature.Print() = signature)

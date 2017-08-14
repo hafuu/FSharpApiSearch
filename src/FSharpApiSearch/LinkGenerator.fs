@@ -197,20 +197,34 @@ module LinkGenerator =
 
       let elems =
         let initState = false, []
-        [|
+        seq {
           match kind with
           | ApiKind.TypeDefinition ->
-            yield! name |> Seq.rev |> Seq.fold (convert "-") initState |> snd |> Seq.rev
+            yield! name |> Seq.rev |> Seq.fold (convert "_") initState |> snd |> Seq.rev
           | ApiKind.Constructor ->
+            yield! name.Tail |> Seq.rev |> Seq.fold (convert "_") initState |> snd |> Seq.rev
+            yield "_ctor"
+          | _ ->
+            yield! name.Tail |> Seq.rev |> Seq.fold (convert "_") initState |> snd |> Seq.rev
+            yield! convert "__" initState name.Head |> snd
+        }
+
+      let urlelems =
+        let initState = false, []
+        seq {
+          match kind, api.Signature with
+          | ApiKind.TypeDefinition, _ ->
+            yield! name |> Seq.rev |> Seq.fold (convert "-") initState |> snd |> Seq.rev
+          | ApiKind.Constructor, _ ->
             yield! name.Tail |> Seq.rev |> Seq.fold (convert "-") initState |> snd |> Seq.rev
             yield "-ctor"
           | _ ->
             yield! name.Tail |> Seq.rev |> Seq.fold (convert "-") initState |> snd |> Seq.rev
-            yield! convert "--" initState name.Head |> snd
-        |]
+            yield urlName name.Head
+        }
 
       let variableMemory = variableId kind name
-      elems, variableMemory
+      urlelems, elems, variableMemory
 
     let urlPart elems (sb: StringBuilder) =
       let elems = elems |> Seq.map toLower
@@ -240,9 +254,7 @@ module LinkGenerator =
       | [] | [ [ { Type = Unit } ] ] -> false
       | _ -> true
 
-    let hashPart (nameElems: string[]) (variableMemory: VariableMemory) (member': Member) (api: Api) (sb: StringBuilder) =
-      let nameElems = nameElems |> Seq.map (fun n -> n.Replace("-", "_"))
-      
+    let hashPart (nameElems: seq<string>) (variableMemory: VariableMemory) (member': Member) (api: Api) (sb: StringBuilder) =
       sb.AppendJoin("_", nameElems) |> ignore
 
       if hasParameter member' then
@@ -266,16 +278,16 @@ module LinkGenerator =
       | ApiSignature.UnionCase _ -> None
 
       | ApiSignature.FullTypeDefinition _ ->
-        let nameElems, _ = nameElementsAndVariableId api
-        let sb = StringBuilder().Append(urlPart nameElems).Append("?view=").Append(view)
+        let urlElems, _, _ = nameElementsAndVariableId api
+        let sb = StringBuilder().Append(urlPart urlElems).Append("?view=").Append(view)
         Some (string sb)
 
       | ApiSignature.ExtensionMember (member' : Member)
       | ApiSignature.Constructor (_ , (member' : Member))
       | ApiSignature.InstanceMember (_ , (member' : Member))
       | ApiSignature.StaticMember (_ ,(member' : Member)) ->
-        let nameElems, variableMemory = nameElementsAndVariableId api
-        let sb = StringBuilder().Append(urlPart nameElems).Append("?view=").Append(view).Append("#").Append(hashPart nameElems variableMemory member' api)
+        let urlElems, nameElems, variableMemory = nameElementsAndVariableId api
+        let sb = StringBuilder().Append(urlPart urlElems).Append("?view=").Append(view).Append("#").Append(hashPart nameElems variableMemory member' api)
         Some (string sb)
 
   module internal FParsec =
