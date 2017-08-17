@@ -238,6 +238,9 @@ module LinkGenerator =
         sb.AppendJoin("_", ns, (fun n sb -> sb.Append(urlName n)))
       | Array (_, elem) -> sb.Append(parameterElement api variableMemory elem).Append("__")
       | ByRef (_, arg) -> sb.Append(parameterElement api variableMemory arg).Append("_")
+      | Generic (Identity(FullIdentity{Name = DisplayName({Name = SymbolName("nativeptr")}::{Name = SymbolName("Core")}::{Name = SymbolName("FSharp")}::{Name = SymbolName("Microsoft")}::[])}), args) ->
+        sb.AppendJoin("_", args, (parameterElement api variableMemory))
+            .Append("_")
       | Generic (id, args) ->
         sb.Append(parameterElement api variableMemory id) |> ignore
         

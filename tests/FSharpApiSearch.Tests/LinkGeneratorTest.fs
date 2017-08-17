@@ -151,6 +151,7 @@ let dotNetApiBrowserTest = parameterize {
         Some "system.linq.queryable.selectmany?view=netframework-4.7#System_Linq_Queryable_SelectMany__2_System_Linq_IQueryable___0__System_Linq_Expressions_Expression_System_Func___0_System_Collections_Generic_IEnumerable___1____"
     //special
     systemCoreApi, "System.Linq.Enumerable.SingleOrDefault<'TSource>", "source:IEnumerable<'TSource> -> 'TSource", Some "system.linq.enumerable.singleordefault?view=netframework-4.7#System_Linq_Enumerable_SingleOrDefault__1_System_Collections_Generic_IEnumerable___0__"
+    mscorlibApi, "System.String.new", "value:nativeptr<char> -> String", Some "system.string.-ctor?view=netframework-4.7#System_String__ctor_System_Char__"
     ]
   run (fun (dict, name, signature, expected) -> test {
     let! apiDict = dict
