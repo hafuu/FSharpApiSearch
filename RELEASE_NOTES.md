@@ -1,3 +1,6 @@
+### 3.0.2
+* Fix the link generator of .Net Api Browser
+
 ### 3.0.1
 * Fix the link generator of .Net Api Browser
 
