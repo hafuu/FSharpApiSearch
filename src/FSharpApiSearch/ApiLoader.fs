@@ -5,6 +5,7 @@ open FSharpApiSearch.SpecialTypes
 open System.Text.RegularExpressions
 open System.IO
 open System.Collections.Generic
+open System.Xml
 open System.Xml.Linq
 open FSharp.Collections.ParallelSeq
 open MessagePack
@@ -921,14 +922,18 @@ module internal Impl =
       yield! collectFromNestedEntities xml typeName e
     }
 
-  let tryGetXml (assembly: FSharpAssembly) = option {
-    let! assemblyFileName = assembly.FileName
-    let xmlFileName = Path.ChangeExtension(assemblyFileName, "xml")
-    if File.Exists(xmlFileName) then
-      return XElement.Parse(File.ReadAllText(xmlFileName))
-    else
-      return! None
-  }
+  let tryGetXml (assembly: FSharpAssembly) =
+    assembly.FileName
+    |> Option.bind (fun assemblyFileName ->
+      let xmlFileName = Path.ChangeExtension(assemblyFileName, "xml")
+      try
+        if File.Exists(xmlFileName) then
+          Some (XElement.Parse(File.ReadAllText(xmlFileName)))
+        else
+          None
+      with
+        | :? XmlException -> None
+    )
 
   let typeDefsDict (xs: FullTypeDefinition seq) =
     let d =
