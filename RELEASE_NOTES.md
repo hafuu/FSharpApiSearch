@@ -1,3 +1,6 @@
+### 3.0.3
+* Ignore the invalid xml
+
 ### 3.0.2
 * Fix the link generator of .Net Api Browser
 

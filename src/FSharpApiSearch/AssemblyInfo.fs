@@ -5,8 +5,8 @@ open System.Reflection
 [<assembly: AssemblyTitleAttribute("FSharpApiSearch")>]
 [<assembly: AssemblyProductAttribute("FSharpApiSearch")>]
 [<assembly: AssemblyDescriptionAttribute("F# API search engine")>]
-[<assembly: AssemblyVersionAttribute("3.0.2")>]
-[<assembly: AssemblyFileVersionAttribute("3.0.2")>]
+[<assembly: AssemblyVersionAttribute("3.0.3")>]
+[<assembly: AssemblyFileVersionAttribute("3.0.3")>]
 [<assembly: AssemblyConfigurationAttribute("Release")>]
 do ()
 
@@ -14,6 +14,6 @@ module internal AssemblyVersionInformation =
     let [<Literal>] AssemblyTitle = "FSharpApiSearch"
     let [<Literal>] AssemblyProduct = "FSharpApiSearch"
     let [<Literal>] AssemblyDescription = "F# API search engine"
-    let [<Literal>] AssemblyVersion = "3.0.2"
-    let [<Literal>] AssemblyFileVersion = "3.0.2"
+    let [<Literal>] AssemblyVersion = "3.0.3"
+    let [<Literal>] AssemblyFileVersion = "3.0.3"
     let [<Literal>] AssemblyConfiguration = "Release"
