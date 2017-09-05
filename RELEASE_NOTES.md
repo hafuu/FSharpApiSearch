@@ -1,3 +1,6 @@
+### 3.0.4
+* Fix print bugs (generic method and generic type abbreviation)
+
 ### 3.0.3
 * Ignore the invalid xml
 
