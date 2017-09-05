@@ -140,16 +140,16 @@ module internal FSharpImpl =
       .Append("<")
       .AppendJoin(", ", args, (printLowType isDebug printIdentity))
       .Append(">")
+  and printArrowItem isDebug printIdentity (item: LowType) (sb: StringBuilder) =
+    match item with
+    | Arrow _ as a ->
+      sb.Append("(")
+        .Append(printLowType isDebug printIdentity a)
+        .Append(")")
+    | x -> sb.Append(printLowType isDebug printIdentity x)
   and printArrow isDebug printIdentity (arrow: Arrow) (sb: StringBuilder) =
-    let printItem lowType (sb: StringBuilder) =
-      match lowType with
-      | Arrow _ as a ->
-        sb.Append("(")
-          .Append(printLowType isDebug printIdentity a)
-          .Append(")")
-      | x -> sb.Append(printLowType isDebug printIdentity x)
     let ps, ret = arrow
-    sb.AppendJoin(" -> ", ps, printItem).Append(" -> ").Append(printItem ret)
+    sb.AppendJoin(" -> ", ps, printArrowItem isDebug printIdentity).Append(" -> ").Append(printArrowItem isDebug printIdentity ret)
   and printTuple isDebug printIdentity (xs: _ list) (sb: StringBuilder) =
     let printItem lowType (sb: StringBuilder) =
       match lowType with
@@ -215,7 +215,7 @@ module internal FSharpImpl =
     | _ ->
       sb.Append(printParameterGroups true isDebug m.Parameters)
         .Append(" -> ")
-        .Append(printLowType_short isDebug m.ReturnParameter.Type)
+        .Append(printArrowItem isDebug printIdentity_short m.ReturnParameter.Type)
 
   let printConstraint isDebug (c: TypeConstraint) (sb: StringBuilder) =
     let variableSource = VariableSource.Target

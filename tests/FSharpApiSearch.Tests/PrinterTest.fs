@@ -96,6 +96,7 @@ let printApiSignatureTest =
       instanceMember typeA memberParamArrayMethod, "[<ParamArray>]xs:int[] -> c"
       instanceMember typeA memberCurriedMethod, "'a -> b -> c"
       instanceMember typeA memberProperty, "a"
+      instanceMember typeA (method' "test" [ [ ptype unit ] ] (arrow [ typeA; typeA ])), "unit -> (a -> a)"
       staticMember typeA memberMethod, "'a * b -> c"
       staticMember typeA memberProperty, "a"
 
