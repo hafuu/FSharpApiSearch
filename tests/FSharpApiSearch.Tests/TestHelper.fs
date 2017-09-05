@@ -117,7 +117,10 @@ module DSL =
   let activePattern xs = ApiSignature.ActivePatten (ActivePatternKind.ActivePattern, createFunction xs)
   let partialActivePattern xs = ApiSignature.ActivePatten (ActivePatternKind.PartialActivePattern, createFunction xs)
 
-  let typeExtension existingType declaration modifier member' = ApiSignature.TypeExtension { ExistingType = existingType; Declaration = declaration; MemberModifier = modifier; Member = member' }
+  let typeExtension existingType declaration modifier member' =
+    let genericParams = memberGenericParameters existingType member'
+    let m = { member' with GenericParameters = genericParams }
+    ApiSignature.TypeExtension { ExistingType = existingType; Declaration = declaration; MemberModifier = modifier; Member = m }
   let extensionMember member' = ApiSignature.ExtensionMember member'
 
   let unionCase declaration name fields =

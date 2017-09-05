@@ -132,7 +132,7 @@ module internal Impl =
           compiledNameOfProperty this
         else
           compiledName this
-      let genericParameters = this.GenericParameters |> Seq.map (fun p -> p.TypeVariable) |> Seq.toList
+      let genericParameters = this.GenericParametersAsTypeVariable
       let isOperator =
         displayName.StartsWith("(") && displayName.EndsWith(")") && compiledName.StartsWith("op_")
       if isOperator then
@@ -445,8 +445,12 @@ module internal Impl =
         let memberAssemblyName = x.LogicalEnclosingEntity.Assembly.SimpleName
         let memberTypeName = x.LogicalEnclosingEntity.FullName
         let memberName =
-          let name = member'.Name
-          { Name = SymbolName name; GenericParameters = [] }
+          let name = x.GetDisplayName
+          let genericParameters =
+            let memberGenericParameters = x.GenericParametersAsTypeVariable
+            let existingTypeGenericParameters = x.LogicalEnclosingEntity.GenericParameters |> Seq.map (fun x -> x.TypeVariable) |> Seq.toList
+            memberGenericParameters |> List.except existingTypeGenericParameters
+          { name with GenericParameters = genericParameters }
         LoadingName (memberAssemblyName, memberTypeName, [ memberName ])
       return { Name = name; Signature = signature; TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
     }
@@ -1100,6 +1104,24 @@ module internal Impl =
 
     let resolve_ApiSignature table apiSig = LowTypeVisitor.accept_ApiSignature (LowType.applyVariable VariableSource table) apiSig
 
+    let resolve_MemberName table apiSig =
+      let resolve (m: Member) = { m with GenericParameters = m.GenericParameters |> List.map (fun v -> Map.tryFind v table |> Option.defaultValue v) }
+      match apiSig with
+      | ApiSignature.InstanceMember (d, m) -> ApiSignature.InstanceMember (d, resolve m)
+      | ApiSignature.StaticMember (d, m) -> ApiSignature.StaticMember (d, resolve m)
+      | ApiSignature.Constructor (d, m) -> ApiSignature.Constructor (d, resolve m)
+      | ApiSignature.TypeExtension e -> ApiSignature.TypeExtension { e with Member = resolve e.Member }
+      | ApiSignature.ExtensionMember (m) -> ApiSignature.ExtensionMember (resolve m)
+      | ApiSignature.ModuleValue _
+      | ApiSignature.ModuleFunction _
+      | ApiSignature.ActivePatten _
+      | ApiSignature.ModuleDefinition _
+      | ApiSignature.FullTypeDefinition _
+      | ApiSignature.TypeAbbreviation _
+      | ApiSignature.UnionCase _
+      | ApiSignature.ComputationExpressionBuilder _ -> apiSig
+
+
     let resolve_Api (api: Api) : Api =
       let variables = variables api.Name
       let autoGenericVariables = variables |> List.filter (fun x -> x.Name.StartsWith("?")) |> List.sortBy (fun x -> x.Name)
@@ -1127,7 +1149,7 @@ module internal Impl =
         let lowTypeReplaceTable = replaceTable |> Map.map (fun _ value -> Variable (VariableSource, value))
         { api with
             Name = replaceName replaceTable api.Name
-            Signature = resolve_ApiSignature lowTypeReplaceTable api.Signature
+            Signature = resolve_ApiSignature lowTypeReplaceTable api.Signature |> resolve_MemberName replaceTable
             TypeConstraints = List.map (resolve_TypeConstraint replaceTable lowTypeReplaceTable) api.TypeConstraints
         }
 

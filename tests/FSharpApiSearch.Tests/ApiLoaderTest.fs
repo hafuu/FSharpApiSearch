@@ -870,8 +870,8 @@ module TypeExtension =
         ]
 
       "Microsoft.FSharp.Collections.List<'T>.Method", [ typeExtension fsharpList_t testModule MemberModifier.Static (method' "Method" [ [ ptype (variable "'T") ] ] unit) ]
-      "Microsoft.FSharp.Collections.List<'T>.CurriedMethod", [ typeExtension fsharpList_t testModule MemberModifier.Static { method' "CurriedMethod" [ [ pname "x" >> ptype int ]; [ pname "y" >> ptype (variable "'b") ] ] (variable "'b") with GenericParameters = [ tv "'b" ] } ]
-      "Microsoft.FSharp.Collections.List<'T>.NoncurriedMethod", [ typeExtension fsharpList_t testModule MemberModifier.Static { method' "NoncurriedMethod" [ [ pname "x" >> ptype int; pname "y" >> ptype (variable "'b") ] ] int with GenericParameters = [ tv "'b" ] } ]
+      "Microsoft.FSharp.Collections.List<'T>.CurriedMethod<'b>", [ typeExtension fsharpList_t testModule MemberModifier.Static { method' "CurriedMethod" [ [ pname "x" >> ptype int ]; [ pname "y" >> ptype (variable "'b") ] ] (variable "'b") with GenericParameters = [ tv "'b" ] } ]
+      "Microsoft.FSharp.Collections.List<'T>.NoncurriedMethod<'b>", [ typeExtension fsharpList_t testModule MemberModifier.Static { method' "NoncurriedMethod" [ [ pname "x" >> ptype int; pname "y" >> ptype (variable "'b") ] ] int with GenericParameters = [ tv "'b" ] } ]
 
       "Microsoft.FSharp.Collections.List<'T>.GetterProperty", [ typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterProperty" PropertyKind.Get [] int) ]
       "Microsoft.FSharp.Collections.List<'T>.SetterProperty", [ typeExtension fsharpList_t testModule MemberModifier.Static (property' "SetterProperty" PropertyKind.Set [] string) ]
@@ -885,6 +885,10 @@ module TypeExtension =
       "Microsoft.FSharp.Collections.List<'T>.GetterSetterIndexedProperty", [
           typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterSetterIndexedProperty" PropertyKind.Get [ [ ptype string ] ] int)
           typeExtension fsharpList_t testModule MemberModifier.Static (property' "GetterSetterIndexedProperty" PropertyKind.Set [ [ ptype string ] ] int) 
+        ]
+
+      "Microsoft.FSharp.Collections.List<'T>.AutoGenericMember<'a>", [
+          typeExtension fsharpList_t testModule MemberModifier.Instance (method' "AutoGenericMember" [ [ ptype unit ] ] (arrow [ variable "'a"; variable "'a" ] ))
         ]
     ]
     run testApi

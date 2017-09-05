@@ -13,6 +13,8 @@ type System.Int32 with
   member this.SetterIndexedProperty with set (_: int) (_: string) = ()
   member this.GetterSetterIndexedProperty with get (_: string) = 0 and set (_: string) (_: int) = ()
 
+let private f (x: #seq<int>) = x
+
 type List<'a> with
   static member Method(_: 'a) = ()
   static member CurriedMethod (x: int) (y: 'b) = y
@@ -25,6 +27,8 @@ type List<'a> with
   static member GetterIndexedProperty with get(_: int) = ""
   static member SetterIndexedProperty with set (_: int) (_: string) = ()
   static member GetterSetterIndexedProperty with get (_: string) = 0 and set (_: string) (_: int) = ()
+
+  member this.AutoGenericMember() = f
 
 open System.Runtime.CompilerServices
 
