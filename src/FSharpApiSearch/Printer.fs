@@ -78,7 +78,9 @@ module internal FSharpImpl =
 
   let printIdentity_full (identity: Identity) (sb: StringBuilder) =
     match identity with
-    | FullIdentity i -> sb.Append(printName_full i.Name)
+    | FullIdentity i ->
+      let name = i.Name |> Name.toDisplayName
+      sb.Append(printDisplayName_full name)
     | PartialIdentity i -> sb.Append(printDisplayName_full i.Name)
 
   let printIdentity_short (identity: Identity) (sb: StringBuilder) =

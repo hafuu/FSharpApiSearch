@@ -194,7 +194,7 @@ let dotNetApiBrowserViewTest = parameterize {
 let fparsecLinkTest = parameterize {
   source [
     "FParsec.Primitives", "module Primitives", Some "primitives.html"
-    "FParsec.Primitives.Parser<'Result, 'UserState>", "type Parser<'Result, 'UserState> = FParsec.CharStream<'TUserState><'UserState> -> FParsec.Reply<'TResult><'Result>", Some "primitives.html#members.Parser"
+    "FParsec.Primitives.Parser<'Result, 'UserState>", "type Parser<'Result, 'UserState> = FParsec.CharStream<'UserState> -> FParsec.Reply<'Result>", Some "primitives.html#members.Parser"
     "FParsec.Primitives.Ok", "ReplyStatus", Some "primitives.html#members.Ok"
     "FParsec.Primitives.Inline", "type Inline", Some "primitives.html#members.Inline"
     "FParsec.Primitives.Inline.Many<'T, 'State, 'Result, 'U>", "stateFromFirstElement:('T -> 'State) * foldState:('State -> 'T -> 'State) * resultFromState:('State -> 'Result) * elementParser:Parser<'T, 'U> * ?firstElementParser:Parser<'T, 'U> * ?resultForEmptySequence:(unit -> 'Result) -> Parser<'Result, 'U>", Some "primitives.html#members.Inline..Many"

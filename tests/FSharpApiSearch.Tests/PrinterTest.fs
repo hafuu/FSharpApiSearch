@@ -112,8 +112,8 @@ let printApiSignatureTest =
       unionCase typeA "Case" [ (None, arrow [ typeA; typeB ]) ], "(a -> b) -> a"
       unionCase typeA "Case" [ (Some "value1", arrow [ typeA; typeB ]) ], "value1:(a -> b) -> a"
 
-      typeAbbreviationApi (typeAbbreviationDef "FSharp.Collections.list<'a>" (generic (identity "System.Collections.Generic.List") [ variable "'a" ])), "type list<'a> = System.Collections.Generic.List<'a>"
-      typeAbbreviationApi (typeAbbreviationDef "Test.A" (generic (identity "System.Collections.Generic.List") [ Int32 ])), "type A = System.Collections.Generic.List<System.Int32>"
+      typeAbbreviationApi (typeAbbreviationDef "Test.A1<'a>" (fsharpOption (variable "'a" ))), "type A1<'a> = Microsoft.FSharp.Core.Option<'a>"
+      typeAbbreviationApi (typeAbbreviationDef "Test.A2" (fsharpOption Int32)), "type A2 = Microsoft.FSharp.Core.Option<System.Int32>"
       typeAbbreviationApi (typeAbbreviationDef "Test.B<'a>" (variable "'a")), "type B<'a> = 'a"
       typeAbbreviationApi (typeAbbreviationDef "Test.C<'a>" (arrow [ variable "'a"; variable "'a" ])), "type C<'a> = 'a -> 'a"
       typeAbbreviationApi (typeAbbreviationDef "Test.D<'a>" (array (variable "'a"))), "type D<'a> = 'a[]"
