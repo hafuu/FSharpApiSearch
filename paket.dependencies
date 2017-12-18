@@ -1,14 +1,25 @@
 group App
+  framework: auto-detect
+
   source https://nuget.org/api/v2
 
-  nuget FSharp.Core >= 4.2.1
-  nuget FParsec >= 1.0.2
-  nuget FSharp.Compiler.Service >= 13.0
+  nuget FSharp.Core >= 4.2.3
+  nuget FParsec >= 1.0.3
+  nuget FSharp.Compiler.Service >= 17.0.1
   nuget FSharp.Collections.ParallelSeq >= 1.0.2
-  nuget MessagePack >= 1.4.1
-  nuget MessagePack.FSharpExtensions >= 1.2
+  nuget MessagePack >= 1.7.2
+  nuget MessagePack.FSharpExtensions >= 1.4.0
+
+  nuget Persimmon
+  nuget Persimmon.Console
+  nuget Persimmon.MuscleAssert
+  nuget System.ValueTuple
+
+  nuget BenchmarkDotNet
 
 group Build
+  framework: auto-detect
+
   source https://nuget.org/api/v2
   
   nuget SourceLink.Fake
@@ -17,20 +28,3 @@ group Build
   nuget FAKE.Persimmon
 
   github fsharp/FAKE modules/Octokit/Octokit.fsx
-
-group Test
-  source https://nuget.org/api/v2
-  
-  nuget FSharp.Core >= 4.2.1
-  nuget FParsec >= 1.0.2
-  nuget FSharp.Compiler.Service >= 13.0
-  nuget FSharp.Collections.ParallelSeq >= 1.0.2
-  nuget MessagePack >= 1.4.1
-  nuget MessagePack.FSharpExtensions >= 1.2
-  
-  nuget Persimmon
-  nuget Persimmon.Console
-  nuget Persimmon.MuscleAssert
-  nuget System.ValueTuple
-
-  nuget BenchmarkDotNet

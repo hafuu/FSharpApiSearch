@@ -1,7 +1,9 @@
-group Test
+group App
 FSharp.Core
 FSharp.Compiler.Service
-Persimmon
-Persimmon.Console
-Persimmon.MuscleAssert
 System.ValueTuple
+MessagePack
+MessagePack.FSharpExtensions
+
+Persimmon
+Persimmon.MuscleAssert

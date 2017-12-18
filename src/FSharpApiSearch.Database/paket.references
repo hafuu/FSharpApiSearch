@@ -1,5 +1,7 @@
 ﻿group App
 FSharp.Core
+FParsec
 FSharp.Compiler.Service
+FSharp.Collections.ParallelSeq
 MessagePack
 MessagePack.FSharpExtensions
