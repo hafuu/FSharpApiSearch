@@ -203,7 +203,8 @@ let shortLetterAsVariable (threshold: int) (query: Query) =
     | TypeAbbreviation _ as t -> t
     | Delegate _ as d -> d
     | ByRef _ as b -> b
-    | LowType.Subtype _ as f -> f
+    | LowType.Subtype (Generic (id, ps)) -> LowType.Subtype (Generic (id, List.map update ps))
+    | LowType.Subtype _ as s -> s
     | Choice xs -> Choice (List.map update xs)
 
   LowTypeVisitor.accept_Query update query

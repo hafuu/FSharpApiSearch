@@ -2148,6 +2148,7 @@ module InitializeTest =
     source [
       "a -> bb -> a<b>", bySignature (arrow [ queryVariable "'a"; identity "bb"; generic (queryVariable "'a") [ queryVariable "'b" ] ])
       "aa * b", bySignature (tuple [ identity "aa"; queryVariable "'b" ])
+      "#a<b> -> aa", bySignature (arrow [ subtype (generic (identity "a") [ queryVariable "'b" ]); identity "aa" ])
     ]
     run (fun (query, expected) -> test {
       let dictionaries = Array.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = IDictionary.empty; TypeAbbreviations = Array.empty }
