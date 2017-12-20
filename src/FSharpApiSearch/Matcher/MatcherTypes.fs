@@ -32,7 +32,7 @@ module SubtypeCache =
 type Context = {
   Distance: int
   Equations: Equations
-  QueryTypes: Map<PartialIdentity, FullTypeDefinition[]>
+  QueryTypes: Map<UserInputType, FullTypeDefinition[]>
   ApiDictionaries: Map<string, ApiDictionary>
   SubtypeCache: SubtypeCache
 }

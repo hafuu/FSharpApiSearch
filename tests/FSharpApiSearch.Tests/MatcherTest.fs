@@ -67,7 +67,7 @@ let matchTest trace abbTable (options, query, name, target, expected) = test {
   use listener = if trace then new System.Diagnostics.TextWriterTraceListener(System.Console.Out) else null
   do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
   try
-    let targetApi: Api = { Name = name; Signature = target; TypeConstraints = []; Document = None }
+    let targetApi: Api = { Name = ApiName name; Signature = target; TypeConstraints = []; Document = None }
     let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = IDictionary.empty; TypeAbbreviations = Array.append TestHelper.fsharpAbbreviationTable abbTable }
     let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.length = 1
     do! actual |> assertEquals expected
@@ -79,7 +79,7 @@ let distanceTest trace opt (query, targetSig, expected) = test {
   use listener = if trace then new System.Diagnostics.TextWriterTraceListener(System.Console.Out) else null
   do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
   try
-    let targetApi: Api = { Name = Name.ofString "test"; Signature = targetSig; TypeConstraints = []; Document = None }
+    let targetApi: Api = { Name = ApiName.ofString "test"; Signature = targetSig; TypeConstraints = []; Document = None }
     let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = IDictionary.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
     let actual = Matcher.search [| dict |] opt [ dict ] query |> Seq.head
     do! actual.Distance |> assertEquals expected
@@ -100,9 +100,9 @@ let nameMatchTest =
       "map : _", Name.ofString "Microsoft.FSharp.Collections.List.map", listMap, true
       "bind : _", Name.ofString "Microsoft.FSharp.Collections.List.map", listMap, false
       "map : ('a -> 'b) -> 'a list -> 'b list", Name.ofString "Test.C.map", cMap, false
-      "(+) : _", Name.ofOperatorName "Test.(+)", listMap, true
+      "(+) : _", Name.ofOperatorString "Test.(+)", listMap, true
       "(+) : _", Name.ofString "Test.op_Addition", listMap, true
-      "(-) : _", Name.ofOperatorName "Test.(+)", listMap, false
+      "(-) : _", Name.ofOperatorString "Test.(+)", listMap, false
       "A.B : _", Name.ofString "A.B", listMap, true
       "A.B : _", Name.ofString "X.A.B", listMap, true
       "A.B : _", Name.ofString "X.Y.B", listMap, false
@@ -123,21 +123,21 @@ let nameMatchTest =
       "B : _", typeAConstructorName, typeAConstructor, false
 
       // name or signature
-      "a", Name.ofString "a", (moduleValue (identity "x")), true
-      "a", Name.ofString "b", (moduleValue (identity "x")), false
-      "a", Name.ofString "b", (moduleValue (identity "a")), true
+      "a", Name.ofString "a", (moduleValue (userInput "x")), true
+      "a", Name.ofString "b", (moduleValue (userInput "x")), false
+      "a", Name.ofString "b", (moduleValue (userInput "a")), true
 
-      "a.b", Name.ofString "a.b", (moduleValue (identity "x")), true
-      "a.b", Name.ofString "x.b", (moduleValue (identity "x")), false
+      "a.b", Name.ofString "a.b", (moduleValue (userInput "x")), true
+      "a.b", Name.ofString "x.b", (moduleValue (userInput "x")), false
 
-      "a", Name.ofString "a<'t>", (moduleValue (identity "x")), true
-      "a<'t>", Name.ofString "a<'t>", (moduleValue (identity "x")), true
-      "a<'t>", Name.ofString "a<'t, 'u>", (moduleValue (identity "x")), false
-      "a<'t, 'u>", Name.ofString "a<'t, 'u>", (moduleValue (identity "x")), true
+      "a", Name.ofString "a<'t>", (moduleValue (userInput "x")), true
+      "a<'t>", Name.ofString "a<'t>", (moduleValue (userInput "x")), true
+      "a<'t>", Name.ofString "a<'t, 'u>", (moduleValue (userInput "x")), false
+      "a<'t, 'u>", Name.ofString "a<'t, 'u>", (moduleValue (userInput "x")), true
 
-      "a : _", Name.ofString "a<'x>", (moduleValue (identity "x")), true
-      "a<'t> : _", Name.ofString "a<'x>", (moduleValue (identity "x")), true
-      "a<'t, 'u> : _", Name.ofString "a<'x>", (moduleValue (identity "x")), false
+      "a : _", Name.ofString "a<'x>", (moduleValue (userInput "x")), true
+      "a<'t> : _", Name.ofString "a<'x>", (moduleValue (userInput "x")), true
+      "a<'t, 'u> : _", Name.ofString "a<'x>", (moduleValue (userInput "x")), false
     ]
     run (fun (query, targetName, targetSig, expected) -> matchTest false [||] (defaultTestOptions, query, targetName, targetSig, expected))
   }
@@ -286,7 +286,7 @@ let matchTypeAbbreviationTest =
 
 let assemblyNameTest =
   test {
-    let api: Api = { Name = Name.ofString "test"; Signature = moduleValue int; TypeConstraints = []; Document = None }
+    let api: Api = { Name = ApiName.ofString "test"; Signature = moduleValue int; TypeConstraints = []; Document = None }
     let dummyDict = { AssemblyName = "dummyAssembly"; Api = [| api |]; TypeDefinitions = IDictionary.empty; TypeAbbreviations = [||] }
     let actual = Matcher.search Array.empty defaultTestOptions [ dummyDict ] "?" |> Seq.toList
     do! actual |> assertEquals [ { AssemblyName = "dummyAssembly"; Api = api; Distance = 0 } ]
@@ -316,7 +316,7 @@ module RespectNameDifferenceTest_WithNonGreedy =
   let matchTest cases = greedyMatchingTest false [||] Disabled cases
   let trace cases = greedyMatchingTest true [||] Disabled cases
 
-  let identityTest =
+  let typeTest =
     matchTest [
       "A", moduleValue typeA, Always true
       "Test.A", moduleValue typeA, Always true
@@ -462,15 +462,15 @@ module RespectNameDifferenceTest_WithNonGreedy =
 
   let conflictTypeAbbreviationTest =
     let table = [|
-      typeAbbreviationDef "A.conflict" (identity "A.T1")
-      typeAbbreviationDef "B.conflict" (identity "B.T2")
+      typeAbbreviationDef "A.conflict" (userInput "A.T1")
+      typeAbbreviationDef "B.conflict" (userInput "B.T2")
     |]
     let matchTest = greedyMatchingTest false table Disabled
     matchTest [
-      "conflict", moduleValue (identity "A.T1"), Always true
-      "conflict", moduleValue (identity "B.T2"), Always true
-      "A.conflict", moduleValue (identity "A.T1"), Always true
-      "A.conflict", moduleValue (identity "B.T2"), Always false
+      "conflict", moduleValue (userInput "A.T1"), Always true
+      "conflict", moduleValue (userInput "B.T2"), Always true
+      "A.conflict", moduleValue (userInput "A.T1"), Always true
+      "A.conflict", moduleValue (userInput "B.T2"), Always false
     ]
 
   let privateTypeAbbreviationTest =
@@ -495,14 +495,14 @@ module RespectNameDifferenceTest_WithNonGreedy =
 
   let byrefTest =
     matchTest [
-      "A", moduleValue (byref (identity "A")), Always true
-      "A", moduleValue (out (identity "A")), Always true
+      "A", moduleValue (byref (userInput "A")), Always true
+      "A", moduleValue (out (userInput "A")), Always true
 
-      "A", moduleValue (out (identity "B")), Always false
+      "A", moduleValue (out (userInput "B")), Always false
 
-      "byref<A>", moduleValue (byref (identity "A")), Always true
-      "byref<A>", moduleValue (identity "A"), Always true
-      "byref<A>", moduleValue (identity "B"), Always false
+      "byref<A>", moduleValue (byref (userInput "A")), Always true
+      "byref<A>", moduleValue (userInput "A"), Always true
+      "byref<A>", moduleValue (userInput "B"), Always false
     ]
 
   let distanceTest = parameterize {
@@ -510,9 +510,9 @@ module RespectNameDifferenceTest_WithNonGreedy =
       "A * A", moduleValue (tuple [ typeA; typeA ]), 0
       "struct (A * A)", moduleValue (tuple [ typeA; typeA ]), 1
 
-      "byref<A>", moduleValue (byref (identity "A")), 0
-      "byref<A>", moduleValue (identity "A"), 1
-      "A", moduleValue (byref (identity "A")), 1
+      "byref<A>", moduleValue (byref (userInput "A")), 0
+      "byref<A>", moduleValue (userInput "A"), 1
+      "A", moduleValue (byref (userInput "A")), 1
     ]
 
     run (distanceTest false { defaultTestOptions with GreedyMatching = Enabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled })
@@ -838,14 +838,14 @@ module TypeConstraintTest =
   let Object = {
     empty with
       AssemblyName = "mscorlib"
-      Name = DisplayName.ofString "System.Object"
+      Name = Name.ofString "System.Object"
       FullName = "System.Object"
       SupportNull = Satisfy
   }
 
   let Tuple2 = {
     empty with
-      Name = DisplayName.ofString "System.Tuple<'T1, 'T2>"
+      Name = Name.ofString "System.Tuple<'T1, 'T2>"
       FullName = "System.Tuple`2"
       AssemblyName = "mscorlib"
       BaseType = Some (instantiate Object [])
@@ -861,7 +861,7 @@ module TypeConstraintTest =
 
   let Tuple3 = {
     empty with
-      Name = DisplayName.ofString "System.Tuple<'T1, 'T2, 'T3>"
+      Name = Name.ofString "System.Tuple<'T1, 'T2, 'T3>"
       FullName = "System.Tuple`3"
       AssemblyName = "mscorlib"
       BaseType = Some (instantiate Object [])
@@ -878,7 +878,7 @@ module TypeConstraintTest =
 
   let Array' = {
     empty with
-      Name = DisplayName.ofString "System.Array"
+      Name = Name.ofString "System.Array"
       AssemblyName = "mscorlib"
       BaseType = Some (instantiate Object [])
   }
@@ -898,7 +898,7 @@ module TypeConstraintTest =
 
   let Array1D = {
     empty with
-      Name = DisplayName.ofString "Microsoft.FSharp.Core.[]<'a>"
+      Name = Name.ofString "Microsoft.FSharp.Core.[]<'a>"
       FullName = "Microsoft.FSharp.Core.[]`1"
       AssemblyName = "FSharp.Core"
       BaseType = Some (instantiate Array' [])
@@ -920,21 +920,21 @@ module TypeConstraintTest =
 
   let Parent = {
     empty with
-      Name = DisplayName.ofString "Test.Parent"
+      Name = Name.ofString "Test.Parent"
       FullName = "Test.Parent"
       BaseType = Some (instantiate Object [])
   }
 
   let Child = {
     empty with
-      Name = DisplayName.ofString "Test.Child"
+      Name = Name.ofString "Test.Child"
       FullName = "Test.Child"
       BaseType = Some (instantiate Parent [])
   }
 
   let GenericParent = {
     empty with
-      Name = DisplayName.ofString "Test.GenericParent<'a, 'b>"
+      Name = Name.ofString "Test.GenericParent<'a, 'b>"
       FullName = "Test.GenericParent`2"
       GenericParameters = [ tv "'a"; tv "'b" ]
       BaseType = Some (instantiate Object [])
@@ -942,14 +942,14 @@ module TypeConstraintTest =
 
   let GenericChild = {
     empty with
-      Name = DisplayName.ofString "Test.GenericChild<'a, 'b>"
+      Name = Name.ofString "Test.GenericChild<'a, 'b>"
       FullName = "Test.GenericChild`2"
       GenericParameters = [ tv "'a"; tv "'b" ]
       BaseType = Some (instantiate GenericParent [ variable "'a"; variable "'b" ])
   }
 
   let PartialApplyTypeAbbreviation = {
-    Name = DisplayName.ofString "Test.PartialApplyTypeAbbreviation<'a>"
+    Name = Name.ofString "Test.PartialApplyTypeAbbreviation<'a>"
     FullName = "Test.PartialApplyTypeAbbreviation`1"
     AssemblyName = "test"
     Accessibility = Public
@@ -960,7 +960,7 @@ module TypeConstraintTest =
 
   let AnotherGeneric = {
     empty with
-      Name = DisplayName.ofString "Test.AnotherGeneric<'a, 'b>"
+      Name = Name.ofString "Test.AnotherGeneric<'a, 'b>"
       FullName = "Test.AnotherGeneric`2"
       GenericParameters = [ tv "'a"; tv "'b" ]
       BaseType = Some (instantiate Object [])
@@ -968,21 +968,21 @@ module TypeConstraintTest =
 
   let IA = {
     empty with
-      Name = DisplayName.ofString "Test.IA"
+      Name = Name.ofString "Test.IA"
       FullName = "Test.IA"
       GenericParameters = []
   }
 
   let IB = {
     empty with
-      Name = DisplayName.ofString "Test.IB"
+      Name = Name.ofString "Test.IB"
       FullName = "Test.IB"
       GenericParameters = []
   }
 
   let ImplA = {
     empty with
-      Name = DisplayName.ofString "Test.ImplA"
+      Name = Name.ofString "Test.ImplA"
       FullName = "Test.ImplA"
       GenericParameters = []
       BaseType = Some (instantiate Object [])
@@ -991,7 +991,7 @@ module TypeConstraintTest =
 
   let ImplAB = {
     empty with
-      Name = DisplayName.ofString "Test.ImplAB"
+      Name = Name.ofString "Test.ImplAB"
       FullName = "Test.ImplAB"
       GenericParameters = []
       BaseType = Some (instantiate Object [])
@@ -1000,7 +1000,7 @@ module TypeConstraintTest =
 
   let Foo_X = {
     empty with
-      Name = DisplayName.ofString "Foo.X"
+      Name = Name.ofString "Foo.X"
       FullName = "Foo.X"
       GenericParameters = []
       BaseType = Some (instantiate Object [])
@@ -1009,7 +1009,7 @@ module TypeConstraintTest =
 
   let Bar_X = {
     empty with
-      Name = DisplayName.ofString "Bar.X"
+      Name = Name.ofString "Bar.X"
       FullName = "Bar.X"
       GenericParameters = []
       BaseType = Some (instantiate Object [])
@@ -1018,14 +1018,14 @@ module TypeConstraintTest =
 
   let GenericInterface = {
     empty with
-      Name = DisplayName.ofString "Test.GenericInterface<'a>"
+      Name = Name.ofString "Test.GenericInterface<'a>"
       FullName = "Test.GenericInterface`1"
       GenericParameters = [ tv "'a" ]
   }
 
   let GenericInterfaceImplement = {
     empty with
-      Name = DisplayName.ofString "Test.GenericInterfaceImplement"
+      Name = Name.ofString "Test.GenericInterfaceImplement"
       FullName = "Test.GenericInterfaceImplement"
       BaseType = Some (instantiate Object [])
       AllInterfaces = [ instantiate GenericInterface [ ImplA.LowType ] ]
@@ -1033,12 +1033,12 @@ module TypeConstraintTest =
 
   let OriginalTypeAbbreviatedInterface = {
     empty with
-      Name = DisplayName.ofString "Test.OriginalTypeAbbreviatedInterface"
+      Name = Name.ofString "Test.OriginalTypeAbbreviatedInterface"
       FullName = "Test.OriginalTypeAbbreviatedInterface"
   }
 
   let TypeAbbreviationInterface = {
-    Name = DisplayName.ofString "Test.TypeAbbreviationInterface"
+    Name = Name.ofString "Test.TypeAbbreviationInterface"
     FullName = "Test.TypeAbbreviationInterface"
     AssemblyName = "test"
     Accessibility = Public
@@ -1049,7 +1049,7 @@ module TypeConstraintTest =
 
   let AbbreviationImplement = {
     empty with
-      Name = DisplayName.ofString "Test.AbbreviationImplement"
+      Name = Name.ofString "Test.AbbreviationImplement"
       FullName = "Test.AbbreviationImplement"
       BaseType = Some (instantiate Object [])
       AllInterfaces = [ TypeAbbreviationInterface.LowType ]
@@ -1057,7 +1057,7 @@ module TypeConstraintTest =
 
   let NullableType = {
     empty with
-      Name = DisplayName.ofString "Test.NullableType"
+      Name = Name.ofString "Test.NullableType"
       FullName = "Test.NullableType"
       BaseType = Some (instantiate Object [])
       SupportNull = Satisfy
@@ -1065,7 +1065,7 @@ module TypeConstraintTest =
 
   let NonNullableType = {
     empty with
-      Name = DisplayName.ofString "Test.NonNullableType"
+      Name = Name.ofString "Test.NonNullableType"
       FullName = "Test.NonNullableType"
       BaseType = Some (instantiate Object [])
       SupportNull = NotSatisfy
@@ -1073,7 +1073,7 @@ module TypeConstraintTest =
 
   let MemberTestType = {
     empty with
-      Name = DisplayName.ofString "Test.MemberTestType"
+      Name = Name.ofString "Test.MemberTestType"
       FullName = "Test.MemberTestType"
       BaseType = Some (instantiate Object [])
       StaticMembers =
@@ -1091,7 +1091,7 @@ module TypeConstraintTest =
 
   let GenericMemberTestType = {
     empty with
-      Name = DisplayName.ofString "Test.GenericMemberTestType<'T>"
+      Name = Name.ofString "Test.GenericMemberTestType<'T>"
       FullName = "Test.GenericMemberTestType`1"
       BaseType = Some (instantiate Object [])
       GenericParameters = [ tv "'T" ]
@@ -1104,7 +1104,7 @@ module TypeConstraintTest =
 
   let ImplicitMemberType = {
     empty with
-      Name = DisplayName.ofString "Test.ImplicitMemberType"
+      Name = Name.ofString "Test.ImplicitMemberType"
       FullName = "Test.ImplicitMemberType"
       BaseType = Some (instantiate Object [])
       ImplicitInstanceMembers =
@@ -1119,7 +1119,7 @@ module TypeConstraintTest =
 
   let ValueType = {
     empty with
-      Name = DisplayName.ofString "Test.ValueType"
+      Name = Name.ofString "Test.ValueType"
       FullName = "Test.ValueType"
       BaseType = Some (instantiate Object [])
       ValueType = Satisfy
@@ -1128,7 +1128,7 @@ module TypeConstraintTest =
 
   let ReferenceType = {
     empty with
-      Name = DisplayName.ofString "Test.ReferenceType"
+      Name = Name.ofString "Test.ReferenceType"
       FullName = "Test.ReferenceType"
       BaseType = Some (instantiate Object [])
       ValueType = NotSatisfy
@@ -1137,7 +1137,7 @@ module TypeConstraintTest =
 
   let WithDefaultConstructor = {
     empty with
-      Name = DisplayName.ofString "Test.WithDefaultConstructor"
+      Name = Name.ofString "Test.WithDefaultConstructor"
       FullName = "Test.WithDefaultConstructor"
       BaseType = Some (instantiate Object [])
       DefaultConstructor = Satisfy
@@ -1145,7 +1145,7 @@ module TypeConstraintTest =
 
   let WithoutDefaultConstructor = {
     empty with
-      Name = DisplayName.ofString "Test.WithoutDefaultConstructor"
+      Name = Name.ofString "Test.WithoutDefaultConstructor"
       FullName = "Test.WithoutDefaultConstructor"
       BaseType = Some (instantiate Object [])
       DefaultConstructor = NotSatisfy
@@ -1153,7 +1153,7 @@ module TypeConstraintTest =
 
   let EqualityType = {
     empty with
-      Name = DisplayName.ofString "Test.EqualityType"
+      Name = Name.ofString "Test.EqualityType"
       FullName = "Test.EqualityType"
       BaseType = Some (instantiate Object [])
       Equality = Satisfy
@@ -1161,7 +1161,7 @@ module TypeConstraintTest =
 
   let NoEqualityType = {
     empty with
-      Name = DisplayName.ofString "Test.NoEqualityType"
+      Name = Name.ofString "Test.NoEqualityType"
       FullName = "Test.NoEqualityType"
       BaseType = Some (instantiate Object [])
       Equality = NotSatisfy
@@ -1169,7 +1169,7 @@ module TypeConstraintTest =
 
   let DependenceEqualityType1 = {
     empty with
-      Name = DisplayName.ofString "Test.DependenceEqualityType1<'a>"
+      Name = Name.ofString "Test.DependenceEqualityType1<'a>"
       FullName = "Test.DependenceEqualityType1`1"
       BaseType = Some (instantiate Object [])
       GenericParameters = [ tv "'a" ]
@@ -1178,7 +1178,7 @@ module TypeConstraintTest =
 
   let DependenceEqualityType2 = {
     empty with
-      Name = DisplayName.ofString "Test.DependenceEqualityType2<'a, 'b>"
+      Name = Name.ofString "Test.DependenceEqualityType2<'a, 'b>"
       FullName = "Test.DependenceEqualityType2`2"
       BaseType = Some (instantiate Object [])
       GenericParameters = [ tv "'a"; tv "'b" ]
@@ -1187,7 +1187,7 @@ module TypeConstraintTest =
 
   let DependenceEqualityType3 = {
     empty with
-      Name = DisplayName.ofString "Test.DependenceEqualityType3<'a, 'b>"
+      Name = Name.ofString "Test.DependenceEqualityType3<'a, 'b>"
       FullName = "Test.DependenceEqualityType3`2"
       BaseType = Some (instantiate Object [])
       GenericParameters = [ tv "'a"; tv "'b" ]
@@ -1196,7 +1196,7 @@ module TypeConstraintTest =
 
   let ComparisonType = {
     empty with
-      Name = DisplayName.ofString "Test.ComparisonType"
+      Name = Name.ofString "Test.ComparisonType"
       FullName = "Test.ComparisonType"
       BaseType = Some (instantiate Object [])
       Comparison = Satisfy
@@ -1204,7 +1204,7 @@ module TypeConstraintTest =
 
   let NoComparisonType = {
     empty with
-      Name = DisplayName.ofString "Test.NoComparisonType"
+      Name = Name.ofString "Test.NoComparisonType"
       FullName = "Test.NoComparisonType"
       BaseType = Some (instantiate Object [])
       Comparison = NotSatisfy
@@ -1212,7 +1212,7 @@ module TypeConstraintTest =
 
   let DependenceComparisonType = {
     empty with
-      Name = DisplayName.ofString "Test.DependenceComparisonType<'a>"
+      Name = Name.ofString "Test.DependenceComparisonType<'a>"
       FullName = "Test.DependenceComparisonType`1"
       BaseType = Some (instantiate Object [])
       GenericParameters = [ tv "'a" ]
@@ -1241,7 +1241,7 @@ module TypeConstraintTest =
   let testConstraint trace (query, target, constraints, expected) = test {
     use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
     do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
-    let targetApi: Api = { Name = Name.ofString "test"; Signature = target; TypeConstraints = constraints; Document = None }
+    let targetApi: Api = { Name = ApiName.ofString "test"; Signature = target; TypeConstraints = constraints; Document = None }
 
     let dictionaries = [|
       mscorlibDict
@@ -1330,15 +1330,15 @@ module TypeConstraintTest =
         true)
       // indirect
       ("'t -> 't",
-        moduleFunction' [ [ ptype (variable "'a") ]; [ ptype (Identity (FullIdentity Object.FullIdentity)) ] ],
+        moduleFunction' [ [ ptype (variable "'a") ]; [ ptype (Type (ActualType Object.ActualType)) ] ],
         [ subtypeCon "'a" Parent ],
         false)
       ("'t -> 't",
-        moduleFunction' [ [ ptype (variable "'a") ]; [ ptype (Identity (FullIdentity Parent.FullIdentity)) ] ],
+        moduleFunction' [ [ ptype (variable "'a") ]; [ ptype (Type (ActualType Parent.ActualType)) ] ],
         [ subtypeCon "'a" Parent ],
         true)
       ("'t -> 't",
-        moduleFunction' [ [ ptype (variable "'a") ]; [ ptype (Identity (FullIdentity Child.FullIdentity)) ] ],
+        moduleFunction' [ [ ptype (variable "'a") ]; [ ptype (Type (ActualType Child.ActualType)) ] ],
         [ subtypeCon "'a" Parent ],
         true)
       // variable
@@ -1361,7 +1361,7 @@ module TypeConstraintTest =
   let runSubtypeTest trace greedy (query, target, expected) = test {
       use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
       do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
-      let targetApi: Api = { Name = Name.ofString "test"; Signature = target; TypeConstraints = []; Document = None }
+      let targetApi: Api = { Name = ApiName.ofString "test"; Signature = target; TypeConstraints = []; Document = None }
 
       let dictionaries = [|
         mscorlibDict
@@ -1723,7 +1723,7 @@ module ActivePatternTest =
     use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
     do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
     try
-      let targetApi: Api = { Name = Name.ofString "test"; Signature = target; TypeConstraints = []; Document = None }
+      let targetApi: Api = { Name = ApiName.ofString "test"; Signature = target; TypeConstraints = []; Document = None }
       let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = IDictionary.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
       let options = defaultTestOptions
       let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.length = 1
@@ -1760,7 +1760,7 @@ module ActivePatternTest =
 module TypeExtensionTest =
   let matchTest cases = functionParamStyleTest false cases
   let trace cases = functionParamStyleTest true cases
-  let testModule = DisplayName.ofString "test"
+  let testModule = Name.ofString "test"
 
   let instanceMemberTest =
     matchTest [
@@ -1808,9 +1808,9 @@ module TypeExtensionTest =
   let distanceTest =
     parameterize {
       source [
-        "A -> B * C -> D", extensionMember (method' "test" [ [ ptype (identity "A"); ptype (identity "B"); ptype (identity "C") ] ] (identity "D")), 0
-        "A -> B -> C -> D", extensionMember (method' "test" [ [ ptype (identity "A"); ptype (identity "B"); ptype (identity "C") ] ] (identity "D")), 1
-        "A * B * C -> D", extensionMember (method' "test" [ [ ptype (identity "A"); ptype (identity "B"); ptype (identity "C") ] ] (identity "D")), 0
+        "A -> B * C -> D", extensionMember (method' "test" [ [ ptype (userInput "A"); ptype (userInput "B"); ptype (userInput "C") ] ] (userInput "D")), 0
+        "A -> B -> C -> D", extensionMember (method' "test" [ [ ptype (userInput "A"); ptype (userInput "B"); ptype (userInput "C") ] ] (userInput "D")), 1
+        "A * B * C -> D", extensionMember (method' "test" [ [ ptype (userInput "A"); ptype (userInput "B"); ptype (userInput "C") ] ] (userInput "D")), 0
       ]
       run (distanceTest false defaultTestOptions)
     }
@@ -1977,7 +1977,7 @@ module ComplementTest =
     ]
 
   let unitArgTest =
-    let testModule = DisplayName.ofString "test"
+    let testModule = Name.ofString "test"
     runTest false 1 [
       "R -> A", instanceMember typeR (method' "test" [ [ ptype unit ] ] typeA), WhenEnabled true
       "R -> B", typeExtension typeR testModule MemberModifier.Instance (method' "test" [ [ ptype unit ] ] typeB), WhenEnabled true
@@ -1998,8 +1998,8 @@ module ComplementTest =
 module InitializeTest =
   let string =
     choice [
-      typeAbbreviation (identity "String") (identity "string")
-      identity "string"
+      typeAbbreviation (userInput "String") (userInput "string")
+      userInput "string"
     ]
     
   let bySignature s = QueryMethod.BySignature (SignatureQuery.Signature s)
@@ -2007,111 +2007,111 @@ module InitializeTest =
 
   let fsharpTypeAbbreviationTest =  parameterize {
     source [
-      "a", byNameOrSignature [ byName "a" Compare ] (identity "a")
+      "a", byNameOrSignature [ byName "a" Compare ] (userInput "a")
       "string", byNameOrSignature [ byName "string" Compare ] string
-      "Option<string>", bySignature (generic (identity "Option") [ string ])
+      "Option<string>", bySignature (generic (userInput "Option") [ string ])
       "'a list",
         byNameOrSignature [ byGenericName "list" [ "T0" ] Compare ]
           (choice [
-            typeAbbreviation (generic (identity "List") [ queryVariable "'a" ]) (generic (identity "list") [ queryVariable "'a" ])
-            generic (identity "list") [ queryVariable "'a" ]
+            typeAbbreviation (generic (userInput "List") [ queryVariable "'a" ]) (generic (userInput "list") [ queryVariable "'a" ])
+            generic (userInput "list") [ queryVariable "'a" ]
           ])
       "'b list",
         byNameOrSignature [ byGenericName "list" [ "T0" ] Compare ]
           (choice [
-            typeAbbreviation (generic (identity "List") [ queryVariable "'b" ]) (generic (identity "list") [ queryVariable "'b" ])
-            generic (identity "list") [ queryVariable "'b" ]
+            typeAbbreviation (generic (userInput "List") [ queryVariable "'b" ]) (generic (userInput "list") [ queryVariable "'b" ])
+            generic (userInput "list") [ queryVariable "'b" ]
           ])
       "int list",
         bySignature
           (choice [
-            typeAbbreviation (generic (identity "List") [ identity "int" ]) (generic (identity "list") [ identity "int" ])
-            generic (identity "list") [ identity "int" ]
+            typeAbbreviation (generic (userInput "List") [ userInput "int" ]) (generic (userInput "list") [ userInput "int" ])
+            generic (userInput "list") [ userInput "int" ]
           ])
       "string list",
         bySignature
           (choice [
-            typeAbbreviation (generic (identity "List") [ string ]) (generic (identity "list") [ identity "string" ])
-            generic (identity "list") [ string ]
+            typeAbbreviation (generic (userInput "List") [ string ]) (generic (userInput "list") [ userInput "string" ])
+            generic (userInput "list") [ string ]
           ])
-      "map<'a, 'b, 'c>", byNameOrSignature [ byGenericName "map" [ "T0"; "T1"; "T2" ] Compare ] (generic (identity "map") [ queryVariable "'a"; queryVariable "'b"; queryVariable "'c" ])
-      "list", byNameOrSignature [ byName "list" Compare ] (identity "list")
+      "map<'a, 'b, 'c>", byNameOrSignature [ byGenericName "map" [ "T0"; "T1"; "T2" ] Compare ] (generic (userInput "map") [ queryVariable "'a"; queryVariable "'b"; queryVariable "'c" ])
+      "list", byNameOrSignature [ byName "list" Compare ] (userInput "list")
       "intList",
         byNameOrSignature [ byName "intList" Compare ]
           (choice [
-            typeAbbreviation (generic (identity "List") [ identity "int" ]) (identity "intList")
-            identity "intList"
+            typeAbbreviation (generic (userInput "List") [ userInput "int" ]) (userInput "intList")
+            userInput "intList"
           ])
       "intKeyMap<'value>",
         byNameOrSignature [ byGenericName "intKeyMap" [ "T0" ] Compare ]
           (choice [
-            typeAbbreviation (generic (identity "Map") [ identity "int"; queryVariable "'value" ]) (generic (identity "intKeyMap") [ queryVariable "'value" ])
-            generic (identity "intKeyMap") [ queryVariable "'value" ]
+            typeAbbreviation (generic (userInput "Map") [ userInput "int"; queryVariable "'value" ]) (generic (userInput "intKeyMap") [ queryVariable "'value" ])
+            generic (userInput "intKeyMap") [ queryVariable "'value" ]
           ])
       "reverseArg<'front, 'end>",
         byNameOrSignature [ byGenericName "reverseArg" [ "T0"; "T1" ] Compare ]
           (choice [
-            typeAbbreviation (generic (identity "ReverseArg") [ queryVariable "'end"; queryVariable "'front" ]) (generic (identity "reverseArg") [ queryVariable "'front"; queryVariable "'end" ])
-            generic (identity "reverseArg") [ queryVariable "'front"; queryVariable "'end" ]
+            typeAbbreviation (generic (userInput "ReverseArg") [ queryVariable "'end"; queryVariable "'front" ]) (generic (userInput "reverseArg") [ queryVariable "'front"; queryVariable "'end" ])
+            generic (userInput "reverseArg") [ queryVariable "'front"; queryVariable "'end" ]
           ])
       "samemap<int>",
         bySignature
           (choice [
-            typeAbbreviation (generic (identity "Map") [ identity "int"; identity "int" ]) (generic (identity "samemap") [ identity "int" ])
-            generic (identity "samemap") [ identity "int" ]
+            typeAbbreviation (generic (userInput "Map") [ userInput "int"; userInput "int" ]) (generic (userInput "samemap") [ userInput "int" ])
+            generic (userInput "samemap") [ userInput "int" ]
           ])
       "conflict",
         byNameOrSignature [ byName "conflict" Compare ]
          (choice [
-            typeAbbreviation (identity "A.NonHidden") (identity "conflict")
-            typeAbbreviation (identity "B.Type") (identity "conflict")
-            identity "conflict"
+            typeAbbreviation (userInput "A.NonHidden") (userInput "conflict")
+            typeAbbreviation (userInput "B.Type") (userInput "conflict")
+            userInput "conflict"
           ])
       "B.conflict",
         byNameOrSignature [ byName "conflict" Compare; byName "B" Compare ]
           (choice [
-            typeAbbreviation (identity "B.Type") (identity "B.conflict")
-            identity "B.conflict"
+            typeAbbreviation (userInput "B.Type") (userInput "B.conflict")
+            userInput "B.conflict"
           ])
       "A.conflict",
         byNameOrSignature [ byName "conflict" Compare; byName "A" Compare ]
           (choice [
-            typeAbbreviation (identity "A.NonHidden") (identity "A.conflict")
-            identity "A.conflict"
+            typeAbbreviation (userInput "A.NonHidden") (userInput "A.conflict")
+            userInput "A.conflict"
           ])
       "conflict<'a>",
         byNameOrSignature [ byGenericName "conflict" [ "T0" ] Compare ]
           (choice [
-            typeAbbreviation (generic (identity "A.NonHidden") [ queryVariable "'a" ]) (generic (identity "conflict") [ queryVariable "'a" ])
-            typeAbbreviation (generic (identity "B.Type") [ queryVariable "'a" ]) (generic (identity "conflict") [ queryVariable "'a" ])
-            generic (identity "conflict") [ queryVariable "'a" ]
+            typeAbbreviation (generic (userInput "A.NonHidden") [ queryVariable "'a" ]) (generic (userInput "conflict") [ queryVariable "'a" ])
+            typeAbbreviation (generic (userInput "B.Type") [ queryVariable "'a" ]) (generic (userInput "conflict") [ queryVariable "'a" ])
+            generic (userInput "conflict") [ queryVariable "'a" ]
           ])
       "B.conflict<'a>",
         byNameOrSignature [ byGenericName "conflict" [ "T0" ] Compare; byName "B" Compare ]
           (choice [
-            typeAbbreviation (generic (identity "B.Type") [ queryVariable "'a" ]) (generic (identity "B.conflict") [ queryVariable "'a" ])
-            generic (identity "B.conflict") [ queryVariable "'a" ]
+            typeAbbreviation (generic (userInput "B.Type") [ queryVariable "'a" ]) (generic (userInput "B.conflict") [ queryVariable "'a" ])
+            generic (userInput "B.conflict") [ queryVariable "'a" ]
           ])
       "A.conflict<'a>",
         byNameOrSignature [ byGenericName "conflict" [ "T0" ] Compare; byName "A" Compare ]
           (choice [
-            typeAbbreviation (generic (identity "A.NonHidden") [ queryVariable "'a" ]) (generic (identity "A.conflict") [ queryVariable "'a" ])
-            generic (identity "A.conflict") [ queryVariable "'a" ]
+            typeAbbreviation (generic (userInput "A.NonHidden") [ queryVariable "'a" ]) (generic (userInput "A.conflict") [ queryVariable "'a" ])
+            generic (userInput "A.conflict") [ queryVariable "'a" ]
           ])
     ]
     run (fun (query, expected) -> test {
       let abbreviations: TypeAbbreviationDefinition[] = [|
-        typeAbbreviationDef "string" (identity "String")
-        typeAbbreviationDef "list<'a>" (generic (identity "List") [ variable "'a" ])
-        typeAbbreviationDef "intList" (generic (identity "List") [ identity "int" ])
-        typeAbbreviationDef "reverseArg<'b, 'a>" (generic (identity "ReverseArg") [ variable "'a"; variable "'b" ])
-        typeAbbreviationDef "map<'a, 'b>" (generic (identity "Map") [ variable "'a"; variable "'b" ])
-        typeAbbreviationDef "intKeyMap<'v>" (generic (identity "Map") [ identity "int"; variable "'v" ])
-        typeAbbreviationDef "samemap<'a>" (generic (identity "Map") [ variable "'a"; variable "'a" ])
-        typeAbbreviationDef "A.conflict" (identity "A.NonHidden")
-        typeAbbreviationDef "B.conflict" (identity "B.Type")
-        typeAbbreviationDef "A.conflict<'a>" (generic (identity "A.NonHidden") [ variable "'a" ])
-        typeAbbreviationDef "B.conflict<'a>" (generic (identity "B.Type") [ variable "'a" ])
+        typeAbbreviationDef "string" (userInput "String")
+        typeAbbreviationDef "list<'a>" (generic (userInput "List") [ variable "'a" ])
+        typeAbbreviationDef "intList" (generic (userInput "List") [ userInput "int" ])
+        typeAbbreviationDef "reverseArg<'b, 'a>" (generic (userInput "ReverseArg") [ variable "'a"; variable "'b" ])
+        typeAbbreviationDef "map<'a, 'b>" (generic (userInput "Map") [ variable "'a"; variable "'b" ])
+        typeAbbreviationDef "intKeyMap<'v>" (generic (userInput "Map") [ userInput "int"; variable "'v" ])
+        typeAbbreviationDef "samemap<'a>" (generic (userInput "Map") [ variable "'a"; variable "'a" ])
+        typeAbbreviationDef "A.conflict" (userInput "A.NonHidden")
+        typeAbbreviationDef "B.conflict" (userInput "B.Type")
+        typeAbbreviationDef "A.conflict<'a>" (generic (userInput "A.NonHidden") [ variable "'a" ])
+        typeAbbreviationDef "B.conflict<'a>" (generic (userInput "B.Type") [ variable "'a" ])
       |]
       let dictionaries = Array.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = IDictionary.empty; TypeAbbreviations = abbreviations }
       let actual =
@@ -2127,11 +2127,11 @@ module InitializeTest =
     let byNameQuery name s = QueryMethod.ByName (name, SignatureQuery.Signature s)
     parameterize {
       source [
-        "a", byNameOrSignature [ byName "a" Compare ] (identity "a")
-        "a<'b>", byNameOrSignature [ byGenericName "a" [ "T0" ] Compare ] (generic (identity "a") [ queryVariable "'b" ])
-        "a<b>", bySignature (generic (identity "a") [ identity "b" ])
-        "a -> a", bySignature (arrow [ identity "a"; identity "a" ])
-        "name : a", byNameQuery [ byName "name" Compare ] (identity "a")
+        "a", byNameOrSignature [ byName "a" Compare ] (userInput "a")
+        "a<'b>", byNameOrSignature [ byGenericName "a" [ "T0" ] Compare ] (generic (userInput "a") [ queryVariable "'b" ])
+        "a<b>", bySignature (generic (userInput "a") [ userInput "b" ])
+        "a -> a", bySignature (arrow [ userInput "a"; userInput "a" ])
+        "name : a", byNameQuery [ byName "name" Compare ] (userInput "a")
       ]
       run (fun (query, expected) -> test {
         let dictionaries = Array.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = IDictionary.empty; TypeAbbreviations = Array.empty }
@@ -2146,9 +2146,9 @@ module InitializeTest =
 
   let singleLetterAsVariableTest = parameterize {
     source [
-      "a -> bb -> a<b>", bySignature (arrow [ queryVariable "'a"; identity "bb"; generic (queryVariable "'a") [ queryVariable "'b" ] ])
-      "aa * b", bySignature (tuple [ identity "aa"; queryVariable "'b" ])
-      "#a<b> -> aa", bySignature (arrow [ subtype (generic (identity "a") [ queryVariable "'b" ]); identity "aa" ])
+      "a -> bb -> a<b>", bySignature (arrow [ queryVariable "'a"; userInput "bb"; generic (queryVariable "'a") [ queryVariable "'b" ] ])
+      "aa * b", bySignature (tuple [ userInput "aa"; queryVariable "'b" ])
+      "#a<b> -> aa", bySignature (arrow [ subtype (generic (userInput "a") [ queryVariable "'b" ]); userInput "aa" ])
     ]
     run (fun (query, expected) -> test {
       let dictionaries = Array.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = IDictionary.empty; TypeAbbreviations = Array.empty }
@@ -2164,20 +2164,20 @@ module InitializeTest =
 
   let csharpAliasTest = parameterize {
     source [
-      "A", byNameOrSignature [ byName "A" Compare ] (identity "A")
+      "A", byNameOrSignature [ byName "A" Compare ] (userInput "A")
       "int",
         byNameOrSignature [ byName "int" Compare ]
           (choice [
-            typeAbbreviation (SpecialTypes.LowType.ofDotNetType typeof<System.Int32>) (identity "int")
-            identity "int"
+            typeAbbreviation (SpecialTypes.LowType.ofDotNetType typeof<System.Int32>) (userInput "int")
+            userInput "int"
           ])
       "<int> : int", bySignature (queryVariable "'int")
-      "List<A>", bySignature (generic (identity "List") [ identity "A" ])
+      "List<A>", bySignature (generic (userInput "List") [ userInput "A" ])
     ]
 
     run (fun (query, expected) -> test {
       let abbreviations: TypeAbbreviationDefinition[] = [|
-        typeAbbreviationDef "list<'a>" (generic (identity "List") [ variable "'a" ])
+        typeAbbreviationDef "list<'a>" (generic (userInput "List") [ variable "'a" ])
       |]
       let dictionaries = Array.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = IDictionary.empty; TypeAbbreviations = abbreviations }
       let actual =

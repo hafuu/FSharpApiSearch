@@ -161,10 +161,10 @@ let printCSharpAccessPathTest = parameterize {
 let printCSharpLowTypeTest =
   parameterize {
     source[
-      (array (identity "A")), "A[]"
-      (array2D (identity "A")), "A[,]"
-      (array (generic (identity "A") [ identity "B" ])), "A<B>[]"
-      (array (array2D (identity "A"))), "A[][,]"
+      (array (userInput "A")), "A[]"
+      (array2D (userInput "A")), "A[,]"
+      (array (generic (userInput "A") [ userInput "B" ])), "A<B>[]"
+      (array (array2D (userInput "A"))), "A[][,]"
     ]
     run (fun (input, expected) -> test {
       let sb = System.Text.StringBuilder()
@@ -177,14 +177,14 @@ let printCSharpLowTypeTest =
 let printCSharpConstraints =
   parameterize {
     source [
-      [ constraint' [ "'T" ] (Constraint.SubtypeConstraints (identity "IA")) ], "where T : IA"
-      [ constraint' [ "'T" ] (Constraint.SubtypeConstraints (identity "IA")); constraint' [ "'T" ] (Constraint.SubtypeConstraints (identity "IB")) ], "where T : IA, IB"
-      [ constraint' [ "'T" ] (Constraint.SubtypeConstraints (identity "IA")); constraint' [ "'U" ] (Constraint.SubtypeConstraints (identity "IA")) ], "where T : IA where U : IA"
+      [ constraint' [ "'T" ] (Constraint.SubtypeConstraints (userInput "IA")) ], "where T : IA"
+      [ constraint' [ "'T" ] (Constraint.SubtypeConstraints (userInput "IA")); constraint' [ "'T" ] (Constraint.SubtypeConstraints (userInput "IB")) ], "where T : IA, IB"
+      [ constraint' [ "'T" ] (Constraint.SubtypeConstraints (userInput "IA")); constraint' [ "'U" ] (Constraint.SubtypeConstraints (userInput "IA")) ], "where T : IA where U : IA"
 
     ]
 
     run (fun (constraints, expected) -> test {
-      let api = { Name = Name.ofString "test"; Signature = moduleValue (identity "a"); TypeConstraints = constraints; Document = None }
+      let api = { Name = ApiName.ofString "test"; Signature = moduleValue (userInput "a"); TypeConstraints = constraints; Document = None }
       let actual = CSharp.tryPrintTypeConstraints api
       do! actual |> assertEquals (Some expected)
     })

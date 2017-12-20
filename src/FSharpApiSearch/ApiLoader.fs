@@ -64,14 +64,14 @@ module internal Impl =
 
   type FSharpEntity with
     member this.TypeAbbreviationFullName = this.AccessPath + "." + this.CompiledName
-    member this.LoadingFullIdentity =
-      let assemblyName = this.Assembly.SimpleName
+    member this.AssemblyName = this.Assembly.SimpleName
+    member this.LoadingName : LoadingName =
       let name =
         match this.TryFullName with
         | Some fullName -> fullName
         | None -> this.TypeAbbreviationFullName
-      { AssemblyName = assemblyName; Name = LoadingName (assemblyName, name, []); GenericParameterCount = this.GenericParameters.Count }
-    member this.Identity = Identity (FullIdentity this.LoadingFullIdentity)
+      { AssemblyName = this.AssemblyName; RawName = name; MemberName = [] }
+    member this.LoadingLowType = LoadingType (this.LoadingName)
     member this.IsTuple =
       match this.TryFullName with
       | Some fullName ->
@@ -87,12 +87,12 @@ module internal Impl =
       { Name = name; GenericParameters = genericParameters this }
 
   type FSharpType with
-    member this.TryIdentity = this.TryFullIdentity |> Option.map (fun x -> Identity (FullIdentity x))
-    member this.TryFullIdentity =
+    member this.TryLoadingLowType = this.TryLoadingName |> Option.map LoadingType
+    member this.TryLoadingName =
       if Hack.isFloat this then
-        Some { this.TypeDefinition.LoadingFullIdentity with GenericParameterCount = 0 }
+        failwith "float should not run this path."
       elif this.HasTypeDefinition then
-        Some this.TypeDefinition.LoadingFullIdentity
+        Some this.TypeDefinition.LoadingName
       else
         None
 
@@ -188,11 +188,11 @@ module internal Impl =
     elif t.HasTypeDefinition then
       let signature =
         match Hack.genericArguments t with
-        | [] -> t.TryIdentity
+        | [] -> t.TryLoadingLowType
         | xs -> 
           option {
             let! xs = listLowType xs
-            let! id = t.TryIdentity
+            let! id = t.TryLoadingLowType
             return Generic (id, xs)
           }
       if t.TypeDefinition.IsDelegate then
@@ -259,11 +259,11 @@ module internal Impl =
     | _ -> None
   and listLowType (ts: FSharpType seq) : (LowType list) option = ts |> Seq.foldOptionMapping fsharpTypeToLowType |> Option.map Seq.toList
   and fsharpEntityToLowType (x: FSharpEntity) =
-    let identity = x.Identity
+    let id = x.LoadingLowType
     let args = x |> genericParameters |> List.map (fun v -> Variable (VariableSource, v))
     match args with
-    | [] -> identity
-    | xs -> Generic (identity, xs)
+    | [] -> id
+    | xs -> Generic (id, xs)
 
   let collectTypeConstraints (genericParamters: seq<FSharpGenericParameter>): TypeConstraint list =
     genericParamters
@@ -328,10 +328,10 @@ module internal Impl =
     |> List.distinct
 
   let private (|Fs_option|_|) = function
-    | Generic (Identity (FullIdentity { AssemblyName = "FSharp.Core"; Name = LoadingName ("FSharp.Core", "Microsoft.FSharp.Core.option`1", []); GenericParameterCount = 1 }), [ p ]) -> Some p
+    | Generic ((LoadingType { AssemblyName = "FSharp.Core"; RawName = "Microsoft.FSharp.Core.option`1"; MemberName = [] }), [ p ]) -> Some p
     | _ -> None
   let private (|Fs_Option|_|) = function
-    | Generic (Identity (FullIdentity { AssemblyName = "FSharp.Core"; Name = LoadingName ("FSharp.Core", "Microsoft.FSharp.Core.FSharpOption`1", []); GenericParameterCount = 1 }), [ p ]) -> Some p
+    | Generic ((LoadingType { AssemblyName = "FSharp.Core"; RawName = "Microsoft.FSharp.Core.FSharpOption`1"; MemberName = [] }), [ p ]) -> Some p
     | _ -> None
   let private (|IsOption|_|) = function
     | TypeAbbreviation { Abbreviation = Fs_option _; Original = Fs_Option p } -> Some p
@@ -376,7 +376,7 @@ module internal Impl =
     else
       ps
 
-  let toMemberName (name: DisplayNameItem) =
+  let toMemberName (name: NameItem) =
     match name.Name with
     | SymbolName n -> n
     | OperatorName (_, n) -> n
@@ -406,7 +406,7 @@ module internal Impl =
       return (name, member')
     }
 
-  let toModuleValue isFSharp xml (declaringModuleName: DisplayName) (x: FSharpMemberOrFunctionOrValue) =
+  let toModuleValue isFSharp xml (declaringModuleName: Name) (x: FSharpMemberOrFunctionOrValue) =
     option {
       
       let! parameters = curriedParameterGroups isFSharp x
@@ -422,10 +422,10 @@ module internal Impl =
           | [] -> ApiSignature.ModuleValue returnType
           | _ -> ApiSignature.ModuleFunction func
       let name = x.GetDisplayName :: declaringModuleName
-      return { Name = DisplayName name; Signature = target; TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
+      return { Name = ApiName name; Signature = target; TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
     }
 
-  let toTypeExtension isFSharp xml (declaringModuleName: DisplayName) (x: FSharpMemberOrFunctionOrValue) =
+  let toTypeExtension isFSharp xml (declaringModuleName: Name) (x: FSharpMemberOrFunctionOrValue) =
     option {
       let! _, member' =
         if x.IsPropertyGetterMethod || x.IsPropertySetterMethod then
@@ -451,36 +451,36 @@ module internal Impl =
             let existingTypeGenericParameters = x.LogicalEnclosingEntity.GenericParameters |> Seq.map (fun x -> x.TypeVariable) |> Seq.toList
             memberGenericParameters |> List.except existingTypeGenericParameters
           { name with GenericParameters = genericParameters }
-        LoadingName (memberAssemblyName, memberTypeName, [ memberName ])
+        LoadingApiName { AssemblyName = memberAssemblyName; RawName = memberTypeName; MemberName = [ memberName ] }
       return { Name = name; Signature = signature; TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
     }
 
-  let toFSharpApi isFSharp xml (declaringModuleName: DisplayName) (x: FSharpMemberOrFunctionOrValue) =
+  let toFSharpApi isFSharp xml (declaringModuleName: Name) (x: FSharpMemberOrFunctionOrValue) =
     if x.IsExtensionMember then
       toTypeExtension isFSharp xml declaringModuleName x
     else
       toModuleValue isFSharp xml declaringModuleName x
 
-  let constructorSignature isFSharp xml (declaringSignatureName: DisplayName) (declaringSignature: LowType) (x: FSharpMemberOrFunctionOrValue) =
+  let constructorSignature isFSharp xml (declaringSignatureName: Name) (declaringSignature: LowType) (x: FSharpMemberOrFunctionOrValue) =
     let constructorName = "new"
     option {
       let! _, target = methodMember isFSharp x
       let target = { target with Name = constructorName; ReturnParameter = Parameter.ofLowType declaringSignature }
       let name = { Name = WithCompiledName (constructorName, compiledName x); GenericParameters = [] } :: declaringSignatureName
-      return { Name = DisplayName name; Signature = ApiSignature.Constructor (declaringSignature, target); TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
+      return { Name = ApiName name; Signature = ApiSignature.Constructor (declaringSignature, target); TypeConstraints = collectTypeConstraints x.GenericParameters; Document = tryGetXmlDoc xml x }
     }
 
-  let memberSignature xml (loadMember: FSharpMemberOrFunctionOrValue -> (DisplayNameItem * Member) option) (declaringSignatureName: DisplayName) (declaringEntity: FSharpEntity) declaringSignature (x: FSharpMemberOrFunctionOrValue) =
+  let memberSignature xml (loadMember: FSharpMemberOrFunctionOrValue -> (NameItem * Member) option) (declaringSignatureName: Name) (declaringEntity: FSharpEntity) declaringSignature (x: FSharpMemberOrFunctionOrValue) =
     option {
       let! name, member' = loadMember x
       let name = name :: declaringSignatureName
       let typeConstraints = Seq.append declaringEntity.GenericParameters x.GenericParameters |> collectTypeConstraints
-      return { Name = DisplayName name; Signature = x.TargetSignatureConstructor declaringSignature member'; TypeConstraints = typeConstraints; Document = tryGetXmlDoc xml x }
+      return { Name = ApiName name; Signature = x.TargetSignatureConstructor declaringSignature member'; TypeConstraints = typeConstraints; Document = tryGetXmlDoc xml x }
     }
 
   let isConstructor (x: FSharpMemberOrFunctionOrValue) = x.CompiledName = ".ctor"
 
-  let toTypeMemberApi xml (declaringSignatureName: DisplayName) (declaringEntity: FSharpEntity) (declaringSignature: LowType) (x: FSharpMemberOrFunctionOrValue) =
+  let toTypeMemberApi xml (declaringSignatureName: Name) (declaringEntity: FSharpEntity) (declaringSignature: LowType) (x: FSharpMemberOrFunctionOrValue) =
     let isFSharp = declaringEntity.IsFSharp
     if isConstructor x then
       constructorSignature isFSharp xml declaringSignatureName declaringSignature x
@@ -491,7 +491,7 @@ module internal Impl =
     else
       None
 
-  let toFieldApi xml (accessPath: DisplayName) (declaringEntity: FSharpEntity) (declaringSignature: LowType) (field: FSharpField) =
+  let toFieldApi xml (accessPath: Name) (declaringEntity: FSharpEntity) (declaringSignature: LowType) (field: FSharpField) =
     option {
       let! returnType = fsharpTypeToLowType field.FieldType
       let returnParam = Parameter.ofLowType returnType
@@ -499,7 +499,7 @@ module internal Impl =
       let apiName =
         let name = field.Name
         { Name = SymbolName name; GenericParameters = [] } :: accessPath
-      return { Name = DisplayName apiName; Signature = field.TargetSignatureConstructor declaringSignature member'; TypeConstraints = collectTypeConstraints declaringEntity.GenericParameters; Document = tryGetXmlDoc xml field }
+      return { Name = ApiName apiName; Signature = field.TargetSignatureConstructor declaringSignature member'; TypeConstraints = collectTypeConstraints declaringEntity.GenericParameters; Document = tryGetXmlDoc xml field }
     }
 
   let toUnionCaseField length (n, field: FSharpField) = option {
@@ -511,14 +511,14 @@ module internal Impl =
     return ({ Name = name; Type = t } : UnionCaseField)
   }
 
-  let toUnionCaseApi xml (accessPath: DisplayName) (declaringEntity: FSharpEntity) (declaringSignature: LowType) (unionCase: FSharpUnionCase) =
+  let toUnionCaseApi xml (accessPath: Name) (declaringEntity: FSharpEntity) (declaringSignature: LowType) (unionCase: FSharpUnionCase) =
     option {
       let caseName = unionCase.Name
       let! fields = unionCase.UnionCaseFields |> Seq.mapi (fun i field -> (i + 1, field)) |> Seq.foldOptionMapping (toUnionCaseField unionCase.UnionCaseFields.Count)
       let returnType = declaringSignature
       let signature = { DeclaringType = returnType; Name = caseName; Fields = List.ofSeq fields } : UnionCase
       let apiName = { Name = SymbolName caseName; GenericParameters = [] } :: accessPath
-      return { Name = DisplayName apiName; Signature = ApiSignature.UnionCase signature; TypeConstraints = collectTypeConstraints declaringEntity.GenericParameters; Document = tryGetXmlDoc xml unionCase }
+      return { Name = ApiName apiName; Signature = ApiSignature.UnionCase signature; TypeConstraints = collectTypeConstraints declaringEntity.GenericParameters; Document = tryGetXmlDoc xml unionCase }
     }
 
   let resolveConflictGenericArgumnet (replacementVariables: LowType list) (m: FSharpMemberOrFunctionOrValue) =
@@ -543,7 +543,7 @@ module internal Impl =
     })
     |> Seq.toList
 
-  let updateInterfaceDeclaringType (declaringSignatureName: DisplayName) declaringSignature api =
+  let updateInterfaceDeclaringType (declaringSignatureName: Name) declaringSignature api =
     let target =
       match api.Signature with
       | ApiSignature.InstanceMember (_, m) -> ApiSignature.InstanceMember (declaringSignature, m)
@@ -551,12 +551,12 @@ module internal Impl =
       | _ -> failwith "It is not a member of interface."
     let name =
       match api.Name with
-      | LoadingName (_, _, name :: _) -> name :: declaringSignatureName
-      | DisplayName (name :: _) -> name :: declaringSignatureName
+      | LoadingApiName { MemberName = name :: _ } -> name :: declaringSignatureName
+      | ApiName (name :: _) -> name :: declaringSignatureName
       | _ -> declaringSignatureName
-    { api with Name = DisplayName name; Signature = target }
+    { api with Name = ApiName name; Signature = target }
 
-  let collectTypeAbbreviationDefinition xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
+  let collectTypeAbbreviationDefinition xml (accessPath: Name) (e: FSharpEntity): Api seq =
     option {
       let! abbreviatedAndOriginal = fsharpTypeToLowType e.AbbreviatedType
       let abbreviated, original =
@@ -579,7 +579,7 @@ module internal Impl =
         Original = original
       }
       let target = ApiSignature.TypeAbbreviation abbreviationDef
-      return { Name = DisplayName typeAbbreviationName; Signature = target; TypeConstraints = collectTypeConstraints e.GenericParameters; Document = tryGetXmlDoc xml e }
+      return { Name = ApiName typeAbbreviationName; Signature = target; TypeConstraints = collectTypeConstraints e.GenericParameters; Document = tryGetXmlDoc xml e }
     }
     |> Option.toList
     |> List.toSeq
@@ -636,13 +636,13 @@ module internal Impl =
       e.DeclaredInterfaces
       |> Seq.exists (fun i -> i.TypeDefinition.TryFullName = Some expectedInterface || implementsInterface i.TypeDefinition expectedInterface)
 
-    let rec load (cache: Map<FullIdentity, ConstraintStatus>) (e: FSharpEntity) =
-      let identity = e.LoadingFullIdentity
+    let rec load (cache: Map<LoadingName, ConstraintStatus>) (e: FSharpEntity) =
+      let loadingName = e.LoadingName
       let fullName = e.TryFullName
       let updateCache cache result =
-        let cache = Map.add identity result cache
+        let cache = Map.add loadingName result cache
         (cache, result)
-      match Map.tryFind identity cache with
+      match Map.tryFind loadingName cache with
       | Some x -> (cache, x)
       | None ->
         if e.Attributes |> Seq.exists (fun attr -> attr.AttributeType.FullName = builder.CustomAttrName) then
@@ -765,7 +765,7 @@ module internal Impl =
     else
       TypeDefinitionKind.Type
 
-  let fullTypeDef xml (name: DisplayName) (e: FSharpEntity) members =
+  let fullTypeDef xml (name: Name) (e: FSharpEntity) members =
     option {
       let baseType =
         if not e.IsInterface then
@@ -785,8 +785,8 @@ module internal Impl =
           | _ -> None)
         |> Seq.toList
 
-      let identity = { e.LoadingFullIdentity with Name = DisplayName name }
-      let implicitInstanceMembers, implicitStaticMembers = CompilerOptimization.implicitMembers identity
+      let actualType = ActualType { AssemblyName = e.AssemblyName; Name = name }
+      let implicitInstanceMembers, implicitStaticMembers = CompilerOptimization.implicitMembers actualType
 
       let fullName =
         match e.TryFullName with
@@ -796,7 +796,7 @@ module internal Impl =
       let typeDef = {
         Name = name
         FullName = fullName
-        AssemblyName = identity.AssemblyName
+        AssemblyName = e.AssemblyName
         Accessibility = accessibility e
         Kind = typeDefKind e
         BaseType = baseType
@@ -819,13 +819,13 @@ module internal Impl =
         Equality = equality e |> snd
         Comparison = comparison e |> snd
       }
-      let api = { Name = DisplayName name; Signature = ApiSignature.FullTypeDefinition typeDef; TypeConstraints = typeDef.TypeConstraints; Document = tryGetXmlDoc xml e }
+      let api = { Name = ApiName name; Signature = ApiSignature.FullTypeDefinition typeDef; TypeConstraints = typeDef.TypeConstraints; Document = tryGetXmlDoc xml e }
       return (api, typeDef)
     }
 
   let moduleDef xml name (e: FSharpEntity) =
     let def: ModuleDefinition = { Name = name; AssemblyName = e.Assembly.SimpleName; Accessibility = accessibility e }
-    { Name = DisplayName name; Signature = ApiSignature.ModuleDefinition def; TypeConstraints = []; Document = tryGetXmlDoc xml e }
+    { Name = ApiName name; Signature = ApiSignature.ModuleDefinition def; TypeConstraints = []; Document = tryGetXmlDoc xml e }
 
   let tryExtractSyntaxes typeDef customOperations =
     let defaultSyntaxes = ComputationExpressionLoader.extractSyntaxes typeDef
@@ -841,7 +841,7 @@ module internal Impl =
       let! syntaxes = tryExtractSyntaxes typeDef customOperations
       let ceTypes = ComputationExpressionLoader.extractTypes typeDef customOperations |> Seq.toList
       let apiSig = ApiSignature.ComputationExpressionBuilder { BuilderType = typeDef.LowType; ComputationExpressionTypes = ceTypes; Syntaxes = Set.toList syntaxes }
-      return { Name = DisplayName typeDef.Name; Signature = apiSig; TypeConstraints = typeDef.TypeConstraints; Document = xml }
+      return { Name = ApiName typeDef.Name; Signature = apiSig; TypeConstraints = typeDef.TypeConstraints; Document = xml }
     }
 
   let isCustomOperation (x: FSharpMemberOrFunctionOrValue) =
@@ -852,7 +852,7 @@ module internal Impl =
       else
         None)
 
-  let rec collectApi xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
+  let rec collectApi xml (accessPath: Name) (e: FSharpEntity): Api seq =
     seq {
       if e.IsNamespace then
         let accessPath = e.GetDisplayName() :: accessPath
@@ -868,10 +868,10 @@ module internal Impl =
       elif e.IsOpaque || e.HasAssemblyCodeRepresentation then
         yield! collectFromType xml accessPath e
     }
-  and collectFromNestedEntities xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
+  and collectFromNestedEntities xml (accessPath: Name) (e: FSharpEntity): Api seq =
     e.NestedEntities
     |> Seq.collect (collectApi xml accessPath)
-  and collectFromModule xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
+  and collectFromModule xml (accessPath: Name) (e: FSharpEntity): Api seq =
     let moduleName = e.GetDisplayName() :: accessPath
     seq {
       yield moduleDef xml moduleName e
@@ -880,7 +880,7 @@ module internal Impl =
               |> Seq.choose (toFSharpApi e.IsFSharp xml moduleName)
       yield! collectFromNestedEntities xml moduleName e
     }
-  and collectFromType xml (accessPath: DisplayName) (e: FSharpEntity): Api seq =
+  and collectFromType xml (accessPath: Name) (e: FSharpEntity): Api seq =
     let typeName = e.GetDisplayName() :: accessPath
 
     seq {
@@ -942,9 +942,9 @@ module internal Impl =
   let typeDefsDict (xs: FullTypeDefinition seq) =
     let d =
       xs
-      |> Seq.map (fun x -> x.FullIdentity, x)
+      |> Seq.map (fun x -> x.ActualType, x)
       |> dict
-    Dictionary(d, Identity.fullIdentityComparer)
+    Dictionary(d, TypeInfo.actualTypeComparer)
 
   let makeDefAndAbb (api: ApiDictionary) =
     let types =
@@ -966,7 +966,7 @@ module internal Impl =
         let accessPath =
           match e.AccessPath with
           | "global" -> []
-          | a -> DisplayName.ofString a
+          | a -> Name.ofString a
         collectApi xml accessPath e)
       |> Seq.toArray
     
@@ -974,7 +974,7 @@ module internal Impl =
     makeDefAndAbb apiDict
 
   module NameResolve =
-    type AssemblyCache = IDictionary<string, DisplayName>
+    type AssemblyCache = IDictionary<string, Name>
     type NameCache = (string * AssemblyCache)[]
     
     module NameCache =
@@ -991,38 +991,29 @@ module internal Impl =
       | true, value -> Some value
       | false, _ -> None
 
-    let tryResolve_Name (name: Name) (assemblyCache: AssemblyCache) =
-      match name with
-      | LoadingName (_, accessPath, apiName) ->
-        assemblyCache |> tryGetValue accessPath |> Option.map (fun accessPath -> DisplayName (apiName @ accessPath))
-      | DisplayName _ as n -> Some n
+    let tryResolve_Name (name: LoadingName) (assemblyCache: AssemblyCache) : Name option =
+      assemblyCache |> tryGetValue name.RawName |> Option.map (fun accessPath -> (name.MemberName @ accessPath))
 
-    let typeForwarding (context: Context) fromAssemblyName (name: Name) =
-      match name with
-      | LoadingName (_, accessPath, _) ->
-        context.Cache
-        |> Seq.tryPick (fun (toAssemblyName, assemblyCache) ->
-          let result = tryResolve_Name name assemblyCache
-          result |> Option.iter (fun _ -> context.ForwardingLogs.[accessPath] <- { Type = accessPath; From = fromAssemblyName; To = toAssemblyName })
-          result)
-      | DisplayName _ as n -> Some n
+    let typeForwarding (context: Context) fromAssemblyName (name: LoadingName) =
+      context.Cache
+      |> Seq.tryPick (fun (toAssemblyName, assemblyCache) ->
+        let result = tryResolve_Name name assemblyCache
+        result |> Option.iter (fun _ -> context.ForwardingLogs.[name.RawName] <- { Type = name.RawName; From = fromAssemblyName; To = toAssemblyName })
+        result)
 
-    let resolve_Name context (name: Name) =
-      match name with
-      | LoadingName (assemblyName, accessPath, _) ->
-        let resolved = NameCache.tryGetValue assemblyName context.Cache |> Option.bind (tryResolve_Name name)
-        match resolved with
+    let resolve_Name context (name: LoadingName) =
+      let resolved = NameCache.tryGetValue name.AssemblyName context.Cache |> Option.bind (tryResolve_Name name)
+      match resolved with
+      | Some n -> n
+      | None ->
+        match typeForwarding context name.AssemblyName name with
         | Some n -> n
-        | None ->
-          match typeForwarding context assemblyName name with
-          | Some n -> n
-          | None -> failwithf "%s(%s) is not found." accessPath assemblyName
-      | DisplayName _ as n -> n
+        | None -> failwithf "%s(%s) is not found." name.RawName name.AssemblyName
   
     let rec resolve_LowType context = function
       | Wildcard _ as w -> w
       | Variable _ as v -> v
-      | Identity i -> Identity (resolve_Identity context i)
+      | Type _ as t -> t
       | Arrow arrow -> Arrow (resolve_Arrow context arrow)
       | Tuple x -> Tuple { x with Elements = List.map (resolve_LowType context) x.Elements }
       | Generic (id, args) ->
@@ -1037,9 +1028,7 @@ module internal Impl =
       | ByRef (out, t) -> ByRef(out, resolve_LowType context t)
       | Subtype t -> Subtype(resolve_LowType context t)
       | Choice (xs) -> Choice (List.map (resolve_LowType context) xs)
-    and resolve_Identity cache = function
-      | PartialIdentity _ as i -> i
-      | FullIdentity full -> FullIdentity { full with Name = resolve_Name cache full.Name }
+      | LoadingType name -> Type (ActualType { AssemblyName = name.AssemblyName; Name = resolve_Name context name })
     and resolve_Arrow context arrow =
       let ps, ret = arrow
       let ps = List.map (resolve_LowType context) ps
@@ -1049,9 +1038,13 @@ module internal Impl =
     let resolve_Signature context apiSig = LowTypeVisitor.accept_ApiSignature (resolve_LowType context) apiSig
     let resolve_TypeConstraint context constraint' = LowTypeVisitor.accept_TypeConstraint (resolve_LowType context) constraint'
 
+    let resolve_ApiName context = function
+      | ApiName _ as x -> x
+      | LoadingApiName name -> ApiName (resolve_Name context name)
+
     let resolve_Api context (api: Api) =
       { api with
-          Name = resolve_Name context api.Name
+          Name = resolve_ApiName context api.Name
           Signature = resolve_Signature context api.Signature
           TypeConstraints = List.map (resolve_TypeConstraint context) api.TypeConstraints
       }
@@ -1080,7 +1073,9 @@ module internal Impl =
       dictionaries |> Array.map (resolve_ApiDictionary cache)
 
   module AutoGenericResolve =
-    let variables (name: Name) = name |> Name.toDisplayName |> List.collect (fun n -> n.GenericParameters) |> List.distinct
+    let variables = function
+      | ApiName name -> name |>  List.collect (fun n -> n.GenericParameters) |> List.distinct
+      | LoadingApiName _ -> []
 
     let replaceVariables (table: Map<TypeVariable, TypeVariable>) (variables: TypeVariable list) =
       variables
@@ -1090,13 +1085,15 @@ module internal Impl =
         | None -> p
       )
 
-    let replaceName (table: Map<TypeVariable, TypeVariable>) (name: Name) =
-      Name.toDisplayName name
-      |> List.map (fun n ->
-        let genericParams = n.GenericParameters |> replaceVariables table
-        { n with GenericParameters = genericParams }
-      )
-      |> DisplayName
+    let replaceName (table: Map<TypeVariable, TypeVariable>) = function
+      | ApiName name ->
+        name
+        |> List.map (fun n ->
+          let genericParams = n.GenericParameters |> replaceVariables table
+          { n with GenericParameters = genericParams }
+        )
+        |> ApiName
+      | LoadingApiName _ as n -> n
 
     let resolve_TypeConstraint variableTable lowTypeTable constraint' =
       let c = LowTypeVisitor.accept_TypeConstraint (LowType.applyVariable VariableSource lowTypeTable) constraint'

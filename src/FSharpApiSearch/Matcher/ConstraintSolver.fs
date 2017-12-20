@@ -7,26 +7,26 @@ open FSharpApiSearch.Printer
 open FSharpApiSearch.TypeHierarchy
 
 let rec (|ConstraintTestee|_|) = function
-  | Identity id -> Some (id, [])
-  | Generic (Identity id, args) -> Some (id, args)
-  | Tuple { Elements = xs } -> Some (Identity.tupleN xs.Length, xs)
+  | Type id -> Some (id, [])
+  | Generic (Type id, args) -> Some (id, args)
+  | Tuple { Elements = xs } -> Some (TypeInfo.tupleN xs.Length, xs)
   | TypeAbbreviation { Original = o } -> (|ConstraintTestee|_|) o
   | _ -> None 
 
 let createConstraintSolver title testConstraint (testeeType: LowType) ctx = seq {
   match testeeType with
-  | ConstraintTestee (testeeIdentity, testTypeArgs) ->
+  | ConstraintTestee (testeeType, testTypeArgs) ->
     let testees =
-      match testeeIdentity with
-      | FullIdentity i -> ctx.ApiDictionaries.[i.AssemblyName].TypeDefinitions.[i] |> Array.singleton
-      | PartialIdentity i -> ctx.QueryTypes.[i]
+      match testeeType with
+      | ActualType a -> ctx.ApiDictionaries.[a.AssemblyName].TypeDefinitions.[a] |> Array.singleton
+      | UserInputType u -> ctx.QueryTypes.[u]
     for typeDef in testees do
       Debug.WriteLine(sprintf "Test %s: %s" title (typeDef.Debug()))
       Debug.Indent()
       let nextCtx =
-        match testeeIdentity with
-        | FullIdentity _ -> ctx
-        | PartialIdentity i -> { ctx with QueryTypes = ctx.QueryTypes |> Map.add i [| typeDef |] }
+        match testeeType with
+        | ActualType _ -> ctx
+        | UserInputType u -> { ctx with QueryTypes = ctx.QueryTypes |> Map.add u [| typeDef |] }
       let results = testConstraint typeDef testTypeArgs nextCtx |> Seq.cache
       Debug.Unindent()
       Debug.WriteLine(

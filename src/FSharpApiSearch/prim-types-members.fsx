@@ -99,7 +99,7 @@ file
       sprintf """            { Name = %s; Kind = %s; GenericParameters = []; Parameters = %s; ReturnParameter = Parameter.%s }""" memberName kind parameters ret
     )
     |> String.concat "\r\n"
-  printfn "    (FullIdentity.%s, " typeName
+  printfn "    (TypeInfo.%s, " typeName
   printfn """      {
         InstanceMembers = []
         StaticMembers =

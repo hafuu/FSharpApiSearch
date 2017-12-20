@@ -36,13 +36,13 @@ module FSharp =
 
   let fsharpSignature, fsharpSignatureRef = createParserForwardedToRef()
 
-  let identity = partialName |>> (function name -> Identity (PartialIdentity { Name = name; GenericParameterCount = 0 })) |> trim <?> "identity"
+  let userInputType = partialName |>> (function name -> Type (UserInputType { Name = name })) |> trim <?> "type"
   let variable = pchar ''' >>. pidentifier |>> (function name -> Variable (VariableSource.Query, { Name = name; IsSolveAtCompileTime = false })) |> trim <?> "variable"
   let wildcard = pchar '?' >>. opt pidentifier |>> Wildcard |> trim <?> "wildcard"
 
   let genericId =
     choice [
-      attempt identity
+      attempt userInputType
       attempt variable
       wildcard
     ]
@@ -51,12 +51,12 @@ module FSharp =
     let parameterCount = List.length parameters
     let id =
       match id with
-      | Identity (PartialIdentity p) ->
+      | Type (UserInputType p) ->
         let newName =
           match p.Name with
           | [] -> []
           | n :: tail -> { n with GenericParameters = List.init parameterCount (fun n -> { Name = sprintf "T%d" n; IsSolveAtCompileTime = false }) } :: tail
-        Identity (PartialIdentity { p with Name = newName; GenericParameterCount = parameterCount })
+        Type (UserInputType { p with Name = newName })
       | other -> other
     Generic (id, parameters)
 
@@ -64,14 +64,14 @@ module FSharp =
 
   let subtype =
     let prefix = pcharAndTrim '#'
-    let t = attempt dotNetGeneric <|> identity
+    let t = attempt dotNetGeneric <|> userInputType
     prefix >>. t |>> Subtype
 
   let ptype =
     choice [
       attempt (between (pcharAndTrim '(') (pcharAndTrim ')') fsharpSignature)
       attempt dotNetGeneric
-      attempt identity
+      attempt userInputType
       attempt variable
       attempt subtype
       wildcard
@@ -80,7 +80,7 @@ module FSharp =
   let array _ typeParser =
     let arraySymbol =
       let t = { Name = "T"; IsSolveAtCompileTime = false }
-      parray |> trim |>> (fun array -> Identity (PartialIdentity { Name = [ { Name = SymbolName array; GenericParameters = [ t ] } ]; GenericParameterCount = 1 }))
+      parray |> trim |>> (fun array -> Type (UserInputType { Name = [ { Name = SymbolName array; GenericParameters = [ t ] } ] }))
     typeParser
     .>>. many1 arraySymbol
     |>> fun (t, xs) -> List.fold (fun x array -> createGeneric array [ x ]) t xs
@@ -198,7 +198,7 @@ module CSharp =
       let str = string head + tail
       if String.exists isUpper str then
         fail (sprintf "%s contains upper cases." str)
-      elif SpecialTypes.Identity.CSharp.aliases |> List.map fst |> List.contains str then
+      elif SpecialTypes.TypeInfo.CSharp.aliases |> List.map fst |> List.contains str then
         fail (sprintf "%s is a C# alias." str)
       else
         preturn (Variable (VariableSource.Query, { Name = str; IsSolveAtCompileTime = false }))
@@ -206,13 +206,13 @@ module CSharp =
     |> trim
     <?> "variable"
 
-  let identity = partialName |>> (function name -> Identity (PartialIdentity { Name = name; GenericParameterCount = 0 })) |> trim <?> "identity"
+  let userInputType = partialName |>> (function name -> Type (UserInputType { Name = name })) |> trim <?> "type"
   let wildcard = pchar '?' >>. opt pidentifier |>> Wildcard |> trim <?> "wildcard"
 
   let genericId =
     choice [
       attempt lowerOnlyVariable
-      attempt identity
+      attempt userInputType
       wildcard
     ]
 
@@ -220,12 +220,12 @@ module CSharp =
     let parameterCount = List.length parameters
     let id =
       match id with
-      | Identity (PartialIdentity p) ->
+      | Type (UserInputType p) ->
         let newName =
           match p.Name with
           | [] -> []
           | n :: tail -> { n with GenericParameters = List.init parameterCount (fun n -> { Name = sprintf "T%d" n; IsSolveAtCompileTime = false }) } :: tail
-        Identity (PartialIdentity { p with Name = newName; GenericParameterCount = parameterCount })
+        Type (UserInputType { p with Name = newName })
       | other -> other
     Generic (id, parameters)
 
@@ -233,7 +233,7 @@ module CSharp =
 
   let subtype =
     let prefix = pcharAndTrim '#'
-    let t = attempt generic <|> identity
+    let t = attempt generic <|> userInputType
     prefix >>. t |>> Subtype
 
   let ptype =
@@ -242,7 +242,7 @@ module CSharp =
       attempt (between (pcharAndTrim '(') (pcharAndTrim ')') csharpSignature)
       attempt generic
       attempt lowerOnlyVariable
-      attempt identity
+      attempt userInputType
       attempt subtype
       wildcard
     ]
@@ -250,7 +250,7 @@ module CSharp =
   let array _ typeParser =
     let arraySymbol =
       let t = { Name = "T"; IsSolveAtCompileTime = false }
-      parray |> trim |>> (fun array -> Identity (PartialIdentity { Name = [ { Name = SymbolName array; GenericParameters = [ t ] } ]; GenericParameterCount = 1 }))
+      parray |> trim |>> (fun array -> Type (UserInputType { Name = [ { Name = SymbolName array; GenericParameters = [ t ] } ] }))
     typeParser
     .>>. many1 arraySymbol
     |>> fun (t, xs) -> List.foldBack (fun array x -> createGeneric array [ x ]) xs t
@@ -276,14 +276,15 @@ module CSharp =
   do csharpSignatureRef := compose ptype [ array; structTuple; byref; arrow ]
 
   let rec replaceWithVariable (variableNames: Set<string>) = function
-    | Identity (PartialIdentity { Name = [ { Name = SymbolName name } ] }) when Set.contains name variableNames ->
+    | Type (UserInputType { Name = [ { Name = SymbolName name } ] }) when Set.contains name variableNames ->
         Variable (VariableSource.Query, { Name = name; IsSolveAtCompileTime = false })
     | Generic (id, args) -> Generic (replaceWithVariable variableNames id, List.map (replaceWithVariable variableNames) args)
     | Tuple tpl -> Tuple { tpl with Elements = List.map (replaceWithVariable variableNames) tpl.Elements }
     | Arrow (ps, ret) -> Arrow (List.map (replaceWithVariable variableNames) ps, replaceWithVariable variableNames ret)
     | ByRef (isOut, t) -> ByRef (isOut, replaceWithVariable variableNames t)
     | Subtype t -> Subtype (replaceWithVariable variableNames t)
-    | (Wildcard _ | Variable _ | Identity _ | TypeAbbreviation _ | Delegate _ | Choice _) as t -> t
+    | (Wildcard _ | Variable _ | Type _ | TypeAbbreviation _ | Delegate _ | Choice _) as t -> t
+    | LoadingType _ -> Name.loadingNameError()
 
   let signatureWildcard = pstring "_" |> trim >>% SignatureQuery.Wildcard
 

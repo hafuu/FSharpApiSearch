@@ -2,6 +2,7 @@
 
 open System.Text
 open System
+open System.Runtime.CompilerServices
 
 module internal FSharpImpl =
   open SpecialTypes
@@ -37,7 +38,7 @@ module internal FSharpImpl =
     | OperatorName (n, _) -> n
     | WithCompiledName (n, _) -> n
 
-  let printNameItem (n: DisplayNameItem) (sb: StringBuilder) =
+  let printNameItem (n: NameItem) (sb: StringBuilder) =
     match n.GenericParameters with
     | [] -> sb.Append(toDisplayName n.Name)
     | args ->
@@ -46,7 +47,7 @@ module internal FSharpImpl =
           .AppendJoin(", ", args, (fun arg sb -> sb.Append(typeVariablePrefix arg).Append(arg.Name)))
         .Append(">")
 
-  let printDisplayName_full xs (sb: StringBuilder) =
+  let printDisplayName_full (xs: Name) (sb: StringBuilder) =
     match xs with
     | [] -> sb.Append("<empty>")
     | ns ->
@@ -55,51 +56,34 @@ module internal FSharpImpl =
       |> Seq.iter (fun n -> sb.Append(printNameItem n).Append(".") |> ignore)
       sb.Append(toDisplayName ns.Head.Name)
 
-  let printName_full (name: Name) (sb: StringBuilder) =
-    let print (name: DisplayName) (sb: StringBuilder) = sb.AppendJoin(".", List.rev name, printNameItem)
-    match name with
-    | LoadingName (_, n1, n2) ->
-      match n2 with
-      | [] -> sb.Append(n1)
-      | n2 ->
-        sb.Append(n1).Append(".").Append(print n2)
-    | DisplayName n -> sb.Append(print n)
+  let printName_full (name: Name) (sb: StringBuilder) = sb.AppendJoin(".", List.rev name, printNameItem)
 
   let printApiName (name: Name) (sb: StringBuilder) =
-    let name = Name.toDisplayName name
     sb.Append(printNameItem name.Head)
 
   let printAccessPath depth (name: Name) (sb: StringBuilder) =
-    let ns = Name.toDisplayName name
-    let depth = Option.defaultValue (ns.Tail.Length) depth
+    let depth = Option.defaultValue (name.Tail.Length) depth
     
-    let pathes = List.truncate depth ns.Tail |> List.rev
+    let pathes = List.truncate depth name.Tail |> List.rev
     sb.AppendJoin(".", pathes, printNameItem)
 
-  let printIdentity_full (identity: Identity) (sb: StringBuilder) =
-    match identity with
-    | FullIdentity i ->
-      let name = i.Name |> Name.toDisplayName
-      sb.Append(printDisplayName_full name)
-    | PartialIdentity i -> sb.Append(printDisplayName_full i.Name)
+  let printTypeInfo_full (typeInfo: TypeInfo) (sb: StringBuilder) =
+    match typeInfo with
+    | ActualType a ->
+      sb.Append(printDisplayName_full a.Name)
+    | UserInputType u -> sb.Append(printDisplayName_full u.Name)
 
-  let printIdentity_short (identity: Identity) (sb: StringBuilder) =
-    let printDisplayName_short (xs: DisplayName) (sb: StringBuilder) =
+  let printTypeInfo_short (typeInfo: TypeInfo) (sb: StringBuilder) =
+    let printDisplayName_short (xs: Name) (sb: StringBuilder) =
       match xs with
       | [] -> sb.Append("<empty>")
       | n :: _ -> sb.Append(toDisplayName n.Name)
 
-    let printName_short name (sb: StringBuilder) =
-      match name with
-      | LoadingName (_, n1, n2) ->
-        match n2 with
-        | [] -> sb.Append(n1)
-        | n2 -> sb.Append(printDisplayName_short n2)
-      | DisplayName n -> sb.Append(printDisplayName_short n)
+    let printName_short name (sb: StringBuilder) = sb.Append(printDisplayName_short name)
     
-    match identity with
-    | FullIdentity i -> sb.Append(printName_short i.Name)
-    | PartialIdentity i -> sb.Append(printDisplayName_short i.Name)
+    match typeInfo with
+    | ActualType a -> sb.Append(printName_short a.Name)
+    | UserInputType u -> sb.Append(printDisplayName_short u.Name)
 
   let printVariableSource = function
     | VariableSource.Query -> "q"
@@ -111,74 +95,81 @@ module internal FSharpImpl =
     else
       sb.Append(typeVariablePrefix v).Append(v.Name)
 
-  let rec printLowType isDebug (printIdentity: Identity -> StringBuilder -> StringBuilder) lowType (sb: StringBuilder) =
+  let printLoadingName (name: LoadingName) (sb: StringBuilder) =
+    match name.MemberName with
+    | [] -> sb.Append(name.RawName)
+    | n2 ->
+      sb.Append(name.RawName).Append(".").Append(printName_full n2)
+
+  let rec printLowType isDebug (printTypeInfo: TypeInfo -> StringBuilder -> StringBuilder) lowType (sb: StringBuilder) =
     match lowType with
     | Wildcard name ->
       match name with
       | Some n -> sb.Append("?").Append(n)
       | None -> sb.Append("?")
     | Variable (source, v) -> sb.Append(printTypeVariable isDebug source v)
-    | Identity i -> sb.Append(printIdentity i)
-    | Arrow arrow -> sb.Append(printArrow isDebug printIdentity arrow)
-    | Tuple { Elements = xs; IsStruct = false } -> sb.Append(printTuple isDebug printIdentity xs)
-    | Tuple { Elements = xs; IsStruct = true } -> sb.Append(printStructTuple isDebug printIdentity xs)
+    | Type i -> sb.Append(printTypeInfo i)
+    | Arrow arrow -> sb.Append(printArrow isDebug printTypeInfo arrow)
+    | Tuple { Elements = xs; IsStruct = false } -> sb.Append(printTuple isDebug printTypeInfo xs)
+    | Tuple { Elements = xs; IsStruct = true } -> sb.Append(printStructTuple isDebug printTypeInfo xs)
     | LowType.Patterns.Array (name, elem) ->
       match elem with
       | Tuple { IsStruct = false } | Arrow _ ->
         sb.Append("(")
-          .Append(printLowType isDebug printIdentity elem)
+          .Append(printLowType isDebug printTypeInfo elem)
           .Append(")")
           |> ignore
-      | _ -> sb.Append(printLowType isDebug printIdentity elem) |> ignore
+      | _ -> sb.Append(printLowType isDebug printTypeInfo elem) |> ignore
       sb.Append(name)
-    | Generic (id, args) -> sb.Append(printGeneric isDebug printIdentity id args)
-    | TypeAbbreviation t -> sb.Append(printLowType isDebug printIdentity t.Abbreviation)
-    | Delegate (t, _) -> sb.Append(printLowType isDebug printIdentity t)
-    | ByRef (_, t) -> sb.Append("byref<").Append(printLowType isDebug printIdentity t).Append(">")
-    | Subtype t -> sb.Append("#").Append(printLowType isDebug printIdentity t)
-    | Choice xs -> sb.Append(printChoice isDebug printIdentity xs)
-  and printGeneric isDebug printIdentity id (args: _ list) (sb: StringBuilder) =
-    sb.Append(printLowType isDebug printIdentity id)
+    | Generic (id, args) -> sb.Append(printGeneric isDebug printTypeInfo id args)
+    | TypeAbbreviation t -> sb.Append(printLowType isDebug printTypeInfo t.Abbreviation)
+    | Delegate (t, _) -> sb.Append(printLowType isDebug printTypeInfo t)
+    | ByRef (_, t) -> sb.Append("byref<").Append(printLowType isDebug printTypeInfo t).Append(">")
+    | Subtype t -> sb.Append("#").Append(printLowType isDebug printTypeInfo t)
+    | Choice xs -> sb.Append(printChoice isDebug printTypeInfo xs)
+    | LoadingType name -> sb.Append(printLoadingName name)
+  and printGeneric isDebug printTypeInfo id (args: _ list) (sb: StringBuilder) =
+    sb.Append(printLowType isDebug printTypeInfo id)
       .Append("<")
-      .AppendJoin(", ", args, (printLowType isDebug printIdentity))
+      .AppendJoin(", ", args, (printLowType isDebug printTypeInfo))
       .Append(">")
-  and printArrowItem isDebug printIdentity (item: LowType) (sb: StringBuilder) =
+  and printArrowItem isDebug printTypeInfo (item: LowType) (sb: StringBuilder) =
     match item with
     | Arrow _ as a ->
       sb.Append("(")
-        .Append(printLowType isDebug printIdentity a)
+        .Append(printLowType isDebug printTypeInfo a)
         .Append(")")
-    | x -> sb.Append(printLowType isDebug printIdentity x)
-  and printArrow isDebug printIdentity (arrow: Arrow) (sb: StringBuilder) =
+    | x -> sb.Append(printLowType isDebug printTypeInfo x)
+  and printArrow isDebug printTypeInfo (arrow: Arrow) (sb: StringBuilder) =
     let ps, ret = arrow
-    sb.AppendJoin(" -> ", ps, printArrowItem isDebug printIdentity).Append(" -> ").Append(printArrowItem isDebug printIdentity ret)
-  and printTuple isDebug printIdentity (xs: _ list) (sb: StringBuilder) =
+    sb.AppendJoin(" -> ", ps, printArrowItem isDebug printTypeInfo).Append(" -> ").Append(printArrowItem isDebug printTypeInfo ret)
+  and printTuple isDebug printTypeInfo (xs: _ list) (sb: StringBuilder) =
     let printItem lowType (sb: StringBuilder) =
       match lowType with
       | Tuple _ as t ->
         sb.Append("(")
-          .Append(printLowType isDebug printIdentity t)
+          .Append(printLowType isDebug printTypeInfo t)
           .Append(")")
-      | x -> sb.Append(printLowType isDebug printIdentity x)
+      | x -> sb.Append(printLowType isDebug printTypeInfo x)
     sb.AppendJoin(" * ", xs, printItem)
-  and printStructTuple isDebug printIdentity (xs: _ list) (sb: StringBuilder) =
+  and printStructTuple isDebug printTypeInfo (xs: _ list) (sb: StringBuilder) =
     let printItem lowType (sb: StringBuilder) =
       match lowType with
       | Tuple { IsStruct = false  } | Arrow _ ->
         sb.Append("(")
-          .Append(printLowType isDebug printIdentity lowType)
+          .Append(printLowType isDebug printTypeInfo lowType)
           .Append(")")
-      | _ -> sb.Append(printLowType isDebug printIdentity lowType)
+      | _ -> sb.Append(printLowType isDebug printTypeInfo lowType)
     sb.Append("struct (")
       .AppendJoin(" * ", xs, printItem)
       .Append(")")
-  and printChoice isDebug printIdentity (xs: _ list) (sb: StringBuilder) =
+  and printChoice isDebug printTypeInfo (xs: _ list) (sb: StringBuilder) =
     sb.Append("(")
-      .AppendJoin(" or ", xs, printLowType isDebug printIdentity)
+      .AppendJoin(" or ", xs, printLowType isDebug printTypeInfo)
       .Append(")")
 
-  let printLowType_short isDebug t (sb: StringBuilder) = sb.Append(printLowType isDebug printIdentity_short t)
-  let printLowType_full isDebug t (sb: StringBuilder) = sb.Append(printLowType isDebug printIdentity_full t)
+  let printLowType_short isDebug t (sb: StringBuilder) = sb.Append(printLowType isDebug printTypeInfo_short t)
+  let printLowType_full isDebug t (sb: StringBuilder) = sb.Append(printLowType isDebug printTypeInfo_full t)
 
   let printParameter tupleParen isDebug (p: Parameter) (sb: StringBuilder) =
     if p.IsParamArray then sb.Append("[<ParamArray>]") |> ignore
@@ -217,7 +208,7 @@ module internal FSharpImpl =
     | _ ->
       sb.Append(printParameterGroups true isDebug m.Parameters)
         .Append(" -> ")
-        .Append(printArrowItem isDebug printIdentity_short m.ReturnParameter.Type)
+        .Append(printArrowItem isDebug printTypeInfo_short m.ReturnParameter.Type)
 
   let printConstraint isDebug (c: TypeConstraint) (sb: StringBuilder) =
     let variableSource = VariableSource.Target
@@ -329,9 +320,9 @@ module internal FSharpImpl =
     | ApiSignature.ComputationExpressionBuilder builder -> sb.Append(printComputationExpressionBuilder isDebug builder)
 
 module FSharp =
-  let printFullName (api: Api) = StringBuilder().Append(FSharpImpl.printName_full api.Name).ToString()
-  let printApiName (api: Api) = StringBuilder().Append(FSharpImpl.printApiName api.Name).ToString()
-  let printAccessPath (depth: int option) (api: Api) = StringBuilder().Append(FSharpImpl.printAccessPath depth api.Name).ToString()
+  let printFullName (api: Api) = StringBuilder().Append(FSharpImpl.printName_full (ApiName.toName api.Name)).ToString()
+  let printApiName (api: Api) = StringBuilder().Append(FSharpImpl.printApiName (ApiName.toName api.Name)).ToString()
+  let printAccessPath (depth: int option) (api: Api) = StringBuilder().Append(FSharpImpl.printAccessPath depth (ApiName.toName api.Name)).ToString()
 
   let printSignature (api: Api) = StringBuilder().Append(FSharpImpl.printApiSignature false api.Signature).ToString()
   let printKind (api: Api) =
@@ -361,7 +352,7 @@ module internal CSharpImpl =
     | OperatorName (_, n) -> n
     | WithCompiledName (_, n) -> n
 
-  let printNameItem (n: DisplayNameItem) (sb: StringBuilder) =
+  let printNameItem (n: NameItem) (sb: StringBuilder) =
     match n.GenericParameters with
     | [] -> sb.Append(toDisplayName n.Name)
     | args ->
@@ -372,56 +363,41 @@ module internal CSharpImpl =
 
   let printDisplayName_full xs (sb: StringBuilder) = sb.AppendJoin(".", List.rev xs, printNameItem)
 
-  let printName_full (name: Name) (sb: StringBuilder) =
-    match name with
-    | LoadingName (_, n1, n2) ->
-      match n2 with
-      | [] -> sb.Append(n1)
-      | n2 ->
-        sb.Append(n1).Append(".").Append(printDisplayName_full n2)
-    | DisplayName n -> sb.Append(printDisplayName_full n)
+  let printName_full (name: Name) (sb: StringBuilder) = sb.Append(printDisplayName_full name)
 
   let printApiName (name: Name) (sb: StringBuilder) =
-    let name = Name.toDisplayName name
     sb.Append(printNameItem name.Head)
 
   let printAccessPath depth (name: Name) (sb: StringBuilder) =
-    let ns = Name.toDisplayName name
-    let depth = Option.defaultValue (ns.Tail.Length) depth
+    let depth = Option.defaultValue (name.Tail.Length) depth
     
-    let pathes = List.truncate depth ns.Tail |> List.rev
+    let pathes = List.truncate depth name.Tail |> List.rev
     sb.AppendJoin(".", pathes, printNameItem)
 
   let csharpAlias =
-    SpecialTypes.Identity.CSharp.aliases
+    SpecialTypes.TypeInfo.CSharp.aliases
     |> List.map (fun (alias, t) ->
-      let alias = FullIdentity { AssemblyName = "dummy"; Name = Name.ofString alias; GenericParameterCount = 0 }
+      let alias = ActualType { AssemblyName = "dummy"; Name = Name.ofString alias }
       t, alias
     )
     |> dict
 
-  let printIdentity (identity: Identity) (sb: StringBuilder) =
-    let identity =
-      match csharpAlias.TryGetValue(identity) with
+  let printTypeInfo (info: TypeInfo) (sb: StringBuilder) =
+    let info =
+      match csharpAlias.TryGetValue(info) with
       | true, alias -> alias
-      | false, _ -> identity
+      | false, _ -> info
 
-    let printDisplayName_short (xs: DisplayName) (sb: StringBuilder) =
+    let printDisplayName_short (xs: Name) (sb: StringBuilder) =
       match xs with
       | [] -> sb.Append("<empty>")
       | n :: _ -> sb.Append(toDisplayName n.Name)
 
-    let printName_short name (sb: StringBuilder) =
-      match name with
-      | LoadingName (_, n1, n2) ->
-        match n2 with
-        | [] -> sb.Append(n1)
-        | n2 -> sb.Append(printDisplayName_short n2)
-      | DisplayName n -> sb.Append(printDisplayName_short n)
+    let printName_short name (sb: StringBuilder) = sb.Append(printDisplayName_short name)
     
-    match identity with
-    | FullIdentity i -> sb.Append(printName_short i.Name)
-    | PartialIdentity i -> sb.Append(printDisplayName_short i.Name)
+    match info with
+    | ActualType a -> sb.Append(printName_short a.Name)
+    | UserInputType u -> sb.Append(printDisplayName_short u.Name)
 
   let toFSharpFunc (ps, ret) = List.foldBack (fun id ret -> Generic (SpecialTypes.LowType.FSharpFunc, [ id; ret ])) ps ret
 
@@ -431,6 +407,12 @@ module internal CSharpImpl =
 
   let printRef isOut = if isOut then "out" else "ref"
 
+  let printLoadingName (name: LoadingName) (sb: StringBuilder) =
+    match name.MemberName with
+    | [] -> sb.Append(name.RawName)
+    | n2 ->
+      sb.Append(name.RawName).Append(".").Append(printName_full n2)
+
   let rec printLowType t (sb: StringBuilder) =
     match t with
     | Wildcard name ->
@@ -438,7 +420,7 @@ module internal CSharpImpl =
       | Some n -> sb.Append("?").Append(n)
       | None -> sb.Append("?")
     | Variable (_, v) -> sb.Append(v.Name)
-    | Identity i -> sb.Append(printIdentity i)
+    | Type i -> sb.Append(printTypeInfo i)
     | Arrow arrow -> printLowType (toFSharpFunc arrow) sb
     | Tuple { Elements = xs; IsStruct = false } -> sb.Append("Tuple<").AppendJoin(", ", xs, printLowType).Append(">")
     | Tuple { Elements = xs; IsStruct = true } -> sb.Append("(").AppendJoin(", ", xs, printLowType).Append(")")
@@ -453,6 +435,7 @@ module internal CSharpImpl =
     | ByRef (isOut, t) -> sb.Append(printRef isOut).Append(" ").Append(printLowType t)
     | Subtype t -> sb.Append("#").Append(printLowType t)
     | Choice xs -> sb.Append("(").AppendJoin(" or ", xs, printLowType).Append(")")
+    | LoadingType n -> sb.Append(printLoadingName n)
 
   let printParameter (p: Parameter) (sb: StringBuilder) =
     if p.IsParamArray then sb.Append("params ") |> ignore
@@ -604,9 +587,9 @@ module internal CSharpImpl =
     | ApiKind.TypeExtension _ -> failwith "It is not C# api."
 
 module CSharp =
-  let printFullName (api: Api) = StringBuilder().Append(CSharpImpl.printName_full api.Name).ToString()
-  let printApiName (api: Api) = StringBuilder().Append(CSharpImpl.printApiName api.Name).ToString()
-  let printAccessPath (depth: int option) (api: Api) = StringBuilder().Append(CSharpImpl.printAccessPath depth api.Name).ToString()
+  let printFullName (api: Api) = StringBuilder().Append(CSharpImpl.printName_full (ApiName.toName api.Name)).ToString()
+  let printApiName (api: Api) = StringBuilder().Append(CSharpImpl.printApiName (ApiName.toName api.Name)).ToString()
+  let printAccessPath (depth: int option) (api: Api) = StringBuilder().Append(CSharpImpl.printAccessPath depth (ApiName.toName api.Name)).ToString()
 
   let printSignature (api: Api) = StringBuilder().Append(CSharpImpl.printApiSignature api.Signature).ToString()
 
@@ -621,11 +604,11 @@ module CSharp =
 type TypeVariable with
   member this.Print() = StringBuilder().Append(FSharpImpl.printTypeVariable false VariableSource.Target this).ToString()
 
-type DisplayNameItem with
+type NameItem with
   member this.Print() = StringBuilder().Append(FSharpImpl.printNameItem this).ToString()
 
-type Name with
-  member this.Print() = StringBuilder().Append(FSharpImpl.printName_full this).ToString()
+type ApiName with
+  member this.Print() = StringBuilder().Append(FSharpImpl.printName_full (ApiName.toName this)).ToString()
 
 type LowType with
   member this.Print() = StringBuilder().Append(FSharpImpl.printLowType_short false this).ToString()
@@ -655,3 +638,8 @@ module internal TypeConstraint =
   
 module internal FullTypeDefinition =
   let debug (x: FullTypeDefinition) = x.Debug()
+
+[<Extension>]
+type internal Extensions() =
+  [<Extension>]
+  static member Print(name: Name) = StringBuilder().Append(FSharpImpl.printName_full name).ToString()

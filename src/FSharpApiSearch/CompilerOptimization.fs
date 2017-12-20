@@ -7,9 +7,9 @@ type ImplicitMember = {
   StaticMembers: Member list
 }
 
-module FullIdentity =
+module TypeInfo =
   open System
-  open SpecialTypes.FullIdentity
+  open SpecialTypes.TypeInfo
 
   let Boolean = ofDotNetType typeof<Boolean>
   let Byte = ofDotNetType typeof<Byte>
@@ -70,9 +70,9 @@ module Parameter =
   let UIntPtr = Parameter.ofLowType UIntPtr
 
 
-let table: Map<FullIdentity, ImplicitMember> =
+let table: Map<TypeInfo, ImplicitMember> =
   Map.ofList [
-    (FullIdentity.Boolean, 
+    (TypeInfo.Boolean, 
       {
         InstanceMembers = []
         StaticMembers =
@@ -82,7 +82,7 @@ let table: Map<FullIdentity, ImplicitMember> =
             { Name = PrettyNaming.CompileOpName("="); Kind = MemberKind.Method; GenericParameters = []; Parameters = [ [ Parameter.Boolean; Parameter.Boolean ] ]; ReturnParameter = Parameter.Boolean }
           ]
       })
-    (FullIdentity.Byte, 
+    (TypeInfo.Byte, 
       {
         InstanceMembers = []
         StaticMembers =
@@ -120,7 +120,7 @@ let table: Map<FullIdentity, ImplicitMember> =
             { Name = "op_Explicit"; Kind = MemberKind.Method; GenericParameters = []; Parameters = [ [ Parameter.Byte ] ]; ReturnParameter = Parameter.UIntPtr }
           ]
       })
-    (FullIdentity.Char, 
+    (TypeInfo.Char, 
       {
         InstanceMembers = []
         StaticMembers =
@@ -145,7 +145,7 @@ let table: Map<FullIdentity, ImplicitMember> =
             { Name = "op_Explicit"; Kind = MemberKind.Method; GenericParameters = []; Parameters = [ [ Parameter.Char ] ]; ReturnParameter = Parameter.UIntPtr }
           ]
       })
-    (FullIdentity.Decimal, 
+    (TypeInfo.Decimal, 
       {
         InstanceMembers =
           [
@@ -170,7 +170,7 @@ let table: Map<FullIdentity, ImplicitMember> =
             { Name = "op_Explicit"; Kind = MemberKind.Method; GenericParameters = []; Parameters = [ [ Parameter.Decimal ] ]; ReturnParameter = Parameter.Double }
           ]
       })
-    (FullIdentity.Double, 
+    (TypeInfo.Double, 
       {
         InstanceMembers =
           [
@@ -226,7 +226,7 @@ let table: Map<FullIdentity, ImplicitMember> =
             { Name = "op_Explicit"; Kind = MemberKind.Method; GenericParameters = []; Parameters = [ [ Parameter.Double ] ]; ReturnParameter = Parameter.UIntPtr }
           ]
       })
-    (FullIdentity.Single, 
+    (TypeInfo.Single, 
       {
         InstanceMembers =
           [
@@ -281,7 +281,7 @@ let table: Map<FullIdentity, ImplicitMember> =
             { Name = "op_Explicit"; Kind = MemberKind.Method; GenericParameters = []; Parameters = [ [ Parameter.Single ] ]; ReturnParameter = Parameter.UIntPtr }
           ]
       })
-    (FullIdentity.Int16, 
+    (TypeInfo.Int16, 
       {
         InstanceMembers =
           [
@@ -323,7 +323,7 @@ let table: Map<FullIdentity, ImplicitMember> =
             { Name = "op_Explicit"; Kind = MemberKind.Method; GenericParameters = []; Parameters = [ [ Parameter.Int16 ] ]; ReturnParameter = Parameter.UIntPtr }
           ]
       })
-    (FullIdentity.Int32, 
+    (TypeInfo.Int32, 
       {
         InstanceMembers =
           [
@@ -365,7 +365,7 @@ let table: Map<FullIdentity, ImplicitMember> =
             { Name = "op_Explicit"; Kind = MemberKind.Method; GenericParameters = []; Parameters = [ [ Parameter.Int32 ] ]; ReturnParameter = Parameter.UIntPtr }
           ]
       })
-    (FullIdentity.Int64, 
+    (TypeInfo.Int64, 
       {
         InstanceMembers =
           [
@@ -407,7 +407,7 @@ let table: Map<FullIdentity, ImplicitMember> =
             { Name = "op_Explicit"; Kind = MemberKind.Method; GenericParameters = []; Parameters = [ [ Parameter.Int64 ] ]; ReturnParameter = Parameter.UIntPtr }
           ]
       })
-    (FullIdentity.IntPtr, 
+    (TypeInfo.IntPtr, 
       {
         InstanceMembers =
           [
@@ -449,7 +449,7 @@ let table: Map<FullIdentity, ImplicitMember> =
             { Name = "op_Explicit"; Kind = MemberKind.Method; GenericParameters = []; Parameters = [ [ Parameter.IntPtr ] ]; ReturnParameter = Parameter.UIntPtr }
           ]
       })
-    (FullIdentity.SByte, 
+    (TypeInfo.SByte, 
       {
         InstanceMembers =
           [
@@ -491,7 +491,7 @@ let table: Map<FullIdentity, ImplicitMember> =
             { Name = "op_Explicit"; Kind = MemberKind.Method; GenericParameters = []; Parameters = [ [ Parameter.SByte ] ]; ReturnParameter = Parameter.UIntPtr }
           ]
       })
-    (FullIdentity.String, 
+    (TypeInfo.String, 
       {
         InstanceMembers = []
         StaticMembers =
@@ -519,7 +519,7 @@ let table: Map<FullIdentity, ImplicitMember> =
             { Name = "op_Explicit"; Kind = MemberKind.Method; GenericParameters = []; Parameters = [ [ Parameter.String ] ]; ReturnParameter = Parameter.UIntPtr }
           ]
       })
-    (FullIdentity.UInt16, 
+    (TypeInfo.UInt16, 
       {
         InstanceMembers = []
         StaticMembers =
@@ -557,7 +557,7 @@ let table: Map<FullIdentity, ImplicitMember> =
             { Name = "op_Explicit"; Kind = MemberKind.Method; GenericParameters = []; Parameters = [ [ Parameter.UInt16 ] ]; ReturnParameter = Parameter.UIntPtr }
           ]
       })
-    (FullIdentity.UInt32, 
+    (TypeInfo.UInt32, 
       {
         InstanceMembers = []
         StaticMembers =
@@ -595,7 +595,7 @@ let table: Map<FullIdentity, ImplicitMember> =
             { Name = "op_Explicit"; Kind = MemberKind.Method; GenericParameters = []; Parameters = [ [ Parameter.UInt32 ] ]; ReturnParameter = Parameter.UIntPtr }
           ]
       })
-    (FullIdentity.UInt64, 
+    (TypeInfo.UInt64, 
       {
         InstanceMembers = []
         StaticMembers =
@@ -633,7 +633,7 @@ let table: Map<FullIdentity, ImplicitMember> =
             { Name = "op_Explicit"; Kind = MemberKind.Method; GenericParameters = []; Parameters = [ [ Parameter.UInt64 ] ]; ReturnParameter = Parameter.UIntPtr }
           ]
       })
-    (FullIdentity.UIntPtr, 
+    (TypeInfo.UIntPtr, 
       {
         InstanceMembers = []
         StaticMembers =

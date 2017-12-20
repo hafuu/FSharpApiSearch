@@ -7,12 +7,12 @@ open FSharpApiSearch.Printer
 module LinkGenerator =
   open System.Web
 
-  let internal genericParameters (api: Api) = api.Name |> Name.toDisplayName |> Seq.rev |> Seq.collect (fun x -> x.GenericParameters) |> Seq.distinct |> Seq.toList
+  let internal genericParameters (api: Api) = api.Name |> ApiName.toName |> Seq.rev |> Seq.collect (fun x -> x.GenericParameters) |> Seq.distinct |> Seq.toList
 
   let internal toLower (str: string) = str.ToLower()
   let internal urlEncode (str: string) = HttpUtility.UrlEncode(str)
 
-  let internal urlName (n: DisplayNameItem) =
+  let internal urlName (n: NameItem) =
     match n.Name with
     | SymbolName n -> n
     | OperatorName (n, _) -> n
@@ -58,9 +58,9 @@ module LinkGenerator =
         let replaced = op |> String.map (fun s -> match opReplaceTable.TryGetValue(s) with true, r -> r | false, _ -> s)
         sb.Append("[-").Append(replaced).Append("-]")
 
-    let isArray (n: DisplayNameItem) = (urlName n).StartsWith("[")
+    let isArray (n: NameItem) = (urlName n).StartsWith("[")
 
-    let namePart (api: Api) (ns: DisplayName) (sb: StringBuilder) =
+    let namePart (api: Api) (ns: Name) (sb: StringBuilder) =
       let path = urlName (List.item 1 ns)
       let name = urlName ns.Head
       sb.Append(path).Append(".") |> ignore
@@ -71,7 +71,7 @@ module LinkGenerator =
       else
         sb.Append(name)
 
-    let genericParamsPart (api: Api) (ns: DisplayName) (sb: StringBuilder) =
+    let genericParamsPart (api: Api) (ns: Name) (sb: StringBuilder) =
       match ns with
       | { Name = OperatorName ("( = )", _) } :: { Name = SymbolName "Operators" } :: _ -> sb.Append("'t")
       | { Name = WithCompiledName ("array2D", "CreateArray2D") } :: { Name = SymbolName "ExtraTopLevelOperators" } :: _ -> sb.Append("['t]")
@@ -83,7 +83,7 @@ module LinkGenerator =
             .AppendJoin(",",(genericParams |> Seq.map (fun v -> v.Print())))
             .Append("]")
 
-    let kindPart (api: Api) (ns: DisplayName) : string option =
+    let kindPart (api: Api) (ns: Name) : string option =
       match api.Signature with
       | ApiSignature.ActivePatten _ -> Some "active-pattern"
       | ApiSignature.ModuleValue _ when ns.Head.GenericParameters.IsEmpty = false -> Some "type-function"
@@ -116,7 +116,7 @@ module LinkGenerator =
 
     let generate (api: Api) =
       let ns =
-        let ns = Name.toDisplayName api.Name
+        let ns = ApiName.toName api.Name
         match api.Signature with
         | ApiSignature.Constructor _ -> ns.Tail // skip "new"
         | _ -> ns
@@ -128,7 +128,7 @@ module LinkGenerator =
       )
 
   module internal Msdn =
-    let isGeneric api = api.Name |> Name.toDisplayName |> List.exists (fun n -> List.isEmpty n.GenericParameters = false)
+    let isGeneric api = api.Name |> ApiName.toName |> List.exists (fun n -> List.isEmpty n.GenericParameters = false)
     let canGenerate (api: Api) =
       match api.Signature with
       | ApiSignature.ActivePatten _
@@ -152,7 +152,7 @@ module LinkGenerator =
       elif canGenerate api = false then
         None
       else
-        (Name.toDisplayName api.Name |> Seq.rev |> Seq.map urlName |> String.concat ".") + ".aspx"
+        (ApiName.toName api.Name |> Seq.rev |> Seq.map urlName |> String.concat ".") + ".aspx"
         |> toLower
         |> Some
 
@@ -164,9 +164,9 @@ module LinkGenerator =
 
     type VariableMemory = Dictionary<string, string>
 
-    let variableId (kind: ApiKind) (name: DisplayName) =
+    let variableId (kind: ApiKind) (name: Name) =
       let variableMemory = VariableMemory()
-      let memory (prefix: string) (n: DisplayNameItem) =
+      let memory (prefix: string) (n: NameItem) =
         n.GenericParameters
         |> List.iteri (fun variableId p ->
           let variable = p.Name
@@ -183,7 +183,7 @@ module LinkGenerator =
       variableMemory
 
     let nameElementsAndVariableId (api: Api) =
-      let convert (modifiedString: string) ((wroteGeneric, result): bool * string list) (name: DisplayNameItem) =
+      let convert (modifiedString: string) ((wroteGeneric, result): bool * string list) (name: NameItem) =
         if wroteGeneric = false && name.GenericParameters.IsEmpty = false then
           let result = (urlName name + modifiedString + string name.GenericParameters.Length) :: result
           true, result
@@ -191,7 +191,7 @@ module LinkGenerator =
           let result = urlName name :: result
           (wroteGeneric, result)
       
-      let name = Name.toDisplayName api.Name
+      let name = ApiName.toName api.Name
 
       let kind = api.Kind
 
@@ -233,12 +233,12 @@ module LinkGenerator =
     let rec parameterElement (api: Api) (variableMemory: VariableMemory) (t: LowType) (sb: StringBuilder) : StringBuilder =
       match t with
       | Unit -> sb
-      | Identity (FullIdentity { Name = name }) ->
-        let ns = Name.toDisplayName name |> Seq.rev
+      | Type (ActualType { Name = name }) ->
+        let ns = name |> Seq.rev
         sb.AppendJoin("_", ns, (fun n sb -> sb.Append(urlName n)))
       | Array (_, elem) -> sb.Append(parameterElement api variableMemory elem).Append("__")
       | ByRef (_, arg) -> sb.Append(parameterElement api variableMemory arg).Append("_")
-      | Generic (Identity(FullIdentity{Name = DisplayName({Name = SymbolName("nativeptr")}::{Name = SymbolName("Core")}::{Name = SymbolName("FSharp")}::{Name = SymbolName("Microsoft")}::[])}), args) ->
+      | Generic (Type (ActualType { Name = { Name = SymbolName "nativeptr" } :: { Name = SymbolName "Core" } :: { Name = SymbolName "FSharp" } :: { Name = SymbolName "Microsoft" } :: [] } ), args) ->
         sb.AppendJoin("_", args, (parameterElement api variableMemory))
             .Append("_")
       | Generic (id, args) ->
@@ -297,7 +297,7 @@ module LinkGenerator =
     open System.Text
     
     let moduleName (api: Api) =
-      let names = api.Name |> Name.toDisplayName |> List.rev
+      let names = api.Name |> ApiName.toName |> List.rev
       match names with
       | { Name = SymbolName ("FParsec") } :: { Name = SymbolName moduleName } :: _ ->
         if moduleName = "Internals" || moduleName = "Emit" then
@@ -317,7 +317,7 @@ module LinkGenerator =
         '.', ".."
       ]
 
-    let opReplace (ns: DisplayNameItem) (sb: StringBuilder) =
+    let opReplace (ns: NameItem) (sb: StringBuilder) =
       match ns.Name with
       | OperatorName (name, _) ->
         for ch in name do
@@ -328,10 +328,10 @@ module LinkGenerator =
       | SymbolName name -> sb.Append(name)
       | WithCompiledName (name, _) -> sb.Append(name)
 
-    let membersPart (ns: DisplayName) (sb: StringBuilder) =
+    let membersPart (ns: Name) (sb: StringBuilder) =
       sb.Append("members.").Append(ns.Head |> opReplace)
 
-    let staticMembersPart (ns: DisplayName) (sb: StringBuilder) =
+    let staticMembersPart (ns: Name) (sb: StringBuilder) =
       sb.Append("members.").Append(urlName ns.[1]).Append("..").Append(urlName ns.[0])
 
     let generate (api: Api) =
@@ -354,13 +354,13 @@ module LinkGenerator =
         | ApiSignature.TypeAbbreviation _
         | ApiSignature.FullTypeDefinition _ 
         | ApiSignature.InstanceMember _ ->
-          let sb = StringBuilder().Append(urlPart moduleName).Append("#").Append(api.Name |> Name.toDisplayName |> membersPart)
+          let sb = StringBuilder().Append(urlPart moduleName).Append("#").Append(api.Name |> ApiName.toName |> membersPart)
           Some (string sb)
 
         | ApiSignature.StaticMember (_, mem) ->
           match mem.Kind with
           | MemberKind.Method ->
-            let sb = StringBuilder().Append(urlPart moduleName).Append("#").Append(api.Name |> Name.toDisplayName |> staticMembersPart)
+            let sb = StringBuilder().Append(urlPart moduleName).Append("#").Append(api.Name |> ApiName.toName |> staticMembersPart)
             Some (string sb)
           | _ -> None
       )

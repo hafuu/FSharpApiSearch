@@ -14,7 +14,7 @@ let parseDisplayNameTest = parameterize {
     "A.B<'T>", [ { Name = SymbolName "B"; GenericParameters = [ tv "'T" ] }; { Name = SymbolName "A"; GenericParameters = [] } ]
   ]
   run (fun (x, expected) -> test {
-    do! DisplayName.ofString x |> assertEquals expected
+    do! Name.ofString x |> assertEquals expected
   })
 }
 
@@ -23,6 +23,6 @@ let parseOperatorDisplayNameTest = parameterize {
     "A.( + )", [ { Name = OperatorName ("( + )", "op_Addition"); GenericParameters = [] }; { Name = SymbolName "A"; GenericParameters = [] } ]
   ]
   run (fun (x, expected) -> test {
-    do! DisplayName.ofOperatorString x |> assertEquals expected
+    do! Name.ofOperatorString x |> assertEquals expected
   })
 }

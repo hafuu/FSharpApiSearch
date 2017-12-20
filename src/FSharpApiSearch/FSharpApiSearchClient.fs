@@ -42,7 +42,7 @@ type FSharpApiSearchClient(targets: string seq, dictionaries: ApiDictionary seq)
         | ApiKind.ComputationExpressionBuilder -> 1
         | _ -> 2
       let distance = result.Distance
-      let name = result.Api.Name.Print()
+      let name = FSharp.printApiName result.Api
       (kind, distance, name)
     match results with
     | :? pseq<Result> as xs -> PSeq.sortBy sortKey xs :> seq<Result>

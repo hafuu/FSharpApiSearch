@@ -5,6 +5,8 @@ open System
 open System.Collections.Generic
 open MessagePack
 
+type internal DotNetType = System.Type
+
 [<MessagePackObject>]
 type TypeVariable = {
   [<Key(0)>]
@@ -25,16 +27,16 @@ type NamePart =
   | WithCompiledName of name:string * compiledName:string
 
 [<MessagePackObject>]
-type DisplayNameItem = {
+type NameItem = {
   [<Key(0)>]
   Name: NamePart
   [<Key(1)>]
   GenericParameters: TypeVariable list
 }
 
-type DisplayName = DisplayNameItem list
+type Name = NameItem list
 
-module internal DisplayName =
+module internal Name =
   open System.Text.RegularExpressions
 
   let private splitName (name: string) =
@@ -51,16 +53,16 @@ module internal DisplayName =
     |> Array.rev
     |> Array.toList
 
-  let ofString name =
+  let ofString name : Name =
     splitName name |> List.map (fun (name, parameters) -> { Name = SymbolName name; GenericParameters = parameters })
   
-  let ofString2 name compiledName =
+  let ofCompiledName name compiledName : Name =
     List.zip (splitName name) (splitName compiledName)
     |> List.map (fun ((name, parameters), (compiledName, _)) ->
       let n = if name <> compiledName then WithCompiledName (name, compiledName) else SymbolName name
       { Name = n; GenericParameters = parameters })
 
-  let ofOperatorString (name: string) =
+  let ofOperatorString (name: string) : Name =
     let name = ofString name
     let headName =
       match name.Head.Name with
@@ -71,53 +73,52 @@ module internal DisplayName =
     let head = { name.Head with Name = OperatorName (headName, compiledOpName) }
     head :: name.Tail
 
-[<MessagePackObject>]
-type Name =
-  | LoadingName of assemblyName:string * accessPath:string * DisplayName // only api loading
-  | DisplayName of DisplayName
-  
-module internal Name =
-  let ofString (name: string) = DisplayName (DisplayName.ofString name)
-  let ofCompiledName name compiledName = DisplayName (DisplayName.ofString2 name compiledName)
-  let ofOperatorName (name: string) = DisplayName (DisplayName.ofOperatorString name)
-
   let loadingNameError() = failwith "Loading name at run time is invalid data."
-  let toDisplayName = function
-    | LoadingName _ -> loadingNameError()
-    | DisplayName ns -> ns
-
-[<MessagePackObject>]
-type PartialIdentity = {
-  [<Key(0)>]
-  Name: DisplayName
-  [<Key(1)>]
-  GenericParameterCount: int
-}
-
-[<MessagePackObject>]
-type FullIdentity = {
-  [<Key(0)>]
-  AssemblyName: string
-  [<Key(1)>]
-  Name: Name
-  [<Key(2)>]
-  GenericParameterCount: int
-}
-
-[<MessagePackObject>]
-type Identity =
-  | PartialIdentity of PartialIdentity
-  | FullIdentity of FullIdentity
 
 [<RequireQualifiedAccess>]
 [<MessagePackObject>]
 type VariableSource = Query | Target
 
 [<MessagePackObject>]
+type ActualType = {
+  [<Key(0)>]
+  AssemblyName: string
+  [<Key(1)>]
+  Name: Name
+}
+with
+  [<IgnoreMember>]
+  member this.GenericParameterCount = this.Name.Head.GenericParameters.Length
+
+[<MessagePackObject>]
+type UserInputType = {
+  [<Key(0)>]
+  Name: Name
+}
+with
+  [<IgnoreMember>]
+  member this.GenericParameterCount = this.Name.Head.GenericParameters.Length
+
+[<MessagePackObject>]
+type TypeInfo =
+  | ActualType of ActualType
+  | UserInputType of UserInputType
+
+[<MessagePackObject>]
+type LoadingName = {
+  [<Key(0)>]
+  AssemblyName: string
+  [<Key(1)>]
+  RawName: string
+  [<Key(2)>]
+  MemberName: Name
+}
+
+[<MessagePackObject>]
 type LowType =
   | Wildcard of string option
   | Variable of VariableSource * TypeVariable
-  | Identity of Identity
+  | Type of TypeInfo
   | Arrow of Arrow
   | Tuple of TupleType
   | Generic of LowType * LowType list
@@ -126,6 +127,7 @@ type LowType =
   | ByRef of isOut:bool * LowType
   | Subtype of LowType
   | Choice of LowType list
+  | LoadingType of LoadingName
 and [<MessagePackObject>] TypeAbbreviation = {
   [<Key(0)>]
   Abbreviation: LowType
@@ -264,7 +266,7 @@ type ConstraintStatus =
 [<MessagePackObject>]
 type FullTypeDefinition = {
   [<Key(0)>]
-  Name: DisplayName
+  Name: Name
   [<Key(1)>]
   FullName: string
   [<Key(2)>]
@@ -307,20 +309,20 @@ type FullTypeDefinition = {
 }
 with
   [<IgnoreMember>]
-  member internal this.FullIdentity = { AssemblyName = this.AssemblyName; Name = DisplayName this.Name; GenericParameterCount = this.GenericParameters.Length }
+  member internal this.ActualType : ActualType = { AssemblyName = this.AssemblyName; Name = this.Name; }
   [<IgnoreMember>]
   member internal this.LowType =
     match this.GenericParameters with
-    | [] -> Identity (FullIdentity this.FullIdentity)
+    | [] -> Type (ActualType this.ActualType)
     | gps ->
       let gps = gps |> List.map (fun v -> Variable (VariableSource.Target, v))
-      let id = Identity (FullIdentity this.FullIdentity)
+      let id = Type (ActualType this.ActualType)
       Generic (id, gps) 
 
 [<MessagePackObject>]
 type TypeAbbreviationDefinition = {
   [<Key(0)>]
-  Name: DisplayName
+  Name: Name
   [<Key(1)>]
   FullName: string
   [<Key(2)>]
@@ -336,14 +338,14 @@ type TypeAbbreviationDefinition = {
 }
 with
   [<IgnoreMember>]
-  member internal this.FullIdentity = { AssemblyName = this.AssemblyName; Name = DisplayName this.Name; GenericParameterCount = this.GenericParameters.Length }
+  member internal this.ActualType = { AssemblyName = this.AssemblyName; Name = this.Name; }
   [<IgnoreMember>]
   member internal this.TypeAbbreviation =
     let abbreviation =
       match this.GenericParameters with
-      | [] -> Identity (FullIdentity this.FullIdentity)
+      | [] -> Type (ActualType this.ActualType)
       | args ->
-        let id = Identity (FullIdentity this.FullIdentity)
+        let id = Type (ActualType this.ActualType)
         let args = args |> List.map (fun a -> Variable (VariableSource.Target, a))
         Generic (id, args)
     {
@@ -356,7 +358,7 @@ type TypeExtension = {
   [<Key(0)>]
   ExistingType: LowType
   [<Key(1)>]
-  Declaration: DisplayName
+  Declaration: Name
   [<Key(2)>]
   MemberModifier: MemberModifier
   [<Key(3)>]
@@ -412,7 +414,7 @@ module UnionCase =
 [<MessagePackObject>]
 type ModuleDefinition = {
   [<Key(0)>]
-  Name: DisplayName
+  Name: Name
   [<Key(1)>]
   AssemblyName: string
   [<Key(2)>]
@@ -420,7 +422,7 @@ type ModuleDefinition = {
 }
 with
   [<IgnoreMember>]
-  member internal this.LowType = Identity (FullIdentity { Name = DisplayName this.Name; AssemblyName = this.AssemblyName; GenericParameterCount = 0 })
+  member internal this.LowType = Type (ActualType { Name = this.Name; AssemblyName = this.AssemblyName; })
 
 [<MessagePackObject>]
 type ComputationExpressionBuilder = {
@@ -452,9 +454,21 @@ type ApiSignature =
   | ComputationExpressionBuilder of ComputationExpressionBuilder
 
 [<MessagePackObject>]
+type ApiName =
+  | ApiName of Name
+  | LoadingApiName of LoadingName
+
+module ApiName =
+  let ofString name = ApiName (Name.ofString name)
+
+  let toName = function
+    | ApiName name -> name
+    | LoadingApiName _ -> Name.loadingNameError()
+
+[<MessagePackObject>]
 type Api = {
   [<Key(0)>]
-  Name: Name
+  Name: ApiName
   [<Key(1)>]
   Signature: ApiSignature
   [<Key(2)>]
@@ -487,7 +501,7 @@ type ApiDictionary = {
   [<Key(1)>]
   Api: Api[]
   [<Key(2)>]
-  TypeDefinitions: IDictionary<FullIdentity, FullTypeDefinition>
+  TypeDefinitions: IDictionary<ActualType, FullTypeDefinition>
   [<Key(3)>]
   TypeAbbreviations: TypeAbbreviationDefinition[]
 }
@@ -644,47 +658,41 @@ module internal SpecialTypes =
   let mscorlib = "mscorlib"
   let fscore = "FSharp.Core"
 
-  let UnitLoadingName = LoadingName (fscore, typeof<Unit>.FullName, [])
-  let UnitDisplayName = DisplayName (DisplayName.ofString typeof<Unit>.FullName)
+  let UnitLoadingType = { AssemblyName = fscore; RawName = typeof<Unit>.FullName; MemberName = [] }
+  let UnitName = Name.ofString typeof<Unit>.FullName
 
-  module LoadingFullIdentity =
+  module LoadingType =
     open System.Collections
 
-    let ofDotNetType (t: Type) =
+    let ofDotNetType (t: DotNetType) =
       if t.IsGenericType then failwith "It is not support generic type."
       let assemblyName = t.Assembly.GetName().Name
-      { AssemblyName = assemblyName; Name = LoadingName (assemblyName, t.FullName, []); GenericParameterCount = 0 }
+      { AssemblyName = assemblyName; RawName = t.FullName; MemberName = [] }
 
-  module FullIdentity =
-    open System.Collections
-
-    let ofDotNetType (t: Type) =
+  module TypeInfo =
+    let ofDotNetType (t: DotNetType) =
       if t.IsGenericType then failwith "It is not support generic type."
-      { AssemblyName = t.Assembly.GetName().Name; Name = Name.ofString t.FullName; GenericParameterCount = 0 }
+      ActualType { AssemblyName = t.Assembly.GetName().Name; Name = Name.ofString t.FullName }
 
     let private tuple' typeName n =
       let name =
         let genericParams = List.init n (fun n -> { Name = sprintf "T%d" n; IsSolveAtCompileTime = false })
         let ns = { Name = SymbolName "System"; GenericParameters = [] } :: []
         { Name = SymbolName typeName; GenericParameters = genericParams } :: ns
-      DisplayName name
+      name
 
-    let tupleName n = tuple' "Tuple" n
+    let private tuple n = tuple' "Tuple" n
+    let private valueTuple n = tuple' "ValueTuple" n
 
-    let valueTupleName n = tuple' "ValueTuple" n
-
-  module Identity =
-    let ofDotNetType (t: Type) = FullIdentity (FullIdentity.ofDotNetType t)
-
-    let tupleN n = FullIdentity { AssemblyName = mscorlib; Name = FullIdentity.tupleName n; GenericParameterCount = n }
+    let tupleN n = ActualType { AssemblyName = mscorlib; Name = tuple n }
 
     let tuples = [1..8] |> List.map (fun n -> tupleN n)
 
-    let valueTupleN n = FullIdentity { AssemblyName = mscorlib; Name = FullIdentity.valueTupleName n; GenericParameterCount = n }
+    let valueTupleN n = ActualType { AssemblyName = mscorlib; Name = valueTuple n }
 
     let valueTuples = [1..8] |> List.map (fun n -> valueTupleN n)
 
-    let byref = FullIdentity { AssemblyName = fscore; Name = Name.ofString "Microsoft.FSharp.Core.byref<'T>"; GenericParameterCount = 1 }
+    let byref = ActualType { AssemblyName = fscore; Name = Name.ofString "Microsoft.FSharp.Core.byref<'T>" }
 
     module CSharp =
       let aliases =
@@ -708,35 +716,36 @@ module internal SpecialTypes =
         |> List.map (fun (alias, t) -> alias, ofDotNetType t)
 
   module LowType =
-    let ofDotNetType (t: Type) = LowType.Identity (Identity.ofDotNetType t)
+    let ofDotNetType (t: DotNetType) = LowType.Type (TypeInfo.ofDotNetType t)
     let Unit = ofDotNetType typeof<Unit>
     let unit =
-      let unit = LowType.Identity (FullIdentity { AssemblyName = fscore; Name = Name.ofString "Microsoft.FSharp.Core.unit"; GenericParameterCount = 0 })
+      let unit = LowType.Type (ActualType { AssemblyName = fscore; Name = Name.ofString "Microsoft.FSharp.Core.unit" })
       TypeAbbreviation { Abbreviation = unit; Original = Unit }
 
     let Double = ofDotNetType typeof<Double>
     let float =
-      let float = LowType.Identity (FullIdentity { AssemblyName = fscore; Name = Name.ofString "Microsoft.FSharp.Core.float"; GenericParameterCount = 0 })
+      let float = LowType.Type (ActualType { AssemblyName = fscore; Name = Name.ofString "Microsoft.FSharp.Core.float" })
       TypeAbbreviation { Abbreviation = float; Original = Double }
 
     let rec isUnit (x: LowType) =
       match x with
-      | Identity (FullIdentity { Name = name }) -> name = UnitLoadingName || name = UnitDisplayName
+      | Type (ActualType { Name = name }) -> name = UnitName
+      | LoadingType t -> t = UnitLoadingType
       | TypeAbbreviation { Original = o } -> isUnit o
       | _ -> false
 
     let Boolean = ofDotNetType typeof<Boolean>
 
-    let FSharpFunc = LowType.Identity (FullIdentity { AssemblyName= fscore; Name = Name.ofString "Microsoft.FSharp.Core.FSharpFunc<'T, 'U>"; GenericParameterCount = 2 })
+    let FSharpFunc = LowType.Type (ActualType { AssemblyName= fscore; Name = Name.ofString "Microsoft.FSharp.Core.FSharpFunc<'T, 'U>" })
 
     module Patterns =
       let (|Unit|_|) x = if isUnit x then Some () else None
       let (|Array|_|) x =
         match x with
-        | Generic (Identity id, [ elem ]) ->
+        | Generic (Type id, [ elem ]) ->
           match id with
-          | FullIdentity { Name = DisplayName name }
-          | PartialIdentity { Name = name } ->
+          | ActualType { Name = name }
+          | UserInputType { Name = name } ->
             match name with
             | { Name = SymbolName typeName; GenericParameters = [ _ ] } :: _ ->
               if Regex.IsMatch(typeName, arrayRegexPattern) then
@@ -744,7 +753,6 @@ module internal SpecialTypes =
               else
                 None
             | _ -> None
-          | FullIdentity { Name = LoadingName _ } -> Name.loadingNameError()
         | _ -> None
 
       let private b = Boolean
@@ -765,11 +773,9 @@ module internal SpecialTypes =
           | _ -> Some original
         | _ -> None
         
-module internal Identity =
-  open System
-
+module internal TypeInfo =
   [<RequireQualifiedAccess>]
-  type IdentityEqualityResult =
+  type TypeEqualityResult =
     | Matched
     | GenericParameter of int * int
     | Name
@@ -777,80 +783,75 @@ module internal Identity =
   
   let (<&&>) x y =
     match x() with
-    | IdentityEqualityResult.Matched -> y()
+    | TypeEqualityResult.Matched -> y()
     | failed -> failed
 
-  let testee (x: DisplayNameItem) =
+  let testee (x: NameItem) =
     match x.Name with
     | SymbolName n -> n
     | OperatorName (_, n) -> n
     | WithCompiledName (n, _) -> n
 
-  let private forall (f: 'a -> IdentityEqualityResult) (xs: 'a seq) () : IdentityEqualityResult =
+  let private forall (f: 'a -> TypeEqualityResult) (xs: 'a seq) () : TypeEqualityResult =
     xs
     |> Seq.tryPick (fun x ->
       match f x with
-      | IdentityEqualityResult.Matched -> None
+      | TypeEqualityResult.Matched -> None
       | failed -> Some failed)
     |> function
       | Some failed -> failed
-      | None -> IdentityEqualityResult.Matched
+      | None -> TypeEqualityResult.Matched
 
   let private testGenericParameterCount (x: int) (y: int) () =
     if x = y then
-      IdentityEqualityResult.Matched
+      TypeEqualityResult.Matched
     else
-      IdentityEqualityResult.GenericParameter (x, y)
+      TypeEqualityResult.GenericParameter (x, y)
 
   let private testString cmp x y () =
     if String.equalsWithComparer cmp x y then
-      IdentityEqualityResult.Matched
+      TypeEqualityResult.Matched
     else
-      IdentityEqualityResult.Name
+      TypeEqualityResult.Name
 
-  let private testDisplayName cmp (xs: DisplayName) (ys: DisplayName) () =
+  let private testName cmp (xs: Name) (ys: Name) () =
     let f = fun (x, y) -> testString cmp (testee x) (testee y) <&&> testGenericParameterCount x.GenericParameters.Length y.GenericParameters.Length
     forall f (Seq.zip xs ys) ()
 
-  let private testAssemblyName (x: FullIdentity) (y: FullIdentity) () =
+  let private testAssemblyName (x: ActualType) (y: ActualType) () =
     if x.AssemblyName = y.AssemblyName then
-      IdentityEqualityResult.Matched
+      TypeEqualityResult.Matched
     else
-      IdentityEqualityResult.AssemblyName
+      TypeEqualityResult.AssemblyName
 
-  let testFullIdentity (x: FullIdentity) (y: FullIdentity) () =
-    match x.Name, y.Name with
-    | (LoadingName _, _) | (_, LoadingName _) -> Name.loadingNameError()
-    | DisplayName xName, DisplayName yName -> testAssemblyName x y <&&> testDisplayName StringComparer.InvariantCulture xName yName
+  let testActualType (x: ActualType) (y: ActualType) () = testAssemblyName x y <&&> testName StringComparer.InvariantCulture x.Name y.Name
 
-  let fullIdentityComparer =
-    { new IEqualityComparer<FullIdentity> with
-        member this.Equals(x, y) = testFullIdentity x y () = IdentityEqualityResult.Matched
+  let actualTypeComparer =
+    { new IEqualityComparer<ActualType> with
+        member this.Equals(x, y) = testActualType x y () = TypeEqualityResult.Matched
         member this.GetHashCode(x) =
-          let name = Name.toDisplayName x.Name
+          let name = x.Name
           let nameHashItem = name |> List.map (fun n -> (n.Name, n.GenericParameters.Length))
-          hash (x.AssemblyName, x.GenericParameterCount, nameHashItem)
+          hash (x.AssemblyName, nameHashItem)
     }
 
-  let private testPartialAndFullIdentity cmp (partial: PartialIdentity) (full: FullIdentity) () =
+  let private testUserInputAndActualType cmp (userInput: UserInputType) (actual: ActualType) () =
     let strEqual x y () = testString cmp x y ()
-    let testNameItem (p: DisplayNameItem, f: DisplayNameItem) =
+    let testNameItem (p: NameItem, f: NameItem) =
       match p.GenericParameters, f.GenericParameters with
       | [], _ -> strEqual (testee p) (testee f) ()
       | _ -> strEqual (testee p) (testee f) <&&> testGenericParameterCount p.GenericParameters.Length f.GenericParameters.Length
-    match full.Name with
-    | DisplayName fullName -> testGenericParameterCount partial.GenericParameterCount full.GenericParameterCount <&&> forall testNameItem (Seq.zip partial.Name fullName)
-    | LoadingName _ -> Name.loadingNameError()
+    testGenericParameterCount userInput.GenericParameterCount actual.GenericParameterCount <&&> forall testNameItem (Seq.zip userInput.Name actual.Name)
 
   let private sameName' cmp x y =
     match x, y with
-    | FullIdentity left, FullIdentity right -> testFullIdentity left right ()
-    | FullIdentity full, PartialIdentity partial
-    | PartialIdentity partial, FullIdentity full -> testPartialAndFullIdentity cmp partial full ()
-    | PartialIdentity left, PartialIdentity right ->
-      testGenericParameterCount left.GenericParameterCount right.GenericParameterCount <&&> testDisplayName cmp left.Name right.Name
+    | ActualType left, ActualType right -> testActualType left right ()
+    | ActualType actual, UserInputType userInput
+    | UserInputType userInput, ActualType actual -> testUserInputAndActualType cmp userInput actual ()
+    | UserInputType left, UserInputType right ->
+      testGenericParameterCount left.GenericParameterCount right.GenericParameterCount <&&> testName cmp left.Name right.Name
 
-  type Equality = Identity -> Identity -> IdentityEqualityResult
+  type Equality = TypeInfo -> TypeInfo -> TypeEqualityResult
 
   let sameName x y = sameName' StringComparer.InvariantCulture x y
   let sameNameIgnoreCase x y = sameName' StringComparer.InvariantCultureIgnoreCase x y
@@ -966,7 +967,7 @@ module internal LowType =
       | Some newValue -> newValue
       | None -> oldValue
     | Variable _ as v -> v
-    | Identity _ as i -> i
+    | Type _ as i -> i
     | Generic (baseType, args) ->
       let baseType = applyVariable source replacements baseType
       let args = applyVariableToTargetList source replacements args
@@ -981,6 +982,7 @@ module internal LowType =
     | ByRef (isOut, t) -> ByRef (isOut, applyVariable source replacements t)
     | Subtype t -> Subtype (applyVariable source replacements t)
     | Choice xs -> Choice (applyVariableToTargetList source replacements xs)
+    | LoadingType _ as l -> l 
   and applyVariableToTargetList source replacements xs = xs |> List.map (applyVariable source replacements)
   and applyVariableToArrow source replacements arrow =
     let ps, ret = arrow
@@ -993,7 +995,7 @@ module internal LowType =
       | Wildcard (Some _) as w -> add w
       | Wildcard None -> ()
       | Variable _ -> ()
-      | Identity _ -> ()
+      | Type _ -> ()
       | Arrow (ps, ret) -> List.iter f ps; f ret
       | Tuple { Elements = xs } -> List.iter f xs
       | Generic (id, args) -> f id; List.iter f args
@@ -1002,6 +1004,7 @@ module internal LowType =
       | ByRef (_, t) -> f t
       | Subtype t -> f t
       | Choice xs -> List.iter f xs
+      | LoadingType _ -> Name.loadingNameError()
     f x
     List.ofSeq result
 
@@ -1011,7 +1014,7 @@ module internal LowType =
     let rec f = function
       | Wildcard _ -> ()
       | Variable _ as v -> add v
-      | Identity _ -> ()
+      | Type _ -> ()
       | Arrow (ps, ret) -> List.iter f ps; f ret
       | Tuple { Elements = xs } -> List.iter f xs
       | Generic (id, args) -> f id; List.iter f args
@@ -1020,6 +1023,7 @@ module internal LowType =
       | ByRef (_, t) -> f t
       | Subtype t -> f t
       | Choice xs -> List.iter f xs
+      | LoadingType _ -> Name.loadingNameError()
     f x
     List.ofSeq result
 
@@ -1030,7 +1034,7 @@ module internal LowType =
       | Wildcard (Some _) as w -> add w
       | Wildcard None -> ()
       | Variable _ as v -> add v
-      | Identity _ -> ()
+      | Type _ -> ()
       | Arrow (ps, ret) -> List.iter f ps; f ret
       | Tuple { Elements = xs } -> List.iter f xs
       | Generic (id, args) -> f id; List.iter f args
@@ -1039,5 +1043,6 @@ module internal LowType =
       | ByRef (_, t) -> f t
       | Subtype t -> f t
       | Choice xs -> List.iter f xs
+      | LoadingType _ -> Name.loadingNameError()
     f x
     List.ofSeq result

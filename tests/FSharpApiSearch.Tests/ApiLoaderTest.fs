@@ -39,14 +39,12 @@ let emptyDef: FullTypeDefinition = {
 
 
 let testFSharpName (left: Name) (right: Name) =
-  let left = Name.toDisplayName left
-  let right = Name.toDisplayName right
   if left.Length <> right.Length then
     false
   else
     List.zip left right
     |> List.forall (fun (l, r) ->
-      let f (n: DisplayNameItem) =
+      let f (n: NameItem) =
         match n.Name with
         | SymbolName n -> n
         | OperatorName (n, _) -> n
@@ -57,7 +55,7 @@ let testApiWithoutParameterName (assembly: TestCase<ApiDictionary>) nameConverte
   let! apiDict = assembly
   let name = nameConverter name
   let actual =
-    Seq.filter (fun x -> testFSharpName x.Name name) apiDict.Api 
+    Seq.filter (fun x -> testFSharpName (ApiName.toName x.Name) name) apiDict.Api 
     |> Seq.map (fun x -> x.Signature)
     |> Seq.filter (function (ApiSignature.FullTypeDefinition _ | ApiSignature.TypeAbbreviation _ | ApiSignature.ComputationExpressionBuilder _) -> false | _ -> true)
     |> Seq.toList
@@ -69,19 +67,19 @@ let testApiWithoutParameterName (assembly: TestCase<ApiDictionary>) nameConverte
 let testFullTypeDef' (assembly: TestCase<ApiDictionary>) filter (name, expected) = test {
   let! apiDict = assembly
   let actual =
-    Seq.filter (fun x -> testFSharpName x.Name name) apiDict.Api
+    Seq.filter (fun x -> testFSharpName (ApiName.toName x.Name) name) apiDict.Api
     |> Seq.map (fun x -> x.Signature)
     |> Seq.choose (function ApiSignature.FullTypeDefinition x -> Some x | _ -> None)
     |> Seq.head
   do! (filter actual) |> assertEquals expected
 }
 
-let testFullTypeDef (assembly: TestCase<ApiDictionary>) (expected: FullTypeDefinition) = testFullTypeDef' assembly id (DisplayName expected.Name, expected)
+let testFullTypeDef (assembly: TestCase<ApiDictionary>) (expected: FullTypeDefinition) = testFullTypeDef' assembly id (expected.Name, expected)
 
 let testConstraints (assembly: TestCase<ApiDictionary>) (name, expectedTarget, expectedConstraints) = test {
   let! apiDict = assembly
   let name = Name.ofString name
-  let actual = Seq.find (fun x -> testFSharpName x.Name name) apiDict.Api
+  let actual = Seq.find (fun x -> testFSharpName (ApiName.toName x.Name) name) apiDict.Api
   do! actual.Signature |> assertEquals expectedTarget
   do! (List.sort actual.TypeConstraints) |> assertEquals (List.sort expectedConstraints)
 }
@@ -242,8 +240,8 @@ module FSharp =
   // bug #60
   let internalInterfaceTest = test {
     let! mscorDict = mscorlibApi
-    let tuple = mscorDict.TypeDefinitions.Values |> Seq.find (fun x -> x.Name = DisplayName.ofString "System.Tuple<'T1, 'T2>" && x.GenericParameters.Length = 2)
-    let existsITuple = tuple.AllInterfaces |> Seq.exists (function Identity (FullIdentity i) -> i.Name = Name.ofString "System.ITuple" | _ -> false)
+    let tuple = mscorDict.TypeDefinitions.Values |> Seq.find (fun x -> x.Name = Name.ofString "System.Tuple<'T1, 'T2>" && x.GenericParameters.Length = 2)
+    let existsITuple = tuple.AllInterfaces |> Seq.exists (function Type (ActualType a) -> a.Name = Name.ofString "System.ITuple" | _ -> false)
     do! existsITuple |> assertEquals false
   }
 
@@ -272,9 +270,9 @@ module FSharp =
   let loadModuleTest =
     parameterize {
       source [
-        "PublicModule", [ module' (DisplayName.ofString "PublicModule") fsharpAssemblyName Public ]
-        "PublicModule.NestedModule", [ module' (DisplayName.ofString "PublicModule.NestedModule") fsharpAssemblyName Public ]
-        "InternalModule", [ module' (DisplayName.ofString "InternalModule") fsharpAssemblyName Private ]
+        "PublicModule", [ module' (Name.ofString "PublicModule") fsharpAssemblyName Public ]
+        "PublicModule.NestedModule", [ module' (Name.ofString "PublicModule.NestedModule") fsharpAssemblyName Public ]
+        "InternalModule", [ module' (Name.ofString "InternalModule") fsharpAssemblyName Private ]
       ]
       run testApi
     }
@@ -413,7 +411,7 @@ module FSharp =
   let fullTypeDefinitionTest =
     let plainClass = {
       emptyDef with
-        Name = DisplayName.ofString "FullTypeDefinition.PlainClass"
+        Name = Name.ofString "FullTypeDefinition.PlainClass"
         FullName = "FullTypeDefinition.PlainClass"
         AssemblyName = fsharpAssemblyName
         Kind = TypeDefinitionKind.Class
@@ -423,7 +421,7 @@ module FSharp =
 
     let plainInterface = {
       emptyDef with
-        Name = DisplayName.ofString "FullTypeDefinition.PlainInterface"
+        Name = Name.ofString "FullTypeDefinition.PlainInterface"
         FullName = "FullTypeDefinition.PlainInterface"
         AssemblyName = fsharpAssemblyName
         Kind = TypeDefinitionKind.Interface
@@ -431,27 +429,27 @@ module FSharp =
 
     let interfaceImplClass = {
       emptyDef with
-        Name = DisplayName.ofString "FullTypeDefinition.InterfaceImplClass"
+        Name = Name.ofString "FullTypeDefinition.InterfaceImplClass"
         FullName = "FullTypeDefinition.InterfaceImplClass"
         AssemblyName = fsharpAssemblyName
         Kind = TypeDefinitionKind.Class
         BaseType = Some obj
-        AllInterfaces = [ Identity (FullIdentity plainInterface.FullIdentity) ]
+        AllInterfaces = [ Type (ActualType plainInterface.ActualType) ]
         DefaultConstructor = Satisfy
     }
 
     let interfaceInherit = {
       emptyDef with
-        Name = DisplayName.ofString "FullTypeDefinition.InterfaceInherit"
+        Name = Name.ofString "FullTypeDefinition.InterfaceInherit"
         FullName = "FullTypeDefinition.InterfaceInherit"
         Kind = TypeDefinitionKind.Interface
         AssemblyName = fsharpAssemblyName
-        AllInterfaces = [ Identity (FullIdentity plainInterface.FullIdentity) ]
+        AllInterfaces = [ Type (ActualType plainInterface.ActualType) ]
     }
 
     let supportNullClass = {
       emptyDef with
-        Name = DisplayName.ofString "FullTypeDefinition.SupportNullClass"
+        Name = Name.ofString "FullTypeDefinition.SupportNullClass"
         FullName = "FullTypeDefinition.SupportNullClass"
         AssemblyName = fsharpAssemblyName
         Kind = TypeDefinitionKind.Class
@@ -462,18 +460,18 @@ module FSharp =
 
     let nonSupportNullSubClass = {
       emptyDef with
-        Name = DisplayName.ofString "FullTypeDefinition.SupportNullSubClass"
+        Name = Name.ofString "FullTypeDefinition.SupportNullSubClass"
         FullName = "FullTypeDefinition.SupportNullSubClass"
         AssemblyName = fsharpAssemblyName
         Kind = TypeDefinitionKind.Class
-        BaseType = Some (Identity (FullIdentity supportNullClass.FullIdentity))
+        BaseType = Some (Type (ActualType supportNullClass.ActualType))
         SupportNull = NotSatisfy
         DefaultConstructor = Satisfy
     }
 
     let supportNullInterface = {
       emptyDef with
-        Name = DisplayName.ofString "FullTypeDefinition.SupportNullInterface"
+        Name = Name.ofString "FullTypeDefinition.SupportNullInterface"
         FullName = "FullTypeDefinition.SupportNullInterface"
         Kind = TypeDefinitionKind.Interface
         AssemblyName = fsharpAssemblyName
@@ -482,27 +480,27 @@ module FSharp =
 
     let supportNullSubInterface = {
       emptyDef with
-        Name = DisplayName.ofString "FullTypeDefinition.SupportNullSubInterface"
+        Name = Name.ofString "FullTypeDefinition.SupportNullSubInterface"
         FullName = "FullTypeDefinition.SupportNullSubInterface"
         AssemblyName = fsharpAssemblyName
         Kind = TypeDefinitionKind.Interface
-        AllInterfaces = [ Identity (FullIdentity supportNullInterface.FullIdentity) ]
+        AllInterfaces = [ Type (ActualType supportNullInterface.ActualType) ]
         SupportNull = Satisfy
     }
 
     let nonSupportNullSubInterface = {
       emptyDef with
-        Name = DisplayName.ofString "FullTypeDefinition.NonSupportNullSubInterface"
+        Name = Name.ofString "FullTypeDefinition.NonSupportNullSubInterface"
         FullName = "FullTypeDefinition.NonSupportNullSubInterface"
         AssemblyName = fsharpAssemblyName
         Kind = TypeDefinitionKind.Interface
-        AllInterfaces = [ Identity (FullIdentity supportNullInterface.FullIdentity) ]
+        AllInterfaces = [ Type (ActualType supportNullInterface.ActualType) ]
         SupportNull = NotSatisfy
     }
 
     let withoutDefaultConstructor = {
       emptyDef with
-        Name = DisplayName.ofString "FullTypeDefinition.WithoutDefaultConstructor"
+        Name = Name.ofString "FullTypeDefinition.WithoutDefaultConstructor"
         FullName = "FullTypeDefinition.WithoutDefaultConstructor"
         AssemblyName = fsharpAssemblyName
         Kind = TypeDefinitionKind.Class
@@ -514,7 +512,7 @@ module FSharp =
 
     let memberClass = {
       emptyDef with
-        Name = DisplayName.ofString "FullTypeDefinition.MemberClass"
+        Name = Name.ofString "FullTypeDefinition.MemberClass"
         FullName = "FullTypeDefinition.MemberClass"
         AssemblyName = fsharpAssemblyName
         Kind = TypeDefinitionKind.Class
@@ -575,8 +573,8 @@ module FSharp =
       "AbbreviatedGenericParameterInt", Satisfy
     ]
     run (fun (name, expected) ->
-      let testName = DisplayName.ofString name @ DisplayName.ofString "FullTypeDefinition.EqualityConstraints"
-      testFullTypeDef' fsharpAssemblyApi (fun x -> x.Equality) (DisplayName testName, expected))
+      let testName = Name.ofString name @ Name.ofString "FullTypeDefinition.EqualityConstraints"
+      testFullTypeDef' fsharpAssemblyApi (fun x -> x.Equality) (testName, expected))
   }
 
   let testComparison = parameterize {
@@ -661,12 +659,12 @@ module FSharp =
   }
 
   let operatorTest =
-    let testApi = testApiWithoutParameterName fsharpAssemblyApi DisplayName
+    let testApi = testApiWithoutParameterName fsharpAssemblyApi id
     let t = createType "Operators.A" [] |> updateAssembly fsharpAssemblyName
     parameterize {
       source [
-        (DisplayName.ofOperatorString "Operators.( + )"), [ moduleFunction' [ [ pname "x" >> ptype int ]; [ pname "y" >> ptype int ]; [ ptype int ] ] ]
-        (DisplayName.ofOperatorString "Operators.A.( - )"), [ staticMember t (method' "op_Subtraction" [ [ pname "x" >> ptype t; pname "y" >> ptype t ] ] t) ]
+        (Name.ofOperatorString "Operators.( + )"), [ moduleFunction' [ [ pname "x" >> ptype int ]; [ pname "y" >> ptype int ]; [ ptype int ] ] ]
+        (Name.ofOperatorString "Operators.A.( - )"), [ staticMember t (method' "op_Subtraction" [ [ pname "x" >> ptype t; pname "y" >> ptype t ] ] t) ]
       ]
       run testApi  
     }
@@ -724,7 +722,7 @@ module FSharp =
   let flexibleTest = test {
     let! apiDict = fsharpAssemblyApi
     let name = Name.ofString "PublicModule.flexible<'a, 'b>"
-    let actual = apiDict.Api |> Array.find (fun x -> x.Name = name)
+    let actual = apiDict.Api |> Array.find (fun x -> (ApiName.toName x.Name) = name)
     do! actual.Signature |> assertEquals (moduleFunction' [ [ pname "x" >> ptype (variable "'a") ]; [ ptype unit ] ])
     
     let expectedConstraints = [ constraint' [ "'a"] (SubtypeConstraints (seq (variable "'b"))) ]
@@ -759,9 +757,9 @@ module FSharp =
       run (fun (fsharpName: string, toExpected: string -> Name) -> test {
         let! apiDict = fsharpAssemblyApi
         let name = Name.ofString fsharpName
-        let actual = Seq.find (fun x -> testFSharpName x.Name name) apiDict.Api
+        let actual = Seq.find (fun x -> testFSharpName (ApiName.toName x.Name) name) apiDict.Api
         let expected = toExpected fsharpName
-        do! actual.Name |> assertEquals expected
+        do! actual.Name |> assertEquals (ApiName expected)
       })
     }
 
@@ -846,7 +844,7 @@ module TypeAbbreviation =
 module TypeExtension =
   let testApi = testApiWithoutParameterName fsharpAssemblyApi Name.ofString
   
-  let testModule = DisplayName.ofString "TypeExtensions"
+  let testModule = Name.ofString "TypeExtensions"
   let fsharpList_t = fsharpList (variable "'T")
 
   let typeExtensionTest = parameterize {
@@ -921,11 +919,11 @@ module ComputationExpression =
     ]
 
     run (fun (name, expected) -> test {
-      let name = DisplayName (DisplayName.ofString name)
+      let name = Name.ofString name
       let! apiDict = fsharpAssemblyApi
       let actual =
         apiDict.Api
-        |> Seq.filter (fun api -> api.Name = name)
+        |> Seq.filter (fun api -> (ApiName.toName api.Name) = name)
         |> Seq.pick (fun api -> match api.Signature with ApiSignature.ComputationExpressionBuilder b -> Some b | _ -> None)
       do! actual |> assertEquals expected
     })
@@ -937,11 +935,11 @@ module ComputationExpression =
     ]
 
     run (fun name -> test {
-      let name = DisplayName (DisplayName.ofString name)
+      let name = Name.ofString name
       let! apiDict = fsharpAssemblyApi
       let actual =
         apiDict.Api
-        |> Seq.filter (fun api -> api.Name = name && api.Kind = ApiKind.ComputationExpressionBuilder)
+        |> Seq.filter (fun api -> (ApiName.toName api.Name) = name && api.Kind = ApiKind.ComputationExpressionBuilder)
       do! Seq.isEmpty actual |> assertEquals true
     })
   }
@@ -1073,12 +1071,12 @@ module CSharp =
     }
 
   let operatorTest =
-    let testApi = testApiWithoutParameterName csharpAssemblyApi DisplayName
+    let testApi = testApiWithoutParameterName csharpAssemblyApi id
     let t = createType "CSharpLoadTestAssembly.Operators" [] |> updateAssembly csharpAssemblyName
     parameterize {
       source [
-        (DisplayName.ofString "CSharpLoadTestAssembly.Operators.op_Addition"), [ staticMember t (method' "op_Addition" [ [ pname "x" >> ptype t; pname "y" >> ptype t ] ] t) ]
-        (DisplayName.ofString "CSharpLoadTestAssembly.Operators.op_Implicit"), [ staticMember t (method' "op_Implicit" [ [ pname "x" >> ptype string ] ] t) ]
+        (Name.ofString "CSharpLoadTestAssembly.Operators.op_Addition"), [ staticMember t (method' "op_Addition" [ [ pname "x" >> ptype t; pname "y" >> ptype t ] ] t) ]
+        (Name.ofString "CSharpLoadTestAssembly.Operators.op_Implicit"), [ staticMember t (method' "op_Implicit" [ [ pname "x" >> ptype string ] ] t) ]
       ]
       run testApi  
     }
@@ -1131,7 +1129,7 @@ module XmlDocTest =
     run (fun (name, expected) -> test {
       let! apiDic = fsharpAssemblyApi
       let name = Name.ofString name
-      let api = apiDic.Api |> Seq.find (fun x -> x.Name = name)
+      let api = apiDic.Api |> Seq.find (fun x -> (ApiName.toName x.Name) = name)
       let actual = api.Document
       do! actual |> assertEquals expected
     })

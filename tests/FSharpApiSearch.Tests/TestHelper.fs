@@ -15,16 +15,16 @@ let defaultTestOptions =
 module DSL =
 
   let createType' name args =
-    let id = FullIdentity { AssemblyName = "test"; Name = name; GenericParameterCount = List.length args }
+    let id = ActualType { AssemblyName = "test"; Name = name; }
     match args with
-    | [] -> Identity id
-    | args -> Generic (Identity id, args)
+    | [] -> Type id
+    | args -> Generic (Type id, args)
 
   let createType name args = createType' (Name.ofString name) args
 
-  let rec updateAssembly name = function
-    | Identity (FullIdentity id) -> Identity (FullIdentity { id with AssemblyName = name })
-    | Generic (Identity (FullIdentity id), args) -> Generic (Identity (FullIdentity { id with AssemblyName = name }), args)
+  let updateAssembly name = function
+    | Type (ActualType id) -> Type (ActualType { id with AssemblyName = name })
+    | Generic (Type (ActualType id), args) -> Generic (Type (ActualType { id with AssemblyName = name }), args)
     | other -> other
 
   let typeAbbreviation abbreviated abbreviation = TypeAbbreviation { Abbreviation = abbreviation; Original = abbreviated; }
@@ -32,7 +32,7 @@ module DSL =
   let tv v = TypeVariable.ofString v
   let tv' vs = List.map tv vs
 
-  let identity name = Identity (PartialIdentity { Name = DisplayName.ofString name; GenericParameterCount = 0 })
+  let userInput name = Type (UserInputType { Name = Name.ofString name })
   let variable name = Variable (VariableSource.Target, tv name)
   let queryVariable name = Variable (VariableSource.Query, tv name)
 
@@ -41,14 +41,14 @@ module DSL =
 
   let generic id args =
     match id with
-    | Identity (PartialIdentity id) ->
+    | Type (UserInputType id) ->
       let parameterCount = List.length args
       let name =
         match id.Name with
         | [] -> []
         | n :: tail -> { n with GenericParameters = List.init parameterCount (fun n -> { Name = sprintf "T%d" n; IsSolveAtCompileTime = false }) } :: tail
-      let id = { id with Name = name; GenericParameterCount = parameterCount }
-      Generic (Identity (PartialIdentity id), args)
+      let id = { id with Name = name }
+      Generic (Type (UserInputType id), args)
     | _ -> Generic (id, args)
 
   let arrow xs = Arrow (Arrow.ofLowTypeList xs)
@@ -134,23 +134,23 @@ module DSL =
 
   let typeAbbreviationApi def = ApiSignature.TypeAbbreviation def
 
-  let api name apiSig = { Name = name; Signature = apiSig; TypeConstraints = []; Document = None }
+  let api name apiSig = { Name = ApiName name; Signature = apiSig; TypeConstraints = []; Document = None }
 
   let arrayType = "Microsoft.FSharp.Core.[]<'T>"
   let array2DType = "Microsoft.FSharp.Core.[,]<'T>"
   let array t = createType arrayType [ t ]
   let array2D t = createType array2DType [ t ]
 
-  let queryArray t = generic (identity "[]<'T>") [ t ]
-  let queryArray2D t = generic (identity "[,]<'T>") [ t ]
+  let queryArray t = generic (userInput "[]<'T>") [ t ]
+  let queryArray2D t = generic (userInput "[,]<'T>") [ t ]
 
   let tuple xs = Tuple { Elements = xs; IsStruct = false }
   let structTuple xs = Tuple { Elements = xs; IsStruct = true }
 
   let typeAbbreviationDef name original =
-    let defName = DisplayName.ofString name
+    let defName = Name.ofString name
     let fullName =
-      let toFullName (x: DisplayNameItem) =
+      let toFullName (x: NameItem) =
         let genericSuffix =
           match x.GenericParameters with
           | [] -> ""

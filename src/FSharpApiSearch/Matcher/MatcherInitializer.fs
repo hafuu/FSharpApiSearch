@@ -16,7 +16,7 @@ let collectFromSignatureQuery getTarget query =
 
   let rec f = function
     | Target x -> add x
-    | Identity _ | Wildcard _ | Variable _ -> ()
+    | Type _ | Wildcard _ | Variable _ -> ()
     | Arrow (ps, ret) -> List.iter f ps; f ret
     | Tuple { Elements = xs } -> List.iter f xs
     | Generic (id, args) -> f id; List.iter f args
@@ -25,6 +25,7 @@ let collectFromSignatureQuery getTarget query =
     | Choice xs -> List.iter f xs
     | Delegate (t, _) -> f t
     | LowType.Subtype t -> f t
+    | LoadingType _ -> Name.loadingNameError()
 
   match query with
   | { Query.Method = QueryMethod.ByName (_, sigQuery) }
@@ -43,7 +44,7 @@ let collectFromSignatureQuery getTarget query =
     
 let collectVariables = collectFromSignatureQuery (function Variable _ as v -> Some v | _ -> None)
 let collectWildcardGroups = collectFromSignatureQuery (function Wildcard (Some _) as w -> Some w | _ -> None)
-let collectPartialIdentities = collectFromSignatureQuery (function Identity (PartialIdentity id) -> Some id | _ -> None)
+let collectUserInputTypes = collectFromSignatureQuery (function Type (UserInputType id) -> Some id | _ -> None)
 
 let initialEquations options query eqs =
   match options.RespectNameDifference with
@@ -64,12 +65,12 @@ let initialEquations options query eqs =
   | Disabled -> eqs
 
 let queryTypes query (dictionaries: ApiDictionary[]) =
-  collectPartialIdentities query
+  collectUserInputTypes query
   |> Seq.map (fun id ->
     let types =
       dictionaries
       |> Seq.collect (fun d -> d.TypeDefinitions.Values)
-      |> Seq.filter (fun td -> Identity.sameName (PartialIdentity id) (FullIdentity td.FullIdentity) = Identity.IdentityEqualityResult.Matched)
+      |> Seq.filter (fun td -> TypeInfo.sameName (UserInputType id) (ActualType td.ActualType) = TypeInfo.TypeEqualityResult.Matched)
       |> Seq.toArray
     (id, types)
   )
@@ -86,8 +87,8 @@ let initializeContext (dictionaries: ApiDictionary[]) (options: SearchOptions) (
 
 let private replaceTypeAbbreviation' nameEquality (table: TypeAbbreviation list) (query: Query) =
   let rec replace = function
-    | Identity id as i ->
-      let replacements = table |> List.filter (function { Abbreviation = Identity abbId } -> nameEquality abbId id | _ -> false)
+    | Type id as i ->
+      let replacements = table |> List.filter (function { Abbreviation = Type abbId } -> nameEquality abbId id | _ -> false)
       match replacements with
       | [] -> i
       | _ ->
@@ -96,10 +97,10 @@ let private replaceTypeAbbreviation' nameEquality (table: TypeAbbreviation list)
             yield TypeAbbreviation { Abbreviation = i; Original = r.Original }
           yield i
         ]
-    | Generic (Identity id, args) as generic ->
+    | Generic (Type id, args) as generic ->
       let types =
         let replacedArgs = args |> List.map replace
-        let idReplacements = table |> List.filter (function { Abbreviation = Generic (Identity abbId, _) } -> nameEquality abbId id | _ -> false)
+        let idReplacements = table |> List.filter (function { Abbreviation = Generic (Type abbId, _) } -> nameEquality abbId id | _ -> false)
         [
           for idRep in idReplacements do
             match idRep with
@@ -112,16 +113,16 @@ let private replaceTypeAbbreviation' nameEquality (table: TypeAbbreviation list)
               yield TypeAbbreviation { Abbreviation = generic; Original = replacedGeneric }
             | _ -> failwith "It is not a generic type abbreviation."
 
-          if SpecialTypes.Identity.tuples |> List.exists (fun tpl -> nameEquality tpl id) then
+          if SpecialTypes.TypeInfo.tuples |> List.exists (fun tpl -> nameEquality tpl id) then
             yield Tuple { Elements = replacedArgs; IsStruct = false }
 
-          if SpecialTypes.Identity.valueTuples |> List.exists (fun tpl -> nameEquality tpl id) then
+          if SpecialTypes.TypeInfo.valueTuples |> List.exists (fun tpl -> nameEquality tpl id) then
             yield Tuple { Elements = replacedArgs; IsStruct = true }
 
-          if nameEquality SpecialTypes.Identity.byref id then
+          if nameEquality SpecialTypes.TypeInfo.byref id then
             yield ByRef (false, replacedArgs.Head)
 
-          yield Generic (Identity id, replacedArgs)
+          yield Generic (Type id, replacedArgs)
         ]
 
       match types with
@@ -140,6 +141,7 @@ let private replaceTypeAbbreviation' nameEquality (table: TypeAbbreviation list)
     | TypeAbbreviation _ as x -> x
     | Variable _ as x -> x
     | Wildcard _ as x -> x
+    | LoadingType _ -> Name.loadingNameError()
     
   let replaceSignatureQuery = function
     | SignatureQuery.Wildcard -> SignatureQuery.Wildcard
@@ -157,18 +159,18 @@ let private replaceTypeAbbreviation' nameEquality (table: TypeAbbreviation list)
   | { Method = QueryMethod.ByComputationExpression ceQuery } -> { query with Method = QueryMethod.ByComputationExpression (replaceComputationExpressionQuery ceQuery) }
 
 let replaceTypeAbbreviation (table: TypeAbbreviation list) (options: SearchOptions) (query: Query) =
-  let equality x y = Identity.equalityFromOptions options x y = Identity.IdentityEqualityResult.Matched
+  let equality x y = TypeInfo.equalityFromOptions options x y = TypeInfo.TypeEqualityResult.Matched
   replaceTypeAbbreviation' equality table query
 
 let typeAbbreviationTableFromApiDictionary (dictionaries: ApiDictionary seq) =
   dictionaries |> Seq.collect (fun x -> x.TypeAbbreviations) |> Seq.filter (fun t -> t.Accessibility = Public) |> Seq.map (fun t -> t.TypeAbbreviation) |> Seq.toList
 
 let singleTypeAsNameQuery (query: Query) =
-  let isSymbolName (x: DisplayNameItem) = match x.Name with SymbolName _ -> true | _ -> false
+  let isSymbolName (x: NameItem) = match x.Name with SymbolName _ -> true | _ -> false
   let (|AsNameQuery|_|) (t: LowType) =
     match t with
-    | Identity (PartialIdentity pi) -> Some pi.Name
-    | Generic (Identity (PartialIdentity pi), args) when args |> List.forall (function Variable _ -> true | _ -> false) -> Some pi.Name
+    | Type (UserInputType pi) -> Some pi.Name
+    | Generic (Type (UserInputType pi), args) when args |> List.forall (function Variable _ -> true | _ -> false) -> Some pi.Name
     | _ -> None
     |> Option.filter (List.forall isSymbolName)
   let method =
@@ -193,8 +195,8 @@ let singleTypeAsNameQuery (query: Query) =
 
 let shortLetterAsVariable (threshold: int) (query: Query) =
   let rec update = function
-    | Identity (PartialIdentity { Name = [ { Name = SymbolName name } ] }) when name.Length <= threshold -> Variable (VariableSource.Query, { Name = name; IsSolveAtCompileTime = false })
-    | Identity _ as i -> i
+    | Type (UserInputType { Name = [ { Name = SymbolName name } ] }) when name.Length <= threshold -> Variable (VariableSource.Query, { Name = name; IsSolveAtCompileTime = false })
+    | Type _ as i -> i
     | Wildcard _ as w -> w
     | Variable _ as v -> v
     | Arrow (ps, ret) -> Arrow (List.map update ps, update ret)
@@ -206,6 +208,7 @@ let shortLetterAsVariable (threshold: int) (query: Query) =
     | LowType.Subtype (Generic (id, ps)) -> LowType.Subtype (Generic (id, List.map update ps))
     | LowType.Subtype _ as s -> s
     | Choice xs -> Choice (List.map update xs)
+    | LoadingType _ -> Name.loadingNameError()
 
   LowTypeVisitor.accept_Query update query
 
@@ -251,10 +254,10 @@ type FSharpInitializeStorategy() =
     member this.InitialContext(query, dictionaries, options) = initializeContext dictionaries options query
 
 let csharpAliases =
-  SpecialTypes.Identity.CSharp.aliases
+  SpecialTypes.TypeInfo.CSharp.aliases
   |> List.map (fun (alias, original) ->
-    let alias = Identity (PartialIdentity { Name = DisplayName.ofString alias; GenericParameterCount = 0 })
-    let original = Identity original
+    let alias = Type (UserInputType { Name = Name.ofString alias })
+    let original = Type original
     { Abbreviation = alias; Original = original })
 
 type CSharpInitializeStorategy() =

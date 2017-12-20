@@ -16,12 +16,12 @@ let stringOptions ignoreCase =
   | Enabled -> { StringComparer = StringComparer.InvariantCultureIgnoreCase; StringComparison = StringComparison.InvariantCultureIgnoreCase; RegexOptions = RegexOptions.CultureInvariant ||| RegexOptions.IgnoreCase }
   | Disabled -> { StringComparer = StringComparer.InvariantCulture; StringComparison = StringComparison.InvariantCulture; RegexOptions = RegexOptions.CultureInvariant }
 
-let test' strOpt (expected: ByName list) (actualNames: DisplayNameItem list) =
+let test' strOpt (expected: ByName list) (actualNames: NameItem list) =
   if not (List.length expected <= List.length actualNames) then
     false
   else
     Seq.zip expected actualNames
-    |> Seq.forall (fun (byName, actual: DisplayNameItem) ->
+    |> Seq.forall (fun (byName, actual: NameItem) ->
       let cmp strOpt expected actual =
         match byName.MatchMethod with
         | NameMatchMethod.StringCompare -> String.equalsWithComparer strOpt.StringComparer expected actual
@@ -42,13 +42,13 @@ let test strOpt query (api: Api) ctx =
   match query with
   | QueryMethod.ByName (expected, _) | QueryMethod.ByNameOrSignature (expected, _) ->
     match api.Name, api.Kind with
-    | DisplayName actualName, ApiKind.Constructor ->
+    | ApiName actualName, ApiKind.Constructor ->
       let name_type = List.tail actualName
       let name_new = actualName
       let name_ctor = { Name = SymbolName ".ctor"; GenericParameters = [] } :: name_type
       let ok = [ name_new; name_type; name_ctor ] |> List.exists (test' strOpt expected)
       if ok then Matched ctx else Failure
-    | DisplayName actualName, _ -> if test' strOpt expected actualName then Matched ctx else Failure
+    | ApiName actualName, _ -> if test' strOpt expected actualName then Matched ctx else Failure
     | _ -> Failure
   | _ -> Matched ctx
 

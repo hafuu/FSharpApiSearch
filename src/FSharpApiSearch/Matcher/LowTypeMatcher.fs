@@ -256,20 +256,20 @@ module Rules =
       lowTypeMatcher.Test abbreviation.Original other ctx
     | _ -> Continue ctx
 
-  let testIdentity (nameEquality: Identity.Equality) leftIdentity rightIdentity ctx =
-    match nameEquality leftIdentity rightIdentity with
-    | Identity.IdentityEqualityResult.Matched ->
-      Debug.WriteLine("There are same identities.")
+  let testTypeInfo (nameEquality: TypeInfo.Equality) (left: TypeInfo) (right: TypeInfo) ctx =
+    match nameEquality left right with
+    | TypeInfo.TypeEqualityResult.Matched ->
+      Debug.WriteLine("There are same type.")
       Matched ctx
     | failed ->
-      Debug.WriteLine(sprintf "There are deferent identities. The reason is %A" failed)
+      Debug.WriteLine(sprintf "There are deferent type. The reason is %A" failed)
       Failure
 
-  let identityRule nameEquality _ left right ctx =
+  let typeInfoRule nameEquality _ left right ctx =
     match left, right with
-    | Identity leftIdentity, Identity rightIdentity ->
-      Debug.WriteLine("identity rule.")
-      testIdentity nameEquality leftIdentity rightIdentity ctx
+    | Type left, Type right ->
+      Debug.WriteLine("type info rule.")
+      testTypeInfo nameEquality left right ctx
     | _ -> Continue ctx
 
   let variableRule lowTypeMatcher left right ctx =
@@ -286,7 +286,7 @@ module Rules =
   let rec distanceFromVariable = function
     | Wildcard _ -> 0
     | Variable _ -> 0
-    | Identity _ -> 1
+    | Type _ -> 1
     | Arrow (ps, ret) -> seqDistance ps + distanceFromVariable ret
     | Tuple _ -> 1
     | Generic _ -> 1
@@ -295,6 +295,7 @@ module Rules =
     | ByRef _ -> 1
     | LowType.Subtype _ -> 0
     | Choice _ -> 1
+    | LoadingType _ -> Name.loadingNameError()
   and seqDistance xs = xs |> Seq.sumBy (distanceFromVariable >> max 1)
 
   let greedyVariableRule lowTypeMatcher left right ctx =
@@ -385,11 +386,11 @@ module Rules =
 
   let delegateRule nameEquality (lowTypeMatcher: ILowTypeMatcher) left right ctx =
     match left, right with
-    | Delegate (Identity leftId, _), Delegate (Identity rightId, _)
-    | Delegate (Identity leftId, _), Identity rightId
-    | Identity leftId, Delegate (Identity rightId, _) ->
+    | Delegate (Type leftId, _), Delegate (Type rightId, _)
+    | Delegate (Type leftId, _), Type rightId
+    | Type leftId, Delegate (Type rightId, _) ->
       Debug.WriteLine("deligate rule.")
-      testIdentity nameEquality leftId rightId ctx
+      testTypeInfo nameEquality leftId rightId ctx
     | Delegate (Generic (leftId, leftArgs), _), Delegate (Generic (rightId, rightArgs), _)
     | Delegate (Generic (leftId, leftArgs), _), Generic (rightId, rightArgs)
     | Generic (leftId, leftArgs), Delegate (Generic (rightId, rightArgs), _) ->
@@ -429,13 +430,14 @@ module Rules =
     | _ -> Continue ctx
 
   let rec subtypeTarget ctx = function
-    | Identity id -> Some (id, [])
-    | Generic (Identity id, args) -> Some (id, args)
+    | Type id -> Some (id, [])
+    | Generic (Type id, args) -> Some (id, args)
     | ByRef _ as t -> subtypeTarget ctx t
     | Delegate (t, _) -> subtypeTarget ctx t
     | LowType.Subtype t -> subtypeTarget ctx t
     | TypeAbbreviation _ as t -> (|AbbreviationRoot|_|) t |> Option.bind (subtypeTarget ctx)
     | Generic _ | Variable _ | Wildcard _ | Tuple _ | Arrow _ | Choice _ -> None
+    | LoadingType _ -> Name.loadingNameError()
 
   let (|SubtypeTarget|_|) ctx = subtypeTarget ctx
 
@@ -493,7 +495,7 @@ module Rules =
     | _ -> Continue ctx
 
 let instance options =
-  let nameEquality = Identity.equalityFromOptions options
+  let nameEquality = TypeInfo.equalityFromOptions options
 
   let isContextual =
     let f =
@@ -513,7 +515,7 @@ let instance options =
       | Enabled -> yield Rules.greedyVariableRule
       | Disabled -> yield Rules.variableRule
 
-      yield Rules.identityRule nameEquality
+      yield Rules.typeInfoRule nameEquality
       yield Rules.tupleRule
       yield Rules.genericRule
 
