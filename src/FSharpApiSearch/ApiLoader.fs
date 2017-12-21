@@ -944,7 +944,7 @@ module internal Impl =
       xs
       |> Seq.map (fun x -> x.ActualType, x)
       |> dict
-    Dictionary(d, TypeInfo.actualTypeComparer)
+    Dictionary(d, TypeNameEquality.actualTypeComparer)
 
   let makeDefAndAbb (api: ApiDictionary) =
     let types =

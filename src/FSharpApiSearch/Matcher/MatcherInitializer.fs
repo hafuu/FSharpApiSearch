@@ -70,7 +70,7 @@ let queryTypes query (dictionaries: ApiDictionary[]) =
     let types =
       dictionaries
       |> Seq.collect (fun d -> d.TypeDefinitions.Values)
-      |> Seq.filter (fun td -> TypeInfo.sameName (UserInputType id) (ActualType td.ActualType) = TypeInfo.TypeEqualityResult.Matched)
+      |> Seq.filter (fun td -> TypeNameEquality.sameName (UserInputType id) (ActualType td.ActualType) = TypeNameEquality.Result.Matched)
       |> Seq.toArray
     (id, types)
   )
@@ -159,7 +159,7 @@ let private replaceTypeAbbreviation' nameEquality (table: TypeAbbreviation list)
   | { Method = QueryMethod.ByComputationExpression ceQuery } -> { query with Method = QueryMethod.ByComputationExpression (replaceComputationExpressionQuery ceQuery) }
 
 let replaceTypeAbbreviation (table: TypeAbbreviation list) (options: SearchOptions) (query: Query) =
-  let equality x y = TypeInfo.equalityFromOptions options x y = TypeInfo.TypeEqualityResult.Matched
+  let equality x y = TypeNameEquality.equalityFromOptions options x y = TypeNameEquality.Result.Matched
   replaceTypeAbbreviation' equality table query
 
 let typeAbbreviationTableFromApiDictionary (dictionaries: ApiDictionary seq) =

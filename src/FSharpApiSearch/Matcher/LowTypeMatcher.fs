@@ -256,9 +256,9 @@ module Rules =
       lowTypeMatcher.Test abbreviation.Original other ctx
     | _ -> Continue ctx
 
-  let testTypeInfo (nameEquality: TypeInfo.Equality) (left: TypeInfo) (right: TypeInfo) ctx =
+  let testTypeInfo (nameEquality: TypeNameEquality.Equality) (left: TypeInfo) (right: TypeInfo) ctx =
     match nameEquality left right with
-    | TypeInfo.TypeEqualityResult.Matched ->
+    | TypeNameEquality.Result.Matched ->
       Debug.WriteLine("There are same type.")
       Matched ctx
     | failed ->
@@ -495,7 +495,7 @@ module Rules =
     | _ -> Continue ctx
 
 let instance options =
-  let nameEquality = TypeInfo.equalityFromOptions options
+  let nameEquality = TypeNameEquality.equalityFromOptions options
 
   let isContextual =
     let f =
