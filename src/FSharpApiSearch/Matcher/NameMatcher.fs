@@ -16,27 +16,35 @@ let stringOptions ignoreCase =
   | Enabled -> { StringComparer = StringComparer.InvariantCultureIgnoreCase; StringComparison = StringComparison.InvariantCultureIgnoreCase; RegexOptions = RegexOptions.CultureInvariant ||| RegexOptions.IgnoreCase }
   | Disabled -> { StringComparer = StringComparer.InvariantCulture; StringComparison = StringComparison.InvariantCulture; RegexOptions = RegexOptions.CultureInvariant }
 
+let private cmp strOpt (byName: ByName) actual =
+  let expected = byName.Expected
+  match byName.MatchMethod with
+  | NameMatchMethod.StringCompare -> String.equalsWithComparer strOpt.StringComparer expected actual
+  | NameMatchMethod.StartsWith -> actual.StartsWith(expected, strOpt.StringComparison)
+  | NameMatchMethod.EndsWith -> actual.EndsWith(expected, strOpt.StringComparison)
+  | NameMatchMethod.Contains -> actual.IndexOf(expected, strOpt.StringComparison) >= 0
+  | NameMatchMethod.Regex -> Regex.IsMatch(actual, expected, strOpt.RegexOptions)
+  | NameMatchMethod.Any -> true
+
 let test' strOpt (expected: ByName list) (actualNames: NameItem list) =
   if not (List.length expected <= List.length actualNames) then
     false
   else
-    Seq.zip expected actualNames
-    |> Seq.forall (fun (byName, actual: NameItem) ->
-      let cmp strOpt expected actual =
-        match byName.MatchMethod with
-        | NameMatchMethod.StringCompare -> String.equalsWithComparer strOpt.StringComparer expected actual
-        | NameMatchMethod.StartsWith -> actual.StartsWith(expected, strOpt.StringComparison)
-        | NameMatchMethod.EndsWith -> actual.EndsWith(expected, strOpt.StringComparison)
-        | NameMatchMethod.Contains -> actual.IndexOf(expected, strOpt.StringComparison) >= 0
-        | NameMatchMethod.Regex -> Regex.IsMatch(actual, expected, strOpt.RegexOptions)
-        | NameMatchMethod.Any -> true
-      let actualName =
-        match actual.Name with
-        | SymbolName n -> n
-        | OperatorName (_, n) -> n
-        | WithCompiledName (n, _) -> n
-      cmp strOpt byName.Expected actualName && (let expectedLen = byName.GenericParameters.Length in if expectedLen > 0 then expectedLen = actual.GenericParameters.Length else true)
-    )
+    let rec loop (expected: ByName list) (actualNames: NameItem list) =
+      match expected, actualNames with
+      | byName :: expected, actual :: actualNames ->
+        let actualName =
+          match actual.Name with
+          | SymbolName n -> n
+          | OperatorName (_, n) -> n
+          | WithCompiledName (n, _) -> n
+        let result = cmp strOpt byName actualName && (let expectedLen = byName.GenericParameters.Length in if expectedLen > 0 then expectedLen = actual.GenericParameters.Length else true)
+        if result then
+          loop expected actualNames
+        else
+          false
+      | _ -> true
+    loop expected actualNames
 
 let test strOpt query (api: Api) ctx =
   match query with

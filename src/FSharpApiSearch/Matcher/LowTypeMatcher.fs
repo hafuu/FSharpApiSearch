@@ -29,21 +29,25 @@ module Equations =
       false
     else
       let result =
-        eqs.Inequalities
-        |> List.choose (fun ((x, y) as xy) -> if x = left then Some (y, xy) elif y = left then Some (x, xy) else None)
-        |> List.forall (fun (inequalityTerm, inequality) ->
-          let xy = sortTerm right inequalityTerm
-          match eqs.Equalities |> List.tryFind ((=)xy) with
-          | Some equality ->
-            Debug.WriteLine(
-              sprintf "The inequality between %s and %s exists. It was drived from the following equations. : [ %s, %s ]"
-                (LowType.debug left)
-                (LowType.debug right)
-                (Equations.debugInequality inequality)
-                (Equations.debugEquality equality))
-            false
-          | None -> true
-        )
+        let target x y = if x = left then Some y elif y = left then Some x else None
+        let rec loop = function
+          | [] -> true
+          | (x, y) as inequality :: rest ->
+            match target x y with
+            | None -> loop rest
+            | Some inequalityTerm ->
+              let xy = sortTerm right inequalityTerm
+              match eqs.Equalities |> List.tryFind ((=)xy) with
+              | Some equality ->
+                Debug.WriteLine(
+                  sprintf "The inequality between %s and %s exists. It was drived from the following equations. : [ %s, %s ]"
+                    (LowType.debug left)
+                    (LowType.debug right)
+                    (Equations.debugInequality inequality)
+                    (Equations.debugEquality equality))
+                false
+              | None -> true
+        loop eqs.Inequalities
       Debug.WriteLine("It passed the inequality test.")
       result
 
@@ -51,7 +55,7 @@ module Equations =
     match left, right with
     | (Variable _ as variable), other
     | other, (Variable _ as variable) ->
-      if LowType.collectVariableOrWildcardGroup other |> List.exists ((=)variable) then
+      if LowType.collectVariableOrWildcardGroup other |> Array.exists ((=)variable) then
         Debug.WriteLine(sprintf "It is the recursive type.")
         true
       else
@@ -63,16 +67,17 @@ module Equations =
     | (Variable _ as variable), other
     | other, (Variable _ as variable) ->
       let oneSteps = seq {
-        for (x, y) in eqs.Equalities |> List.filter (fun xy -> xy <> (variable, other) && xy <> (other, variable)) do
-          for otherVariable in LowType.collectVariableOrWildcardGroup other |> List.distinct do
-            if x = otherVariable then
-              yield (y, (x, y))
-            elif y = otherVariable then
-              yield (x, (x, y))
+        for ((x, y) as xy) in eqs.Equalities do
+          if xy <> (variable, other) && xy <> (other, variable) then
+            for otherVariable in LowType.collectVariableOrWildcardGroup other |> Array.distinct do
+              if x = otherVariable then
+                yield (y, (x, y))
+              elif y = otherVariable then
+                yield (x, (x, y))
       }
       oneSteps
       |> Seq.exists (fun (other, xy) ->
-        let isCircular =  LowType.collectVariableOrWildcardGroup other |> Seq.exists ((=)variable)
+        let isCircular =  LowType.collectVariableOrWildcardGroup other |> Array.exists ((=)variable)
         if isCircular then Debug.WriteLine(sprintf "It is the circular type. It was derived from the following equation. : %s" (Equations.debugEquality xy))
         isCircular)
     | _ -> false
@@ -502,7 +507,7 @@ let instance options =
       match options.GreedyMatching with
       | Enabled -> LowType.collectVariableOrWildcardGroup
       | Disabled -> LowType.collectWildcardGroup
-    f >> List.isEmpty >> not
+    f >> Array.isEmpty >> not
 
   let rule =
     Rule.compose [|

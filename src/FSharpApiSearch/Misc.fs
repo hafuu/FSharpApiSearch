@@ -54,3 +54,12 @@ module internal Extensions =
 module internal IDictionary =
   open System.Collections.Generic
   let empty<'k, 'v when 'k : equality> = dict (Seq.empty<'k * 'v>)
+
+module internal Map =
+  let ofList2 (keys: 'k list) (values: 'v list) =
+    let rec loop keys values map =
+      match keys, values with
+      | key :: keys, value :: values -> Map.add key value map |> loop keys values
+      | [], [] -> map
+      | _ -> failwith "invalid length"
+    loop keys values Map.empty

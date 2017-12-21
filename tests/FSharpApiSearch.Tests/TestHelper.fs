@@ -87,7 +87,7 @@ module DSL =
 
   let private memberGenericParameters (declaring: LowType) (member': Member) =
     let toTypeVariable = function Variable (_, v) -> v | _ -> failwith "it is not variable."
-    let declaringVariables = LowType.collectVariables declaring |> List.map toTypeVariable |> Set.ofList
+    let declaringVariables = LowType.collectVariables declaring |> Array.map toTypeVariable |> Set.ofArray
     let memberVariables =
       [
         yield member'.ReturnParameter.Type
@@ -96,7 +96,7 @@ module DSL =
           for p in group do
             yield p.Type
       ]
-      |> List.collect LowType.collectVariables |> List.map toTypeVariable |> List.distinct |> Set.ofList
+      |> Seq.collect LowType.collectVariables |> Seq.map toTypeVariable |> Seq.distinct |> Set.ofSeq
     (memberVariables - declaringVariables) |> Set.toList
 
   let moduleFunction' fn = ApiSignature.ModuleFunction (createFunction fn)

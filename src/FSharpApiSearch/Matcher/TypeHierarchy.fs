@@ -20,7 +20,7 @@ let instantiate (t: FullTypeDefinition) (args: LowType list) =
   | _ -> Generic (id, args)
 
 let rec getSuperTypes (ctx: Context) (t: FullTypeDefinition) (args: LowType list): LowType seq = seq {
-  let argPair = List.zip t.GenericParameters args |> Map.ofList
+  let argPair = Map.ofList2 t.GenericParameters args
 
   let thisType = instantiate t args
   yield thisType 

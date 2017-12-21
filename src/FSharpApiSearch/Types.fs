@@ -918,7 +918,7 @@ module internal LowType =
       | Choice xs -> List.iter f xs
       | LoadingType _ -> Name.loadingNameError()
     f x
-    List.ofSeq result
+    result.ToArray()
 
   let collectVariables x =
     let result = ResizeArray()
@@ -937,7 +937,7 @@ module internal LowType =
       | Choice xs -> List.iter f xs
       | LoadingType _ -> Name.loadingNameError()
     f x
-    List.ofSeq result
+    result.ToArray()
 
   let collectVariableOrWildcardGroup x =
     let result = ResizeArray()
@@ -957,4 +957,4 @@ module internal LowType =
       | Choice xs -> List.iter f xs
       | LoadingType _ -> Name.loadingNameError()
     f x
-    List.ofSeq result
+    result.ToArray()
