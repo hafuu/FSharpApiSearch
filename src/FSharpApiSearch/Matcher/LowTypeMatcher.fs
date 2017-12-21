@@ -433,12 +433,9 @@ module Rules =
     | Generic (Identity id, args) -> Some (id, args)
     | ByRef _ as t -> subtypeTarget ctx t
     | Delegate (t, _) -> subtypeTarget ctx t
-    | Tuple { Elements = xs } ->
-      let tpl = Identity.tupleN xs.Length
-      Some (tpl, xs)
     | LowType.Subtype t -> subtypeTarget ctx t
     | TypeAbbreviation _ as t -> (|AbbreviationRoot|_|) t |> Option.bind (subtypeTarget ctx)
-    | Generic _ | Variable _ | Wildcard _ | Arrow _ | Choice _ -> None
+    | Generic _ | Variable _ | Wildcard _ | Tuple _ | Arrow _ | Choice _ -> None
 
   let (|SubtypeTarget|_|) ctx = subtypeTarget ctx
 
