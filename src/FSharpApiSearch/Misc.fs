@@ -59,7 +59,7 @@ module internal Map =
   let ofList2 (keys: 'k list) (values: 'v list) =
     let rec loop keys values map =
       match keys, values with
-      | key :: keys, value :: values -> Map.add key value map |> loop keys values
+      | key :: keys, value :: values -> loop keys values (Map.add key value map)
       | [], [] -> map
       | _ -> failwith "invalid length"
     loop keys values Map.empty
