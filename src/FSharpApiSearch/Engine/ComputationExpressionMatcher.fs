@@ -1,6 +1,6 @@
 ﻿module internal FSharpApiSearch.ComputationExpressionMatcher
 
-open MatcherTypes
+open EngineTypes
 open FSharp.Collections.ParallelSeq
 
 module Filter =

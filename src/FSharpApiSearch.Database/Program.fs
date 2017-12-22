@@ -82,18 +82,18 @@ let main argv =
     try
       let assemblies = Seq.concat [ FSharpApiSearchClient.DefaultReferences; List.rev args.References ]
       printAssemblies args.AssemblyResolver assemblies
-      let dictionaries =
+      let database =
         AssemblyLoader.load args.AssemblyResolver assemblies
         |> ApiLoader.loadWithLogs
       
-      dictionaries |> Array.iter printForwardingLogs
+      database |> Array.iter printForwardingLogs
 
-      let dictionaries = Array.map fst dictionaries
+      let database = Array.map fst database
 
-      printApiNumber dictionaries
+      printApiNumber database
 
       printfn "Saving database."
-      ApiLoader.save ApiLoader.databaseName dictionaries
+      Database.save Database.databaseName database
       0
     with ex ->
       printfn "%A" ex

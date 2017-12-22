@@ -89,7 +89,7 @@ let createClient (targets: string list) (databasePath: string) =
       raise (InitializeFailed (@"The database is not found. Create the database by executing ""FSharpApiSearch.Database.exe"".", None))
     else
       try
-        FSharpApiSearchClient(targets, ApiLoader.loadFromFile databasePath)
+        FSharpApiSearchClient(targets, Database.loadFromFile databasePath)
       with
         ex ->
           raise (InitializeFailed (@"It failed to load the database. Create the database by executing ""FSharpApiSearch.Database.exe"".", Some ex))
@@ -258,13 +258,13 @@ let main argv =
     printfn "%s" helpMessage
   | { Query = Some query } ->
     try
-      let client = createClient targets ApiLoader.databaseName
+      let client = createClient targets Database.databaseName
       searchAndShowResult client query args
     with
       ex -> showException args ex
   | { Query = None } ->
     try
-      let client = createClient targets ApiLoader.databaseName
+      let client = createClient targets Database.databaseName
       initBackground args client
       printfn "Input query, #help to print help or #q to quit."
       Interactive.loop client args |> ignore

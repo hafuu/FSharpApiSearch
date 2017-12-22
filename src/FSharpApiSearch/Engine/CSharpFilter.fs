@@ -1,6 +1,6 @@
 ﻿module internal FSharpApiSearch.CSharpFilter
 
-open MatcherTypes
+open EngineTypes
 
 let test api ctx =
   match api.Signature with

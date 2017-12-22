@@ -1,6 +1,5 @@
 ﻿module internal FSharpApiSearch.ComputationExpressionLoader
 
-open FSharpApiSearch.MatcherTypes
 open FSharpApiSearch.SpecialTypes.LowType.Patterns
 open FSharp.Collections.ParallelSeq
 

@@ -1,7 +1,7 @@
-﻿module internal FSharpApiSearch.MatcherInitializer
+﻿module internal FSharpApiSearch.EngineInitializer
 
 open System.Diagnostics
-open FSharpApiSearch.MatcherTypes
+open FSharpApiSearch.EngineTypes
 
 let buildMatchers options apiMatchers =
   let lowTypeMatcher = LowTypeMatcher.instance options

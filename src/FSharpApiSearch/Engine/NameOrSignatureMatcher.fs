@@ -1,6 +1,6 @@
 ﻿module internal FSharpApiSearch.NameOrSignatureMatcher
 
-open MatcherTypes
+open EngineTypes
 
 let instance (options: SearchOptions) =
   let nameMatcher = NameMatcher.instance options

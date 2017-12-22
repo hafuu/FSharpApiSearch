@@ -1,7 +1,7 @@
-﻿module FSharpApiSearch.Matcher
+﻿module FSharpApiSearch.Engine
 
 open System.Diagnostics
-open FSharpApiSearch.MatcherTypes
+open FSharpApiSearch.EngineTypes
 open FSharpApiSearch.Printer
 open FSharp.Collections.ParallelSeq
 
@@ -41,8 +41,8 @@ let internal search' (targets: ApiDictionary seq) (options: SearchOptions) (lowT
 
 let internal storategy options =
   match options.Language with
-  | FSharp -> MatcherInitializer.FSharpInitializeStorategy() :> MatcherInitializer.IInitializeStorategy
-  | CSharp -> MatcherInitializer.CSharpInitializeStorategy() :> MatcherInitializer.IInitializeStorategy
+  | FSharp -> EngineInitializer.FSharpInitializeStorategy() :> EngineInitializer.IInitializeStorategy
+  | CSharp -> EngineInitializer.CSharpInitializeStorategy() :> EngineInitializer.IInitializeStorategy
 
 let search (dictionaries: ApiDictionary[]) (options: SearchOptions) (targets: ApiDictionary seq) (queryStr: string) =
   let storategy = storategy options

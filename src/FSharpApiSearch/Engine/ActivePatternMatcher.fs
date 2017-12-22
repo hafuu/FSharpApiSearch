@@ -1,7 +1,7 @@
 ﻿module internal FSharpApiSearch.ActivePatternMatcher
 
 open System.Diagnostics
-open FSharpApiSearch.MatcherTypes
+open FSharpApiSearch.EngineTypes
 
 let testAllParameter (lowTypeMatcher: ILowTypeMatcher) activePatternType returnType (right: Function) ctx =
   let left = Arrow ([ activePatternType ], returnType)

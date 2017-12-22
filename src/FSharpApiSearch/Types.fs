@@ -516,6 +516,8 @@ with
       | _ -> true)
     |> Seq.length
 
+type Database = ApiDictionary[]
+
 [<RequireQualifiedAccess>]
 type ActivePatternSignature =
   | AnyParameter of LowType * LowType // (||) => ... -> a -> b

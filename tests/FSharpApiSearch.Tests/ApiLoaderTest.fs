@@ -1140,9 +1140,9 @@ let serializationTest = test {
   let! csDict = csharpAssemblyApi
   let dictionaries = [| fsDict; csDict |]
   use memory = new MemoryStream()
-  do ApiLoader.saveStream memory dictionaries
+  do Database.saveStream memory dictionaries
   do memory.Position <- 0L
-  let actual = ApiLoader.loadFromStream memory
+  let actual = Database.loadFromStream memory
   do! actual.[0].Api |> assertEquals dictionaries.[0].Api
   do! actual.[1].Api |> assertEquals dictionaries.[1].Api
 }

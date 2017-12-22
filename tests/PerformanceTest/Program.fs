@@ -15,7 +15,7 @@ type MyBenchmarks() =
   [<GlobalSetup>]
   member this.GlobalSetup() =
     let targets = FSharpApiSearchClient.DefaultTargets
-    let database = ApiLoader.loadFromFile ApiLoader.databaseName
+    let database = Database.loadFromFile Database.databaseName
     client <- FSharpApiSearchClient(targets, database)
 
   [<Params(

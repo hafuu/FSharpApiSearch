@@ -1,7 +1,7 @@
 ﻿module internal FSharpApiSearch.NameMatcher
 
 open System.Diagnostics
-open FSharpApiSearch.MatcherTypes
+open FSharpApiSearch.EngineTypes
 open System.Text.RegularExpressions
 open System
 

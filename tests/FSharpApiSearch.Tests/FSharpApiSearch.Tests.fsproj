@@ -72,7 +72,7 @@
     <Compile Include="QueryParserTest.fs" />
     <Compile Include="TypesTest.fs" />
     <Compile Include="PrinterTest.fs" />
-    <Compile Include="MatcherTest.fs" />
+    <Compile Include="EngineTest.fs" />
     <Compile Include="ComputationExpressionMatcherTest.fs" />
     <Compile Include="ApiLoaderTest.fs" />
     <Compile Include="FSharpApiSearchClientTest.fs" />

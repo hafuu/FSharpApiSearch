@@ -1,4 +1,4 @@
-﻿module MatcherTest
+﻿module EngineTest
 
 open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
@@ -59,7 +59,7 @@ let respectNameDifferenceInequalitiesTest =
   test {
     let query = QueryParser.FSharp.parse "?a -> ?b -> 'a -> 'b"
     let opt = defaultTestOptions
-    let eqs = MatcherTypes.Equations.empty |> MatcherInitializer.initialEquations opt query
+    let eqs = EngineTypes.Equations.empty |> EngineInitializer.initialEquations opt query
     do! eqs.Inequalities |> assertEquals [ (queryVariable "'a", queryVariable "'b"); (Wildcard (Some "a"), Wildcard (Some "b")) ]
   }
 
@@ -69,7 +69,7 @@ let matchTest trace abbTable (options, query, name, target, expected) = test {
   try
     let targetApi: Api = { Name = ApiName name; Signature = target; TypeConstraints = []; Document = None }
     let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = IDictionary.empty; TypeAbbreviations = Array.append TestHelper.fsharpAbbreviationTable abbTable }
-    let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.length = 1
+    let actual = Engine.search [| dict |] options [ dict ] query |> Seq.length = 1
     do! actual |> assertEquals expected
   finally
     do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
@@ -81,7 +81,7 @@ let distanceTest trace opt (query, targetSig, expected) = test {
   try
     let targetApi: Api = { Name = ApiName.ofString "test"; Signature = targetSig; TypeConstraints = []; Document = None }
     let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = IDictionary.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
-    let actual = Matcher.search [| dict |] opt [ dict ] query |> Seq.head
+    let actual = Engine.search [| dict |] opt [ dict ] query |> Seq.head
     do! actual.Distance |> assertEquals expected
   finally
     do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
@@ -221,9 +221,9 @@ let matchModuleTest =
 
     run (fun (query, expected) -> test {
       let! apiDict = TestAssemblies.fsharpAssemblyApi
-      let! dictionaries = TestAssemblies.apiDictionary
+      let! dictionaries = TestAssemblies.database
       let opt = defaultTestOptions |> SearchOptions.GreedyMatching.Set Enabled
-      let actual = Matcher.search dictionaries opt [| apiDict |] query |> Seq.filter (fun result -> match result.Api.Kind with ApiKind.ModuleDefinition -> true | _ -> false)
+      let actual = Engine.search dictionaries opt [| apiDict |] query |> Seq.filter (fun result -> match result.Api.Kind with ApiKind.ModuleDefinition -> true | _ -> false)
       do! Seq.length actual >= 1 |> assertEquals expected
     })
   }
@@ -245,9 +245,9 @@ let matchTypeDefTest =
     ]
     run (fun (query, expected) -> test {
       let! apiDict = TestAssemblies.fsharpAssemblyApi
-      let! dictionaries = TestAssemblies.apiDictionary
+      let! dictionaries = TestAssemblies.database
       let opt = defaultTestOptions |> SearchOptions.GreedyMatching.Set Enabled
-      let actual = Matcher.search dictionaries opt [| apiDict |] query |> Seq.filter (fun result -> match result.Api.Kind with ApiKind.TypeDefinition -> true | _ -> false)
+      let actual = Engine.search dictionaries opt [| apiDict |] query |> Seq.filter (fun result -> match result.Api.Kind with ApiKind.TypeDefinition -> true | _ -> false)
       do! Seq.length actual >= 1 |> assertEquals expected
     })
   }
@@ -278,8 +278,8 @@ let matchTypeAbbreviationTest =
     })
     run (fun (opt, query, expected) -> test {
       let! apiDict = TestAssemblies.fsharpAssemblyApi
-      let! dictionaries = TestAssemblies.apiDictionary
-      let actual = Matcher.search dictionaries opt [| apiDict |] query |> Seq.filter (fun result -> match result.Api.Kind with ApiKind.TypeAbbreviation -> true | _ -> false)
+      let! dictionaries = TestAssemblies.database
+      let actual = Engine.search dictionaries opt [| apiDict |] query |> Seq.filter (fun result -> match result.Api.Kind with ApiKind.TypeAbbreviation -> true | _ -> false)
       do! Seq.length actual >= 1 |> assertEquals expected
     })
   }
@@ -288,7 +288,7 @@ let assemblyNameTest =
   test {
     let api: Api = { Name = ApiName.ofString "test"; Signature = moduleValue int; TypeConstraints = []; Document = None }
     let dummyDict = { AssemblyName = "dummyAssembly"; Api = [| api |]; TypeDefinitions = IDictionary.empty; TypeAbbreviations = [||] }
-    let actual = Matcher.search Array.empty defaultTestOptions [ dummyDict ] "?" |> Seq.toList
+    let actual = Engine.search Array.empty defaultTestOptions [ dummyDict ] "?" |> Seq.toList
     do! actual |> assertEquals [ { AssemblyName = "dummyAssembly"; Api = api; Distance = 0 } ]
   }
 
@@ -1251,7 +1251,7 @@ module TypeConstraintTest =
 
     let options = { defaultTestOptions with GreedyMatching = Enabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled }
     let dummyDict = { AssemblyName = "dummy"; Api = [| targetApi |]; TypeDefinitions = IDictionary.empty; TypeAbbreviations = [||] }
-    let actual = Matcher.search dictionaries options [ dummyDict ] query |> Seq.length = 1
+    let actual = Engine.search dictionaries options [ dummyDict ] query |> Seq.length = 1
     do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
     do! actual |> assertEquals expected
   }
@@ -1371,7 +1371,7 @@ module TypeConstraintTest =
 
       let options = { defaultTestOptions with GreedyMatching = greedy; RespectNameDifference = Enabled; IgnoreParameterStyle = Disabled; IgnoreCase = Disabled }
       let dummyDict = { AssemblyName = "dummy"; Api = [| targetApi |]; TypeDefinitions = IDictionary.empty; TypeAbbreviations = [||] }
-      let actual = Matcher.search dictionaries options [ dummyDict ] query |> Seq.length = 1
+      let actual = Engine.search dictionaries options [ dummyDict ] query |> Seq.length = 1
       do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
       do! actual |> assertEquals expected
     }
@@ -1726,7 +1726,7 @@ module ActivePatternTest =
       let targetApi: Api = { Name = ApiName.ofString "test"; Signature = target; TypeConstraints = []; Document = None }
       let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = IDictionary.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
       let options = defaultTestOptions
-      let actual = Matcher.search [| dict |] options [ dict ] query |> Seq.length = 1
+      let actual = Engine.search [| dict |] options [ dict ] query |> Seq.length = 1
       do! actual |> assertEquals expected
     finally
       do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
@@ -1816,7 +1816,7 @@ module TypeExtensionTest =
     }
 
 module SwapOrderTest =
-  open MatcherTypes
+  open EngineTypes
   let typeA = createType "Test.A" []
   let typeB = createType "Test.B" []
   let typeC = createType "Test.C" []
@@ -2115,7 +2115,7 @@ module InitializeTest =
       |]
       let dictionaries = Array.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = IDictionary.empty; TypeAbbreviations = abbreviations }
       let actual =
-        let storategy = MatcherInitializer.FSharpInitializeStorategy() :> MatcherInitializer.IInitializeStorategy
+        let storategy = EngineInitializer.FSharpInitializeStorategy() :> EngineInitializer.IInitializeStorategy
         let query = storategy.ParseQuery(query)
         storategy.InitializeQuery(query, dictionaries, TestHelper.defaultTestOptions)
       let expected: Query = { OriginalString = query; Method = expected }
@@ -2136,7 +2136,7 @@ module InitializeTest =
       run (fun (query, expected) -> test {
         let dictionaries = Array.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = IDictionary.empty; TypeAbbreviations = Array.empty }
         let actual =
-          let storategy = MatcherInitializer.FSharpInitializeStorategy() :> MatcherInitializer.IInitializeStorategy
+          let storategy = EngineInitializer.FSharpInitializeStorategy() :> EngineInitializer.IInitializeStorategy
           let query = storategy.ParseQuery(query)
           storategy.InitializeQuery(query, dictionaries, TestHelper.defaultTestOptions)
         let expected: Query = { OriginalString = query; Method = expected }
@@ -2153,7 +2153,7 @@ module InitializeTest =
     run (fun (query, expected) -> test {
       let dictionaries = Array.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = IDictionary.empty; TypeAbbreviations = Array.empty }
       let actual =
-        let storategy = MatcherInitializer.FSharpInitializeStorategy() :> MatcherInitializer.IInitializeStorategy
+        let storategy = EngineInitializer.FSharpInitializeStorategy() :> EngineInitializer.IInitializeStorategy
         let query = storategy.ParseQuery(query)
         let options = TestHelper.defaultTestOptions |> SearchOptions.SingleLetterAsVariable.Set Enabled
         storategy.InitializeQuery(query, dictionaries, options)
@@ -2181,7 +2181,7 @@ module InitializeTest =
       |]
       let dictionaries = Array.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = IDictionary.empty; TypeAbbreviations = abbreviations }
       let actual =
-        let storategy = MatcherInitializer.CSharpInitializeStorategy() :> MatcherInitializer.IInitializeStorategy
+        let storategy = EngineInitializer.CSharpInitializeStorategy() :> EngineInitializer.IInitializeStorategy
         let query = storategy.ParseQuery(query)
         storategy.InitializeQuery(query, dictionaries, TestHelper.defaultTestOptions)
       let expected: Query = { OriginalString = query; Method = expected }

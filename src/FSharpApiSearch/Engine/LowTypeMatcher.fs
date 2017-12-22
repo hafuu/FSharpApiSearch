@@ -1,7 +1,7 @@
 ﻿module internal FSharpApiSearch.LowTypeMatcher
 
 open System.Diagnostics
-open FSharpApiSearch.MatcherTypes
+open FSharpApiSearch.EngineTypes
 open FSharpApiSearch.Printer
 open FSharpApiSearch.SpecialTypes
 open FSharpApiSearch.SpecialTypes.LowType.Patterns

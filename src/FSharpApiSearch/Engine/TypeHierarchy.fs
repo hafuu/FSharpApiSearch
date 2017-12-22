@@ -1,6 +1,6 @@
 ﻿module internal FSharpApiSearch.TypeHierarchy
 
-open FSharpApiSearch.MatcherTypes
+open FSharpApiSearch.EngineTypes
 
 let transferVariableArgument (inheritArgs: Map<TypeVariable, LowType>) (baseType: LowType): LowType list =
   let rec genericArguments = function

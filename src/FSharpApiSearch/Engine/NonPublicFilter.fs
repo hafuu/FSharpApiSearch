@@ -1,6 +1,6 @@
 ﻿module internal FSharpApiSearch.NonPublicFilter
 
-open MatcherTypes
+open EngineTypes
 
 let testAccessibility ctx = function
   | Public -> Matched ctx

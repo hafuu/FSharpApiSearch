@@ -1,4 +1,4 @@
-﻿module internal FSharpApiSearch.MatcherTypes
+﻿module internal FSharpApiSearch.EngineTypes
 
 open System.Diagnostics
 open FSharpApiSearch

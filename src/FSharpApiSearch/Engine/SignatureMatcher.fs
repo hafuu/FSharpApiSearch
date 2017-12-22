@@ -1,7 +1,7 @@
 ﻿module internal FSharpApiSearch.SignatureMatcher
 
 open System.Diagnostics
-open FSharpApiSearch.MatcherTypes
+open FSharpApiSearch.EngineTypes
 open FSharpApiSearch.SpecialTypes
 open FSharpApiSearch.Printer
 

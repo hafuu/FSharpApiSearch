@@ -8,9 +8,6 @@ open System.Collections.Generic
 open System.Xml
 open System.Xml.Linq
 open FSharp.Collections.ParallelSeq
-open MessagePack
-open MessagePack.Resolvers
-open MessagePack.FSharp
 
 type TypeForward = {
   Type: string
@@ -1167,39 +1164,4 @@ let loadWithLogs (assemblies: FSharpAssembly[]) =
     (apiDict, logs)
   )
 
-let load (assemblies: FSharpAssembly[]): ApiDictionary[] = loadWithLogs assemblies |> Array.map fst
-
-let databaseName = "database"
-
-module internal Serialization =
-  type T = (string * Api[])[]
-  let toDumpObj (xs: ApiDictionary[]) : T = xs |> Array.map (fun x -> x.AssemblyName, x.Api)
-
-  let fromDumpObj (xs: T) =
-    xs
-    |> Array.map (fun (name, apis) ->
-      { AssemblyName = name; Api = apis; TypeDefinitions = IDictionary.empty; TypeAbbreviations = Array.empty }
-      |> Impl.makeDefAndAbb
-    )
-
-let internal initMessagePack = lazy(
-  CompositeResolver.RegisterAndSetAsDefault(FSharpResolver.Instance, StandardResolver.Instance)
-)
-
-let internal saveStream (stream: Stream) (dictionaries: ApiDictionary[]) : unit =
-  initMessagePack.Force()
-
-  MessagePackSerializer.Serialize(stream, Serialization.toDumpObj dictionaries)
-
-let save (path: string) (dictionaries: ApiDictionary[]) : unit =
-  if File.Exists(path) then File.Delete(path)
-  use file = File.OpenWrite(path)
-  saveStream file dictionaries
-
-let internal loadFromStream (stream: Stream) : ApiDictionary[] =
-  initMessagePack.Force()
-  MessagePackSerializer.Deserialize<Serialization.T>(stream) |> Serialization.fromDumpObj
-
-let loadFromFile (path: string) : ApiDictionary[] =
-  use file = File.OpenRead(path)
-  loadFromStream file
+let load (assemblies: FSharpAssembly[]) : Database = loadWithLogs assemblies |> Array.map fst

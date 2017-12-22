@@ -18,7 +18,7 @@ let main argv =
   let args = Args.parse Args.empty (List.ofArray argv)
   let options = args.SearchOptions |> SearchOptions.Parallel.Set Disabled
 
-  let dictionaries = ApiLoader.loadFromFile ApiLoader.databaseName
+  let dictionaries = Database.loadFromFile Database.databaseName
   let targets = Args.targetsOrDefault args
   let targetAssemblies = dictionaries |> Seq.filter (fun x -> targets |> Seq.exists ((=)x.AssemblyName)) |> Seq.toArray
 
@@ -43,7 +43,7 @@ let main argv =
 
         let target = apis |> Array.find (fun x -> FSharp.printFullName x = targetName)
         let dummyDict: ApiDictionary = { AssemblyName = "dummy"; Api = [| target |]; TypeDefinitions = dict Seq.empty; TypeAbbreviations = [||] }
-        let result = Matcher.search dictionaries options [ dummyDict ] query
+        let result = Engine.search dictionaries options [ dummyDict ] query
 
         printfn "Result = %b" (Seq.isEmpty result = false)
 

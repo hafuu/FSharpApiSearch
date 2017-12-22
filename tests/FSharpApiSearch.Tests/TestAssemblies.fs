@@ -61,42 +61,42 @@ let assemblies = test {
   return FSharpApiSearch.AssemblyLoader.load assemblyResolver assemblies
 }
 
-let apiDictionary = test {
+let database = test {
   let! assemblies = assemblies
   return ApiLoader.load assemblies
 }
 
 let fsharpAssemblyApi = test {
-  let! apiDictionary = apiDictionary
+  let! apiDictionary = database
   return apiDictionary |> Array.find (fun x -> x.AssemblyName = fsharpAssemblyName)
 }
 
 let csharpAssemblyApi = test {
-  let! apiDictionary = apiDictionary
+  let! apiDictionary = database
   return apiDictionary |> Array.find (fun x -> x.AssemblyName = csharpAssemblyName)
 }
 
 let fscoreApi = test {
-  let! apiDictionary = apiDictionary
+  let! apiDictionary = database
   return apiDictionary |> Array.find (fun x -> x.AssemblyName = "FSharp.Core")
 }
 
 let mscorlibApi = test {
-  let! apiDictionary = apiDictionary
+  let! apiDictionary = database
   return apiDictionary |> Array.find (fun x -> x.AssemblyName = "mscorlib")
 }
 
 let systemCoreApi = test {
-  let! apiDictionary = apiDictionary
+  let! apiDictionary = database
   return apiDictionary |> Array.find (fun x -> x.AssemblyName = "System.Core")
 }
 
 let valueTupleApi = test {
-  let! apiDictionary = apiDictionary
+  let! apiDictionary = database
   return apiDictionary |> Array.find (fun x -> x.AssemblyName = valueTupleAssemblyName)
 }
 
 let fparsecApi = test {
-  let! apiDictionary = apiDictionary
+  let! apiDictionary = database
   return apiDictionary |> Array.find (fun x -> x.AssemblyName = fparsecAssemblyName)
 }
