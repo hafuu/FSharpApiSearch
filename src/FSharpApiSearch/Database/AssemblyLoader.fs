@@ -21,6 +21,15 @@ with
         |> Seq.tryFindBack File.Exists
     result |> Option.map Path.GetFullPath
 
+  member this.ResolveAll(assemblyNames: string seq) =
+    [|
+      for name in assemblyNames do
+        match this.Resolve(name) with
+        | Some path -> yield path
+        | None -> raise (FileNotFoundException("Assembly is not found.", name))
+    |]
+    |> Array.distinct
+
 let internal ignoreFSharpCompilerServiceError() =
   typeof<FSharpChecker>.Assembly.GetType("Microsoft.FSharp.Compiler.AbstractIL.Diagnostics")
   |> Option.ofObj
@@ -41,25 +50,22 @@ let load (assemblyResolver: AssemblyResolver) references =
   let options =
     checker.GetProjectOptionsFromCommandLineArgs
       (projFileName,
-        [|  yield "--simpleresolution" 
-            yield "--noframework" 
-            yield "--debug:full" 
-            yield "--define:DEBUG" 
-            yield "--optimize-" 
-            yield "--out:" + dllName
-            yield "--warn:3" 
-            yield "--fullpaths" 
-            yield "--flaterrors" 
-            yield "--target:library" 
-            yield fileName1
+        [|
+          yield "--simpleresolution" 
+          yield "--noframework" 
+          yield "--debug:full" 
+          yield "--define:DEBUG" 
+          yield "--optimize-" 
+          yield "--out:" + dllName
+          yield "--warn:3" 
+          yield "--fullpaths" 
+          yield "--flaterrors" 
+          yield "--target:library" 
+          yield fileName1
 
-            for r in references do
-              match assemblyResolver.Resolve r with
-              | Some path -> yield "-r:" + path
-              | None -> raise (FileNotFoundException("Assembly is not found.", r))
-
-            for r in references |> Seq.choose assemblyResolver.Resolve do
-              yield "-r:" + r |]
+          for r in assemblyResolver.ResolveAll(references) do
+            yield "-r:" + r
+        |]
       )
   let refAssemblies =
     let x = checker.ParseAndCheckProject(options) |> Async.RunSynchronously

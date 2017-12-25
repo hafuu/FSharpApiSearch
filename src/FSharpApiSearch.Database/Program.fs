@@ -49,9 +49,8 @@ options:
 
 let printAssemblies (assemblyResolver: AssemblyLoader.AssemblyResolver) assemblies =
   printfn "Create the database of the following assemblies."
-  assemblies
-  |> Seq.choose assemblyResolver.Resolve
-  |> Seq.iter (fun path -> printfn "  %s" path)
+  assemblyResolver.ResolveAll(assemblies)
+  |> Array.iter (fun path -> printfn "  %s" path)
 
 let printForwardingLogs (apiDict: ApiDictionary, logs: seq<ApiLoader.TypeForward>) =
   if Seq.isEmpty logs then
