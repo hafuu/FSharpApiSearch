@@ -183,29 +183,32 @@ module internal Impl =
         return ByRef(false, x)
       }
     elif t.HasTypeDefinition then
-      let signature =
-        match Hack.genericArguments t with
-        | [] -> t.TryLoadingLowType
-        | xs -> 
-          option {
-            let! xs = listLowType xs
-            let! id = t.TryLoadingLowType
-            return Generic (id, xs)
-          }
-      if t.TypeDefinition.IsDelegate then
-        option {
-          let! arrow = delegateArrow t
-          let! t = signature
-          return Delegate (t, arrow)
-        }
-      elif Hack.isAbbreviation t then
-        option {
-          let! signature = signature
-          let! original = abbreviationRoot t
-          return TypeAbbreviation { Abbreviation = signature; Original = original }
-        }
+      if not t.TypeDefinition.Accessibility.IsPublic then
+        None
       else
-        signature
+        let signature =
+          match Hack.genericArguments t with
+          | [] -> t.TryLoadingLowType
+          | xs -> 
+            option {
+              let! xs = listLowType xs
+              let! id = t.TryLoadingLowType
+              return Generic (id, xs)
+            }
+        if t.TypeDefinition.IsDelegate then
+          option {
+            let! arrow = delegateArrow t
+            let! t = signature
+            return Delegate (t, arrow)
+          }
+        elif Hack.isAbbreviation t then
+          option {
+            let! signature = signature
+            let! original = abbreviationRoot t
+            return TypeAbbreviation { Abbreviation = signature; Original = original }
+          }
+        else
+          signature
     else
       None
   and delegateArrow (t: FSharpType) =
@@ -851,7 +854,9 @@ module internal Impl =
 
   let rec collectApi xml (accessPath: Name) (e: FSharpEntity): Api seq =
     seq {
-      if e.IsNamespace then
+      if not e.Accessibility.IsPublic then
+        ()
+      elif e.IsNamespace then
         let accessPath = e.GetDisplayName() :: accessPath
         yield! collectFromNestedEntities xml accessPath e
       elif e.IsCompilerInternalModule then

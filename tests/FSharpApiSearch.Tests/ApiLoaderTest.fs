@@ -64,14 +64,15 @@ let testApiWithoutParameterName (assembly: TestCase<ApiDictionary>) nameConverte
   do! actual |> assertEquals expected
 }
 
+let tryGetFullTypeDef (apiDict: ApiDictionary) (name: Name) =
+  Seq.filter (fun x -> testFSharpName (ApiName.toName x.Name) name) apiDict.Api
+  |> Seq.map (fun x -> x.Signature)
+  |> Seq.tryPick (function ApiSignature.FullTypeDefinition x -> Some x | _ -> None)
+
 let testFullTypeDef' (assembly: TestCase<ApiDictionary>) filter (name, expected) = test {
   let! apiDict = assembly
-  let actual =
-    Seq.filter (fun x -> testFSharpName (ApiName.toName x.Name) name) apiDict.Api
-    |> Seq.map (fun x -> x.Signature)
-    |> Seq.choose (function ApiSignature.FullTypeDefinition x -> Some x | _ -> None)
-    |> Seq.head
-  do! (filter actual) |> assertEquals expected
+  let actual = tryGetFullTypeDef apiDict name
+  do! (actual |> Option.map filter) |> assertEquals (Some expected)
 }
 
 let testFullTypeDef (assembly: TestCase<ApiDictionary>) (expected: FullTypeDefinition) = testFullTypeDef' assembly id (expected.Name, expected)
@@ -272,7 +273,6 @@ module FSharp =
       source [
         "PublicModule", [ module' (Name.ofString "PublicModule") fsharpAssemblyName Public ]
         "PublicModule.NestedModule", [ module' (Name.ofString "PublicModule.NestedModule") fsharpAssemblyName Public ]
-        "InternalModule", [ module' (Name.ofString "InternalModule") fsharpAssemblyName Private ]
       ]
       run testApi
     }
@@ -282,6 +282,7 @@ module FSharp =
       source[
         "PublicModule.internalFunction"
         "PublicModule.privateFunction"
+        "InternalModule"
         "InternalModule.publicFunction"
         "PrivateModule.publicFunction"
         "OtherTypes.Enum.value__"
@@ -632,13 +633,24 @@ module FSharp =
   let accessibilityTest = parameterize {
     source[
       "FullTypeDefinition.PublicType", Public
-      "FullTypeDefinition.PrivateType", Private
-      "FullTypeDefinition.InternalType", Private
-
-      "InternalSignature.InternalType", Private
     ]
     run (fun (name, expected) ->
       testFullTypeDef' fsharpAssemblyApi (fun x -> x.Accessibility) (Name.ofString name, expected))
+  }
+
+  let privateTypeTest = parameterize {
+    source [
+      "FullTypeDefinition.PrivateType"
+      "FullTypeDefinition.InternalType"
+
+      "InternalSignature.InternalType"
+    ]
+  
+    run (fun (name) -> test {
+      let! apiDict = fsharpAssemblyApi
+      let actual = tryGetFullTypeDef apiDict (Name.ofString name)
+      do! actual |> assertEquals None
+    })
   }
 
   let typeDefKindTest = parameterize {
@@ -824,15 +836,25 @@ module TypeAbbreviation =
       }
       typeAbbreviationDef "TypeAbbreviations.NestedModule.TypeAbbreviationInModule<'a>" (createType "TypeAbbreviations.Original<'a>"[ variable "'a" ]  |> updateAssembly fsharpAssemblyName)
       typeAbbreviationDef "TypeAbbreviations.FunctionAbbreviation" (arrow [ int; int ])
-
-      (typeAbbreviationDef "TypeAbbreviations.InternalTypeAbbreviation" (A)).AsPrivate
-      (typeAbbreviationDef "TypeAbbreviations.PrivateTypeAbbreviation" (A)).AsPrivate
     ]
     run (fun entry -> test {
       let! api = fsharpAssemblyApi
       let expected = { entry with AssemblyName = fsharpAssemblyName }
       let actual = api.TypeAbbreviations |> Seq.tryFind (fun x -> x.FullName = expected.FullName)
       do! actual |> assertEquals (Some expected)
+    })
+  }
+
+  let privateTypeAbbreviationTest = parameterize {
+    source [
+      (typeAbbreviationDef "TypeAbbreviations.InternalTypeAbbreviation" (A)).AsPrivate
+      (typeAbbreviationDef "TypeAbbreviations.PrivateTypeAbbreviation" (A)).AsPrivate
+    ]
+
+    run (fun entry -> test {
+      let! api = fsharpAssemblyApi
+      let actual = api.TypeAbbreviations |> Seq.tryFind (fun x -> x.FullName = entry.FullName)
+      do! actual |> assertEquals None
     })
   }
 

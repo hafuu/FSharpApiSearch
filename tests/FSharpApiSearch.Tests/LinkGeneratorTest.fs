@@ -207,7 +207,6 @@ let fparsecLinkTest = parameterize {
     
     "FParsec.Internals.referenceEquals<'a>", "x:'a -> y:'a -> bool", None
     "FParsec.CharParsers.NumberLiteralResultFlags.IsNaN", "NumberLiteralResultFlags", None
-    "FParsec.Emit", "module Emit", None
   ]
   run (fun (name, signature, expected) -> test {
     let! apiDict = fparsecApi
