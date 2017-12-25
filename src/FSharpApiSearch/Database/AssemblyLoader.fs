@@ -52,6 +52,12 @@ let load (assemblyResolver: AssemblyResolver) references =
             yield "--flaterrors" 
             yield "--target:library" 
             yield fileName1
+
+            for r in references do
+              match assemblyResolver.Resolve r with
+              | Some path -> yield "-r:" + path
+              | None -> raise (FileNotFoundException("Assembly is not found.", r))
+
             for r in references |> Seq.choose assemblyResolver.Resolve do
               yield "-r:" + r |]
       )
