@@ -223,8 +223,6 @@ type FSharpInitializeStorategy() =
   interface IInitializeStorategy with
     member this.Matchers(options, query) =
       [|
-        yield NonPublicFilter.instance
-
         match query.Method with
         | QueryMethod.ByName _ ->
           yield NameMatcher.instance
@@ -265,7 +263,6 @@ type CSharpInitializeStorategy() =
     member this.Matchers(options, query) =
       [|
         yield CSharpFilter.instance
-        yield NonPublicFilter.instance
 
         match query.Method with
         | QueryMethod.ByName _ ->
