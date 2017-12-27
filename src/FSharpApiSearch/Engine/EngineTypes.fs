@@ -92,18 +92,18 @@ module ApiMatcher =
     Debug.Unindent()
     result
 
-type Rule<'Left, 'Right> = ILowTypeMatcher -> 'Left -> 'Right -> Context -> MatchingResult
+type Rule<'Matcher, 'Left, 'Right> = 'Matcher -> 'Left -> 'Right -> Context -> MatchingResult
 
 module Rule =
-  let run (rule: Rule<_, _>) matcher left right ctx = rule matcher left right ctx
+  let run (rule: Rule<_, _, _>) matcher left right ctx = rule matcher left right ctx
   let terminator _ _ _ _ =
     Debug.WriteLine("It reached the terminator.")
     Failure
-  let continueFailure (rule: Rule<_, _>) matcher left right ctx =
+  let continueFailure (rule: Rule<_, _, _>) matcher left right ctx =
     match run rule matcher left right ctx with
     | Failure -> Continue ctx
     | (Matched _ | Continue _) as result -> result
-  let compose (xs: Rule<_, _>[]): Rule<_, _> =
+  let compose (xs: Rule<_, _, _>[]): Rule<_, _, _> =
     fun test left right ctx ->
       let mutable continue' = true
       let mutable state = ctx
