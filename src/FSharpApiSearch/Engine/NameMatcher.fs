@@ -46,15 +46,15 @@ let test' strOpt (expected: ByName list) (actualNames: NameItem list) =
       | _ -> true
     loop expected actualNames
 
+let ctor = { Name = SymbolName ".ctor"; GenericParameters = [] }
+
 let test strOpt query (api: Api) ctx =
   match query with
   | QueryMethod.ByName (expected, _) | QueryMethod.ByNameOrSignature (expected, _) ->
     match api.Name, api.Kind with
     | ApiName actualName, ApiKind.Constructor ->
-      let name_type = List.tail actualName
-      let name_new = actualName
-      let name_ctor = { Name = SymbolName ".ctor"; GenericParameters = [] } :: name_type
-      let ok = [ name_new; name_type; name_ctor ] |> List.exists (test' strOpt expected)
+      // TypeName or TypeName.new or TypeName..ctor
+      let ok = test' strOpt expected actualName.Tail || test' strOpt expected actualName || test' strOpt expected (ctor :: actualName.Tail)
       if ok then Matched ctx else Failure
     | ApiName actualName, _ -> if test' strOpt expected actualName then Matched ctx else Failure
     | _ -> Failure
