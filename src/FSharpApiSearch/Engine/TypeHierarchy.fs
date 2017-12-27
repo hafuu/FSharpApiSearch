@@ -50,10 +50,10 @@ open Printer
 
 let fullTypeDef (ctx: Context) = function
   | ActualType i ->
-    match ctx.ApiDictionaries.TryFind(i.AssemblyName) with
-    | Some apiDict ->
+    match ctx.ApiDictionaries.TryGetValue(i.AssemblyName) with
+    | true, apiDict ->
       match apiDict.TypeDefinitions.TryGetValue(i) with
       | true, typeDef -> Array.singleton typeDef
       | false, _ -> failwithf """Type "%s" in "%s" is not found.""" (i.Name.Print()) i.AssemblyName
-    | None -> failwithf """Assembly "%s" is not found.""" i.AssemblyName
+    | false, _ -> failwithf """Assembly "%s" is not found.""" i.AssemblyName
   | UserInputType i -> ctx.QueryTypes.[i]

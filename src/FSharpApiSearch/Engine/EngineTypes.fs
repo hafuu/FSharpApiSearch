@@ -1,6 +1,7 @@
 ﻿module internal FSharpApiSearch.EngineTypes
 
 open System.Diagnostics
+open System.Collections.Generic
 open FSharpApiSearch
 open FSharpApiSearch.Printer
 open System.Collections.Concurrent
@@ -25,15 +26,13 @@ type SubtypeResult =
 type SubtypeCache = ConcurrentDictionary<LowType * LowType, SubtypeResult>
 
 module SubtypeCache =
-  open System.Collections.Generic
-
   let create() = SubtypeCache()
 
 type Context = {
   Distance: int
   Equations: Equations
   QueryTypes: Map<UserInputType, FullTypeDefinition[]>
-  ApiDictionaries: Map<string, ApiDictionary>
+  ApiDictionaries: IDictionary<string, ApiDictionary>
   SubtypeCache: SubtypeCache
 }
 

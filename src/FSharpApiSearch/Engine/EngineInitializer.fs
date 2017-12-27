@@ -81,7 +81,7 @@ let initializeContext (dictionaries: ApiDictionary[]) (options: SearchOptions) (
     Distance = 0
     Equations = Equations.empty |> initialEquations options query
     QueryTypes = queryTypes query dictionaries
-    ApiDictionaries = dictionaries |> Seq.map (fun d -> (d.AssemblyName, d)) |> Map.ofSeq
+    ApiDictionaries = dictionaries |> Seq.map (fun d -> (d.AssemblyName, d)) |> dict
     SubtypeCache = SubtypeCache.create()
   }
 
