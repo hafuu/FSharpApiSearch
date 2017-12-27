@@ -70,9 +70,11 @@ let actualTypeComparer =
   { new IEqualityComparer<ActualType> with
       member this.Equals(x, y) = testActualType x y = Result.Matched
       member this.GetHashCode(x) =
-        let name = x.Name
-        let nameHashItem = name |> List.map (fun n -> (n.Name, n.GenericParameters.Length))
-        hash (x.AssemblyName, nameHashItem)
+        let mutable value = x.AssemblyName.GetHashCode()
+        for item in x.Name do
+          value <- value ^^^ item.Name.GetHashCode()
+          value <- value ^^^ item.GenericParameters.Length.GetHashCode()
+        value
   }
 
 let testUserInputAndActualType cmp (userInput: UserInputType) (actual: ActualType) =
