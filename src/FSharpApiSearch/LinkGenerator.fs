@@ -164,7 +164,7 @@ module LinkGenerator =
 
     type VariableMemory = Dictionary<string, string>
 
-    let variableId (kind: ApiKind) (name: Name) =
+    let variableMemory (api: Api) (name: Name) =
       let variableMemory = VariableMemory()
       let memory (prefix: string) (n: NameItem) =
         n.GenericParameters
@@ -174,67 +174,56 @@ module LinkGenerator =
             variableMemory.[variable] <- prefix + string variableId
         )
         
-      match kind with
-      | ApiKind.TypeDefinition ->
+      match api.Signature with
+      | ApiSignature.FullTypeDefinition _ ->
         name |> List.iter (memory "_")
       | _ ->
         name.Head |> memory "__"
         name.Tail |> List.iter (memory "_")
       variableMemory
 
-    let nameElementsAndVariableId (api: Api) =
-      let convert (modifiedString: string) ((wroteGeneric, result): bool * string list) (name: NameItem) =
-        if wroteGeneric = false && name.GenericParameters.IsEmpty = false then
-          let result = (urlName name + modifiedString + string name.GenericParameters.Length) :: result
-          true, result
+    type StringJoinContext = private {
+      mutable IsFirstElement: bool
+      Separator: string
+    }
+    with
+      static member Create(sep) = { IsFirstElement = true; Separator = sep }
+      member this.Print(sb: StringBuilder) =
+        if this.IsFirstElement then
+          this.IsFirstElement <- false
+          sb
         else
-          let result = urlName name :: result
-          (wroteGeneric, result)
-      
-      let name = ApiName.toName api.Name
+          sb.Append(this.Separator)
 
-      let kind = api.Kind
+    let printName (modifiedString: string) (ctx: StringJoinContext) (mapping: string -> string) (sb: StringBuilder) (name: NameItem) (wroteGeneric: bool) : bool =
+      sb.Append(ctx.Print) |> ignore
 
-      let elems =
-        let initState = false, []
-        seq {
-          match kind with
-          | ApiKind.TypeDefinition ->
-            yield! name |> Seq.rev |> Seq.fold (convert "_") initState |> snd |> Seq.rev
-          | ApiKind.Constructor ->
-            yield! name.Tail |> Seq.rev |> Seq.fold (convert "_") initState |> snd |> Seq.rev
-            yield "_ctor"
-          | _ ->
-            yield! name.Tail |> Seq.rev |> Seq.fold (convert "_") initState |> snd |> Seq.rev
-            yield! convert "__" initState name.Head |> snd
-        }
+      if not wroteGeneric && not name.GenericParameters.IsEmpty then
+        sb.Append(urlName name |> mapping).Append(modifiedString).Append(string name.GenericParameters.Length) |> ignore
+        true
+      else
+        sb.Append(urlName name |> mapping) |> ignore
+        wroteGeneric
 
-      let urlelems =
-        let initState = false, []
-        seq {
-          match kind, api.Signature with
-          | ApiKind.TypeDefinition, _ ->
-            yield! name |> Seq.rev |> Seq.fold (convert "-") initState |> snd |> Seq.rev
-          | ApiKind.Constructor, _ ->
-            yield! name.Tail |> Seq.rev |> Seq.fold (convert "-") initState |> snd |> Seq.rev
-            yield "-ctor"
-          | _ ->
-            yield! name.Tail |> Seq.rev |> Seq.fold (convert "-") initState |> snd |> Seq.rev
-            yield urlName name.Head
-        }
-
-      let variableMemory = variableId kind name
-      urlelems, elems, variableMemory
-
-    let urlPart elems (sb: StringBuilder) =
-      let elems = elems |> Seq.map toLower
-      sb.AppendJoin(".", elems)
+    let printUrlPart (api: ApiSignature) (name: Name) (sb: StringBuilder) : StringBuilder =
+      let ctx = StringJoinContext.Create(".")
+      let printName' name = List.foldBack (printName "-" ctx toLower sb) name false |> ignore
+      match api with
+      | ApiSignature.FullTypeDefinition _ ->
+        printName' name
+      | ApiSignature.Constructor _ ->
+        printName' name.Tail
+        sb.Append(ctx.Print).Append("-ctor") |> ignore
+      | _ ->
+        printName' name.Tail
+        sb.Append(ctx.Print).Append(urlName name.Head |> toLower) |> ignore
+      sb
 
     let rec parameterElement (api: Api) (variableMemory: VariableMemory) (t: LowType) (sb: StringBuilder) : StringBuilder =
       match t with
       | Unit -> sb
       | Type (ActualType { Name = name }) ->
-        let ns = name |> Seq.rev
+        let ns = name |> List.rev
         sb.AppendJoin("_", ns, (fun n sb -> sb.Append(urlName n)))
       | Array (_, elem) -> sb.Append(parameterElement api variableMemory elem).Append("__")
       | ByRef (_, arg) -> sb.Append(parameterElement api variableMemory arg).Append("_")
@@ -257,19 +246,31 @@ module LinkGenerator =
       | [] | [ [ { Type = Unit } ] ] -> false
       | _ -> true
 
-    let hashPart (nameElems: seq<string>) (variableMemory: VariableMemory) (member': Member) (api: Api) (sb: StringBuilder) =
-      sb.AppendJoin("_", nameElems) |> ignore
+    let printHashPart (api: Api) (name: Name) (member': Member) (sb: StringBuilder) : StringBuilder =
+      let ctx = StringJoinContext.Create("_")
+      let printName' name = List.foldBack (printName "_" ctx id sb) name false |> ignore
+      match api.Signature with
+      | ApiSignature.FullTypeDefinition _ ->
+        printName' name
+      | ApiSignature.Constructor _ ->
+        printName' name.Tail
+        sb.Append(ctx.Print).Append("_ctor") |> ignore
+      | _ ->
+        printName' name.Tail
+        printName "__" ctx id sb name.Head false |> ignore
 
       if hasParameter member' then
-        let parameters = member'.Parameters |> Seq.collect id |> Seq.map (fun p -> p.Type)
-        sb.Append("_")
-          .AppendJoin("_", parameters, (parameterElement api variableMemory))
-          .Append("_")
-        |> ignore
-
+        let variableMemory = variableMemory api name
+        let paramsCtx = StringJoinContext.Create("_")
+        sb.Append("_") |> ignore
+        for ps in member'.Parameters do
+          for p in ps do
+            sb.Append(paramsCtx.Print).Append(parameterElement api variableMemory p.Type) |> ignore
+        sb.Append("_") |> ignore
       sb
 
     let generate (view: string) (api: Api) =
+      let name = ApiName.toName api.Name
       match api.Signature with
       | ApiSignature.ActivePatten _
       | ApiSignature.ModuleValue _
@@ -281,16 +282,14 @@ module LinkGenerator =
       | ApiSignature.UnionCase _ -> None
 
       | ApiSignature.FullTypeDefinition _ ->
-        let urlElems, _, _ = nameElementsAndVariableId api
-        let sb = StringBuilder().Append(urlPart urlElems).Append("?view=").Append(view)
+        let sb = StringBuilder().Append(printUrlPart api.Signature name).Append("?view=").Append(view)
         Some (string sb)
 
       | ApiSignature.ExtensionMember (member' : Member)
       | ApiSignature.Constructor (_ , (member' : Member))
       | ApiSignature.InstanceMember (_ , (member' : Member))
       | ApiSignature.StaticMember (_ ,(member' : Member)) ->
-        let urlElems, nameElems, variableMemory = nameElementsAndVariableId api
-        let sb = StringBuilder().Append(urlPart urlElems).Append("?view=").Append(view).Append("#").Append(hashPart nameElems variableMemory member' api)
+        let sb = StringBuilder().Append(printUrlPart api.Signature name).Append("?view=").Append(view).Append("#").Append(printHashPart api name member')
         Some (string sb)
 
   module internal FParsec =
