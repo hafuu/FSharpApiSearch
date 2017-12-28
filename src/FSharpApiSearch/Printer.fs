@@ -602,7 +602,8 @@ module CSharp =
   let printKind (api: Api) = StringBuilder().Append(CSharpImpl.printApiKind api.Kind).ToString()
 
 type TypeVariable with
-  member this.Print() = StringBuilder().Append(FSharpImpl.printTypeVariable false VariableSource.Target this).ToString()
+  member this.Print(sb: StringBuilder) = sb.Append(FSharpImpl.printTypeVariable false VariableSource.Target this)
+  member this.Print() = this.Print(StringBuilder()).ToString()
 
 type NameItem with
   member this.Print() = StringBuilder().Append(FSharpImpl.printNameItem this).ToString()

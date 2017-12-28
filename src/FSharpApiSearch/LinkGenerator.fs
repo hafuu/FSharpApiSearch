@@ -6,8 +6,20 @@ open FSharpApiSearch.Printer
 
 module LinkGenerator =
   open System.Web
+  open System.Text
 
-  let internal genericParameters (api: Api) = api.Name |> ApiName.toName |> Seq.rev |> Seq.collect (fun x -> x.GenericParameters) |> Seq.distinct |> Seq.toList
+  type internal StringJoinContext = private {
+    mutable IsFirstElement: bool
+    Separator: string
+  }
+  with
+    static member Create(sep) = { IsFirstElement = true; Separator = sep }
+    member this.Print(sb: StringBuilder) =
+      if this.IsFirstElement then
+        this.IsFirstElement <- false
+        sb
+      else
+        sb.Append(this.Separator)
 
   let internal toLower (str: string) = str.ToLower()
   let internal urlEncode (str: string) = HttpUtility.UrlEncode(str)
@@ -71,17 +83,22 @@ module LinkGenerator =
       else
         sb.Append(name)
 
-    let genericParamsPart (api: Api) (ns: Name) (sb: StringBuilder) =
+    let genericParamsPart (ns: Name) (sb: StringBuilder) =
       match ns with
       | { Name = OperatorName ("( = )", _) } :: { Name = SymbolName "Operators" } :: _ -> sb.Append("'t")
       | { Name = WithCompiledName ("array2D", "CreateArray2D") } :: { Name = SymbolName "ExtraTopLevelOperators" } :: _ -> sb.Append("['t]")
       | _ ->
-        match genericParameters api with
-        | [] -> sb.Append("")
-        | genericParams ->
-          sb.Append("[")
-            .AppendJoin(",",(genericParams |> Seq.map (fun v -> v.Print())))
-            .Append("]")
+
+        let genericParameters = ns |> List.collect (fun n -> n.GenericParameters) |> List.distinct
+
+        match genericParameters with
+        | [] -> sb
+        | _ ->
+          let ctx = StringJoinContext.Create(",")
+          sb.Append("[") |> ignore
+          for gp in genericParameters do sb.Append(ctx.Print).Append(gp.Print) |> ignore
+          sb.Append("]") |> ignore
+          sb
 
     let kindPart (api: Api) (ns: Name) : string option =
       match api.Signature with
@@ -107,7 +124,7 @@ module LinkGenerator =
           | TypeDefinitionKind.Enumeration -> Some "enumeration"
       | ApiSignature.TypeAbbreviation _ -> Some "type-abbreviation"
       | ApiSignature.TypeExtension _ ->
-        match urlName (Seq.last ns) with
+        match urlName (List.last ns) with
         | "System" -> Some "extension-method"
         | _ -> Some "method"
       | ApiSignature.ExtensionMember _ -> Some "extension-method"
@@ -123,7 +140,7 @@ module LinkGenerator =
       kindPart api ns
       |> Option.map (fun kind ->
         let sb = StringBuilder()
-        sb.Append(namePart api ns).Append(genericParamsPart api ns).Append("-").Append(kind).Append("-[fsharp]") |> ignore
+        sb.Append(namePart api ns).Append(genericParamsPart ns).Append("-").Append(kind).Append("-[fsharp]") |> ignore
         string sb |> toLower |> urlEncode
       )
 
@@ -181,19 +198,6 @@ module LinkGenerator =
         name.Head |> memory "__"
         name.Tail |> List.iter (memory "_")
       variableMemory
-
-    type StringJoinContext = private {
-      mutable IsFirstElement: bool
-      Separator: string
-    }
-    with
-      static member Create(sep) = { IsFirstElement = true; Separator = sep }
-      member this.Print(sb: StringBuilder) =
-        if this.IsFirstElement then
-          this.IsFirstElement <- false
-          sb
-        else
-          sb.Append(this.Separator)
 
     let printName (modifiedString: string) (ctx: StringJoinContext) (mapping: string -> string) (sb: StringBuilder) (name: NameItem) (wroteGeneric: bool) : bool =
       sb.Append(ctx.Print) |> ignore
