@@ -1,0 +1,5 @@
+﻿group App
+FSharp.Core
+FSharp.Compiler.Service
+MessagePack
+MessagePack.FSharpExtensions
