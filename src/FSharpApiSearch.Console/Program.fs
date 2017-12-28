@@ -2,47 +2,87 @@
 
 open FSharpApiSearch
 open FSharpApiSearch.Printer
-open System.Diagnostics
 open System
 open System.IO
-open Microsoft.FSharp.Compiler.SourceCodeServices
+
+let colors = [|
+  ConsoleColor.Green
+  ConsoleColor.Red
+  ConsoleColor.Yellow
+  ConsoleColor.Cyan
+|]
+
+let setColor (pos: QueryId) = Console.ForegroundColor <- colors.[pos.Id % colors.Length]
+let resetColor _ = Console.ResetColor()
+
+let createPrinter (result: Result) =
+  let handler =
+    { new SignaturePrinterHandler<Writer> with
+        member this.BeginPrintType(writer, t, pos) = pos |> Option.iter setColor
+        member this.EndPrintType(writer, t, pos) = pos |> Option.iter resetColor
+    }
+  SignaturePrinter(Writer.wrap Console.Out, handler, result)
+
+let createQueryPrinter() =
+  let handler =
+    {
+      new QueryPrinterHandler<_> with
+        member this.BeginPrintType(writer, pos) = setColor pos
+        member this.EndPrintType(writer, pos) = resetColor()
+    }
+  QueryPrinter(Writer.wrap Console.Out, handler)
+
+let printQuery (query: Query) =
+  let printer = createQueryPrinter()
+  QueryPrinter.print query printer |> ignore
+  printer.WriteLine()
 
 let fsharpPrinter args (result: Result) =
+  let p = createPrinter result
   Console.ForegroundColor <- ConsoleColor.DarkGray
-  Console.Write(FSharp.printAccessPath None result.Api)
-  Console.Write(".")
+  p.Write(FSharp.printAccessPath None result.Api)
+  p.Write(".")
   Console.ResetColor()
-  Console.Write(FSharp.printApiName result.Api)
-  Console.Write(" : ")
-  Console.Write(FSharp.printSignature result.Api)
+  p.Write(FSharp.printApiName result.Api)
+  p.Write(" : ")
+  p.Write(FSharp.printSignature result.Api)
   Console.ForegroundColor <- ConsoleColor.DarkGray
-  Console.Write(", {0}", FSharp.printKind result.Api)
-  Console.Write(", {0}", result.AssemblyName)
-  if args.ShowDistance = Enabled then Console.Write(", {0}", result.Distance)
-  Console.WriteLine()
-  match FSharp.tryPrintTypeConstraints result.Api with
-  | Some constraints -> Console.WriteLine(sprintf "  %s" constraints)
-  | None -> ()
+  p.Write(", ")
+  p.Write(FSharp.printKind result.Api)
+  p.Write(", ")
+  p.Write(result.AssemblyName)
+  if args.ShowDistance = Enabled then
+    p.Write(", ")
+    p.Write(string result.Distance)
+  p.WriteLine()
+  if FSharp.hasTypeConstraints result.Api then 
+    p.Write(" ")
+    p.WriteLine(FSharp.printTypeConstraints result.Api)
   Console.ResetColor()
   
 let csharpPrinter args (result: Result) =
+  let p = createPrinter result
   Console.ForegroundColor <- ConsoleColor.DarkGray
-  Console.Write(CSharp.printAccessPath None result.Api)
-  Console.Write(".")
+  p.Write(CSharp.printAccessPath None result.Api)
+  p.Write(".")
   Console.ResetColor()
-  Console.Write(CSharp.printApiName result.Api)
-  Console.Write(CSharp.printSignature result.Api)
+  p.Write(CSharp.printApiName result.Api)
+  p.Write(CSharp.printSignature result.Api)
   Console.ForegroundColor <- ConsoleColor.DarkGray
-  Console.Write(", {0}", CSharp.printKind result.Api)
-  Console.Write(", {0}", result.AssemblyName)
-  if args.ShowDistance = Enabled then Console.Write(", {0}", result.Distance)
-  Console.WriteLine()
-  match CSharp.tryPrintTypeConstraints result.Api with
-  | Some constraints -> Console.WriteLine(sprintf "  %s" constraints)
-  | None -> ()
+  p.Write(", ")
+  p.Write(CSharp.printKind result.Api)
+  p.Write(", ")
+  p.Write(result.AssemblyName)
+  if args.ShowDistance = Enabled then
+    p.Write(", ")
+    p.Write(string result.Distance)
+  p.WriteLine()
+  if CSharp.hasTypeConstraints result.Api then
+    p.Write(" ")
+    p.WriteLine(CSharp.printTypeConstraints result.Api)
   Console.ResetColor()
 
-let getPrinter (args: Args) =
+let resultPrinter (args: Args) =
   match SearchOptions.Language.Get args.SearchOptions with
   | FSharp -> fsharpPrinter args
   | CSharp -> csharpPrinter args
@@ -50,7 +90,8 @@ let getPrinter (args: Args) =
 let searchAndShowResult (client: Lazy<FSharpApiSearchClient>) (query: string) args =
   let opt = args.SearchOptions
   let client = client.Value
-  let printResult = getPrinter args
+  
+  let printResult = resultPrinter args
   let printXmlDoc result =
     match args.ShowXmlDocument, result.Api.Document with
     | Enabled, Some doc ->
@@ -58,9 +99,13 @@ let searchAndShowResult (client: Lazy<FSharpApiSearchClient>) (query: string) ar
       Console.WriteLine(doc)
       Console.ResetColor()
     | _ -> ()
-  let results =
+  let query, results =
     client.Search(query, opt)
-    |> client.Sort
+  
+  let results = client.Sort(results)
+  
+  printQuery query
+
   results
   |> Seq.iter (fun result ->
     printResult result

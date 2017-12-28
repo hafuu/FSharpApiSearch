@@ -5,13 +5,17 @@ open FSharp.Collections.ParallelSeq
 
 let (|P|) (p: Parameter) =
   match p.Type with
-  | TypeAbbreviation x -> x.Original
+  | TypeAbbreviation (x, _) -> x.Original
   | t -> t
+
+let (|ARROW|_|) = function
+  | Arrow (arrow, _) -> Some arrow
+  | _ -> None
 
 module Extract =
   let bind (m: Member) = // M<'T> * ('T -> M<'U>) -> M<'U>
     match m with
-    | { Parameters = [ [ P t1; P (Arrow ([ _], _)) ] ]; ReturnParameter = P t2 } -> [ t1; t2 ]
+    | { Parameters = [ [ P t1; P (ARROW ([ _], _)) ] ]; ReturnParameter = P t2 } -> [ t1; t2 ]
     | _ -> []
 
   let return' (m: Member) = // 'T -> M<'T>
@@ -43,11 +47,11 @@ module Extract =
 
 module BuilderMethod =
   let bind = function
-    | { Name = "Bind"; Parameters = [ [ _; P (Variable _ | Arrow ([ _ ], _)) ] ]; } -> true
+    | { Name = "Bind"; Parameters = [ [ _; P (Variable _ | ARROW ([ _ ], _)) ] ]; } -> true
     | _ -> false
 
   let delay = function
-    | { Name = "Delay"; Parameters = [ [ P (Variable _ | Arrow ([ (Unit | Variable _) ], _)) ] ] } -> true
+    | { Name = "Delay"; Parameters = [ [ P (Variable _ | ARROW ([ (Unit | Variable _) ], _)) ] ] } -> true
     | _ -> false
 
   let return' = function
@@ -63,23 +67,23 @@ module BuilderMethod =
     | _ -> false
 
   let for' = function
-    | { Name = "For"; Parameters = [ [ _; P (Variable _ | Arrow ([ _ ], _)) ] ] } -> true
+    | { Name = "For"; Parameters = [ [ _; P (Variable _ | ARROW ([ _ ], _)) ] ] } -> true
     | _ -> false
 
   let tryFinally = function
-    | { Name = "TryFinally"; Parameters = [ [ _; P (Variable _ | Arrow ([ (Variable _ | Unit) ], (Variable _ | Unit))) ] ] } -> true
+    | { Name = "TryFinally"; Parameters = [ [ _; P (Variable _ | ARROW ([ (Variable _ | Unit) ], (Variable _ | Unit))) ] ] } -> true
     | _ -> false
 
   let tryWith = function
-    | { Name = "TryWith"; Parameters = [ [ _; P (Variable _ | Arrow ([ _ ], _)) ] ] } -> true
+    | { Name = "TryWith"; Parameters = [ [ _; P (Variable _ | ARROW ([ _ ], _)) ] ] } -> true
     | _ -> false
 
   let using = function
-    | { Name = "Using"; Parameters = [ [ _; P (Variable _ | Arrow ([ _ ], _)) ] ] } -> true
+    | { Name = "Using"; Parameters = [ [ _; P (Variable _ | ARROW ([ _ ], _)) ] ] } -> true
     | _ -> false
 
   let while' = function
-    | { Name = "While"; Parameters = [ [ P (Variable _ | Arrow ([ (Variable _ | Unit) ], (Variable _ | Boolean) )); _ ] ] } -> true
+    | { Name = "While"; Parameters = [ [ P (Variable _ | ARROW ([ (Variable _ | Unit) ], (Variable _ | Boolean) )); _ ] ] } -> true
     | _ -> false
 
   let yield' = function

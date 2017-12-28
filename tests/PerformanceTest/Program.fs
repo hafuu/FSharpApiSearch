@@ -37,10 +37,10 @@ type MyBenchmarks() =
   member val Query = "" with get, set
 
   [<Benchmark>]
-  member this.Parallel() = client.Search(this.Query, parallelOpt) |> ResizeArray
+  member this.Parallel() = client.Search(this.Query, parallelOpt) |> snd |> ResizeArray
 
   [<Benchmark>]
-  member this.NonParallel() = client.Search(this.Query, nonParallelOpt) |> ResizeArray
+  member this.NonParallel() = client.Search(this.Query, nonParallelOpt) |> snd |> ResizeArray
 
 [<EntryPoint>]
 let main argv =

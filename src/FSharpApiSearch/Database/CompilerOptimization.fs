@@ -9,7 +9,7 @@ type ImplicitMember = {
 
 module TypeInfo =
   open System
-  open SpecialTypes.TypeInfo
+  open SpecialTypes.Identifier
 
   let Boolean = ofDotNetType typeof<Boolean>
   let Byte = ofDotNetType typeof<Byte>
@@ -70,7 +70,7 @@ module Parameter =
   let UIntPtr = Parameter.ofLowType UIntPtr
 
 
-let table: Map<TypeInfo, ImplicitMember> =
+let table: Map<Identifier, ImplicitMember> =
   Map.ofList [
     (TypeInfo.Boolean, 
       {

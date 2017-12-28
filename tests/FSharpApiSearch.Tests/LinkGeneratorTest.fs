@@ -4,7 +4,7 @@ open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
 open Persimmon.MuscleAssert
 open FSharpApiSearch
-open FSharpApiSearch.Printer
+open FSharpApiSearch.StringPrinter
 open TestAssemblies
 
 let fsharpTest = parameterize {

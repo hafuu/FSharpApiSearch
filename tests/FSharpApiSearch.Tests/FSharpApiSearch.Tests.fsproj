@@ -72,6 +72,8 @@
     <Compile Include="QueryParserTest.fs" />
     <Compile Include="TypesTest.fs" />
     <Compile Include="PrinterTest.fs" />
+    <Compile Include="QueryPrinterTest.fs" />
+    <Compile Include="HtmlPrintHelperTest.fs" />
     <Compile Include="EngineTest.fs" />
     <Compile Include="ComputationExpressionMatcherTest.fs" />
     <Compile Include="ApiLoaderTest.fs" />

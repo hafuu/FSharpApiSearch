@@ -1,4 +1,5 @@
-﻿module QueryParserTest
+﻿[<Persimmon.Category("parser")>]
+module QueryParserTest
 
 open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
@@ -6,6 +7,20 @@ open Persimmon.MuscleAssert
 open FSharpApiSearch
 open TestHelper.DSL
 open TestHelper.Types
+
+let buildSpaceTestSource xs =
+  let buildQuery (xs: string seq) =
+    [
+      for i = 0 to Seq.length xs do
+        let elems = ResizeArray(xs)
+        elems.Insert(i, " ")
+        yield System.String.Concat(elems)
+    ]
+  [
+    for (elems, parameters) in xs do
+      for input in buildQuery elems do
+        yield (input, parameters)
+  ]
 
 module FSharp =
   module BySignature =
@@ -113,6 +128,12 @@ module FSharp =
     }
 
   module ByName =
+    let runByNameTest (input, expectedName, expectedSig) = test {
+      let actual = QueryParser.FSharp.parse input
+      let expected: Query = { OriginalString = input; Method = QueryMethod.ByName (expectedName, expectedSig) }
+      do! actual |> assertEquals expected
+    }
+
     let parseTest =
       let alpha = queryVariable "'a"
       let beta = queryVariable "'b"
@@ -143,14 +164,16 @@ module FSharp =
           "A<'t> : _", [ byGenericName "A" [ "t" ] Compare ], SignatureQuery.Wildcard
           "A<'t>.B<'u> : _", [ byGenericName "B" [ "u" ] Compare; byGenericName "A" [ "t" ] Compare ], SignatureQuery.Wildcard
         ]
-        run (fun (input, expectedName, expectedSig) -> test {
-          let actual = QueryParser.FSharp.parse input
-          let expected: Query = { OriginalString = input; Method = QueryMethod.ByName (expectedName, expectedSig) }
-          do! actual |> assertEquals expected
-        })
+        run runByNameTest
       }
 
   module ByActivePattern =
+    let runByActivePatternTest (input, expected) = test {
+      let actual = QueryParser.FSharp.parse input
+      let expected: Query = { OriginalString = input; Method = expected }
+      do! actual |> assertEquals expected
+    }
+
     let parseTest =
       parameterize {
         source [
@@ -163,11 +186,7 @@ module FSharp =
           "(||) : ... -> 'a * 'b -> ?", QueryMethod.ByActivePattern { Kind = ActivePatternKind.ActivePattern; Signature = ActivePatternSignature.AnyParameter (tuple [ queryVariable "'a"; queryVariable "'b" ], wildcard) }
           "(||) : ... -> ('a -> 'b) -> ?", QueryMethod.ByActivePattern { Kind = ActivePatternKind.ActivePattern; Signature = ActivePatternSignature.AnyParameter (arrow [ queryVariable "'a"; queryVariable "'b" ], wildcard) }
         ]
-        run (fun (input, expected) -> test {
-          let actual = QueryParser.FSharp.parse input
-          let expected: Query = { OriginalString = input; Method = expected }
-          do! actual |> assertEquals expected
-        })
+        run runByActivePatternTest
       }
 
     let parseErrorTest =
@@ -182,6 +201,12 @@ module FSharp =
       }
 
   module ByComputationExpression =
+    let runByComputationExpressionTest (input, expected) = test {
+      let actual = QueryParser.FSharp.parse input
+      let expected: Query = { OriginalString = input; Method = expected }
+      do! actual |> assertEquals expected
+    }
+
     let parseTest =
       parameterize {
         source [
@@ -192,11 +217,7 @@ module FSharp =
           "{ try/finally } : ?", QueryMethod.ByComputationExpression { Syntaxes = [ "try/finally" ]; Type = wildcard }
           "{ let!; return } : 'a", QueryMethod.ByComputationExpression { Syntaxes = [ "let!"; "return" ]; Type = queryVariable "'a" }
         ]
-        run (fun (input, expected) -> test {
-          let actual = QueryParser.FSharp.parse input
-          let expected: Query = { OriginalString = input; Method = expected }
-          do! actual |> assertEquals expected
-        })
+        run runByComputationExpressionTest
       }
 
     let syntaxErrorTest =
@@ -208,6 +229,56 @@ module FSharp =
           let! e = trap { it (QueryParser.FSharp.parse input) }
           do! e |> assertNotEquals null
         })
+      }
+
+  module Spaces =
+    let signatureTest =
+      let cases  = [
+        [ "a"; "."; "b"  ], userInput "a.b"
+        [ "a"; "[]"; "[,]" ], (queryArray2D (queryArray (userInput "a")))
+        [ "a"; "*"; "b"; "."; "c"; "*"; "d"; ], tuple [ userInput "a"; userInput "b.c"; userInput "d" ]
+        [ "struct"; "("; "a"; "*"; "b" ; ")" ], structTuple [ userInput "a"; userInput "b" ]
+        [ "A"; "."; "a"; "<"; "B"; "."; "b"; ","; "C"; "."; "c"; ">" ], (generic (userInput "A.a") [ userInput "B.b"; userInput "C.c" ])
+        [ "a "; "b "; "c" ], (generic (userInput "c") [ generic (userInput "b") [ userInput "a" ] ])
+        [ "("; "a"; ","; "b"; ")"; "c" ], (generic (userInput "c") [ userInput "a"; userInput "b" ])
+        [ "a"; "->"; "b"; "->"; "c" ], (arrow [ userInput "a"; userInput "b"; userInput "c" ])
+      ]
+      parameterize {
+        source (buildSpaceTestSource cases)
+        run BySignature.runSignatureTest
+      }
+
+    let byNameTest =
+      let cases = [
+        [ "name"; ":"; "a" ], ([ byName "name" Compare  ], SignatureQuery.Signature (userInput "a"))
+        [ "map"; ":"; "_" ], ([ byName "map" Compare  ], SignatureQuery.Wildcard)
+        [ "("; "+"; ")"; ": _" ], ([ byName "op_Addition" Compare ], SignatureQuery.Wildcard)
+        [ "A"; "."; ".ctor";  ": _" ], ([ byName ".ctor" Compare; byName "A" Compare ], SignatureQuery.Wildcard)
+      ]
+      parameterize {
+        source (buildSpaceTestSource cases)
+        run (fun (input, (expectedName, expectedSig)) -> ByName.runByNameTest (input, expectedName, expectedSig))
+      }
+
+    let byActivePatternTest =
+      let cases = [
+        [ "(||)";  ":";  "...";  "->"; "'a";  "->"; "?" ], QueryMethod.ByActivePattern { Kind = ActivePatternKind.ActivePattern; Signature = ActivePatternSignature.AnyParameter (queryVariable "'a", wildcard) }
+        [ "(||)";  ":"; "'a"; "->"; "?" ], QueryMethod.ByActivePattern { Kind = ActivePatternKind.ActivePattern; Signature = ActivePatternSignature.Specified (arrow [ queryVariable "'a"; wildcard ]) }
+      ]
+      parameterize {
+        source (buildSpaceTestSource cases)
+        run ByActivePattern.runByActivePatternTest
+      }
+
+    let byComputationExpressionTest =
+      let cases = [
+        [ "{"; "}"; ":"; "?" ], QueryMethod.ByComputationExpression { Syntaxes = []; Type = wildcard }
+        [ "{"; "_"; "}"; ": ?" ], QueryMethod.ByComputationExpression { Syntaxes = []; Type = wildcard }
+        [ "{"; "let!"; ";"; "return"; "}"; ":"; "'a" ], QueryMethod.ByComputationExpression { Syntaxes = [ "let!"; "return" ]; Type = queryVariable "'a" }
+      ]
+      parameterize {
+        source (buildSpaceTestSource cases)
+        run ByComputationExpression.runByComputationExpressionTest
       }
 
 module CSharp =

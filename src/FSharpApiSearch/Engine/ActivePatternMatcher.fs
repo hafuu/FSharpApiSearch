@@ -4,10 +4,10 @@ open System.Diagnostics
 open FSharpApiSearch.EngineTypes
 
 let testAllParameter (lowTypeMatcher: ILowTypeMatcher) activePatternType returnType (right: Function) ctx =
-  let left = Arrow ([ activePatternType ], returnType)
+  let left = Arrow.create ([ activePatternType ], returnType)
   let right =
     let ps, ret = Function.toArrow right
-    Arrow ([ List.last ps ], ret)
+    Arrow.create ([ List.last ps ], ret)
   lowTypeMatcher.Test left right ctx
 
 let test (lowTypeMatcher: ILowTypeMatcher) (query: ActivePatternQuery) (api: Api) ctx =
@@ -17,7 +17,7 @@ let test (lowTypeMatcher: ILowTypeMatcher) (query: ActivePatternQuery) (api: Api
     | ActivePatternSignature.AnyParameter (activePatternType, returnType) ->
       testAllParameter lowTypeMatcher activePatternType returnType right ctx
     | ActivePatternSignature.Specified left ->
-      let right = Arrow (Function.toArrow right)
+      let right = Arrow.create (Function.toArrow right)
       lowTypeMatcher.Test left right ctx
   | _ -> Failure
 

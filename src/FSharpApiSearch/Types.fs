@@ -80,7 +80,7 @@ module internal Name =
 type VariableSource = Query | Target
 
 [<MessagePackObject>]
-type ActualType = {
+type ConcreteType = {
   [<Key(0)>]
   AssemblyName: string
   [<Key(1)>]
@@ -100,8 +100,8 @@ with
   member this.GenericParameterCount = this.Name.Head.GenericParameters.Length
 
 [<MessagePackObject>]
-type TypeInfo =
-  | ActualType of ActualType
+type Identifier =
+  | ConcreteType of ConcreteType
   | UserInputType of UserInputType
 
 [<MessagePackObject>]
@@ -113,21 +113,74 @@ type LoadingName = {
   [<Key(2)>]
   MemberName: Name
 }
+[<MessagePackObject>]
+type QueryRange = {
+  [<Key(0)>]
+  Begin: int
+  [<Key(1)>]
+  End: int
+}
+
+[<MessagePackObject>]
+[<CustomEquality; CustomComparison>]
+type Position =
+  | AtSignature of SignatureId
+  | AtQuery of QueryId option * QueryRange
+  | Unknown
+
+  // ignore this type on equality and comparison
+  override this.Equals(other: obj) =
+    match other with
+    | :? Position -> true
+    | _ -> false
+  override this.GetHashCode() = 0
+
+  interface IComparable with
+    member this.CompareTo(other: obj) =
+      match other with
+      | :? Position -> 0
+      | _ -> invalidArg "other" "cannot compare"
+
+
+and [<MessagePackObject>] SignatureId = SignatureId of id:int
+with
+  member this.Id = let (SignatureId n) = this in n
+
+and [<MessagePackObject>] QueryId = QueryId of id:int
+with
+  member this.Id = let (QueryId n) = this in n
 
 [<MessagePackObject>]
 type LowType =
-  | Wildcard of string option
-  | Variable of VariableSource * TypeVariable
-  | Type of TypeInfo
-  | Arrow of Arrow
-  | Tuple of TupleType
-  | Generic of LowType * LowType list
-  | TypeAbbreviation of TypeAbbreviation
-  | Delegate of delegateType: LowType * Arrow
-  | ByRef of isOut:bool * LowType
-  | Subtype of LowType
-  | Choice of LowType list
-  | LoadingType of LoadingName
+  | Wildcard of string option * Position
+  | Variable of VariableSource * TypeVariable * Position
+  | Identifier of Identifier * Position
+  | Arrow of Arrow * Position
+  | Tuple of TupleType * Position
+  | Generic of LowType * LowType list * Position
+  | TypeAbbreviation of TypeAbbreviation * Position
+  | Delegate of delegateType: LowType * Arrow * Position
+  | ByRef of isOut:bool * LowType * Position
+  | Subtype of baseType:LowType * Position
+  | Choice of original:LowType * LowType list * Position
+  | LoadingType of LoadingName * Position
+with
+  [<IgnoreMember>]
+  member this.Position =
+    match this with
+    | Wildcard (_, p)
+    | Variable (_, _, p)
+    | Identifier (_, p)
+    | Arrow (_, p)
+    | Tuple (_, p)
+    | Generic (_, _, p)
+    | TypeAbbreviation (_, p)
+    | Delegate (_, _, p)
+    | ByRef (_, _, p)
+    | Subtype (_, p)
+    | Choice (_, _, p)
+    | LoadingType (_, p) -> p
+
 and [<MessagePackObject>] TypeAbbreviation = {
   [<Key(0)>]
   Abbreviation: LowType
@@ -141,6 +194,21 @@ and [<MessagePackObject>] TupleType = {
   IsStruct: bool
 }
 and Arrow = LowType list * LowType // parameters and return type
+
+[<AutoOpen>]
+module internal LowTypeConstructors =
+  module Wildcard = let create w = Wildcard (w, Unknown)
+  module Variable = let create (vs, tv) = Variable (vs, tv, Unknown)
+  module Identifier = let create i = Identifier (i, Unknown)
+  module Arrow = let create a = Arrow (a, Unknown)
+  module Tuple = let create t = Tuple (t, Unknown)
+  module Generic = let create (i, a) = Generic (i, a, Unknown)
+  module TypeAbbreviation = let create ta = TypeAbbreviation (ta, Unknown)
+  module Delegate = let create (dt, b) = Delegate (dt, b, Unknown)
+  module ByRef = let create (isOut, t) = ByRef (isOut, t, Unknown)
+  module Subtype = let create t = Subtype (t, Unknown)
+  module Choice = let create (o, c) = Choice (o, c, Unknown)
+  module LoadingType = let create n = LoadingType (n, Unknown)
 
 module internal Arrow =
   let ofLowTypeList xs =
@@ -194,7 +262,7 @@ module internal ParameterGroups =
         match ps with
         | [] -> ()
         | [ one ] -> yield one.Type
-        | many -> yield Tuple { Elements = List.map (fun x -> x.Type) many; IsStruct = false }
+        | many -> yield Tuple.create { Elements = List.map (fun x -> x.Type) many; IsStruct = false }
     ]
     
 module internal Function =
@@ -309,15 +377,15 @@ type FullTypeDefinition = {
 }
 with
   [<IgnoreMember>]
-  member internal this.ActualType : ActualType = { AssemblyName = this.AssemblyName; Name = this.Name; }
+  member internal this.ConcreteType : ConcreteType = { AssemblyName = this.AssemblyName; Name = this.Name; }
   [<IgnoreMember>]
   member internal this.LowType =
     match this.GenericParameters with
-    | [] -> Type (ActualType this.ActualType)
+    | [] -> Identifier.create (ConcreteType this.ConcreteType)
     | gps ->
-      let gps = gps |> List.map (fun v -> Variable (VariableSource.Target, v))
-      let id = Type (ActualType this.ActualType)
-      Generic (id, gps) 
+      let gps = gps |> List.map (fun v -> Variable.create (VariableSource.Target, v))
+      let id = Identifier.create (ConcreteType this.ConcreteType)
+      Generic.create (id, gps) 
 
 [<MessagePackObject>]
 type TypeAbbreviationDefinition = {
@@ -338,16 +406,16 @@ type TypeAbbreviationDefinition = {
 }
 with
   [<IgnoreMember>]
-  member internal this.ActualType = { AssemblyName = this.AssemblyName; Name = this.Name; }
+  member internal this.ConcreteType = { AssemblyName = this.AssemblyName; Name = this.Name; }
   [<IgnoreMember>]
   member internal this.TypeAbbreviation =
     let abbreviation =
       match this.GenericParameters with
-      | [] -> Type (ActualType this.ActualType)
+      | [] -> Identifier.create (ConcreteType this.ConcreteType)
       | args ->
-        let id = Type (ActualType this.ActualType)
-        let args = args |> List.map (fun a -> Variable (VariableSource.Target, a))
-        Generic (id, args)
+        let id = Identifier.create (ConcreteType this.ConcreteType)
+        let args = args |> List.map (fun a -> Variable.create (VariableSource.Target, a))
+        Generic.create (id, args)
     {
       Abbreviation = abbreviation
       Original = this.Original
@@ -422,7 +490,7 @@ type ModuleDefinition = {
 }
 with
   [<IgnoreMember>]
-  member internal this.LowType = Type (ActualType { Name = this.Name; AssemblyName = this.AssemblyName; })
+  member internal this.LowType = Identifier.create (ConcreteType { Name = this.Name; AssemblyName = this.AssemblyName; })
 
 [<MessagePackObject>]
 type ComputationExpressionBuilder = {
@@ -501,7 +569,7 @@ type ApiDictionary = {
   [<Key(1)>]
   Api: Api[]
   [<Key(2)>]
-  TypeDefinitions: IDictionary<ActualType, FullTypeDefinition>
+  TypeDefinitions: IDictionary<ConcreteType, FullTypeDefinition>
   [<Key(3)>]
   TypeAbbreviations: TypeAbbreviationDefinition[]
 }
@@ -649,6 +717,7 @@ type Result = {
   Api: Api
   AssemblyName: string
   Distance: int
+  MatchPositions: Map<SignatureId, QueryId>
 }
 
 module internal SpecialTypes =
@@ -671,10 +740,10 @@ module internal SpecialTypes =
       let assemblyName = t.Assembly.GetName().Name
       { AssemblyName = assemblyName; RawName = t.FullName; MemberName = [] }
 
-  module TypeInfo =
+  module Identifier =
     let ofDotNetType (t: DotNetType) =
       if t.IsGenericType then failwith "It is not support generic type."
-      ActualType { AssemblyName = t.Assembly.GetName().Name; Name = Name.ofString t.FullName }
+      ConcreteType { AssemblyName = t.Assembly.GetName().Name; Name = Name.ofString t.FullName }
 
     let private tuple' typeName n =
       let name =
@@ -686,15 +755,15 @@ module internal SpecialTypes =
     let private tuple n = tuple' "Tuple" n
     let private valueTuple n = tuple' "ValueTuple" n
 
-    let tupleN n = ActualType { AssemblyName = mscorlib; Name = tuple n }
+    let tupleN n = ConcreteType { AssemblyName = mscorlib; Name = tuple n }
 
     let tuples = [1..8] |> List.map (fun n -> tupleN n)
 
-    let valueTupleN n = ActualType { AssemblyName = mscorlib; Name = valueTuple n }
+    let valueTupleN n = ConcreteType { AssemblyName = mscorlib; Name = valueTuple n }
 
     let valueTuples = [1..8] |> List.map (fun n -> valueTupleN n)
 
-    let byref = ActualType { AssemblyName = fscore; Name = Name.ofString "Microsoft.FSharp.Core.byref<'T>" }
+    let byref = ConcreteType { AssemblyName = fscore; Name = Name.ofString "Microsoft.FSharp.Core.byref<'T>" }
 
     module CSharp =
       let aliases =
@@ -718,47 +787,47 @@ module internal SpecialTypes =
         |> List.map (fun (alias, t) -> alias, ofDotNetType t)
 
   module LowType =
-    let ofDotNetType (t: DotNetType) = LowType.Type (TypeInfo.ofDotNetType t)
+    let ofDotNetType (t: DotNetType) = Identifier.create (Identifier.ofDotNetType t)
     let Unit = ofDotNetType typeof<Unit>
     let unit =
-      let unit = LowType.Type (ActualType { AssemblyName = fscore; Name = Name.ofString "Microsoft.FSharp.Core.unit" })
-      TypeAbbreviation { Abbreviation = unit; Original = Unit }
+      let unit = Identifier.create (ConcreteType { AssemblyName = fscore; Name = Name.ofString "Microsoft.FSharp.Core.unit" })
+      TypeAbbreviation.create { Abbreviation = unit; Original = Unit }
 
     let Double = ofDotNetType typeof<Double>
     let float =
-      let float = LowType.Type (ActualType { AssemblyName = fscore; Name = Name.ofString "Microsoft.FSharp.Core.float" })
-      TypeAbbreviation { Abbreviation = float; Original = Double }
+      let float = Identifier.create (ConcreteType { AssemblyName = fscore; Name = Name.ofString "Microsoft.FSharp.Core.float" })
+      TypeAbbreviation.create { Abbreviation = float; Original = Double }
 
     let rec isUnit (x: LowType) =
       match x with
-      | Type (ActualType { Name = name }) -> name = UnitName
-      | LoadingType t -> t = UnitLoadingType
-      | TypeAbbreviation { Original = o } -> isUnit o
+      | Identifier (ConcreteType { Name = name }, _) -> name = UnitName
+      | LoadingType (t, _) -> t = UnitLoadingType
+      | TypeAbbreviation ({ Original = o }, _) -> isUnit o
       | _ -> false
 
     let Boolean = ofDotNetType typeof<Boolean>
 
-    let FSharpFunc = LowType.Type (ActualType { AssemblyName= fscore; Name = Name.ofString "Microsoft.FSharp.Core.FSharpFunc<'T, 'U>" })
+    let FSharpFunc = Identifier.create (ConcreteType { AssemblyName= fscore; Name = Name.ofString "Microsoft.FSharp.Core.FSharpFunc<'T, 'U>" })
 
     module Patterns =
       let (|Unit|_|) x = if isUnit x then Some () else None
       let (|Array|_|) x =
         match x with
-        | Generic (Type id, [ elem ]) ->
+        | Generic (Identifier (id, _), [ elem ], pos) ->
           match id with
-          | ActualType { Name = name }
+          | ConcreteType { Name = name }
           | UserInputType { Name = name } ->
             match name with
             | { Name = SymbolName typeName; GenericParameters = [ _ ] } :: _ ->
               if Regex.IsMatch(typeName, arrayRegexPattern) then
-                Some (typeName, elem)
+                Some (typeName, elem, pos)
               else
                 None
             | _ -> None
         | _ -> None
 
       let private b = Boolean
-      let (|Boolean|_|) (TypeAbbreviation { Original = t } | t ) =
+      let (|Boolean|_|) (TypeAbbreviation ({ Original = t }, _) | t ) =
         if t = b then
           Some ()
         else
@@ -769,7 +838,7 @@ module internal SpecialTypes =
         | _ -> Some x
       let rec (|AbbreviationRoot|_|) x =
         match x with
-        | TypeAbbreviation { Original = original } ->
+        | TypeAbbreviation ({ Original = original }, _) ->
           match original with
           | TypeAbbreviation _ -> (|AbbreviationRoot|_|) original
           | _ -> Some original
@@ -876,48 +945,62 @@ module LowTypeVisitor =
 module internal LowType =
   let rec applyVariable source (replacements: Map<TypeVariable, LowType>) = function
     | Wildcard _ as w -> w
-    | Variable (s, name) as oldValue when s = source ->
+    | Variable (s, name, _) as oldValue when s = source ->
       match Map.tryFind name replacements with
       | Some newValue -> newValue
       | None -> oldValue
     | Variable _ as v -> v
-    | Type _ as i -> i
-    | Generic (baseType, args) ->
+    | Identifier _ as i -> i
+    | Generic (baseType, args, p) ->
       let baseType = applyVariable source replacements baseType
       let args = applyVariableToTargetList source replacements args
-      Generic (baseType, args)
-    | Tuple x -> Tuple { x with Elements = applyVariableToTargetList source replacements x.Elements }
-    | Arrow arrow -> Arrow (applyVariableToArrow source replacements arrow)
-    | TypeAbbreviation t -> TypeAbbreviation { Abbreviation = applyVariable source replacements t.Abbreviation; Original = applyVariable source replacements t.Original }
-    | Delegate (t, arrow) ->
+      Generic (baseType, args, p)
+    | Tuple (x, p) -> Tuple ({ x with Elements = applyVariableToTargetList source replacements x.Elements }, p)
+    | Arrow (arrow, p) -> Arrow (applyVariableToArrow source replacements arrow, p)
+    | TypeAbbreviation (t, p) -> TypeAbbreviation ({ Abbreviation = applyVariable source replacements t.Abbreviation; Original = applyVariable source replacements t.Original }, p)
+    | Delegate (t, arrow, p) ->
       let delegateType = applyVariable source replacements t
       let arrow = applyVariableToArrow source replacements arrow
-      Delegate (delegateType, arrow)
-    | ByRef (isOut, t) -> ByRef (isOut, applyVariable source replacements t)
-    | Subtype t -> Subtype (applyVariable source replacements t)
-    | Choice xs -> Choice (applyVariableToTargetList source replacements xs)
+      Delegate (delegateType, arrow, p)
+    | ByRef (isOut, t, p) -> ByRef (isOut, applyVariable source replacements t, p)
+    | Subtype (t, p) -> Subtype (applyVariable source replacements t, p)
+    | Choice (o, xs, p) -> Choice (applyVariable source replacements o, applyVariableToTargetList source replacements xs, p)
     | LoadingType _ as l -> l 
   and applyVariableToTargetList source replacements xs = xs |> List.map (applyVariable source replacements)
   and applyVariableToArrow source replacements arrow =
     let ps, ret = arrow
     (applyVariableToTargetList source replacements ps, applyVariable source replacements ret)
 
+  let setPosition (pos: Position -> Position) = function
+    | Wildcard (w, old) -> Wildcard (w, pos old)
+    | Variable (vs, tv, old) -> Variable (vs, tv, pos old)
+    | Identifier (id, old) -> Identifier (id, pos old)
+    | Arrow (arrow, old) -> Arrow (arrow, pos old)
+    | Tuple (tpl, old) -> Tuple (tpl, pos old)
+    | Generic (id, args, old) -> Generic (id, args, pos old)
+    | TypeAbbreviation (t, old) -> TypeAbbreviation (t, pos old)
+    | Delegate (d, arrow, old) -> Delegate (d, arrow, pos old)
+    | ByRef (isOut, t, old) -> ByRef (isOut, t, pos old)
+    | LowType.Subtype (t, old) -> LowType.Subtype (t, pos old)
+    | Choice (original, xs, old) -> Choice (original, xs, pos old)
+    | LoadingType (n, old) -> LoadingType (n, pos old)
+
   let collectWildcardGroup x =
     let result = ResizeArray()
     let add x = result.Add(x)
     let rec f = function
-      | Wildcard (Some _) as w -> add w
-      | Wildcard None -> ()
+      | Wildcard (Some _, _) as w -> add w
+      | Wildcard (None, _) -> ()
       | Variable _ -> ()
-      | Type _ -> ()
-      | Arrow (ps, ret) -> List.iter f ps; f ret
-      | Tuple { Elements = xs } -> List.iter f xs
-      | Generic (id, args) -> f id; List.iter f args
-      | TypeAbbreviation t -> f t.Original
-      | Delegate (t, _) -> f t
-      | ByRef (_, t) -> f t
-      | Subtype t -> f t
-      | Choice xs -> List.iter f xs
+      | Identifier _ -> ()
+      | Arrow ((ps, ret), _) -> List.iter f ps; f ret
+      | Tuple ({ Elements = xs }, _) -> List.iter f xs
+      | Generic (id, args, _) -> f id; List.iter f args
+      | TypeAbbreviation (t, _) -> f t.Original
+      | Delegate (t, _, _) -> f t
+      | ByRef (_, t, _) -> f t
+      | Subtype (t, _) -> f t
+      | Choice (_, xs, _) -> List.iter f xs
       | LoadingType _ -> Name.loadingNameError()
     f x
     result.ToArray()
@@ -928,15 +1011,15 @@ module internal LowType =
     let rec f = function
       | Wildcard _ -> ()
       | Variable _ as v -> add v
-      | Type _ -> ()
-      | Arrow (ps, ret) -> List.iter f ps; f ret
-      | Tuple { Elements = xs } -> List.iter f xs
-      | Generic (id, args) -> f id; List.iter f args
-      | TypeAbbreviation t -> f t.Original
-      | Delegate (t, _) -> f t
-      | ByRef (_, t) -> f t
-      | Subtype t -> f t
-      | Choice xs -> List.iter f xs
+      | Identifier _ -> ()
+      | Arrow ((ps, ret), _) -> List.iter f ps; f ret
+      | Tuple ({ Elements = xs }, _) -> List.iter f xs
+      | Generic (id, args, _) -> f id; List.iter f args
+      | TypeAbbreviation (t, _) -> f t.Original
+      | Delegate (t, _, _) -> f t
+      | ByRef (_, t, _) -> f t
+      | Subtype (t, _) -> f t
+      | Choice (_, xs, _) -> List.iter f xs
       | LoadingType _ -> Name.loadingNameError()
     f x
     result.ToArray()
@@ -945,18 +1028,18 @@ module internal LowType =
     let result = ResizeArray()
     let add x = result.Add(x)
     let rec f = function
-      | Wildcard (Some _) as w -> add w
-      | Wildcard None -> ()
+      | Wildcard (Some _, _) as w -> add w
+      | Wildcard (None, _) -> ()
       | Variable _ as v -> add v
-      | Type _ -> ()
-      | Arrow (ps, ret) -> List.iter f ps; f ret
-      | Tuple { Elements = xs } -> List.iter f xs
-      | Generic (id, args) -> f id; List.iter f args
-      | TypeAbbreviation t -> f t.Original
-      | Delegate (t, _) -> f t
-      | ByRef (_, t) -> f t
-      | Subtype t -> f t
-      | Choice xs -> List.iter f xs
+      | Identifier _ -> ()
+      | Arrow ((ps, ret), _) -> List.iter f ps; f ret
+      | Tuple ({ Elements = xs }, _) -> List.iter f xs
+      | Generic (id, args, _) -> f id; List.iter f args
+      | TypeAbbreviation (t, _) -> f t.Original
+      | Delegate (t, _, _) -> f t
+      | ByRef (_, t, _) -> f t
+      | Subtype (t, _) -> f t
+      | Choice (_, xs, _) -> List.iter f xs
       | LoadingType _ -> Name.loadingNameError()
     f x
     result.ToArray()

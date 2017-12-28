@@ -2,7 +2,7 @@
 
 open System.Diagnostics
 open FSharpApiSearch.EngineTypes
-open FSharpApiSearch.Printer
+open FSharpApiSearch.StringPrinter
 open FSharpApiSearch.SpecialTypes
 open FSharpApiSearch.SpecialTypes.LowType.Patterns
 
@@ -90,6 +90,15 @@ module Equations =
       Matched (Context.setEquations newEqs ctx)
     else
       Failure
+
+module SamePositions =
+  let update (left: LowType) (right: LowType) (ctx: Context) =
+    match left, left.Position, right, right.Position with
+    | queryType, AtQuery (Some queryPos, _), sigType, AtSignature sigPos
+    | sigType, AtSignature sigPos, queryType, AtQuery (Some queryPos, _) ->
+      Debug.WriteLine(sprintf "QueryType:%s and SigType:%s are same positions. : (%d, %d)" (LowType.debug queryType) (LowType.debug sigType) queryPos.Id sigPos.Id)
+      { ctx with MatchPositions = Map.add sigPos queryPos ctx.MatchPositions }
+    | _ -> ctx
 
 module Rules =
   let terminator (_: ILowTypeMatcher) (_: LowType) (_: LowType) (_: Context) =
@@ -241,8 +250,8 @@ module Rules =
 
   let choiceRule (lowTypeMatcher: ILowTypeMatcher) left right ctx =
     match left, right with
-    | Choice choices, other
-    | other, Choice choices ->
+    | Choice (_, choices, _), other
+    | other, Choice (_, choices, _) ->
       Debug.WriteLine("choice rule.")
       Debug.WriteLine(sprintf "test %A and %s" (choices |> List.map (fun x -> x.Debug())) (other.Debug()))
       choices
@@ -254,14 +263,14 @@ module Rules =
 
   let typeAbbreviationRule (lowTypeMatcher: ILowTypeMatcher) left right ctx =
     match left, right with
-    | (TypeAbbreviation abbreviation), other
-    | other, (TypeAbbreviation abbreviation) ->
+    | (TypeAbbreviation (abbreviation, _)), other
+    | other, (TypeAbbreviation (abbreviation, _)) ->
       Debug.WriteLine("type abbreviation rule.")
       Debug.WriteLine(sprintf "(%s) -> (%s)" (LowType.debug abbreviation.Abbreviation) (LowType.debug abbreviation.Original))
       lowTypeMatcher.Test abbreviation.Original other ctx
     | _ -> Continue ctx
 
-  let testTypeInfo (nameEquality: TypeNameEquality.Equality) (left: TypeInfo) (right: TypeInfo) ctx =
+  let testTypeInfo (nameEquality: TypeNameEquality.Equality) (left: Identifier) (right: Identifier) ctx =
     match nameEquality left right with
     | TypeNameEquality.Result.Matched ->
       Debug.WriteLine("There are same type.")
@@ -272,7 +281,7 @@ module Rules =
 
   let typeInfoRule nameEquality _ left right ctx =
     match left, right with
-    | Type left, Type right ->
+    | Identifier (left, _), Identifier (right, _) ->
       Debug.WriteLine("type info rule.")
       testTypeInfo nameEquality left right ctx
     | _ -> Continue ctx
@@ -291,11 +300,11 @@ module Rules =
   let rec distanceFromVariable = function
     | Wildcard _ -> 0
     | Variable _ -> 0
-    | Type _ -> 1
-    | Arrow (ps, ret) -> seqDistance ps + distanceFromVariable ret
+    | Identifier _ -> 1
+    | Arrow ((ps, ret), _) -> seqDistance ps + distanceFromVariable ret
     | Tuple _ -> 1
     | Generic _ -> 1
-    | TypeAbbreviation x -> distanceFromVariable x.Original
+    | TypeAbbreviation (x, _) -> distanceFromVariable x.Original
     | Delegate _ -> 1
     | ByRef _ -> 1
     | LowType.Subtype _ -> 0
@@ -318,12 +327,12 @@ module Rules =
 
   let tupleRule (lowTypeMatcher: ILowTypeMatcher) left right ctx =
     match left, right with
-    | Tuple left, Tuple right ->
+    | Tuple (left, _), Tuple (right, _) ->
       Debug.WriteLine("tuple rule.")
       lowTypeMatcher.TestAll left.Elements right.Elements ctx
       |> MatchingResult.mapMatched (Context.addDistance "tuple type difference" (if left.IsStruct <> right.IsStruct then 1 else 0))
-    | Tuple tuple, other
-    | other, Tuple tuple ->
+    | Tuple (tuple, _), other
+    | other, Tuple (tuple, _) ->
       Debug.WriteLine("tuple rule.")
       let other = [ other ]
       lowTypeMatcher.TestAll tuple.Elements other ctx
@@ -334,7 +343,7 @@ module Rules =
 
   let arrowRule lowTypeMatcher left right ctx =
     match left, right with
-    | Arrow leftElems, Arrow rightElems ->
+    | Arrow (leftElems, _), Arrow (rightElems, _) ->
       Debug.WriteLine("arrow rule.")
       testArrow lowTypeMatcher leftElems rightElems ctx
     | _ -> Continue ctx
@@ -343,11 +352,11 @@ module Rules =
     match left, right with
     | ([ _ ], _), ([ _ ], _) ->
       lowTypeMatcher.TestArrow left right ctx
-    | ([ Tuple { Elements = leftArgs } ], leftRet), _ ->
+    | ([ Tuple ({ Elements = leftArgs }, _) ], leftRet), _ ->
       let left = leftArgs, leftRet
       lowTypeMatcher.TestArrow left right ctx
       |> MatchingResult.mapMatched (Context.addDistance "parameter style" 1)
-    | _, ([ Tuple { Elements = rightArgs } ], rightRet) ->
+    | _, ([ Tuple ({ Elements = rightArgs }, _) ], rightRet) ->
       let right = rightArgs, rightRet
       lowTypeMatcher.TestArrow left right ctx
       |> MatchingResult.mapMatched (Context.addDistance "parameter style" 1)
@@ -356,14 +365,14 @@ module Rules =
 
   let arrowRule_IgnoreParameterStyle lowTypeMatcher left right ctx =
     match left, right with
-    | Arrow leftElems, Arrow rightElems ->
+    | Arrow (leftElems, _), Arrow (rightElems, _) ->
       Debug.WriteLine("arrow rule (ignore parameter style).")
       testArrow_IgnoreParameterStyle lowTypeMatcher leftElems rightElems ctx
     | _ -> Continue ctx
 
   let genericRule (lowTypeMatcher: ILowTypeMatcher) left right ctx =
     match left, right with
-    | Generic (leftId, leftArgs), Generic (rightId, rightArgs) ->
+    | Generic (leftId, leftArgs, _), Generic (rightId, rightArgs, _) ->
       Debug.WriteLine("generic rule.")
       lowTypeMatcher.Test leftId rightId ctx
       |> MatchingResult.bindMatched (lowTypeMatcher.TestAllExactly leftArgs rightArgs)
@@ -371,16 +380,16 @@ module Rules =
 
   let wildcardRule _ left right ctx =
     match left, right with
-    | Wildcard None, _
-    | _, Wildcard None ->
+    | Wildcard (None, _), _
+    | _, Wildcard (None, _) ->
       Debug.WriteLine("wildcard rule.")
       Matched ctx
     | _ -> Continue ctx
 
   let wildcardGroupRule lowTypeMatcher left right ctx =
     match left, right with
-    | (Wildcard (Some _)), _
-    | _, (Wildcard (Some _))->
+    | (Wildcard (Some _, _)), _
+    | _, (Wildcard (Some _, _))->
       Debug.WriteLine("wildcard group rule.")
       if Equations.containsEquality left right ctx.Equations then
         Debug.WriteLine("The equality already exists.")
@@ -391,14 +400,14 @@ module Rules =
 
   let delegateRule nameEquality (lowTypeMatcher: ILowTypeMatcher) left right ctx =
     match left, right with
-    | Delegate (Type leftId, _), Delegate (Type rightId, _)
-    | Delegate (Type leftId, _), Type rightId
-    | Type leftId, Delegate (Type rightId, _) ->
+    | Delegate (Identifier (leftId, _), _, _), Delegate (Identifier (rightId, _), _, _)
+    | Delegate (Identifier (leftId, _), _, _), Identifier (rightId, _)
+    | Identifier (leftId, _), Delegate (Identifier (rightId, _), _, _) ->
       Debug.WriteLine("deligate rule.")
       testTypeInfo nameEquality leftId rightId ctx
-    | Delegate (Generic (leftId, leftArgs), _), Delegate (Generic (rightId, rightArgs), _)
-    | Delegate (Generic (leftId, leftArgs), _), Generic (rightId, rightArgs)
-    | Generic (leftId, leftArgs), Delegate (Generic (rightId, rightArgs), _) ->
+    | Delegate (Generic (leftId, leftArgs, _), _, _), Delegate (Generic (rightId, rightArgs, _), _, _)
+    | Delegate (Generic (leftId, leftArgs, _), _, _), Generic (rightId, rightArgs, _)
+    | Generic (leftId, leftArgs, _), Delegate (Generic (rightId, rightArgs, _), _, _) ->
       Debug.WriteLine("generic delegate rule.")
       lowTypeMatcher.Test leftId rightId ctx
       |> MatchingResult.bindMatched (lowTypeMatcher.TestAllExactly leftArgs rightArgs)
@@ -406,8 +415,8 @@ module Rules =
 
   let delegateAndArrowRule lowTypeMatcher left right ctx =
     match left, right with
-    | Delegate (_, leftElems), Arrow rightElems
-    | Arrow leftElems, Delegate (_, rightElems) ->
+    | Delegate (_, leftElems, _), Arrow (rightElems, _)
+    | Arrow (leftElems, _), Delegate (_, rightElems, _) ->
       Debug.WriteLine("delegate and arrow rule.")
       testArrow lowTypeMatcher leftElems rightElems ctx
       |> MatchingResult.mapMatched (Context.addDistance "delegate and arrow" 1)
@@ -415,8 +424,8 @@ module Rules =
 
   let delegateAndArrowRule_IgnoreParameterStyle lowTypeMatcher left right ctx =
     match left, right with
-    | Delegate (_, leftElems), Arrow rightElems
-    | Arrow leftElems, Delegate (_, rightElems) ->
+    | Delegate (_, leftElems, _), Arrow (rightElems, _)
+    | Arrow (leftElems, _), Delegate (_, rightElems, _) ->
       Debug.WriteLine("delegate and arrow rule (ignore parameter style).")
       testArrow_IgnoreParameterStyle lowTypeMatcher leftElems rightElems ctx
       |> MatchingResult.mapMatched (Context.addDistance "delegate and arrow" 1)
@@ -424,22 +433,22 @@ module Rules =
 
   let byrefRule (lowTypeMatcher: ILowTypeMatcher) left right ctx =
     match left, right with
-    | ByRef (_, left), ByRef (_, right) ->
+    | ByRef (_, left, _), ByRef (_, right, _) ->
       Debug.WriteLine("byref rule.")
       lowTypeMatcher.Test left right ctx
-    | ByRef (_, left), right
-    | left, ByRef (_, right) ->
+    | ByRef (_, left, _), right
+    | left, ByRef (_, right, _) ->
       Debug.WriteLine("byref rule (byref and type).")
       lowTypeMatcher.Test left right ctx
       |> MatchingResult.mapMatched (Context.addDistance "byref and type" 1)
     | _ -> Continue ctx
 
   let rec subtypeTarget ctx = function
-    | Type id -> Some (id, [])
-    | Generic (Type id, args) -> Some (id, args)
+    | Identifier (id, _) -> Some (id, [])
+    | Generic (Identifier (id, _), args, _) -> Some (id, args)
     | ByRef _ as t -> subtypeTarget ctx t
-    | Delegate (t, _) -> subtypeTarget ctx t
-    | LowType.Subtype t -> subtypeTarget ctx t
+    | Delegate (t, _, _) -> subtypeTarget ctx t
+    | LowType.Subtype (t, _) -> subtypeTarget ctx t
     | TypeAbbreviation _ as t -> (|AbbreviationRoot|_|) t |> Option.bind (subtypeTarget ctx)
     | Generic _ | Variable _ | Wildcard _ | Tuple _ | Arrow _ | Choice _ -> None
     | LoadingType _ -> Name.loadingNameError()
@@ -472,8 +481,8 @@ module Rules =
 
   let subtypeRule isContextual (lowTypeMatcher: ILowTypeMatcher) left right ctx =
     match left, right with
-    | LowType.Subtype baseType, target
-    | target, LowType.Subtype baseType ->
+    | LowType.Subtype (baseType, _), target
+    | target, LowType.Subtype (baseType, _) ->
       match target with
       | SubtypeTarget ctx (targetId, targetArgs) ->
         Debug.WriteLine("subtype rule.")
@@ -546,7 +555,7 @@ let instance options =
           (right.Debug())
           (Equations.debug ctx.Equations))
         Debug.Indent()
-        let result = Rule.run rule this left right ctx
+        let result = Rule.run rule this left right ctx |> MatchingResult.mapMatched (SamePositions.update left right)
         Debug.Unindent()
         result
       member this.TestAll left right ctx = Rules.testAllWithComplementAndSwap this options.ComplementDepth options.SwapOrderDepth left right ctx

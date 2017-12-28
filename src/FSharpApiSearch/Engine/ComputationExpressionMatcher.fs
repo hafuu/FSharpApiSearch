@@ -29,7 +29,7 @@ let private append options xs ys =
 
 let test (lowTypeMatcher: ILowTypeMatcher) (builderTypes: LowType) (ctx: Context) (api: Api) =
   match api.Signature with
-  | ApiSignature.ModuleValue (TypeAbbreviation { Original = Arrow (_, ret) }) -> lowTypeMatcher.Test builderTypes ret ctx
+  | ApiSignature.ModuleValue (TypeAbbreviation ({ Original = Arrow ((_, ret), _) }, _)) -> lowTypeMatcher.Test builderTypes ret ctx
   | ApiSignature.ModuleValue value -> lowTypeMatcher.Test builderTypes value ctx
   | ApiSignature.ModuleFunction (_, ret) -> lowTypeMatcher.Test builderTypes ret.Type ctx
   | _ -> Failure
@@ -59,7 +59,7 @@ let search (options: SearchOptions) (targets: ApiDictionary seq) (lowTypeMatcher
       |> Seq.filter (fun (_, builder) -> testComputationExpressionTypes lowTypeMatcher initialContext query.Type builder.ComputationExpressionTypes)
       |> Seq.filter (fun (_, builder) -> testSyntaxes (Set.ofList builder.Syntaxes))
       |> Seq.map (fun (api, builder) ->
-        let result = { Distance = 0; Api = api; AssemblyName = target.AssemblyName }
+        let result = { Distance = 0; Api = api; AssemblyName = target.AssemblyName; MatchPositions = Map.empty }
         (result, builder.BuilderType)
       )
     )
@@ -67,14 +67,14 @@ let search (options: SearchOptions) (targets: ApiDictionary seq) (lowTypeMatcher
 
   let builderResults = builderTypes |> Seq.map fst
 
-  let builderTypes = Choice (builderTypes |> List.map snd)
+  let builderTypes = Choice.create (query.Type, builderTypes |> List.map snd)
 
   let apiResults =
     targets
     |> Seq.collect (fun dic -> dic.Api |> Seq.map (fun api -> (dic, api)))
     |> choose options (fun (dic, api) ->
       match test lowTypeMatcher builderTypes initialContext api with
-      | Matched ctx -> Some { Distance = ctx.Distance; Api = api; AssemblyName = dic.AssemblyName }
+      | Matched ctx -> Some { Distance = ctx.Distance; Api = api; AssemblyName = dic.AssemblyName; MatchPositions = ctx.MatchPositions }
       | _ -> None
     )
 

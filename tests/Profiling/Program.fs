@@ -38,6 +38,7 @@ let main argv =
     let sw = Stopwatch.StartNew()
     let results =
       client.Search(query, option)
+      |> snd
       |> ResizeArray
     sw.Stop()
     (float results.Count, float sw.ElapsedMilliseconds)

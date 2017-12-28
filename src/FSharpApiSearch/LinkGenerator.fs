@@ -2,7 +2,7 @@
 
 type LinkGenerator = Api -> string option
 
-open FSharpApiSearch.Printer
+open FSharpApiSearch.StringPrinter
 
 module LinkGenerator =
   open System.Web
@@ -226,22 +226,22 @@ module LinkGenerator =
     let rec parameterElement (api: Api) (variableMemory: VariableMemory) (t: LowType) (sb: StringBuilder) : StringBuilder =
       match t with
       | Unit -> sb
-      | Type (ActualType { Name = name }) ->
+      | Identifier (ConcreteType { Name = name }, _) ->
         let ns = name |> List.rev
         sb.AppendJoin("_", ns, (fun n sb -> sb.Append(urlName n)))
-      | Array (_, elem) -> sb.Append(parameterElement api variableMemory elem).Append("__")
-      | ByRef (_, arg) -> sb.Append(parameterElement api variableMemory arg).Append("_")
-      | Generic (Type (ActualType { Name = { Name = SymbolName "nativeptr" } :: { Name = SymbolName "Core" } :: { Name = SymbolName "FSharp" } :: { Name = SymbolName "Microsoft" } :: [] } ), args) ->
+      | Array (_, elem, _) -> sb.Append(parameterElement api variableMemory elem).Append("__")
+      | ByRef (_, arg, _) -> sb.Append(parameterElement api variableMemory arg).Append("_")
+      | Generic (Identifier (ConcreteType { Name = { Name = SymbolName "nativeptr" } :: { Name = SymbolName "Core" } :: { Name = SymbolName "FSharp" } :: { Name = SymbolName "Microsoft" } :: [] }, _), args, _) ->
         sb.AppendJoin("_", args, (parameterElement api variableMemory))
             .Append("_")
-      | Generic (id, args) ->
+      | Generic (id, args, _) ->
         sb.Append(parameterElement api variableMemory id) |> ignore
         
         sb.Append("_") |> ignore
         sb.AppendJoin("_", args, (parameterElement api variableMemory))
             .Append("_")
-      | Variable (_, v) -> sb.Append(variableMemory.[v.Name])
-      | Delegate (d, _) -> sb.Append(parameterElement api variableMemory d)
+      | Variable (_, v, _) -> sb.Append(variableMemory.[v.Name])
+      | Delegate (d, _, _) -> sb.Append(parameterElement api variableMemory d)
       | AbbreviationRoot root -> sb.Append(parameterElement api variableMemory root)
       | _ -> sb
 

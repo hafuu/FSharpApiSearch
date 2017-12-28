@@ -2,7 +2,7 @@
 
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open FSharpApiSearch.AssemblyLoader
-open FSharpApiSearch.Printer
+open FSharpApiSearch.StringPrinter
 open FSharp.Collections.ParallelSeq
 
 type TargetSummary = {
@@ -28,7 +28,7 @@ type FSharpApiSearchClient(targets: string seq, database: Database) =
     "FSharp.Core"
   ]
 
-  member this.Search(query: string, options: SearchOptions) = Engine.search database options targetDictionaries query
+  member this.Search(query: string, options: SearchOptions) : Query * seq<Result> = Engine.search database options targetDictionaries query
 
   member this.Sort(results: seq<Result>) =
     let sortKey (result: Result) =

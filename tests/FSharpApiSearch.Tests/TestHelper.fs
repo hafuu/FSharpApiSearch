@@ -15,50 +15,52 @@ let defaultTestOptions =
 module DSL =
 
   let createType' name args =
-    let id = ActualType { AssemblyName = "test"; Name = name; }
+    let id = ConcreteType { AssemblyName = "test"; Name = name; }
     match args with
-    | [] -> Type id
-    | args -> Generic (Type id, args)
+    | [] -> Identifier.create id
+    | args -> Generic.create (Identifier.create id, args)
 
   let createType name args = createType' (Name.ofString name) args
 
   let updateAssembly name = function
-    | Type (ActualType id) -> Type (ActualType { id with AssemblyName = name })
-    | Generic (Type (ActualType id), args) -> Generic (Type (ActualType { id with AssemblyName = name }), args)
+    | Identifier (ConcreteType id, pos) -> Identifier (ConcreteType { id with AssemblyName = name }, pos)
+    | Generic (Identifier (ConcreteType id, identPos), args, genPos) -> Generic (Identifier (ConcreteType { id with AssemblyName = name }, identPos), args, genPos)
     | other -> other
 
-  let typeAbbreviation abbreviated abbreviation = TypeAbbreviation { Abbreviation = abbreviation; Original = abbreviated; }
+  let typeAbbreviation abbreviated abbreviation = TypeAbbreviation.create { Abbreviation = abbreviation; Original = abbreviated; }
 
   let tv v = TypeVariable.ofString v
   let tv' vs = List.map tv vs
 
-  let userInput name = Type (UserInputType { Name = Name.ofString name })
-  let variable name = Variable (VariableSource.Target, tv name)
-  let queryVariable name = Variable (VariableSource.Query, tv name)
+  let userInput name = Identifier.create (UserInputType { Name = Name.ofString name })
+  let variable name = Variable.create (VariableSource.Target, tv name)
+  let queryVariable name = Variable.create (VariableSource.Query, tv name)
 
-  let wildcard = Wildcard None
-  let wildcardGroup name = Wildcard (Some name)
+  let wildcard = Wildcard.create None
+  let wildcardGroup name = Wildcard.create (Some name)
 
   let generic id args =
     match id with
-    | Type (UserInputType id) ->
+    | Identifier (UserInputType id, _) ->
       let parameterCount = List.length args
       let name =
         match id.Name with
         | [] -> []
         | n :: tail -> { n with GenericParameters = List.init parameterCount (fun n -> { Name = sprintf "T%d" n; IsSolveAtCompileTime = false }) } :: tail
       let id = { id with Name = name }
-      Generic (Type (UserInputType id), args)
-    | _ -> Generic (id, args)
+      Generic.create (Identifier.create (UserInputType id), args)
+    | _ -> Generic.create (id, args)
 
-  let arrow xs = Arrow (Arrow.ofLowTypeList xs)
+  let arrow xs = Arrow.create (Arrow.ofLowTypeList xs)
 
-  let delegate' t xs = Delegate (t, Arrow.ofLowTypeList xs)
+  let delegate' t xs = Delegate.create (t, Arrow.ofLowTypeList xs)
 
-  let byref t = ByRef(false, t)
-  let out t = ByRef(true, t)
+  let byref t = ByRef.create (false, t)
+  let out t = ByRef.create (true, t)
 
-  let subtype t = Subtype t
+  let subtype t = Subtype.create t
+
+  let pos n t = LowType.setPosition (fun _ -> Position.AtSignature (SignatureId n)) t
 
   let ptype t (x: Parameter) = { x with Type = t }
   let pname n (x: Parameter) = { x with Name = Some n }
@@ -83,10 +85,10 @@ module DSL =
   let method' name parameters returnType = member' name MemberKind.Method parameters returnType
   let field name returnType = member' name MemberKind.Field [] returnType
 
-  let choice xs = Choice xs
+  let choice original xs = Choice.create (original, xs)
 
   let private memberGenericParameters (declaring: LowType) (member': Member) =
-    let toTypeVariable = function Variable (_, v) -> v | _ -> failwith "it is not variable."
+    let toTypeVariable = function Variable (_, v, _) -> v | _ -> failwith "it is not variable."
     let declaringVariables = LowType.collectVariables declaring |> Array.map toTypeVariable |> Set.ofArray
     let memberVariables =
       [
@@ -144,8 +146,8 @@ module DSL =
   let queryArray t = generic (userInput "[]<'T>") [ t ]
   let queryArray2D t = generic (userInput "[,]<'T>") [ t ]
 
-  let tuple xs = Tuple { Elements = xs; IsStruct = false }
-  let structTuple xs = Tuple { Elements = xs; IsStruct = true }
+  let tuple xs = Tuple.create { Elements = xs; IsStruct = false }
+  let structTuple xs = Tuple.create { Elements = xs; IsStruct = true }
 
   let typeAbbreviationDef name original =
     let defName = Name.ofString name
@@ -155,7 +157,7 @@ module DSL =
           match x.GenericParameters with
           | [] -> ""
           | args -> "`" + string args.Length
-        let name = FSharpImpl.toDisplayName x.Name
+        let name = FSharpFormat.toDisplayName x.Name
         name + genericSuffix
       defName |> List.rev |> List.map toFullName |> String.concat "."
     { Name = defName; FullName = fullName; AssemblyName = "test"; Accessibility = Public; GenericParameters = defName.Head.GenericParameters; Abbreviated = original; Original = original }

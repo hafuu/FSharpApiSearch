@@ -68,7 +68,7 @@ module internal Impl =
         | Some fullName -> fullName
         | None -> this.TypeAbbreviationFullName
       { AssemblyName = this.AssemblyName; RawName = name; MemberName = [] }
-    member this.LoadingLowType = LoadingType (this.LoadingName)
+    member this.LoadingLowType = LoadingType.create (this.LoadingName)
     member this.IsTuple =
       match this.TryFullName with
       | Some fullName ->
@@ -84,7 +84,7 @@ module internal Impl =
       { Name = name; GenericParameters = genericParameters this }
 
   type FSharpType with
-    member this.TryLoadingLowType = this.TryLoadingName |> Option.map LoadingType
+    member this.TryLoadingLowType = this.TryLoadingName |> Option.map LoadingType.create
     member this.TryLoadingName =
       if Hack.isFloat this then
         failwith "float should not run this path."
@@ -166,21 +166,21 @@ module internal Impl =
     elif t.IsFunctionType then
       option {
         let! xs = toFlatArrow t
-        return Arrow (Arrow.ofLowTypeList xs)
+        return Arrow.create (Arrow.ofLowTypeList xs)
       }
     elif t.IsGenericParameter then
-      Some (Variable (VariableSource, t.GenericParameter.TypeVariable))
+      Some (Variable.create (VariableSource, t.GenericParameter.TypeVariable))
     elif Hack.isTupleType t then
       option {
         let! args = listLowType t.GenericArguments
-        return Tuple { Elements = args; IsStruct = Hack.isStructTupleType t }
+        return Tuple.create { Elements = args; IsStruct = Hack.isStructTupleType t }
       }
     elif Hack.isFloat t then
       Some SpecialTypes.LowType.float
     elif isByRef t then
       option {
         let! x = fsharpTypeToLowType (Hack.genericArguments t |> List.head)
-        return ByRef(false, x)
+        return ByRef.create (false, x)
       }
     elif t.HasTypeDefinition then
       if not t.TypeDefinition.Accessibility.IsPublic then
@@ -193,19 +193,19 @@ module internal Impl =
             option {
               let! xs = listLowType xs
               let! id = t.TryLoadingLowType
-              return Generic (id, xs)
+              return Generic.create (id, xs)
             }
         if t.TypeDefinition.IsDelegate then
           option {
             let! arrow = delegateArrow t
             let! t = signature
-            return Delegate (t, arrow)
+            return Delegate.create (t, arrow)
           }
         elif Hack.isAbbreviation t then
           option {
             let! signature = signature
             let! original = abbreviationRoot t
-            return TypeAbbreviation { Abbreviation = signature; Original = original }
+            return TypeAbbreviation.create { Abbreviation = signature; Original = original }
           }
         else
           signature
@@ -238,7 +238,7 @@ module internal Impl =
     elif t.IsFunctionType then
       option {
         let! xs = toFlatArrow t
-        return Arrow (Arrow.ofLowTypeList xs)
+        return Arrow.create (Arrow.ofLowTypeList xs)
       }
     else
       fsharpTypeToLowType t
@@ -260,10 +260,10 @@ module internal Impl =
   and listLowType (ts: FSharpType seq) : (LowType list) option = ts |> Seq.foldOptionMapping fsharpTypeToLowType |> Option.map Seq.toList
   and fsharpEntityToLowType (x: FSharpEntity) =
     let id = x.LoadingLowType
-    let args = x |> genericParameters |> List.map (fun v -> Variable (VariableSource, v))
+    let args = x |> genericParameters |> List.map (fun v -> Variable.create (VariableSource, v))
     match args with
     | [] -> id
-    | xs -> Generic (id, xs)
+    | xs -> Generic.create (id, xs)
 
   let collectTypeConstraints (genericParamters: seq<FSharpGenericParameter>): TypeConstraint list =
     genericParamters
@@ -328,13 +328,13 @@ module internal Impl =
     |> List.distinct
 
   let private (|Fs_option|_|) = function
-    | Generic ((LoadingType { AssemblyName = "FSharp.Core"; RawName = "Microsoft.FSharp.Core.option`1"; MemberName = [] }), [ p ]) -> Some p
+    | Generic ((LoadingType ({ AssemblyName = "FSharp.Core"; RawName = "Microsoft.FSharp.Core.option`1"; MemberName = [] }, _)), [ p ], _) -> Some p
     | _ -> None
   let private (|Fs_Option|_|) = function
-    | Generic ((LoadingType { AssemblyName = "FSharp.Core"; RawName = "Microsoft.FSharp.Core.FSharpOption`1"; MemberName = [] }), [ p ]) -> Some p
+    | Generic ((LoadingType ({ AssemblyName = "FSharp.Core"; RawName = "Microsoft.FSharp.Core.FSharpOption`1"; MemberName = [] }, _)), [ p ], _) -> Some p
     | _ -> None
   let private (|IsOption|_|) = function
-    | TypeAbbreviation { Abbreviation = Fs_option _; Original = Fs_Option p } -> Some p
+    | TypeAbbreviation ({ Abbreviation = Fs_option _; Original = Fs_Option p }, _) -> Some p
     | Fs_Option p -> Some p
     | _ -> None
   let unwrapFsOptionalParameter = function
@@ -343,7 +343,7 @@ module internal Impl =
 
   let loadByRef (p: FSharpParameter) (t: LowType) =
     match t with
-    | ByRef (_, t) -> ByRef (p.IsOutArg, t)
+    | ByRef (_, t, pos) -> ByRef (p.IsOutArg, t, pos)
     | _ -> t
 
   let curriedParameterGroups isFSharp (t: FSharpMemberOrFunctionOrValue) =
@@ -525,10 +525,10 @@ module internal Impl =
     m.GenericParameters
     |> Seq.choose (fun p ->
       let name = p.TypeVariable
-      let isConflict = replacementVariables |> List.exists (function Variable (VariableSource.Target, n) -> n = name | _ -> false)
+      let isConflict = replacementVariables |> List.exists (function Variable (VariableSource.Target, n, _) -> n = name | _ -> false)
       if isConflict then
         let confrictVariable = name
-        let newVariable = Variable (VariableSource, { confrictVariable with Name = confrictVariable.Name + "1" })
+        let newVariable = Variable.create (VariableSource, { confrictVariable with Name = confrictVariable.Name + "1" })
         Some (confrictVariable, newVariable)
       else None
     )
@@ -561,7 +561,7 @@ module internal Impl =
       let! abbreviatedAndOriginal = fsharpTypeToLowType e.AbbreviatedType
       let abbreviated, original =
         match abbreviatedAndOriginal with
-        | TypeAbbreviation t -> t.Abbreviation, t.Original
+        | TypeAbbreviation (t, _) -> t.Abbreviation, t.Original
         | original -> original, original
 
       let typeAbbreviationName =
@@ -785,8 +785,8 @@ module internal Impl =
           | _ -> None)
         |> Seq.toList
 
-      let actualType = ActualType { AssemblyName = e.AssemblyName; Name = name }
-      let implicitInstanceMembers, implicitStaticMembers = CompilerOptimization.implicitMembers actualType
+      let concreteType = ConcreteType { AssemblyName = e.AssemblyName; Name = name }
+      let implicitInstanceMembers, implicitStaticMembers = CompilerOptimization.implicitMembers concreteType
 
       let fullName =
         match e.TryFullName with
@@ -944,9 +944,9 @@ module internal Impl =
   let typeDefsDict (xs: FullTypeDefinition seq) =
     let d =
       xs
-      |> Seq.map (fun x -> x.ActualType, x)
+      |> Seq.map (fun x -> x.ConcreteType, x)
       |> dict
-    Dictionary(d, TypeNameEquality.actualTypeComparer)
+    Dictionary(d, TypeNameEquality.concreteTypeComparer)
 
   let makeDefAndAbb (api: ApiDictionary) =
     let types =
@@ -1015,22 +1015,22 @@ module internal Impl =
     let rec resolve_LowType context = function
       | Wildcard _ as w -> w
       | Variable _ as v -> v
-      | Type _ as t -> t
-      | Arrow arrow -> Arrow (resolve_Arrow context arrow)
-      | Tuple x -> Tuple { x with Elements = List.map (resolve_LowType context) x.Elements }
-      | Generic (id, args) ->
+      | Identifier _ as t -> t
+      | Arrow (arrow, p) -> Arrow (resolve_Arrow context arrow, p)
+      | Tuple (x, p) -> Tuple ({ x with Elements = List.map (resolve_LowType context) x.Elements }, p)
+      | Generic (id, args, p) ->
         let id = resolve_LowType context id
         let args = List.map (resolve_LowType context) args
-        Generic (id, args)
-      | TypeAbbreviation a -> TypeAbbreviation { Abbreviation = resolve_LowType context a.Abbreviation; Original = resolve_LowType context a.Original }
-      | Delegate (t, arrow) ->
+        Generic (id, args, p)
+      | TypeAbbreviation (a, p) -> TypeAbbreviation ({ Abbreviation = resolve_LowType context a.Abbreviation; Original = resolve_LowType context a.Original }, p)
+      | Delegate (t, arrow, p) ->
         let t = resolve_LowType context t
         let arrow = resolve_Arrow context arrow
-        Delegate (t, arrow)
-      | ByRef (out, t) -> ByRef(out, resolve_LowType context t)
-      | Subtype t -> Subtype(resolve_LowType context t)
-      | Choice (xs) -> Choice (List.map (resolve_LowType context) xs)
-      | LoadingType name -> Type (ActualType { AssemblyName = name.AssemblyName; Name = resolve_Name context name })
+        Delegate (t, arrow, p)
+      | ByRef (out, t, p) -> ByRef(out, resolve_LowType context t, p)
+      | Subtype (t, p) -> Subtype(resolve_LowType context t, p)
+      | Choice (o, xs, p) -> Choice (resolve_LowType context o, List.map (resolve_LowType context) xs, p)
+      | LoadingType (name, p) -> Identifier (ConcreteType { AssemblyName = name.AssemblyName; Name = resolve_Name context name }, p)
     and resolve_Arrow context arrow =
       let ps, ret = arrow
       let ps = List.map (resolve_LowType context) ps
@@ -1145,7 +1145,7 @@ module internal Impl =
             (autoGeneric, replacement)
           )
           |> Map.ofSeq
-        let lowTypeReplaceTable = replaceTable |> Map.map (fun _ value -> Variable (VariableSource, value))
+        let lowTypeReplaceTable = replaceTable |> Map.map (fun _ value -> Variable.create (VariableSource, value))
         { api with
             Name = replaceName replaceTable api.Name
             Signature = resolve_ApiSignature lowTypeReplaceTable api.Signature |> resolve_MemberName replaceTable
@@ -1157,6 +1157,48 @@ module internal Impl =
           Api = Array.map resolve_Api apiDict.Api
       }
 
+  module PositionResolve =
+    let rec resolve_LowType pos = function
+      | Wildcard (w, _) -> Wildcard (w, pos())
+      | Variable (vs, tv, _) -> Variable (vs, tv, pos())
+      | Identifier (id, _) -> Identifier (id, pos())
+      | Arrow (arrow, _) -> let position = pos() in Arrow (resolve_Arrow pos arrow, position)
+      | Tuple (tpl, _) -> let position = pos() in Tuple ({ tpl with Elements = List.map (resolve_LowType pos) tpl.Elements }, position)
+      | Generic (id, args, _) ->
+        let position = pos()
+        let id = resolve_LowType pos id
+        let args = List.map (resolve_LowType pos) args
+        Generic (id, args, position)
+      | TypeAbbreviation (t, _) ->
+        let position = pos()
+        let t = { Abbreviation = resolve_LowType pos t.Abbreviation; Original = resolve_LowType pos t.Original }
+        TypeAbbreviation (t, position)
+      | Delegate (d, arrow, _) ->
+        let position = pos()
+        let d = resolve_LowType pos d
+        let arrow = resolve_Arrow pos arrow
+        Delegate (d, arrow, position)
+      | ByRef (isOut, t, _) -> let position = pos() in ByRef (isOut, resolve_LowType pos t, position)
+      | Subtype (t, _) -> let position = pos() in Subtype (resolve_LowType pos t, position)
+      | Choice (o, xs, _) -> let position = pos() in Choice (resolve_LowType pos o, List.map (resolve_LowType pos) xs, position)
+      | LoadingType (n, _) -> LoadingType (n, pos())
+    and resolve_Arrow pos arrow =
+      let ps, ret = arrow
+      let ps = List.map (resolve_LowType pos) ps
+      let ret = resolve_LowType pos ret
+      (ps, ret)
+
+    let resolve_Api api =
+      let posValue = ref 0
+      let pos () =
+        let value = !posValue
+        incr posValue
+        Position.AtSignature (SignatureId value)
+
+      { api with Signature = LowTypeVisitor.accept_ApiSignature (resolve_LowType pos) api.Signature }
+
+    let resolvePosition (apiDict: ApiDictionary) = { apiDict with Api = Array.map resolve_Api apiDict.Api }
+
 let loadWithLogs (assemblies: FSharpAssembly[]) =
   PSeq.map Impl.load assemblies
   |> PSeq.toArray
@@ -1165,6 +1207,7 @@ let loadWithLogs (assemblies: FSharpAssembly[]) =
     let apiDict =
       apiDict
       |> Impl.AutoGenericResolve.resolveAutoGeneric
+      |> Impl.PositionResolve.resolvePosition
       |> Impl.makeDefAndAbb
     (apiDict, logs)
   )

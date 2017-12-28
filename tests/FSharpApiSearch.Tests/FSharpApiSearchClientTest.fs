@@ -5,7 +5,7 @@ open Persimmon.Syntax.UseTestNameByReflection
 open Persimmon.MuscleAssert
 open System.IO
 open FSharpApiSearch
-open FSharpApiSearch.Printer
+open FSharpApiSearch.StringPrinter
 open System.Reflection
 
 let assemblyName = @"SearchTestAssembly"
@@ -30,6 +30,7 @@ let searchTest = parameterize {
     let! client = testClient
     let actual =
       client.Search(query, TestHelper.defaultTestOptions)
+      |> snd
       |> Seq.map (fun x -> FSharp.printFullName x.Api) |> Seq.toList |> List.sort
     do! actual |> assertEquals (List.sort expecteds)
   })

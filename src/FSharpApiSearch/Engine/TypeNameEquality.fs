@@ -55,20 +55,20 @@ let testName cmp (xs: Name) (ys: Name) =
   }
   forall2 f xs ys
 
-let testAssemblyName (x: ActualType) (y: ActualType) =
+let testAssemblyName (x: ConcreteType) (y: ConcreteType) =
   if x.AssemblyName = y.AssemblyName then
     Result.Matched
   else
     Result.DifferentAssemblyName
 
-let testActualType (x: ActualType) (y: ActualType) = test {
+let testConcreteType (x: ConcreteType) (y: ConcreteType) = test {
   do! testAssemblyName x y
   do! testName StringComparer.InvariantCulture x.Name y.Name
 }
 
-let actualTypeComparer =
-  { new IEqualityComparer<ActualType> with
-      member this.Equals(x, y) = testActualType x y = Result.Matched
+let concreteTypeComparer =
+  { new IEqualityComparer<ConcreteType> with
+      member this.Equals(x, y) = testConcreteType x y = Result.Matched
       member this.GetHashCode(x) =
         let mutable value = x.AssemblyName.GetHashCode()
         for item in x.Name do
@@ -77,7 +77,7 @@ let actualTypeComparer =
         value
   }
 
-let testUserInputAndActualType cmp (userInput: UserInputType) (actual: ActualType) =
+let testUserInputAndConcreteType cmp (userInput: UserInputType) (actual: ConcreteType) =
   let testNameItem (p: NameItem, f: NameItem) = test {
     match p.GenericParameters, f.GenericParameters with
     | [], _ ->
@@ -93,16 +93,16 @@ let testUserInputAndActualType cmp (userInput: UserInputType) (actual: ActualTyp
 
 let private sameName' cmp x y =
   match x, y with
-  | ActualType left, ActualType right -> testActualType left right
-  | ActualType actual, UserInputType userInput
-  | UserInputType userInput, ActualType actual -> testUserInputAndActualType cmp userInput actual
+  | ConcreteType left, ConcreteType right -> testConcreteType left right
+  | ConcreteType concrete, UserInputType userInput
+  | UserInputType userInput, ConcreteType concrete -> testUserInputAndConcreteType cmp userInput concrete
   | UserInputType left, UserInputType right ->
     test {
       do! testGenericParameterCount left.GenericParameterCount right.GenericParameterCount
       do! testName cmp left.Name right.Name
     }
 
-type Equality = TypeInfo -> TypeInfo -> Result
+type Equality = Identifier -> Identifier -> Result
 
 let sameName x y = sameName' StringComparer.InvariantCulture x y
 let sameNameIgnoreCase x y = sameName' StringComparer.InvariantCultureIgnoreCase x y

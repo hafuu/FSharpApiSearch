@@ -4,20 +4,20 @@ open FSharpApiSearch.EngineTypes
 
 let transferVariableArgument (inheritArgs: Map<TypeVariable, LowType>) (baseType: LowType): LowType list =
   let rec genericArguments = function
-    | Type _ -> []
-    | Generic (_, args) -> args
-    | TypeAbbreviation { Original = o } -> genericArguments o
+    | Identifier _ -> []
+    | Generic (_, args, _) -> args
+    | TypeAbbreviation ({ Original = o }, _) -> genericArguments o
     | _ -> failwith "invalid base type."
   genericArguments baseType
   |> List.map (function
-    | Variable (VariableSource.Target, v) -> inheritArgs.[v]
+    | Variable (VariableSource.Target, v, _) -> inheritArgs.[v]
     | a -> a)
 
 let instantiate (t: FullTypeDefinition) (args: LowType list) =
-  let id = Type (ActualType t.ActualType)
+  let id = Identifier.create (ConcreteType t.ConcreteType)
   match args with
   | [] -> id
-  | _ -> Generic (id, args)
+  | _ -> Generic.create (id, args)
 
 let rec getSuperTypes (ctx: Context) (t: FullTypeDefinition) (args: LowType list): LowType seq = seq {
   let argPair = Map.ofList2 t.GenericParameters args
@@ -36,20 +36,20 @@ let rec getSuperTypes (ctx: Context) (t: FullTypeDefinition) (args: LowType list
   for p in parents do
     let baseTypeArgs = transferVariableArgument argPair p
     let baseTypeDef =
-      let rec getActualType = function
-        | Type (ActualType full) -> full
-        | Generic (Type (ActualType full), _) -> full
-        | TypeAbbreviation { Original = o } -> getActualType o
+      let rec getConcreteType = function
+        | Identifier (ConcreteType full, _) -> full
+        | Generic (Identifier (ConcreteType full, _), _, _) -> full
+        | TypeAbbreviation ({ Original = o }, _) -> getConcreteType o
         | _ -> failwith "It is not actual type."
-      let full = getActualType p
+      let full = getConcreteType p
       ctx.ApiDictionaries.[full.AssemblyName].TypeDefinitions.[full]
     yield! getSuperTypes ctx baseTypeDef baseTypeArgs
 }
 
-open Printer
+open StringPrinter
 
 let fullTypeDef (ctx: Context) = function
-  | ActualType i ->
+  | ConcreteType i ->
     match ctx.ApiDictionaries.TryGetValue(i.AssemblyName) with
     | true, apiDict ->
       match apiDict.TypeDefinitions.TryGetValue(i) with

@@ -1,7 +1,7 @@
 ﻿module FSharpApiSearch.Trace.Program
 
 open FSharpApiSearch
-open FSharpApiSearch.Printer
+open FSharpApiSearch.StringPrinter
 open FSharpApiSearch.Console
 open System
 open System.Diagnostics
@@ -43,7 +43,7 @@ let main argv =
 
         let target = apis |> Array.find (fun x -> FSharp.printFullName x = targetName)
         let dummyDict: ApiDictionary = { AssemblyName = "dummy"; Api = [| target |]; TypeDefinitions = dict Seq.empty; TypeAbbreviations = [||] }
-        let result = Engine.search dictionaries options [ dummyDict ] query
+        let _, result = Engine.search dictionaries options [ dummyDict ] query
 
         printfn "Result = %b" (Seq.isEmpty result = false)
 

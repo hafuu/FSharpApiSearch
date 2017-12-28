@@ -66,8 +66,14 @@
     <Compile Include="Misc.fs" />
     <Compile Include="Hack.fs" />
     <Compile Include="Types.fs" />
-    <Compile Include="Printer.fs" />
     <Compile Include="QueryParser.fs" />
+    <Compile Include="Print\PrintTypes.fs" />
+    <Compile Include="Print\FSharpFormat.fs" />
+    <Compile Include="Print\CSharpFormat.fs" />
+    <Compile Include="Print\Printer.fs" />
+    <Compile Include="Print\StringPrinter.fs" />
+    <Compile Include="Print\QueryPrinter.fs" />
+    <Compile Include="Print\HtmlPrintHelper.fs" />
     <Compile Include="Engine\EngineTypes.fs" />
     <Compile Include="Engine\TypeHierarchy.fs" />
     <Compile Include="Engine\TypeNameEquality.fs" />

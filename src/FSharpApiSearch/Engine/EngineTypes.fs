@@ -3,7 +3,7 @@
 open System.Diagnostics
 open System.Collections.Generic
 open FSharpApiSearch
-open FSharpApiSearch.Printer
+open FSharpApiSearch.StringPrinter
 open System.Collections.Concurrent
 
 type Equations = {
@@ -31,6 +31,7 @@ module SubtypeCache =
 type Context = {
   Distance: int
   Equations: Equations
+  MatchPositions: Map<SignatureId, QueryId>
   QueryTypes: Map<UserInputType, FullTypeDefinition[]>
   ApiDictionaries: IDictionary<string, ApiDictionary>
   SubtypeCache: SubtypeCache

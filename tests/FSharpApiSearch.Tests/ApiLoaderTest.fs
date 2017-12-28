@@ -6,7 +6,7 @@ open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
 open Persimmon.MuscleAssert
 open FSharpApiSearch
-open FSharpApiSearch.Printer
+open FSharpApiSearch.StringPrinter
 open TestHelper
 open TestHelper.DSL
 open TestHelper.Types
@@ -242,7 +242,7 @@ module FSharp =
   let internalInterfaceTest = test {
     let! mscorDict = mscorlibApi
     let tuple = mscorDict.TypeDefinitions.Values |> Seq.find (fun x -> x.Name = Name.ofString "System.Tuple<'T1, 'T2>" && x.GenericParameters.Length = 2)
-    let existsITuple = tuple.AllInterfaces |> Seq.exists (function Type (ActualType a) -> a.Name = Name.ofString "System.ITuple" | _ -> false)
+    let existsITuple = tuple.AllInterfaces |> Seq.exists (function Identifier (ConcreteType a, _) -> a.Name = Name.ofString "System.ITuple" | _ -> false)
     do! existsITuple |> assertEquals false
   }
 
@@ -435,7 +435,7 @@ module FSharp =
         AssemblyName = fsharpAssemblyName
         Kind = TypeDefinitionKind.Class
         BaseType = Some obj
-        AllInterfaces = [ Type (ActualType plainInterface.ActualType) ]
+        AllInterfaces = [ Identifier.create (ConcreteType plainInterface.ConcreteType) ]
         DefaultConstructor = Satisfy
     }
 
@@ -445,7 +445,7 @@ module FSharp =
         FullName = "FullTypeDefinition.InterfaceInherit"
         Kind = TypeDefinitionKind.Interface
         AssemblyName = fsharpAssemblyName
-        AllInterfaces = [ Type (ActualType plainInterface.ActualType) ]
+        AllInterfaces = [ Identifier.create (ConcreteType plainInterface.ConcreteType) ]
     }
 
     let supportNullClass = {
@@ -465,7 +465,7 @@ module FSharp =
         FullName = "FullTypeDefinition.SupportNullSubClass"
         AssemblyName = fsharpAssemblyName
         Kind = TypeDefinitionKind.Class
-        BaseType = Some (Type (ActualType supportNullClass.ActualType))
+        BaseType = Some (Identifier.create (ConcreteType supportNullClass.ConcreteType))
         SupportNull = NotSatisfy
         DefaultConstructor = Satisfy
     }
@@ -485,7 +485,7 @@ module FSharp =
         FullName = "FullTypeDefinition.SupportNullSubInterface"
         AssemblyName = fsharpAssemblyName
         Kind = TypeDefinitionKind.Interface
-        AllInterfaces = [ Type (ActualType supportNullInterface.ActualType) ]
+        AllInterfaces = [ Identifier.create (ConcreteType supportNullInterface.ConcreteType) ]
         SupportNull = Satisfy
     }
 
@@ -495,7 +495,7 @@ module FSharp =
         FullName = "FullTypeDefinition.NonSupportNullSubInterface"
         AssemblyName = fsharpAssemblyName
         Kind = TypeDefinitionKind.Interface
-        AllInterfaces = [ Type (ActualType supportNullInterface.ActualType) ]
+        AllInterfaces = [ Identifier.create (ConcreteType supportNullInterface.ConcreteType) ]
         SupportNull = NotSatisfy
     }
 
@@ -861,7 +861,7 @@ module TypeAbbreviation =
   let functionWithFunctionAbbreviationTest =
     let t = { Abbreviation = createType "TypeAbbreviations.FunctionAbbreviation" [] |> updateAssembly fsharpAssemblyName
               Original = arrow [ int; int ] }
-    testApiWithoutParameterName fsharpAssemblyApi Name.ofString ("TypeAbbreviations.functionWithFunctionAbbreviation", [ moduleFunction' [ [ pname "x" >> ptype (TypeAbbreviation t) ]; [ ptype (TypeAbbreviation t) ] ] ])
+    testApiWithoutParameterName fsharpAssemblyApi Name.ofString ("TypeAbbreviations.functionWithFunctionAbbreviation", [ moduleFunction' [ [ pname "x" >> ptype (TypeAbbreviation.create t) ]; [ ptype (TypeAbbreviation.create t) ] ] ])
 
 module TypeExtension =
   let testApi = testApiWithoutParameterName fsharpAssemblyApi Name.ofString

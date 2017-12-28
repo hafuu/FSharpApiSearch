@@ -3,14 +3,14 @@
 open System.Diagnostics
 open FSharpApiSearch.EngineTypes
 open FSharpApiSearch.SpecialTypes
-open FSharpApiSearch.Printer
+open FSharpApiSearch.StringPrinter
 
 type SignatureMatcher = ILowTypeMatcher -> SignatureQuery -> ApiSignature -> Context -> MatchingResult
 
 module Rules =
   let choiceRule (runRules: SignatureMatcher, lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
-    | SignatureQuery.Signature (Choice choices), _ ->
+    | SignatureQuery.Signature (Choice (_, choices, _)), _ ->
       Debug.WriteLine("choice rule.")
       Debug.WriteLine(sprintf "test %A" (choices |> List.map (fun x -> x.Debug())))
       choices
@@ -43,7 +43,7 @@ module Rules =
   let trimOptionalParameters ((leftParams, _): Arrow) (right: Function) : Function =
     match right with
     | [ nonCurriedParameters ], ret ->
-      let leftLength = (leftParams |> List.sumBy (function Tuple { Elements = xs } -> xs.Length | _ -> 1))
+      let leftLength = (leftParams |> List.sumBy (function Tuple ({ Elements = xs }, _) -> xs.Length | _ -> 1))
       let rightLength = nonCurriedParameters.Length
       if leftLength < rightLength then
         let trimedParameters, extraParameters = List.splitAt leftLength nonCurriedParameters
@@ -84,7 +84,7 @@ module Rules =
 
   let (|Right_TupleFunction|_|) (right: Function) =
     match right with
-    | [ [ { Type = Tuple { Elements = parameters } } ] ], { Type = ret } -> Some (parameters, ret)
+    | [ [ { Type = Tuple ({ Elements = parameters }, _) } ] ], { Type = ret } -> Some (parameters, ret)
     | _ -> None
 
   let (|Left_CurriedFunction|_|) (left: Arrow) =
@@ -94,7 +94,7 @@ module Rules =
 
   let (|Left_NonCurriedFunction|_|) (left: Arrow) =
     match left with
-    | [ Tuple { Elements = parameters } ], ret -> Some (parameters, ret)
+    | [ Tuple ({ Elements = parameters }, _) ], ret -> Some (parameters, ret)
     | _ -> None
 
   let testArrow_IgnoreParamStyle (lowTypeMatcher: ILowTypeMatcher) (left: Arrow) (right: Function) ctx =
@@ -118,8 +118,8 @@ module Rules =
       
   let moduleFunctionRule (testArrow: TestArrow) (_, lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
-    | SignatureQuery.Signature (Arrow left), ApiSignature.ModuleFunction right
-    | SignatureQuery.Signature (LowType.Patterns.AbbreviationRoot (Arrow left)), ApiSignature.ModuleFunction right ->
+    | SignatureQuery.Signature (Arrow (left, _)), ApiSignature.ModuleFunction right
+    | SignatureQuery.Signature (LowType.Patterns.AbbreviationRoot (Arrow (left, _))), ApiSignature.ModuleFunction right ->
       Debug.WriteLine("module function rule.")
       testArrow lowTypeMatcher left right ctx
     | SignatureQuery.Signature leftRet, ApiSignature.ModuleFunction right ->
@@ -133,8 +133,8 @@ module Rules =
 
   let arrowQueryAndDelegateRule (_, lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
-    | SignatureQuery.Signature (Arrow _ as left), ApiSignature.ModuleValue (Delegate (_, xs)) ->
-      let right = Arrow xs
+    | SignatureQuery.Signature (Arrow _ as left), ApiSignature.ModuleValue (Delegate (_, rightBody, rightPos)) ->
+      let right = Arrow (rightBody, rightPos)
       Debug.WriteLine("arrow query and delegate rule.")
       lowTypeMatcher.Test left right ctx
       |> MatchingResult.mapMatched (Context.addDistance "arrow and delegate" 1)
@@ -142,13 +142,13 @@ module Rules =
 
   let activePatternRule (testArrow: TestArrow) (_, lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
-    | SignatureQuery.Signature (Arrow leftElems), ApiSignature.ActivePatten (_, rightElems) ->
+    | SignatureQuery.Signature (Arrow (leftElems, _)), ApiSignature.ActivePatten (_, rightElems) ->
       Debug.WriteLine("active pattern rule.")
       testArrow lowTypeMatcher leftElems rightElems ctx
     | _ -> Continue ctx
 
   let breakArrow = function
-    | Arrow xs -> xs
+    | Arrow (xs, _) -> xs
     | other -> [], other
 
   let (|StaticMember|_|) = function
@@ -163,7 +163,7 @@ module Rules =
 
   let extensionMemberRule (testArrow: TestArrow) (_, lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
-    | SignatureQuery.Signature (Arrow ([ leftReceiver; leftParams ], leftReturnType)), ApiSignature.ExtensionMember ({ Parameters = [ rightReceiver :: rightParams ] } as member' ) ->
+    | SignatureQuery.Signature (Arrow (([ leftReceiver; leftParams ], leftReturnType), _)), ApiSignature.ExtensionMember ({ Parameters = [ rightReceiver :: rightParams ] } as member' ) ->
       Debug.WriteLine("extension member rule.")
       let left = [ leftParams ], leftReturnType
       let right = { member' with Parameters = [ rightParams ] }
@@ -195,7 +195,7 @@ module Rules =
 
   let arrowAndInstanceMemberRule (testArrow: TestArrow) (_, lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
-    | SignatureQuery.Signature (Arrow ((leftReceiver :: leftMemberParams), leftMemberRet)), InstanceMember (declaringType, member') ->
+    | SignatureQuery.Signature (Arrow (((leftReceiver :: leftMemberParams), leftMemberRet), _)), InstanceMember (declaringType, member') ->
       Debug.WriteLine("arrow and instance member rule.")
       lowTypeMatcher.TestReceiver leftReceiver declaringType ctx
       |> MatchingResult.bindMatched (testArrow lowTypeMatcher (leftMemberParams, leftMemberRet) (Member.toFunction member'))
@@ -203,8 +203,8 @@ module Rules =
 
   let unionCaseRule (testArrow: TestArrow) (_, lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
-    | SignatureQuery.Signature (Arrow leftElems), ApiSignature.UnionCase uc
-    | SignatureQuery.Signature (LowType.Patterns.AbbreviationRoot (Arrow leftElems)), ApiSignature.UnionCase uc when uc.Fields.IsEmpty = false ->
+    | SignatureQuery.Signature (Arrow (leftElems, _)), ApiSignature.UnionCase uc
+    | SignatureQuery.Signature (LowType.Patterns.AbbreviationRoot (Arrow (leftElems, _))), ApiSignature.UnionCase uc when uc.Fields.IsEmpty = false ->
       Debug.WriteLine("union case rule.")
       let caseAsFunc = UnionCase.toFunction uc
       testArrow lowTypeMatcher leftElems caseAsFunc ctx
@@ -240,7 +240,8 @@ module Rules =
     | SignatureQuery.Signature left, ApiSignature.TypeAbbreviation abbreviationDef ->
       Debug.WriteLine("type abbreviation rule.")
       let abbreviation = abbreviationDef.TypeAbbreviation
-      let right = Choice [ abbreviation.Abbreviation; abbreviation.Original ]
+      let dummy = abbreviation.Original
+      let right = Choice.create (dummy, [ abbreviation.Abbreviation; abbreviation.Original ])
       lowTypeMatcher.Test left right ctx
     | _ -> Continue ctx
 

@@ -10,6 +10,29 @@ let inline pstringAndTrim s = pstring s |> trim
 
 let inline sepBy2 p sep = p .>> sep .>>. sepBy1 p sep |>> (fun (x, xs) -> x :: xs)
 
+let atQuery range = AtQuery (None, range)
+
+let getIndex = getPosition |>> (fun p -> int p.Index)
+let indexed p = tuple3 getIndex p getIndex |>> (fun (b, x, e) -> x, { Begin = b; End = e })
+
+let maxEndRange (xs: LowType list) =
+  xs
+  |> List.choose (fun x ->
+    match x.Position with
+    | AtQuery (_, range) -> Some range.End
+    | AtSignature _ | Unknown -> None
+  )
+  |> List.max
+
+let minBeginRange (xs: LowType list) =
+  xs
+  |> List.choose (fun x ->
+    match x.Position with
+    | AtQuery (_, range) -> Some range.Begin
+    | AtSignature _ | Unknown -> None
+  )
+  |> List.min
+
 let compose firstParser (ps: _ list) =
   let compose' prevParser p =
     let self, selfRef = createParserForwardedToRef()
@@ -32,13 +55,28 @@ module FSharp =
     >>= (fun x -> if keywords |> List.exists ((=)x) then fail (sprintf "%s is the keyword." x) else preturn x)
     <?> "identifier"
   
-  let partialName = sepBy1 pidentifier (pchar '.') |>> (List.map (fun n -> { Name = SymbolName n; GenericParameters = [] } ) >> List.rev)
+  let partialName =
+    pidentifier .>>. many (attempt (spaces >>. skipChar '.' >>. spaces >>. pidentifier))
+    |>> (fun (head, tail) ->
+      (head :: tail)
+      |> List.map (fun n -> { Name = SymbolName n; GenericParameters = [] })
+      |> List.rev
+    )
 
   let fsharpSignature, fsharpSignatureRef = createParserForwardedToRef()
 
-  let userInputType = partialName |>> (function name -> Type (UserInputType { Name = name })) |> trim <?> "type"
-  let variable = pchar ''' >>. pidentifier |>> (function name -> Variable (VariableSource.Query, { Name = name; IsSolveAtCompileTime = false })) |> trim <?> "variable"
-  let wildcard = pchar '?' >>. opt pidentifier |>> Wildcard |> trim <?> "wildcard"
+  let userInputType =
+    indexed partialName
+    |>> (function (name, range) -> Identifier (UserInputType { Name = name }, atQuery range))
+    <?> "type"
+  let variable =
+    indexed (skipChar ''' >>. pidentifier)
+    |>> (function (name, range) -> Variable (VariableSource.Query, { Name = name; IsSolveAtCompileTime = false }, atQuery range))
+    <?> "variable"
+  let wildcard =
+    indexed (skipChar '?' >>. opt pidentifier)
+    |>> (fun (name, range) -> Wildcard (name, atQuery range))
+    <?> "wildcard"
 
   let genericId =
     choice [
@@ -47,29 +85,40 @@ module FSharp =
       wildcard
     ]
 
-  let createGeneric id parameters =
+  let createGeneric id parameters pos =
     let parameterCount = List.length parameters
     let id =
       match id with
-      | Type (UserInputType p) ->
+      | Identifier (UserInputType p, pos) ->
         let newName =
           match p.Name with
           | [] -> []
           | n :: tail -> { n with GenericParameters = List.init parameterCount (fun n -> { Name = sprintf "T%d" n; IsSolveAtCompileTime = false }) } :: tail
-        Type (UserInputType { p with Name = newName })
+        Identifier (UserInputType { p with Name = newName }, pos)
       | other -> other
-    Generic (id, parameters)
+    Generic (id, parameters, pos)
 
-  let dotNetGeneric = genericId .>>. between (pcharAndTrim '<') (pcharAndTrim '>') (sepBy1 fsharpSignature (pchar ',')) |>> (fun (id, parameter) -> createGeneric id parameter)
+  let dotNetGeneric =
+    parse {
+      let! begin' = getIndex
+      let! id = genericId
+      do! spaces
+      do! skipChar '<'
+      let! parameters = sepBy1 (trim fsharpSignature) (skipChar ',')
+      do! skipChar '>'
+      let! end' = getIndex
+      return createGeneric id parameters (atQuery { Begin = begin'; End = end' })
+    }
 
   let subtype =
-    let prefix = pcharAndTrim '#'
+    let prefix = skipChar '#'
     let t = attempt dotNetGeneric <|> userInputType
-    prefix >>. t |>> Subtype
+    indexed (prefix >>. t)
+    |>> fun (t, range) -> Subtype (t, atQuery range)
 
   let ptype =
     choice [
-      attempt (between (pcharAndTrim '(') (pcharAndTrim ')') fsharpSignature)
+      attempt (between (skipChar '(') (skipChar ')') (trim fsharpSignature))
       attempt dotNetGeneric
       attempt userInputType
       attempt variable
@@ -80,10 +129,16 @@ module FSharp =
   let array _ typeParser =
     let arraySymbol =
       let t = { Name = "T"; IsSolveAtCompileTime = false }
-      parray |> trim |>> (fun array -> Type (UserInputType { Name = [ { Name = SymbolName array; GenericParameters = [ t ] } ] }))
-    typeParser
-    .>>. many1 arraySymbol
-    |>> fun (t, xs) -> List.fold (fun x array -> createGeneric array [ x ]) t xs
+      indexed parray
+      |>> (fun (array, range) -> Identifier (UserInputType { Name = [ { Name = SymbolName array; GenericParameters = [ t ] } ] }, atQuery range))
+    
+    parse {
+      let! begin' = getIndex
+      let! t = typeParser
+      let! arrays = many1 (trim arraySymbol)
+      let end' = maxEndRange arrays
+      return List.fold (fun x array -> createGeneric array [ x ] (atQuery { Begin = begin'; End = end' })) t arrays
+    }
 
   let structTuple self typeParser =
     let elem =
@@ -91,25 +146,54 @@ module FSharp =
         attempt typeParser
         self
       ]
-    let tupleElements = sepBy1 elem (pstring "*") |>> fun xs -> Tuple { Elements = xs; IsStruct = true }
-    pstringAndTrim struct' >>. between (pcharAndTrim '(') (pcharAndTrim ')') tupleElements
+    parse {
+      let! begin' = getIndex
+      do! skipString struct'
+      do! spaces
+      do! skipChar '('
+      let! xs = sepBy1 (trim elem) (skipChar '*')
+      do! skipChar ')'
+      let! end' = getIndex
+      return Tuple ({ Elements = xs; IsStruct = true }, atQuery { Begin = begin'; End = end' })
+    }
 
   let mlGeneric _ typeParser =
-    let mlMultiGenericParameter = between (pcharAndTrim '(') (pcharAndTrim ')') (sepBy1 fsharpSignature (pchar ','))
+    let mlMultiGenericParameter = between (skipChar '(') (skipChar ')') (sepBy1 (trim fsharpSignature) (pchar ','))
     let mlSingleGenericParameter = typeParser |>> List.singleton
-    let mlLeftGenericParameter = attempt mlMultiGenericParameter <|> mlSingleGenericParameter
-    let foldGeneric parameter ids =
+
+    let foldGeneric parameter ids begin' =
       let rec foldGeneric' acc = function
-        | id :: rest -> foldGeneric' (createGeneric id [ acc ]) rest
+        | id :: rest ->
+          let parameters = [ acc ]
+          let generic = createGeneric id parameters (atQuery { Begin = begin'; End = maxEndRange [ id ] })
+          foldGeneric' generic rest
         | [] -> acc
-      foldGeneric' (createGeneric (List.head ids) parameter) (List.tail ids)
+      let generic =
+        let id = List.head ids
+        createGeneric id parameter (atQuery { Begin = begin'; End = maxEndRange [ id ] })
+      foldGeneric' generic (List.tail ids)
     
-    mlLeftGenericParameter .>>. many1 genericId |>> (fun (parameter, ids) -> foldGeneric parameter ids)
+    parse {
+      let! begin' = getIndex
+      let! parameters = attempt mlMultiGenericParameter <|> mlSingleGenericParameter
+      do! spaces
+      let! ids = many1 (trim genericId)
+      return foldGeneric parameters ids begin'
+    }
 
 
-  let tuple _ typeParser = sepBy2 typeParser (pstring "*") |>> fun xs -> Tuple { Elements = xs; IsStruct = false }
+  let tuple _ typeParser =
+    sepBy2 (trim typeParser) (pstring "*")
+    |>> fun xs ->
+      let range = { Begin = minBeginRange xs; End = maxEndRange xs }
+      Tuple ({ Elements = xs; IsStruct = false }, atQuery range)
 
-  let arrow _ typeParser = sepBy2 typeParser (pstring "->") |>> (Arrow.ofLowTypeList >> Arrow)
+  let arrow _ typeParser =
+    sepBy2 (trim typeParser) (pstring "->")
+    |>> fun xs ->
+      let arrow = Arrow.ofLowTypeList xs
+      let range = { Begin = minBeginRange xs; End = maxEndRange xs }
+      Arrow (arrow, atQuery range)
 
   do fsharpSignatureRef := compose ptype [ array; structTuple; mlGeneric; tuple; arrow ]
 
@@ -119,7 +203,7 @@ module FSharp =
   let allPatterns =
     trim (skipString "...") >>. skipString "->" >>. fsharpSignature
     >>= function
-        | Arrow ([ x ], y) -> preturn (ActivePatternSignature.AnyParameter (x, y))
+        | Arrow (([ x ], y), _) -> preturn (ActivePatternSignature.AnyParameter (x, y))
         | _ -> fail "parse error"
   let activePattern = fsharpSignature |>> ActivePatternSignature.Specified
   let activePatternQuery = trim activePatternKind .>> skipString ":" .>>. (attempt allPatterns <|> activePattern) |>> (fun (kind, sig') -> QueryMethod.ByActivePattern { Kind = kind; Signature = sig' })
@@ -152,7 +236,7 @@ module FSharp =
   
   let nameQuery =
     let name = trim (memberNamePartial <|> opName)
-    sepBy1 name (pchar '.') .>> pstring ":" .>>. anyOrSignature
+    trim (sepBy1 name (pchar '.')) .>> pstring ":" .>>. trim anyOrSignature
     |>> (fun (name, sigPart) -> QueryMethod.ByName (List.rev name, sigPart))
 
   let signatureQuery = fsharpSignature |>> (SignatureQuery.Signature >> QueryMethod.BySignature)
@@ -167,7 +251,7 @@ module FSharp =
   let query = choice [ attempt computationExpressionQuery;attempt activePatternQuery; attempt nameQuery; signatureQuery ]
 
   let parse (queryStr: string) =
-    match runParserOnString (query .>> eof) () "" queryStr with
+    match runParserOnString (trim query .>> eof) () "" queryStr with
     | Success (queryMethod, _, _) -> { OriginalString = queryStr; Method = queryMethod }: Query
     | Failure (msg, _, _) -> failwithf "%s" msg
 
@@ -198,16 +282,16 @@ module CSharp =
       let str = string head + tail
       if String.exists isUpper str then
         fail (sprintf "%s contains upper cases." str)
-      elif SpecialTypes.TypeInfo.CSharp.aliases |> List.map fst |> List.contains str then
+      elif SpecialTypes.Identifier.CSharp.aliases |> List.map fst |> List.contains str then
         fail (sprintf "%s is a C# alias." str)
       else
-        preturn (Variable (VariableSource.Query, { Name = str; IsSolveAtCompileTime = false }))
+        preturn (Variable.create (VariableSource.Query, { Name = str; IsSolveAtCompileTime = false }))
     )
     |> trim
     <?> "variable"
 
-  let userInputType = partialName |>> (function name -> Type (UserInputType { Name = name })) |> trim <?> "type"
-  let wildcard = pchar '?' >>. opt pidentifier |>> Wildcard |> trim <?> "wildcard"
+  let userInputType = partialName |>> (function name -> Identifier.create (UserInputType { Name = name })) |> trim <?> "type"
+  let wildcard = pchar '?' >>. opt pidentifier |>> Wildcard.create |> trim <?> "wildcard"
 
   let genericId =
     choice [
@@ -220,21 +304,21 @@ module CSharp =
     let parameterCount = List.length parameters
     let id =
       match id with
-      | Type (UserInputType p) ->
+      | Identifier (UserInputType p, _) ->
         let newName =
           match p.Name with
           | [] -> []
           | n :: tail -> { n with GenericParameters = List.init parameterCount (fun n -> { Name = sprintf "T%d" n; IsSolveAtCompileTime = false }) } :: tail
-        Type (UserInputType { p with Name = newName })
+        Identifier.create (UserInputType { p with Name = newName })
       | other -> other
-    Generic (id, parameters)
+    Generic.create (id, parameters)
 
   let generic = genericId .>>. between (pcharAndTrim '<') (pcharAndTrim '>') (sepBy1 csharpSignature (pchar ',')) |>> (fun (id, parameter) -> createGeneric id parameter)
 
   let subtype =
     let prefix = pcharAndTrim '#'
     let t = attempt generic <|> userInputType
-    prefix >>. t |>> Subtype
+    prefix >>. t |>> Subtype.create
 
   let ptype =
     choice [
@@ -250,18 +334,18 @@ module CSharp =
   let array _ typeParser =
     let arraySymbol =
       let t = { Name = "T"; IsSolveAtCompileTime = false }
-      parray |> trim |>> (fun array -> Type (UserInputType { Name = [ { Name = SymbolName array; GenericParameters = [ t ] } ] }))
+      parray |> trim |>> (fun array -> Identifier.create (UserInputType { Name = [ { Name = SymbolName array; GenericParameters = [ t ] } ] }))
     typeParser
     .>>. many1 arraySymbol
     |>> fun (t, xs) -> List.foldBack (fun array x -> createGeneric array [ x ]) xs t
 
   let structTuple self typeParser =
     let elems = attempt self <|> typeParser
-    between (pcharAndTrim '(') (pcharAndTrim ')') (sepBy2 elems (pstring ",")) |>> fun xs -> Tuple { Elements = xs; IsStruct = true }
+    between (pcharAndTrim '(') (pcharAndTrim ')') (sepBy2 elems (pstring ",")) |>> fun xs -> Tuple.create { Elements = xs; IsStruct = true }
 
   let byref _ typeParser =
     trim ((pstring ref <|> pstring out) .>> spaces1 .>>. typeParser)
-    |>> (fun (refType, t) -> let isOut = refType = out in ByRef (isOut, t))
+    |>> (fun (refType, t) -> let isOut = refType = out in ByRef.create (isOut, t))
 
   let arrow _ typeParser =
     let args =
@@ -270,20 +354,20 @@ module CSharp =
       attempt elemsWithParen <|> attempt elems <|> (typeParser |>> List.singleton)
       |>> function
         | [ x ] -> x
-        | xs -> Tuple { Elements = xs; IsStruct = false }
-    sepBy2 args (pstring "->") |>> (Arrow.ofLowTypeList >> Arrow)
+        | xs -> Tuple.create { Elements = xs; IsStruct = false }
+    sepBy2 args (pstring "->") |>> (Arrow.ofLowTypeList >> Arrow.create)
 
   do csharpSignatureRef := compose ptype [ array; structTuple; byref; arrow ]
 
   let rec replaceWithVariable (variableNames: Set<string>) = function
-    | Type (UserInputType { Name = [ { Name = SymbolName name } ] }) when Set.contains name variableNames ->
-        Variable (VariableSource.Query, { Name = name; IsSolveAtCompileTime = false })
-    | Generic (id, args) -> Generic (replaceWithVariable variableNames id, List.map (replaceWithVariable variableNames) args)
-    | Tuple tpl -> Tuple { tpl with Elements = List.map (replaceWithVariable variableNames) tpl.Elements }
-    | Arrow (ps, ret) -> Arrow (List.map (replaceWithVariable variableNames) ps, replaceWithVariable variableNames ret)
-    | ByRef (isOut, t) -> ByRef (isOut, replaceWithVariable variableNames t)
-    | Subtype t -> Subtype (replaceWithVariable variableNames t)
-    | (Wildcard _ | Variable _ | Type _ | TypeAbbreviation _ | Delegate _ | Choice _) as t -> t
+    | Identifier (UserInputType { Name = [ { Name = SymbolName name } ] }, pos) when Set.contains name variableNames ->
+        Variable (VariableSource.Query, { Name = name; IsSolveAtCompileTime = false }, pos)
+    | Generic (id, args, pos) -> Generic (replaceWithVariable variableNames id, List.map (replaceWithVariable variableNames) args, pos)
+    | Tuple (tpl, pos) -> Tuple ({ tpl with Elements = List.map (replaceWithVariable variableNames) tpl.Elements }, pos)
+    | Arrow ((ps, ret), pos) -> Arrow ((List.map (replaceWithVariable variableNames) ps, replaceWithVariable variableNames ret), pos)
+    | ByRef (isOut, t, pos) -> ByRef (isOut, replaceWithVariable variableNames t, pos)
+    | Subtype (t, pos) -> Subtype (replaceWithVariable variableNames t, pos)
+    | (Wildcard _ | Variable _ | Identifier _ | TypeAbbreviation _ | Delegate _ | Choice _) as t -> t
     | LoadingType _ -> Name.loadingNameError()
 
   let signatureWildcard = pstring "_" |> trim >>% SignatureQuery.Wildcard

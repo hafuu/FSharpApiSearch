@@ -3,14 +3,14 @@
 open System.Diagnostics
 open FSharpApiSearch.EngineTypes
 open FSharpApiSearch.SpecialTypes
-open FSharpApiSearch.Printer
+open FSharpApiSearch.StringPrinter
 open FSharpApiSearch.TypeHierarchy
 
 let rec (|ConstraintTestee|_|) = function
-  | Type id -> Some (id, [])
-  | Generic (Type id, args) -> Some (id, args)
-  | Tuple { Elements = xs } -> Some (TypeInfo.tupleN xs.Length, xs)
-  | TypeAbbreviation { Original = o } -> (|ConstraintTestee|_|) o
+  | Identifier (id, _) -> Some (id, [])
+  | Generic (Identifier (id, _), args, _) -> Some (id, args)
+  | Tuple ({ Elements = xs }, _) -> Some (Identifier.tupleN xs.Length, xs)
+  | TypeAbbreviation ({ Original = o }, _) -> (|ConstraintTestee|_|) o
   | _ -> None 
 
 let createConstraintSolver title testConstraint (testeeType: LowType) ctx = seq {
@@ -18,14 +18,14 @@ let createConstraintSolver title testConstraint (testeeType: LowType) ctx = seq 
   | ConstraintTestee (testeeType, testTypeArgs) ->
     let testees =
       match testeeType with
-      | ActualType a -> ctx.ApiDictionaries.[a.AssemblyName].TypeDefinitions.[a] |> Array.singleton
+      | ConcreteType a -> ctx.ApiDictionaries.[a.AssemblyName].TypeDefinitions.[a] |> Array.singleton
       | UserInputType u -> ctx.QueryTypes.[u]
     for typeDef in testees do
       Debug.WriteLine(sprintf "Test %s: %s" title (typeDef.Debug()))
       Debug.Indent()
       let nextCtx =
         match testeeType with
-        | ActualType _ -> ctx
+        | ConcreteType _ -> ctx
         | UserInputType u -> { ctx with QueryTypes = ctx.QueryTypes |> Map.add u [| typeDef |] }
       let results = testConstraint typeDef testTypeArgs nextCtx |> Seq.cache
       Debug.Unindent()
@@ -63,7 +63,7 @@ let testSubtypeConstraint (lowTypeMatcher: ILowTypeMatcher) (parentType: LowType
 let addGenericMemberReplacements (m: Member) replacements =
   m.GenericParameters
   |> Seq.fold (fun replacements v ->
-    replacements |> Map.add v (Wildcard None)
+    replacements |> Map.add v (Wildcard.create None)
   ) replacements
 
 let normalizeGetterMethod (m: Member) =
@@ -72,9 +72,9 @@ let normalizeGetterMethod (m: Member) =
     | [] -> LowType.Unit
     | [ propertyIndex ] ->
       let elems = List.map (fun x -> x.Type) propertyIndex
-      Tuple { Elements = elems; IsStruct = false }
+      Tuple.create { Elements = elems; IsStruct = false }
     | _ -> failwith "Curried getter is invalid."
-  Arrow ([ indexOrUnit ], m.ReturnParameter.Type)
+  Arrow.create ([ indexOrUnit ], m.ReturnParameter.Type)
 
 let normalizeSetterMethod (m: Member) =
   let parameters =
@@ -82,14 +82,14 @@ let normalizeSetterMethod (m: Member) =
     | [] -> m.ReturnParameter.Type
     | [ propertyIndex ] ->
       let elements = [ yield! propertyIndex; yield m.ReturnParameter ] |> List.map (fun x -> x.Type)
-      Tuple { Elements = elements; IsStruct = false }
+      Tuple.create { Elements = elements; IsStruct = false }
     | _ -> failwith "Curried setter is invalid."
-  Arrow ([ parameters ], LowType.Unit)
+  Arrow.create ([ parameters ], LowType.Unit)
 
-let normalizeMethod (m: Member) = Arrow (Member.toArrow m)
+let normalizeMethod (m: Member) = Arrow.create (Member.toArrow m)
 
 let testMemberConstraint (lowTypeMatcher: ILowTypeMatcher) modifier (expectedMember: Member) =
-  let normalizedExpectedMember = Arrow (Member.toArrow expectedMember)
+  let normalizedExpectedMember = Arrow.create (Member.toArrow expectedMember)
 
   createConstraintSolver
     "member constraints"
@@ -162,7 +162,7 @@ let testComparisonConstraint = createConstraintStatusSolver "comparison" (fun x 
 
 let rec solve' (lowTypeMatcher: ILowTypeMatcher) (constraints: TypeConstraint list) (initialCtx: Context) (testEqualities: (LowType * LowType) list) =
   let getTestSignatures variable =
-    let variable = Variable (VariableSource.Target, variable)
+    let variable = Variable.create (VariableSource.Target, variable)
     testEqualities |> List.choose (fun (left, right) -> if left = variable then Some right elif right = variable then Some left else None)
     
   Debug.WriteLine("Begin solving type constraints.")

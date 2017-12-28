@@ -1,10 +1,11 @@
-﻿module PrinterTest
+﻿[<Persimmon.Category("printer")>]
+module PrinterTest
 
 open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
 open Persimmon.MuscleAssert
 open FSharpApiSearch
-open FSharpApiSearch.Printer
+open FSharpApiSearch.StringPrinter
 
 open TestHelper.DSL
 open TestHelper.Types
@@ -59,7 +60,7 @@ let printAccessPathTest = parameterize {
   run (fun (input, depth, expected) -> test {
     let name = Name.ofString input
     let sb = System.Text.StringBuilder()
-    do FSharpImpl.printAccessPath depth name sb |> ignore
+    do printStringBuilder sb (FSharpFormat.printAccessPath depth name) |> ignore
     let actual = sb.ToString()
     do! actual |> assertEquals expected
   })
@@ -152,7 +153,7 @@ let printCSharpAccessPathTest = parameterize {
   run (fun (input, depth, expected) -> test {
     let name = Name.ofString input
     let sb = System.Text.StringBuilder()
-    do CSharpImpl.printAccessPath depth name sb |> ignore
+    do printStringBuilder sb (CSharpFormat.printAccessPath depth name) |> ignore
     let actual = sb.ToString()
     do! actual |> assertEquals expected
   })
@@ -168,7 +169,7 @@ let printCSharpLowTypeTest =
     ]
     run (fun (input, expected) -> test {
       let sb = System.Text.StringBuilder()
-      do CSharpImpl.printLowType input sb |> ignore
+      do printStringBuilder sb (CSharpFormat.printLowType input) |> ignore
       let actual = sb.ToString()
       do! actual |> assertEquals expected
     })
@@ -185,8 +186,8 @@ let printCSharpConstraints =
 
     run (fun (constraints, expected) -> test {
       let api = { Name = ApiName.ofString "test"; Signature = moduleValue (userInput "a"); TypeConstraints = constraints; Document = None }
-      let actual = CSharp.tryPrintTypeConstraints api
-      do! actual |> assertEquals (Some expected)
+      let actual = CSharp.printTypeConstraints api
+      do! actual |> assertEquals expected
     })
   }
 
