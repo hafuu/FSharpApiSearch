@@ -1,3 +1,8 @@
+### 4.0.0-beta1
+* Add type coloring
+* Fix type variable bug (#139)
+* Improve performance
+
 ### 3.0.4
 * Fix print bugs (generic method and generic type abbreviation)
 
