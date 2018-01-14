@@ -213,9 +213,9 @@ module FSharp =
           "{} : ?", QueryMethod.ByComputationExpression { Syntaxes = []; Type = wildcard }
           "{ } : ?", QueryMethod.ByComputationExpression { Syntaxes = []; Type = wildcard }
           "{ _ } : ?", QueryMethod.ByComputationExpression { Syntaxes = []; Type = wildcard }
-          "{ use } : ?", QueryMethod.ByComputationExpression { Syntaxes = [ "use" ]; Type = wildcard }
-          "{ try/finally } : ?", QueryMethod.ByComputationExpression { Syntaxes = [ "try/finally" ]; Type = wildcard }
-          "{ let!; return } : 'a", QueryMethod.ByComputationExpression { Syntaxes = [ "let!"; "return" ]; Type = queryVariable "'a" }
+          "{ use } : ?", QueryMethod.ByComputationExpression { Syntaxes = [ syn "use" ]; Type = wildcard }
+          "{ try/finally } : ?", QueryMethod.ByComputationExpression { Syntaxes = [ syn "try/finally" ]; Type = wildcard }
+          "{ let!; return } : 'a", QueryMethod.ByComputationExpression { Syntaxes = [ syn "let!"; syn "return" ]; Type = queryVariable "'a" }
         ]
         run runByComputationExpressionTest
       }
@@ -274,7 +274,7 @@ module FSharp =
       let cases = [
         [ "{"; "}"; ":"; "?" ], QueryMethod.ByComputationExpression { Syntaxes = []; Type = wildcard }
         [ "{"; "_"; "}"; ": ?" ], QueryMethod.ByComputationExpression { Syntaxes = []; Type = wildcard }
-        [ "{"; "let!"; ";"; "return"; "}"; ":"; "'a" ], QueryMethod.ByComputationExpression { Syntaxes = [ "let!"; "return" ]; Type = queryVariable "'a" }
+        [ "{"; "let!"; ";"; "return"; "}"; ":"; "'a" ], QueryMethod.ByComputationExpression { Syntaxes = [ syn "let!"; syn "return" ]; Type = queryVariable "'a" }
       ]
       parameterize {
         source (buildSpaceTestSource cases)

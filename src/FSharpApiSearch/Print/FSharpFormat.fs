@@ -276,6 +276,9 @@ let printUnionCase isDebug (uc: UnionCase) (p: SignaturePrinter<_>) =
 
 let printModule (m: ModuleDefinition) (p: SignaturePrinter<_>) = p.Append("module ").Append(toDisplayName m.Name.Head.Name)
 
+let printSyntax (syntax: ComputationExpressionSyntax) (p: SignaturePrinter<_>) =
+  p.BeginPrintSyntax(syntax).Append(syntax.Syntax).EndPrintSyntax(syntax)
+
 let printComputationExpressionBuilder isDebug (builder: ComputationExpressionBuilder) (p: SignaturePrinter<_>) =
   if isDebug then
     p.Append("type ")
@@ -283,13 +286,13 @@ let printComputationExpressionBuilder isDebug (builder: ComputationExpressionBui
       .Append(", [ ")
       .AppendJoin("; ", builder.ComputationExpressionTypes, printLowType_short isDebug)
       .Append(" ], { ")
-      .AppendJoin("; ", builder.Syntaxes, (fun syntax p -> p.Append(syntax)))
+      .AppendJoin("; ", builder.Syntaxes, printSyntax)
       .Append(" }")
   else
     p.Append("type ")
       .Append(printLowType_short isDebug builder.BuilderType)
       .Append(", { ")
-      .AppendJoin("; ", builder.Syntaxes, (fun syntax p -> p.Append(syntax)))
+      .AppendJoin("; ", builder.Syntaxes, printSyntax)
       .Append(" }")
 
 let printApiSignature isDebug apiSig (p: SignaturePrinter<_>) =

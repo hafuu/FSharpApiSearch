@@ -839,8 +839,9 @@ module internal Impl =
   let computationExpression xml (typeDef: FullTypeDefinition) customOperations =
     option {
       let! syntaxes = tryExtractSyntaxes typeDef customOperations
+      let syntaxes = syntaxes |> Set.toList |> List.map (fun s -> { Syntax = s; Position = Unknown })
       let ceTypes = ComputationExpressionLoader.extractTypes typeDef customOperations |> Seq.toList
-      let apiSig = ApiSignature.ComputationExpressionBuilder { BuilderType = typeDef.LowType; ComputationExpressionTypes = ceTypes; Syntaxes = Set.toList syntaxes }
+      let apiSig = ApiSignature.ComputationExpressionBuilder { BuilderType = typeDef.LowType; ComputationExpressionTypes = ceTypes; Syntaxes = syntaxes }
       return { Name = ApiName typeDef.Name; Signature = apiSig; TypeConstraints = typeDef.TypeConstraints; Document = xml }
     }
 
@@ -1188,6 +1189,11 @@ module internal Impl =
       let ret = resolve_LowType pos ret
       (ps, ret)
 
+    let resolve_Syntax pos = function
+      | ApiSignature.ComputationExpressionBuilder ce ->
+        ApiSignature.ComputationExpressionBuilder { ce with Syntaxes = ce.Syntaxes |> List.map (fun s -> { s with Position = pos() }) }
+      | other -> other
+
     let resolve_Api api =
       let posValue = ref 0
       let pos () =
@@ -1195,7 +1201,12 @@ module internal Impl =
         incr posValue
         Position.AtSignature (SignatureId value)
 
-      { api with Signature = LowTypeVisitor.accept_ApiSignature (resolve_LowType pos) api.Signature }
+      let signature =
+        api.Signature
+        |> LowTypeVisitor.accept_ApiSignature (resolve_LowType pos)
+        |> resolve_Syntax pos
+
+      { api with Signature = signature }
 
     let resolvePosition (apiDict: ApiDictionary) = { apiDict with Api = Array.map resolve_Api apiDict.Api }
 

@@ -934,10 +934,10 @@ module ComputationExpression =
   
   let computationExpressionTest = parameterize {
     source [
-      "ComputationExpression.OptionBuilder", { BuilderType = optBuilder; ComputationExpressionTypes = [ fsharpOption (variable "'a"); fsharpOption (variable "'b") ]; Syntaxes = [ "let!"; "return"; "return!" ] }
-      "ComputationExpression.GenericDelayBuilder", { BuilderType = genericDelayBuilder; ComputationExpressionTypes = [ tryFinallyTest ]; Syntaxes = [ "if/then"; "try/finally" ] }
-      "ComputationExpression.DelayBuilder", { BuilderType = delayBuilder; ComputationExpressionTypes = [ tryFinallyTest ]; Syntaxes = [ "if/then"; "try/finally" ] }
-      "ComputationExpression.CustomOperationBuilder", { BuilderType = customOperationBuilder; ComputationExpressionTypes = [ variable "'a"; customOperation ]; Syntaxes = [ "test"; "yield" ] }
+      "ComputationExpression.OptionBuilder", { BuilderType = optBuilder; ComputationExpressionTypes = [ fsharpOption (variable "'a"); fsharpOption (variable "'b") ]; Syntaxes = [ syn "let!"; syn "return"; syn "return!" ] }
+      "ComputationExpression.GenericDelayBuilder", { BuilderType = genericDelayBuilder; ComputationExpressionTypes = [ tryFinallyTest ]; Syntaxes = [ syn "if/then"; syn "try/finally" ] }
+      "ComputationExpression.DelayBuilder", { BuilderType = delayBuilder; ComputationExpressionTypes = [ tryFinallyTest ]; Syntaxes = [ syn "if/then"; syn "try/finally" ] }
+      "ComputationExpression.CustomOperationBuilder", { BuilderType = customOperationBuilder; ComputationExpressionTypes = [ variable "'a"; customOperation ]; Syntaxes = [ syn "test"; syn "yield" ] }
     ]
 
     run (fun (name, expected) -> test {

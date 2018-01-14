@@ -242,7 +242,17 @@ let queryPosition query =
       Choice (original, choices, position)
     | Wildcard _ | Variable _ | Identifier _ | Generic _ | TypeAbbreviation _ | Delegate _ | ByRef _ | LowType.Subtype _ | LoadingType _ -> LowType.setPosition pos lowType
   
-  LowTypeVisitor.accept_Query (update pos) query
+  let update_ceSyntax pos (query: Query) =
+    let m =
+      match query.Method with
+      | QueryMethod.ByComputationExpression ce ->
+        QueryMethod.ByComputationExpression { ce with Syntaxes = ce.Syntaxes |> List.map (fun s -> { s with Position = pos s.Position }) }
+      | other -> other
+    { query with Method = m }
+
+  query
+  |> update_ceSyntax pos
+  |> LowTypeVisitor.accept_Query (update pos)
 
 type IInitializeStorategy =
   abstract Matchers: SearchOptions * Query -> ILowTypeMatcher * IApiMatcher[]

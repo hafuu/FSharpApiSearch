@@ -83,10 +83,12 @@ type Handler() =
   interface SignaturePrinterHandler<StructuredWriter> with
     member this.BeginPrintType(writer, _, queryId) = queryId |> Option.iter (fun q -> writer.BeginColor(q.Id))
     member this.EndPrintType(writer, _, queryId) = queryId |> Option.iter (fun q -> writer.EndColor(q.Id))
+    member this.BeginPrintSyntax(writer, _, queryId) = queryId |> Option.iter (fun q -> writer.BeginColor(q.Id))
+    member this.EndPrintSyntax(writer, _, queryId) = queryId |> Option.iter (fun q -> writer.EndColor(q.Id))
 
   interface QueryPrinterHandler<StructuredWriter> with
-    member this.BeginPrintType(writer, queryId) = writer.BeginColor(queryId.Id)
-    member this.EndPrintType(writer, queryId) = writer.EndColor(queryId.Id)
+    member this.BeginPrintArea(writer, queryId) = writer.BeginColor(queryId.Id)
+    member this.EndPrintArea(writer, queryId) = writer.EndColor(queryId.Id)
 
 let signature (result: Result) (print: SignaturePrinter<_> -> SignaturePrinter<_>) =
   let writer = StructuredWriter()

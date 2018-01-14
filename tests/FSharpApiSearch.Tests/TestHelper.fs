@@ -138,6 +138,8 @@ module DSL =
 
   let api name apiSig = { Name = ApiName name; Signature = apiSig; TypeConstraints = []; Document = None }
 
+  let syn syntax = { Syntax = syntax; Position = Unknown }
+
   let arrayType = "Microsoft.FSharp.Core.[]<'T>"
   let array2DType = "Microsoft.FSharp.Core.[,]<'T>"
   let array t = createType arrayType [ t ]

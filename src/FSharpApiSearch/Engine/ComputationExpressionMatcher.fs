@@ -22,10 +22,34 @@ let private choose (options: SearchOptions) f xs =
   | Enabled -> PSeq.choose f xs :> seq<_>
   | Disabled -> Seq.choose f xs
 
-let private append options xs ys =
-  match options.Parallel with
-  | Enabled -> PSeq.append xs ys :> seq<_>
-  | Disabled -> Seq.append xs ys
+type ComputationExpressionBuilderRule = ILowTypeMatcher -> ComputationExpressionQuery -> ComputationExpressionBuilder -> Context -> MatchingResult
+
+let ceBuilderTypeRule (lowTypeMatcher: ILowTypeMatcher) (query: ComputationExpressionQuery) (builder: ComputationExpressionBuilder) ctx =
+  let right = Choice.create (builder.BuilderType, builder.ComputationExpressionTypes)
+  lowTypeMatcher.Test query.Type right ctx
+
+let syntaxRule (_: ILowTypeMatcher) (query: ComputationExpressionQuery) (builder: ComputationExpressionBuilder) ctx =
+  let builderSyntaxes = builder.Syntaxes |> List.map (fun s -> s.Syntax, s.Position) |> dict
+  query.Syntaxes
+  |> List.fold (fun result querySyntax ->
+    result
+    |> MatchingResult.bindMatched (fun ctx ->
+      match builderSyntaxes.TryGetValue querySyntax.Syntax with
+      | true, sigPos ->
+        let newCtx =
+          match querySyntax.Position, sigPos with
+          | AtQuery (Some queryId, _), AtSignature sigId -> { ctx with MatchPositions = Map.add sigId queryId ctx.MatchPositions }
+          | _ -> ctx
+        Matched newCtx
+      | _ -> Failure
+    )
+  ) (Matched ctx)
+
+let ceBuilderRules : ComputationExpressionBuilderRule =
+  Rule.compose [|
+    ceBuilderTypeRule |> Rule.matchedToContinue
+    syntaxRule
+  |]
 
 let test (lowTypeMatcher: ILowTypeMatcher) (builderTypes: LowType) (ctx: Context) (api: Api) =
   match api.Signature with
@@ -34,48 +58,37 @@ let test (lowTypeMatcher: ILowTypeMatcher) (builderTypes: LowType) (ctx: Context
   | ApiSignature.ModuleFunction (_, ret) -> lowTypeMatcher.Test builderTypes ret.Type ctx
   | _ -> Failure
 
-let testComputationExpressionTypes (lowTypeMatcher: ILowTypeMatcher) ctx queryCeType ceTypes =
-  ceTypes |> Seq.exists (fun t -> lowTypeMatcher.Test t queryCeType ctx |> MatchingResult.toBool)
-
 let search (options: SearchOptions) (targets: ApiDictionary seq) (lowTypeMatcher: ILowTypeMatcher) (query: ComputationExpressionQuery) (initialContext: Context) =
-  let querySyntaxes = Set.ofList query.Syntaxes
-
-  let testSyntaxes =
-    if query.Syntaxes.IsEmpty then
-      fun syntaxes -> Set.isEmpty syntaxes = false
-    else
-      fun syntaxes -> Set.intersect syntaxes querySyntaxes = querySyntaxes
-
   let builderTypes =
     targets
-    |> collect options (fun target ->
-      target.Api
-      |> Seq.choose (fun api ->
+    |> collect options (fun target -> seq {
+      for api in target.Api do
         match api.Signature with
         | ApiSignature.ComputationExpressionBuilder builder ->
-          Some (api, builder)
-        | _ -> None
-      )
-      |> Seq.filter (fun (_, builder) -> testComputationExpressionTypes lowTypeMatcher initialContext query.Type builder.ComputationExpressionTypes)
-      |> Seq.filter (fun (_, builder) -> testSyntaxes (Set.ofList builder.Syntaxes))
-      |> Seq.map (fun (api, builder) ->
-        let result = { Distance = 0; Api = api; AssemblyName = target.AssemblyName; MatchPositions = Map.empty }
-        (result, builder.BuilderType)
-      )
-    )
+          match Rule.run ceBuilderRules lowTypeMatcher query builder initialContext with
+          | Matched ctx ->
+            let result = { Distance = ctx.Distance; Api = api; AssemblyName = target.AssemblyName; MatchPositions = ctx.MatchPositions }
+            yield (result, builder.BuilderType)
+          | _ -> ()
+        | _ -> ()
+    })
     |> Seq.toList
 
-  let builderResults = builderTypes |> Seq.map fst
 
-  let builderTypes = Choice.create (query.Type, builderTypes |> List.map snd)
+  if List.isEmpty builderTypes then
+    Seq.empty
+  else
+    let builderResults = builderTypes |> List.map fst
 
-  let apiResults =
-    targets
-    |> Seq.collect (fun dic -> dic.Api |> Seq.map (fun api -> (dic, api)))
-    |> choose options (fun (dic, api) ->
-      match test lowTypeMatcher builderTypes initialContext api with
-      | Matched ctx -> Some { Distance = ctx.Distance; Api = api; AssemblyName = dic.AssemblyName; MatchPositions = ctx.MatchPositions }
-      | _ -> None
-    )
+    let builderTypes = Choice.create (query.Type, builderTypes |> List.map snd)
 
-  append options builderResults apiResults
+    let apiResults =
+      targets
+      |> Seq.collect (fun dic -> dic.Api |> Seq.map (fun api -> (dic, api)))
+      |> choose options (fun (dic, api) ->
+        match test lowTypeMatcher builderTypes initialContext api with
+        | Matched ctx -> Some { Distance = ctx.Distance; Api = api; AssemblyName = dic.AssemblyName; MatchPositions = ctx.MatchPositions }
+        | _ -> None
+      )
+
+    Seq.append builderResults apiResults

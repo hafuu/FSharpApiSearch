@@ -1,8 +1,7 @@
 ﻿module FSharpApiSearch.QueryPrinter
 
 module internal Impl =
-  let collectPosition (x: LowType) =
-    let result = ResizeArray()
+  let collectPosition (result: ResizeArray<_>) (x: LowType) =
     let add x = result.Add(x)
     let rec f = function
       | Wildcard (_, p) -> add p
@@ -17,18 +16,20 @@ module internal Impl =
       | TypeAbbreviation _ | Delegate _ -> ()
       | LoadingType _ -> Name.loadingNameError()
     f x
-    result.ToArray()
 
   let collectQueryId (query: Query) =
-    let collect = function
-      | SignatureQuery.Signature s -> collectPosition s
-      | SignatureQuery.Wildcard _ -> [||]
+    let result = ResizeArray<_>()
+    let collect result = function
+      | SignatureQuery.Signature s -> collectPosition result s
+      | SignatureQuery.Wildcard _ -> ()
     match query.Method with
-    | QueryMethod.ByName (_, q) -> collect q
-    | QueryMethod.BySignature q -> collect q
-    | QueryMethod.ByNameOrSignature (_, q) -> collect q
-    | QueryMethod.ByActivePattern _ -> [||]
-    | QueryMethod.ByComputationExpression _ -> [||]
+    | QueryMethod.ByName (_, q) -> collect result q
+    | QueryMethod.BySignature q -> collect result q
+    | QueryMethod.ByNameOrSignature (_, q) -> collect result q
+    | QueryMethod.ByActivePattern _ -> ()
+    | QueryMethod.ByComputationExpression q -> q.Syntaxes |> List.iter (fun s -> result.Add(s.Position))
+
+    result.ToArray()
 
   let rangeToPrint (ps: Position[]) =
     ps

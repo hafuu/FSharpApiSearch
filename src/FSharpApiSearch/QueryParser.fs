@@ -241,12 +241,21 @@ module FSharp =
 
   let signatureQuery = fsharpSignature |>> (SignatureQuery.Signature >> QueryMethod.BySignature)
 
-  let computationExpressionSyntax = manyChars (letter <|> pchar '/') .>>. opt (pstring "!") |>> (fun (syntax, bang) -> match bang with Some bang -> syntax + bang | None -> syntax)  
+  let computationExpressionSyntax =
+    let syntax = manyChars (letter <|> pchar '/') .>>. opt (pstring "!")
+    indexed syntax
+    |>> (fun ((syntax, bang), range) ->
+      {
+        Syntax = match bang with Some bang -> syntax + bang | None -> syntax
+        Position = AtQuery (None, range)
+      }
+    )  
   let computationExpressionQuery =
     let underScore = skipString "_" >>% []
-    let syntaxes = sepBy1 (trim computationExpressionSyntax) (pchar ';') |>> List.filter ((<>)"")
+    let syntaxes = sepBy1 (trim computationExpressionSyntax) (pchar ';') |>> List.filter (fun x -> x.Syntax <> "")
     let left = skipString "{" >>. trim (attempt underScore <|> syntaxes) .>> skipString "}"
-    trim left .>> skipString ":" .>>. trim fsharpSignature |>> (fun (syntax, t) -> QueryMethod.ByComputationExpression { Syntaxes = syntax; Type = t })
+    trim left .>> skipString ":" .>>. trim fsharpSignature
+    |>> (fun (syntax, t) -> QueryMethod.ByComputationExpression { Syntaxes = syntax; Type = t })
 
   let query = choice [ attempt computationExpressionQuery;attempt activePatternQuery; attempt nameQuery; signatureQuery ]
 

@@ -20,6 +20,8 @@ let createPrinter (result: Result) =
     { new SignaturePrinterHandler<Writer> with
         member this.BeginPrintType(writer, t, pos) = pos |> Option.iter setColor
         member this.EndPrintType(writer, t, pos) = pos |> Option.iter resetColor
+        member this.BeginPrintSyntax(writer, s, pos) = pos |> Option.iter setColor
+        member this.EndPrintSyntax(writer, s, pos) = pos |> Option.iter resetColor
     }
   SignaturePrinter(Writer.wrap Console.Out, handler, result)
 
@@ -27,8 +29,8 @@ let createQueryPrinter() =
   let handler =
     {
       new QueryPrinterHandler<_> with
-        member this.BeginPrintType(writer, pos) = setColor pos
-        member this.EndPrintType(writer, pos) = resetColor()
+        member this.BeginPrintArea(writer, pos) = setColor pos
+        member this.EndPrintArea(writer, pos) = resetColor()
     }
   QueryPrinter(Writer.wrap Console.Out, handler)
 

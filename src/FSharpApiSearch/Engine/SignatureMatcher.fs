@@ -266,7 +266,7 @@ let instance (options: SearchOptions) =
       yield Rules.moduleFunctionRule testArrow
       yield Rules.activePatternRule testArrow
 
-      yield Rule.continueFailure (Rules.extensionMemberRule testArrow)
+      yield Rule.continueToFailure (Rules.extensionMemberRule testArrow)
       yield Rules.staticMemberRule testArrow
       yield Rules.constructorRule testArrow
         

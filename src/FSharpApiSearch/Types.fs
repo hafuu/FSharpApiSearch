@@ -493,13 +493,21 @@ with
   member internal this.LowType = Identifier.create (ConcreteType { Name = this.Name; AssemblyName = this.AssemblyName; })
 
 [<MessagePackObject>]
+type ComputationExpressionSyntax = {
+  [<Key(0)>]
+  Syntax: string
+  [<Key(1)>]
+  Position: Position
+}
+
+[<MessagePackObject>]
 type ComputationExpressionBuilder = {
   [<Key(0)>]
   BuilderType: LowType
   [<Key(1)>]
   ComputationExpressionTypes: LowType list
   [<Key(2)>]
-  Syntaxes: string list
+  Syntaxes: ComputationExpressionSyntax list
 }
 
 [<RequireQualifiedAccess>]
@@ -597,7 +605,7 @@ type ActivePatternQuery = {
 }
 [<RequireQualifiedAccess>]
 type ComputationExpressionQuery = {
-  Syntaxes: string list
+  Syntaxes: ComputationExpressionSyntax list
   Type: LowType
 }
 
