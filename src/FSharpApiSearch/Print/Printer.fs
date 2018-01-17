@@ -22,6 +22,6 @@ module CSharp =
   let printSignature (api:Api) (p: SignaturePrinter<_>) = p.Append(CSharpFormat.printApiSignature api.Signature)
   let printKind (api: Api) (p: SignaturePrinter<_>) = p.Append(CSharpFormat.printApiKind api.Kind)
   
-  let hasTypeConstraints (api: Api) = not (api.TypeConstraints |> List.exists CSharpFormat.csharpTypeConstraintPred)
+  let hasTypeConstraints (api: Api) = api.TypeConstraints |> List.exists CSharpFormat.csharpTypeConstraintPred
   let printTypeConstraints (api: Api) (p: SignaturePrinter<_>) =
     p.Append(CSharpFormat.printConstraints api.TypeConstraints)
