@@ -218,7 +218,7 @@ let printConstraints (xs: TypeConstraint list) (p: SignaturePrinter<_>) =
   let printVariable (variable: TypeVariable, constraints: TypeConstraint list) (p: SignaturePrinter<_>) =
     p.Append("where ").Append(variable.Name).Append(" : ").AppendJoin(", ", constraints, printConstraint)
 
-  let constraints = xs |> List.groupBy (fun c -> c.Variables.Head)
+  let constraints = xs |> List.filter csharpTypeConstraintPred |> List.groupBy (fun c -> c.Variables.Head)
   p.AppendJoin(" ", constraints, printVariable)
 
 let printPropertyKind kind (p: SignaturePrinter<_>) =
