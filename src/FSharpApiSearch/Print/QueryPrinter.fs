@@ -26,7 +26,10 @@ module internal Impl =
     | QueryMethod.ByName (_, q) -> collect result q
     | QueryMethod.BySignature q -> collect result q
     | QueryMethod.ByNameOrSignature (_, q) -> collect result q
-    | QueryMethod.ByActivePattern _ -> ()
+    | QueryMethod.ByActivePattern q ->
+      match q.Signature with
+      | ActivePatternSignature.AnyParameter (a, b) -> collectPosition result a; collectPosition result b
+      | ActivePatternSignature.Specified t -> collectPosition result t
     | QueryMethod.ByComputationExpression q -> q.Syntaxes |> List.iter (fun s -> result.Add(s.Position))
 
     result.ToArray()
