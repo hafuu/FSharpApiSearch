@@ -67,14 +67,20 @@ module FSharp =
 
   let userInputType =
     indexed partialName
-    |>> (function (name, range) -> Identifier (UserInputType { Name = name }, atQuery range))
+    >>= (fun (name, range) ->
+      match name with
+      | [ { Name = SymbolName "_" } ] -> fail "It is wildcard"
+      | _ -> preturn (Identifier (UserInputType { Name = name }, atQuery range))
+    )
     <?> "type"
   let variable =
     indexed (skipChar ''' >>. pidentifier)
-    |>> (function (name, range) -> Variable (VariableSource.Query, { Name = name; IsSolveAtCompileTime = false }, atQuery range))
+    |>> (fun (name, range) -> Variable (VariableSource.Query, { Name = name; IsSolveAtCompileTime = false }, atQuery range))
     <?> "variable"
   let wildcard =
-    indexed (skipChar '?' >>. opt pidentifier)
+    let questionPrefix = skipChar '?' >>. opt pidentifier
+    let underscore = pstring "_" |>> (fun _ -> None)
+    indexed (questionPrefix <|> underscore)
     |>> (fun (name, range) -> Wildcard (name, atQuery range))
     <?> "wildcard"
 

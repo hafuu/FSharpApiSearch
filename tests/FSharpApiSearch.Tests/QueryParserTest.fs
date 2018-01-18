@@ -37,6 +37,7 @@ module FSharp =
         "a.b", (userInput "a.b")
         "a.b.c", (userInput "a.b.c")
         "'a", (queryVariable "'a")
+        "_a", (userInput "_a")
       ]
       run runSignatureTest
     }
@@ -47,6 +48,7 @@ module FSharp =
         "?a", (wildcardGroup "a")
         "? -> ?", (arrow [ wildcard; wildcard ])
         "a<?, ?b>", (generic (userInput "a") [ wildcard; wildcardGroup "b" ])
+        "_", (wildcard)
       ]
       run runSignatureTest
     }
