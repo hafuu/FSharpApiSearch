@@ -1,7 +1,6 @@
 ﻿module internal FSharpApiSearch.ComputationExpressionMatcher
 
 open EngineTypes
-open FSharp.Collections.ParallelSeq
 
 module Filter =
   let instance (_: SearchOptions) =
@@ -11,16 +10,6 @@ module Filter =
           match api.Kind with
           | ApiKind.ComputationExpressionBuilder -> Failure
           | _ -> Matched ctx }
-
-let private collect (options: SearchOptions) f (xs: #seq<_>) =
-  match options.Parallel with
-  | Enabled -> PSeq.collect f xs :> seq<_>
-  | Disabled -> Seq.collect f xs
-
-let private choose (options: SearchOptions) f xs =
-  match options.Parallel with
-  | Enabled -> PSeq.choose f xs :> seq<_>
-  | Disabled -> Seq.choose f xs
 
 type ComputationExpressionBuilderRule = ILowTypeMatcher -> ComputationExpressionQuery -> ComputationExpressionBuilder -> Context -> MatchingResult
 
@@ -58,10 +47,10 @@ let test (lowTypeMatcher: ILowTypeMatcher) (builderTypes: LowType) (ctx: Context
   | ApiSignature.ModuleFunction (_, ret) -> lowTypeMatcher.Test builderTypes ret.Type ctx
   | _ -> Failure
 
-let search (options: SearchOptions) (targets: ApiDictionary seq) (lowTypeMatcher: ILowTypeMatcher) (query: ComputationExpressionQuery) (initialContext: Context) =
+let search (seqFunc: SeqFunctions) (targets: ApiDictionary seq) (lowTypeMatcher: ILowTypeMatcher) (query: ComputationExpressionQuery) (initialContext: Context) =
   let builderTypes =
     targets
-    |> collect options (fun target -> seq {
+    |> seqFunc.Collect (fun target -> seq {
       for api in target.Api do
         match api.Signature with
         | ApiSignature.ComputationExpressionBuilder builder ->
@@ -85,7 +74,7 @@ let search (options: SearchOptions) (targets: ApiDictionary seq) (lowTypeMatcher
     let apiResults =
       targets
       |> Seq.collect (fun dic -> dic.Api |> Seq.map (fun api -> (dic, api)))
-      |> choose options (fun (dic, api) ->
+      |> seqFunc.Choose (fun (dic, api) ->
         match test lowTypeMatcher builderTypes initialContext api with
         | Matched ctx -> Some { Distance = ctx.Distance; Api = api; AssemblyName = dic.AssemblyName; MatchPositions = ctx.MatchPositions }
         | _ -> None

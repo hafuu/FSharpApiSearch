@@ -85,12 +85,18 @@ let (|Fsproj|Csproj|Vbproj|Shproj|) (projFileName:string) =
 // Generate assembly info files with the right version & up-to-date information
 Target "AssemblyInfo" (fun _ ->
     let getAssemblyInfoAttributes projectName =
-        [ Attribute.Title (projectName)
-          Attribute.Product project
-          Attribute.Description summary
-          Attribute.Version release.AssemblyVersion
-          Attribute.FileVersion release.AssemblyVersion
-          Attribute.Configuration configuration ]
+        [
+          yield Attribute.Title (projectName)
+          yield Attribute.Product project
+          yield Attribute.Description summary
+          yield Attribute.Version release.AssemblyVersion
+          yield Attribute.FileVersion release.AssemblyVersion
+          yield Attribute.Configuration configuration
+
+          match projectName with
+          | "FSharpApiSearch" -> yield  Attribute.InternalsVisibleTo "FSharpApiSearch.Tests"
+          | _ -> ()
+        ]
 
     let getProjectDetails projectPath =
         let projectName = System.IO.Path.GetFileNameWithoutExtension(projectPath)

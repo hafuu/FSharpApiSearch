@@ -3,7 +3,6 @@
 open System.Diagnostics
 open FSharpApiSearch.EngineTypes
 open FSharpApiSearch.Printer
-open FSharp.Collections.ParallelSeq
 
 let internal test (lowTypeMatcher: ILowTypeMatcher) (apiMatchers: IApiMatcher[]) (query: Query) (ctx: Context) (api: Api) =
   let mutable continue' = true
@@ -25,34 +24,24 @@ let internal test (lowTypeMatcher: ILowTypeMatcher) (apiMatchers: IApiMatcher[])
   else
     Failure
 
-let private choose (options: SearchOptions) f xs=
-  match options.Parallel with
-  | Enabled -> PSeq.choose f xs :> seq<_>
-  | Disabled -> Seq.choose f xs
-
-let internal search' (targets: ApiDictionary seq) (options: SearchOptions) (lowTypeMatcher: ILowTypeMatcher) (apiMatchers: IApiMatcher[]) (query: Query) (initialContext: Context) =
+let internal search' (seqFunc: SeqFunctions) (targets: ApiDictionary seq) (lowTypeMatcher: ILowTypeMatcher) (apiMatchers: IApiMatcher[]) (query: Query) (initialContext: Context) =
   targets
   |> Seq.collect (fun dic -> dic.Api |> Seq.map (fun api -> (dic, api)))
-  |> choose options (fun (dic, api) ->
+  |> seqFunc.Choose (fun (dic, api) ->
     match test lowTypeMatcher apiMatchers query initialContext api with
     | Matched ctx -> Some { Distance = ctx.Distance; Api = api; AssemblyName = dic.AssemblyName; MatchPositions = ctx.MatchPositions }
     | _ -> None
   )
 
-let internal storategy options =
-  match options.Language with
-  | FSharp -> EngineInitializer.FSharpInitializeStorategy() :> EngineInitializer.IInitializeStorategy
-  | CSharp -> EngineInitializer.CSharpInitializeStorategy() :> EngineInitializer.IInitializeStorategy
-
 let search (dictionaries: ApiDictionary[]) (options: SearchOptions) (targets: ApiDictionary seq) (queryStr: string) : Query * seq<Result> =
-  let storategy = storategy options
-  let query = storategy.InitializeQuery(storategy.ParseQuery(queryStr), dictionaries, options)
-  let lowTypeMatcher, apiMatchers = storategy.Matchers(options, query)
-  let initialContext = storategy.InitialContext(query, dictionaries, options)
+  let strategy = EngineStrategy.create options
+  let query = strategy.InitializeQuery(strategy.ParseQuery(queryStr), dictionaries)
+  let lowTypeMatcher, apiMatchers = strategy.Matchers(query)
+  let initialContext = strategy.InitialContext(query, dictionaries)
 
   let results =
     match query.Method with
-    | QueryMethod.ByComputationExpression ceQuery -> ComputationExpressionMatcher.search options targets lowTypeMatcher ceQuery initialContext
-    | _ -> search' targets options lowTypeMatcher apiMatchers query initialContext
+    | QueryMethod.ByComputationExpression ceQuery -> ComputationExpressionMatcher.search strategy.SeqFunctions targets lowTypeMatcher ceQuery initialContext
+    | _ -> search' strategy.SeqFunctions targets lowTypeMatcher apiMatchers query initialContext
 
   (query, results)

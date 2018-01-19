@@ -122,3 +122,24 @@ module Rule =
         | Continue ctx -> state <- ctx
         | _ -> continue' <- false
       result
+
+type SeqFunctions =
+  abstract Choose : ('a -> 'b option) -> seq<'a> -> seq<'b>
+  abstract Collect : ('a -> seq<'b>) -> seq<'a> -> seq<'b>
+
+module SeqFunctions =
+  open FSharp.Collections.ParallelSeq
+  let parallel' =
+    { new SeqFunctions with
+        member this.Choose f xs = PSeq.choose f xs :> seq<_>
+        member this.Collect f xs = PSeq.collect f xs :> seq<_>
+    }
+  let serial =
+    { new SeqFunctions with
+        member this.Choose f xs = Seq.choose f xs
+        member this.Collect f xs = Seq.collect f xs
+    }
+  let create (options: SearchOptions) =
+    match options.Parallel with
+    | Enabled -> parallel'
+    | Disabled -> serial

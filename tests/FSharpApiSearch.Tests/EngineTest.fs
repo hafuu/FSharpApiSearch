@@ -59,7 +59,7 @@ let respectNameDifferenceInequalitiesTest =
   test {
     let query = QueryParser.FSharp.parse "?a -> ?b -> 'a -> 'b"
     let opt = defaultTestOptions
-    let eqs = EngineTypes.Equations.empty |> EngineInitializer.initialEquations opt query
+    let eqs = EngineTypes.Equations.empty |> ContextInitializer.initialEquations opt query
     do! eqs.Inequalities |> assertEquals [ (queryVariable "'a", queryVariable "'b"); (Wildcard.create (Some "a"), Wildcard.create (Some "b")) ]
   }
 
@@ -2143,9 +2143,9 @@ module InitializeTest =
       |]
       let dictionaries = Array.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = IDictionary.empty; TypeAbbreviations = abbreviations }
       let actual =
-        let storategy = EngineInitializer.FSharpInitializeStorategy() :> EngineInitializer.IInitializeStorategy
-        let query = storategy.ParseQuery(query)
-        storategy.InitializeQuery(query, dictionaries, TestHelper.defaultTestOptions)
+        let strategy = EngineStrategy.FSharp(TestHelper.defaultTestOptions) :> EngineStrategy
+        let query = strategy.ParseQuery(query)
+        strategy.InitializeQuery(query, dictionaries)
       let expected: Query = { OriginalString = query; Method = expected }
       do! actual |> assertEquals expected
     })
@@ -2164,9 +2164,9 @@ module InitializeTest =
       run (fun (query, expected) -> test {
         let dictionaries = Array.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = IDictionary.empty; TypeAbbreviations = Array.empty }
         let actual =
-          let storategy = EngineInitializer.FSharpInitializeStorategy() :> EngineInitializer.IInitializeStorategy
-          let query = storategy.ParseQuery(query)
-          storategy.InitializeQuery(query, dictionaries, TestHelper.defaultTestOptions)
+          let strategy = EngineStrategy.FSharp(TestHelper.defaultTestOptions) :> EngineStrategy
+          let query = strategy.ParseQuery(query)
+          strategy.InitializeQuery(query, dictionaries)
         let expected: Query = { OriginalString = query; Method = expected }
         do! actual |> assertEquals expected
       })
@@ -2181,10 +2181,10 @@ module InitializeTest =
     run (fun (query, expected) -> test {
       let dictionaries = Array.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = IDictionary.empty; TypeAbbreviations = Array.empty }
       let actual =
-        let storategy = EngineInitializer.FSharpInitializeStorategy() :> EngineInitializer.IInitializeStorategy
-        let query = storategy.ParseQuery(query)
         let options = TestHelper.defaultTestOptions |> SearchOptions.SingleLetterAsVariable.Set Enabled
-        storategy.InitializeQuery(query, dictionaries, options)
+        let strategy = EngineStrategy.FSharp(options) :> EngineStrategy
+        let query = strategy.ParseQuery(query)
+        strategy.InitializeQuery(query, dictionaries)
       let expected: Query = { OriginalString = query; Method = expected }
       do! actual |> assertEquals expected
     })
@@ -2209,9 +2209,10 @@ module InitializeTest =
       |]
       let dictionaries = Array.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = IDictionary.empty; TypeAbbreviations = abbreviations }
       let actual =
-        let storategy = EngineInitializer.CSharpInitializeStorategy() :> EngineInitializer.IInitializeStorategy
-        let query = storategy.ParseQuery(query)
-        storategy.InitializeQuery(query, dictionaries, TestHelper.defaultTestOptions)
+        let options = TestHelper.defaultTestOptions |> SearchOptions.Language.Set Language.CSharp
+        let strategy = EngineStrategy.CSharp(options) :> EngineStrategy
+        let query = strategy.ParseQuery(query)
+        strategy.InitializeQuery(query, dictionaries)
       let expected: Query = { OriginalString = query; Method = expected }
       do! actual |> assertEquals expected
     })

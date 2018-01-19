@@ -34,7 +34,7 @@ let printQueryTest = parameterize {
     "a -> b -> c", [| ("a", Some 0); (" -> ", None); ("b", Some 1); (" -> ", None); ("c", Some 2) |]
   ]
   run (fun (input, expected) -> test {
-    let query = QueryParser.FSharp.parse input |> EngineInitializer.queryPosition
+    let query = QueryParser.FSharp.parse input |> QueryInitializer.queryPosition
     let actual = HtmlPrintHelper.query (QueryPrinter.print query)
     do! actual.Text |> assertEquals expected
   })

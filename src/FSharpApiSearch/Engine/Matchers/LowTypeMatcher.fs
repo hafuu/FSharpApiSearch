@@ -91,7 +91,7 @@ module Equations =
     else
       Failure
 
-module SamePositions =
+module MatchPositions =
   let update (left: LowType) (right: LowType) (ctx: Context) =
     match left, left.Position, right, right.Position with
     | queryType, AtQuery (Some queryPos, _), sigType, AtSignature sigPos
@@ -555,7 +555,7 @@ let instance options =
           (right.Debug())
           (Equations.debug ctx.Equations))
         Debug.Indent()
-        let result = Rule.run rule this left right ctx |> MatchingResult.mapMatched (SamePositions.update left right)
+        let result = Rule.run rule this left right ctx |> MatchingResult.mapMatched (MatchPositions.update left right)
         Debug.Unindent()
         result
       member this.TestAll left right ctx = Rules.testAllWithComplementAndSwap this options.ComplementDepth options.SwapOrderDepth left right ctx
