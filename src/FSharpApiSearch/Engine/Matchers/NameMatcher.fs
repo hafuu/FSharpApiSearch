@@ -6,20 +6,19 @@ open System.Text.RegularExpressions
 open System
 
 type StringOptions = {
-  StringComparer: StringComparer
   StringComparison: StringComparison
   RegexOptions: RegexOptions
 }
 
 let stringOptions ignoreCase =
   match ignoreCase with
-  | Enabled -> { StringComparer = StringComparer.InvariantCultureIgnoreCase; StringComparison = StringComparison.InvariantCultureIgnoreCase; RegexOptions = RegexOptions.CultureInvariant ||| RegexOptions.IgnoreCase }
-  | Disabled -> { StringComparer = StringComparer.InvariantCulture; StringComparison = StringComparison.InvariantCulture; RegexOptions = RegexOptions.CultureInvariant }
+  | Enabled -> { StringComparison = StringComparison.InvariantCultureIgnoreCase; RegexOptions = RegexOptions.CultureInvariant ||| RegexOptions.IgnoreCase }
+  | Disabled -> { StringComparison = StringComparison.InvariantCulture; RegexOptions = RegexOptions.CultureInvariant }
 
-let private cmp strOpt (byName: ByName) actual =
+let private cmp strOpt (byName: ByName) (actual: string) =
   let expected = byName.Expected
   match byName.MatchMethod with
-  | NameMatchMethod.StringCompare -> String.equalsWithComparer strOpt.StringComparer expected actual
+  | NameMatchMethod.StringCompare -> actual.Equals(expected, strOpt.StringComparison)
   | NameMatchMethod.StartsWith -> actual.StartsWith(expected, strOpt.StringComparison)
   | NameMatchMethod.EndsWith -> actual.EndsWith(expected, strOpt.StringComparison)
   | NameMatchMethod.Contains -> actual.IndexOf(expected, strOpt.StringComparison) >= 0

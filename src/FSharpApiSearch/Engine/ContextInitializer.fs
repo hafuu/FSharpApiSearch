@@ -62,7 +62,7 @@ let queryTypes query (dictionaries: ApiDictionary[]) =
     let types =
       dictionaries
       |> Seq.collect (fun d -> d.TypeDefinitions.Values)
-      |> Seq.filter (fun td -> TypeNameEquality.sameName (UserInputType id) (ConcreteType td.ConcreteType) = TypeNameEquality.Result.Matched)
+      |> Seq.filter (fun td -> TypeNameEquality.sameName (UserInputType id) (ConcreteType td.ConcreteType) = Ok 0)
       |> Seq.toArray
     (id, types)
   )

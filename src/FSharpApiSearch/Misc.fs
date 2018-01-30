@@ -26,10 +26,6 @@ module internal Seq =
     ) (Some [])
     |> Option.map Seq.rev
 
-module internal String =
-  open System
-  let equalsWithComparer (cmp: StringComparer) x y = cmp.Compare(x, y) = 0
-  
 [<AutoOpen>]
 module internal Extensions =
   open System.Text

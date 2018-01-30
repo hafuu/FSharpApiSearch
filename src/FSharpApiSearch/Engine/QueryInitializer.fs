@@ -75,7 +75,7 @@ let private replaceTypeAbbreviation' nameEquality (table: TypeAbbreviation list)
   | { Method = QueryMethod.ByComputationExpression ceQuery } -> { query with Method = QueryMethod.ByComputationExpression (replaceComputationExpressionQuery ceQuery) }
 
 let replaceTypeAbbreviation (table: TypeAbbreviation list) (options: SearchOptions) (query: Query) =
-  let equality x y = TypeNameEquality.equalityFromOptions options x y = TypeNameEquality.Result.Matched
+  let equality x y = TypeNameEquality.equalityFromOptions options x y = Ok 0
   replaceTypeAbbreviation' equality table query
 
 let typeAbbreviationTableFromApiDictionary (dictionaries: ApiDictionary seq) =

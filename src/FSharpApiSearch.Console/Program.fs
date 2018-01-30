@@ -191,6 +191,8 @@ FSharpApiSearch.Console interactive mode directive:
       The parameter style refers to curried parameter, multi parameter and tuple parameter.
   #ignore-case [enable|disable]
       Enables or disables to use ignore case matching.
+  #partial-type-name [enable|disable]
+      Enables or disables the partial matching of type name.
   #swap-order [enable|disable]
       Enables of disables to swap parameters and tuple elements.
   #complement [enable|disable]
@@ -224,6 +226,7 @@ FSharpApiSearch.Console interactive mode directive:
     | OptionSetting "#greedy-matching" SearchOptions.GreedyMatching arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#ignore-param-style" SearchOptions.IgnoreParameterStyle arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#ignore-case" SearchOptions.IgnoreCase arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
+    | OptionSetting "#partial-type-name" SearchOptions.PartialTypeName arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#swap-order" SearchOptions.SwapOrder arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#complement" SearchOptions.Complement arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
     | OptionSetting "#single-letter-as-variable" SearchOptions.SingleLetterAsVariable arg.SearchOptions newOpt -> loop client { arg with SearchOptions = newOpt }
@@ -265,6 +268,9 @@ options:
       The default is enabled.
   --ignore-case[+|-]
       Enables or disables to use ignore case matching.
+      The default is enabled.
+  --partial-type-name[+|-]
+      Enables or disables the partial matching of type name.
       The default is enabled.
   --swap-order[+|-]
       Enables or disables to swap parameters and tuple elements.

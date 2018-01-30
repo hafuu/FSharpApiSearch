@@ -676,6 +676,7 @@ type SearchOptions = internal {
   RespectNameDifference: OptionStatus
   IgnoreParameterStyle: OptionStatus
   IgnoreCase: OptionStatus
+  PartialTypeName: OptionStatus
   SwapOrderDepth: int
   ComplementDepth: int
   ShortLetterAsVariable: int
@@ -689,6 +690,7 @@ module SearchOptions =
     RespectNameDifference = Enabled
     IgnoreParameterStyle = Enabled
     IgnoreCase = Enabled
+    PartialTypeName = Enabled
     SwapOrderDepth = 2
     ComplementDepth = 2
     ShortLetterAsVariable = 1
@@ -708,7 +710,8 @@ module SearchOptions =
   let RespectNameDifference = { Get = (fun x -> x.RespectNameDifference); Set = (fun value x -> { x with RespectNameDifference = value }) }
   let IgnoreParameterStyle = { Get = (fun x -> x.IgnoreParameterStyle); Set = (fun value x -> { x with IgnoreParameterStyle = value }) }
   let IgnoreCase = { Get = (fun x -> x.IgnoreCase); Set = (fun value x -> { x with IgnoreCase = value }) }
-  
+  let PartialTypeName = { Get = (fun x -> x.PartialTypeName); Set = (fun value x -> { x with PartialTypeName = value }) }
+
   let internal SwapOrderDepth = { Get = (fun x -> x.SwapOrderDepth); Set = (fun value x -> { x with SwapOrderDepth = max 0 value }) }
   let SwapOrder = { Get = SwapOrderDepth.Get >> intToStatus; Set = statusToInt defaultOptions.SwapOrderDepth >> SwapOrderDepth.Set }
   

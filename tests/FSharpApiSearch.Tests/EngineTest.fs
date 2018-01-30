@@ -1995,6 +1995,45 @@ module ComplementTest =
       run (distanceTest false { defaultTestOptions with ComplementDepth = 10 })
     }
 
+module PartialTypeNameTest =
+  let runTest trace cases =
+    let targetName = Name.ofString "test"
+
+    parameterize {
+      source [
+        for partialTypeName in [ Enabled; Disabled ] do
+          for (query, targetSig, expected) in cases do
+            let expected = expectedValue partialTypeName expected
+            yield (partialTypeName, query, targetSig, expected)
+      ]
+      
+      run (fun (partialTypeName, query, targetSig, expected) ->
+        let options = defaultTestOptions |> SearchOptions.PartialTypeName.Set partialTypeName
+        matchTest trace [||] (options, query, targetName, targetSig, expected))
+    }
+
+  let testPartialTypeName =
+    runTest false [
+      "A", moduleValue (createType "A" []), Always true
+      "A", moduleValue (createType "_A" []), WhenEnabled true
+      "A", moduleValue (createType "A_" []), WhenEnabled true
+      "A", moduleValue (createType "_A_" []), WhenEnabled true
+      "B", moduleValue (createType "A" []), Always false
+
+      "A.B", moduleValue (createType "A._B" []), WhenEnabled true
+      "A.B", moduleValue (createType "_A.B" []), Always false
+    ]
+
+  let distanceTest = parameterize {
+    source [
+      "A", moduleValue (createType "A" []), 0
+      "A", moduleValue (createType "_A" []), 1
+      "A", moduleValue (createType "A_" []), 1
+      "A", moduleValue (createType "_A_" []), 1
+    ]
+    run (distanceTest false { defaultTestOptions with PartialTypeName = Enabled })
+  }
+
 module MatchingPositionTest =
   let trace = false
 

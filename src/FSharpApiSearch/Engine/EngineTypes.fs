@@ -28,8 +28,10 @@ type SubtypeCache = ConcurrentDictionary<LowType * LowType, SubtypeResult>
 module SubtypeCache =
   let create() = SubtypeCache()
 
+type Distance = int
+
 type Context = {
-  Distance: int
+  Distance: Distance
   Equations: Equations
   MatchPositions: Map<SignatureId, QueryId>
   QueryTypes: Map<UserInputType, FullTypeDefinition[]>

@@ -272,9 +272,9 @@ module Rules =
 
   let testTypeInfo (nameEquality: TypeNameEquality.Equality) (left: Identifier) (right: Identifier) ctx =
     match nameEquality left right with
-    | TypeNameEquality.Result.Matched ->
+    | Ok distance ->
       Debug.WriteLine("There are same type.")
-      Matched ctx
+      Matched (ctx |> Context.addDistance "partial matching of type name" distance)
     | failed ->
       Debug.WriteLine(sprintf "There are deferent type. The reason is %A" failed)
       Failure

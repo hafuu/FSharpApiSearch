@@ -2,21 +2,25 @@
 
 open System
 open System.Collections.Generic
+open EngineTypes
 
-[<RequireQualifiedAccess>]
-type Result =
-  | Matched
-  | DifferentGenericParameter of int * int
+type FailureReason =
+  | DifferentGenericParameter of leftLength:int * rightLength:int
   | DifferentName
   | DifferentAssemblyName
+
+type Result = Result<Distance, FailureReason>
 
 type TestBuilder() =
   member inline __.Bind(x, f) =
     match x with
-    | Result.Matched -> f()
+    | Ok d1 ->
+      match f() with
+      | Ok d2 -> Ok (d1 + d2)
+      | failure -> failure
     | failure -> failure
 
-  member inline __.Zero() = Result.Matched
+  member inline __.Zero() = Ok 0
 
 let private test = TestBuilder()
 
@@ -26,49 +30,52 @@ let testee (x: NameItem) =
   | OperatorName (_, n) -> n
   | WithCompiledName (n, _) -> n
 
-let private forall2 (f: 'a * 'a -> Result) (xs: 'a list) (ys: 'a list) : Result =
+let private forall2 (f: 'a -> 'a -> Result) (xs: 'a list) (ys: 'a list) : Result =
+  let distance = ref 0
   let rec loop xs ys =
     match xs, ys with
     | x :: xs, y :: ys ->
-      match f (x, y) with
-      | Result.Matched -> loop xs ys
+      match f x y with
+      | Ok d ->
+        distance := !distance + d
+        loop xs ys
       | failure -> failure
-    | _ -> Result.Matched
+    | _ -> Ok !distance
   loop xs ys
 
 let testGenericParameterCount (x: int) (y: int) =
   if x = y then
-    Result.Matched
+    Ok 0
   else
-    Result.DifferentGenericParameter (x, y)
+    Error (DifferentGenericParameter (x, y))
 
-let testString cmp x y =
-  if String.equalsWithComparer cmp x y then
-    Result.Matched
+let testStringExact (cmp: StringComparison) (x: string) (y: string) : Result =
+  if x.Equals(y, cmp) then
+    Ok 0
   else
-    Result.DifferentName
+    Error DifferentName
 
 let testName cmp (xs: Name) (ys: Name) =
-  let f (x, y) = test {
-    do! testString cmp (testee x) (testee y)
+  let f x y = test {
+    do! testStringExact cmp (testee x) (testee y)
     do! testGenericParameterCount x.GenericParameters.Length y.GenericParameters.Length
   }
   forall2 f xs ys
 
 let testAssemblyName (x: ConcreteType) (y: ConcreteType) =
   if x.AssemblyName = y.AssemblyName then
-    Result.Matched
+    Ok 0
   else
-    Result.DifferentAssemblyName
+    Error DifferentAssemblyName
 
 let testConcreteType (x: ConcreteType) (y: ConcreteType) = test {
   do! testAssemblyName x y
-  do! testName StringComparer.InvariantCulture x.Name y.Name
+  do! testName StringComparison.InvariantCulture x.Name y.Name
 }
 
 let concreteTypeComparer =
   { new IEqualityComparer<ConcreteType> with
-      member this.Equals(x, y) = testConcreteType x y = Result.Matched
+      member this.Equals(x, y) = testConcreteType x y = Ok 0
       member this.GetHashCode(x) =
         let mutable value = x.AssemblyName.GetHashCode()
         for item in x.Name do
@@ -77,25 +84,37 @@ let concreteTypeComparer =
         value
   }
 
-let testUserInputAndConcreteType cmp (userInput: UserInputType) (actual: ConcreteType) =
-  let testNameItem (p: NameItem, f: NameItem) = test {
+let testStringPartial (cmp: StringComparison) (userInput: string) (actual: string) =
+  let index = actual.IndexOf(userInput, cmp)
+  if index < 0 then
+    Error DifferentName
+  else
+    if userInput.Length = actual.Length then
+      Ok 0
+    else
+      Ok 1
+
+let testUserInputAndConcreteType (cmp: StringComparison) (testStr: StringComparison -> string -> string -> Result) (userInput: UserInputType) (actual: ConcreteType) =
+  let testNameItem testStr (p: NameItem) (f: NameItem) = test {
     match p.GenericParameters, f.GenericParameters with
     | [], _ ->
-      do! testString cmp (testee p) (testee f)
+      do! testStr cmp (testee p) (testee f)
     | _ ->
-      do! testString cmp (testee p) (testee f)
+      do! testStr cmp (testee p) (testee f)
       do! testGenericParameterCount p.GenericParameters.Length f.GenericParameters.Length
   }
   test {
     do! testGenericParameterCount userInput.GenericParameterCount actual.GenericParameterCount
-    do! forall2 testNameItem userInput.Name actual.Name
+
+    do! testNameItem testStr userInput.Name.Head actual.Name.Head
+    do! forall2 (testNameItem testStringExact) userInput.Name.Tail actual.Name.Tail
   }
 
-let private sameName' cmp x y =
+let private sameName' cmp testStr x y =
   match x, y with
   | ConcreteType left, ConcreteType right -> testConcreteType left right
   | ConcreteType concrete, UserInputType userInput
-  | UserInputType userInput, ConcreteType concrete -> testUserInputAndConcreteType cmp userInput concrete
+  | UserInputType userInput, ConcreteType concrete -> testUserInputAndConcreteType cmp testStr userInput concrete
   | UserInputType left, UserInputType right ->
     test {
       do! testGenericParameterCount left.GenericParameterCount right.GenericParameterCount
@@ -104,10 +123,16 @@ let private sameName' cmp x y =
 
 type Equality = Identifier -> Identifier -> Result
 
-let sameName x y = sameName' StringComparer.InvariantCulture x y
-let sameNameIgnoreCase x y = sameName' StringComparer.InvariantCultureIgnoreCase x y
+let sameName x y = sameName' StringComparison.InvariantCulture testStringExact x y
+let sameNameIgnoreCase x y = sameName' StringComparison.InvariantCultureIgnoreCase testStringExact x y
 
 let equalityFromOptions opt : Equality =
-  match opt.IgnoreCase with
-  | Enabled -> sameNameIgnoreCase
-  | Disabled -> sameName
+  let comparison =
+    match opt.IgnoreCase with
+    | Enabled -> StringComparison.InvariantCultureIgnoreCase
+    | Disabled -> StringComparison.InvariantCulture
+  let testStr =
+    match opt.PartialTypeName with
+    | Enabled -> testStringPartial
+    | Disabled -> testStringExact
+  sameName' comparison testStr
