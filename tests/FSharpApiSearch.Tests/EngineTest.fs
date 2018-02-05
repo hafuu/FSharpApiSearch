@@ -1995,24 +1995,24 @@ module ComplementTest =
       run (distanceTest false { defaultTestOptions with ComplementDepth = 10 })
     }
 
-module PartialTypeNameTest =
+module SubstringTypeNameTest =
   let runTest trace cases =
     let targetName = Name.ofString "test"
 
     parameterize {
       source [
-        for partialTypeName in [ Enabled; Disabled ] do
+        for substring in [ Enabled; Disabled ] do
           for (query, targetSig, expected) in cases do
-            let expected = expectedValue partialTypeName expected
-            yield (partialTypeName, query, targetSig, expected)
+            let expected = expectedValue substring expected
+            yield (substring, query, targetSig, expected)
       ]
       
-      run (fun (partialTypeName, query, targetSig, expected) ->
-        let options = defaultTestOptions |> SearchOptions.PartialTypeName.Set partialTypeName
+      run (fun (substring, query, targetSig, expected) ->
+        let options = defaultTestOptions |> SearchOptions.Substring.Set substring
         matchTest trace [||] (options, query, targetName, targetSig, expected))
     }
 
-  let testPartialTypeName =
+  let testSubstring =
     runTest false [
       "A", moduleValue (createType "A" []), Always true
       "A", moduleValue (createType "_A" []), WhenEnabled true
@@ -2031,7 +2031,7 @@ module PartialTypeNameTest =
       "A", moduleValue (createType "A_" []), 1
       "A", moduleValue (createType "_A_" []), 1
     ]
-    run (distanceTest false { defaultTestOptions with PartialTypeName = Enabled })
+    run (distanceTest false { defaultTestOptions with Substring = Enabled })
   }
 
 module MatchingPositionTest =

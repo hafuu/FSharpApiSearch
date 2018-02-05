@@ -84,7 +84,7 @@ let concreteTypeComparer =
         value
   }
 
-let testStringPartial (cmp: StringComparison) (userInput: string) (actual: string) =
+let testStringSubstring (cmp: StringComparison) (userInput: string) (actual: string) =
   let index = actual.IndexOf(userInput, cmp)
   if index < 0 then
     Error DifferentName
@@ -132,7 +132,7 @@ let equalityFromOptions opt : Equality =
     | Enabled -> StringComparison.InvariantCultureIgnoreCase
     | Disabled -> StringComparison.InvariantCulture
   let testStr =
-    match opt.PartialTypeName with
-    | Enabled -> testStringPartial
+    match opt.Substring with
+    | Enabled -> testStringSubstring
     | Disabled -> testStringExact
   sameName' comparison testStr

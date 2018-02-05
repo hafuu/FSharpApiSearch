@@ -274,7 +274,7 @@ module Rules =
     match nameEquality left right with
     | Ok distance ->
       Debug.WriteLine("There are same type.")
-      Matched (ctx |> Context.addDistance "partial matching of type name" distance)
+      Matched (ctx |> Context.addDistance "substring matching of type name" distance)
     | failed ->
       Debug.WriteLine(sprintf "There are deferent type. The reason is %A" failed)
       Failure

@@ -7,7 +7,7 @@ let skipAll xs = xs |> Seq.map (Persimmon.Syntax.skip "skip")
 
 let defaultTestOptions =
   SearchOptions.defaultOptions
-  |> SearchOptions.PartialTypeName.Set Disabled
+  |> SearchOptions.Substring.Set Disabled
   |> SearchOptions.SwapOrderDepth.Set 0
   |> SearchOptions.ComplementDepth.Set 0
   |> SearchOptions.ShortLetterAsVariable.Set 0
