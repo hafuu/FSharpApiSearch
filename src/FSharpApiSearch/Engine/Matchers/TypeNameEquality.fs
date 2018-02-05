@@ -95,7 +95,7 @@ let testStringSubstring (cmp: StringComparison) (userInput: string) (actual: str
       Ok 1
 
 let testUserInputAndConcreteType (cmp: StringComparison) (testStr: StringComparison -> string -> string -> Result) (userInput: UserInputType) (actual: ConcreteType) =
-  let testNameItem testStr (p: NameItem) (f: NameItem) = test {
+  let testNameItem (p: NameItem) (f: NameItem) = test {
     match p.GenericParameters, f.GenericParameters with
     | [], _ ->
       do! testStr cmp (testee p) (testee f)
@@ -105,9 +105,8 @@ let testUserInputAndConcreteType (cmp: StringComparison) (testStr: StringCompari
   }
   test {
     do! testGenericParameterCount userInput.GenericParameterCount actual.GenericParameterCount
-
-    do! testNameItem testStr userInput.Name.Head actual.Name.Head
-    do! forall2 (testNameItem testStringExact) userInput.Name.Tail actual.Name.Tail
+    
+    do! forall2 testNameItem userInput.Name actual.Name
   }
 
 let private sameName' cmp testStr x y =
