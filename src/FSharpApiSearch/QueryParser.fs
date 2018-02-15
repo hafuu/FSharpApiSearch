@@ -43,6 +43,17 @@ let compose firstParser (ps: _ list) =
 let parray =
   between (pchar '[') (pchar ']') (manyChars (pchar ',')) |>> fun x -> "[" + x + "]"
 
+let updatePosition p x = LowType.setPosition (fun _ -> p) x
+
+let inParen p = parse {
+  let! begin' = getIndex
+  do! skipChar '('
+  let! x = p
+  do! skipChar ')'
+  let! end' = getIndex
+  return updatePosition (atQuery { Begin = begin'; End = end' }) x
+}
+
 module FSharp =
   let struct' = "struct"
   let keywords = [
@@ -124,7 +135,7 @@ module FSharp =
 
   let ptype =
     choice [
-      attempt (between (skipChar '(') (skipChar ')') (trim fsharpSignature))
+      attempt (inParen (trim fsharpSignature))
       attempt dotNetGeneric
       attempt userInputType
       attempt variable
@@ -362,7 +373,7 @@ module CSharp =
   let ptype =
     choice [
       attempt punit
-      attempt (between (skipChar '(') (skipChar ')') (trim csharpSignature))
+      attempt (inParen (trim csharpSignature))
       attempt generic
       attempt lowerOnlyVariable
       attempt userInputType
@@ -385,10 +396,12 @@ module CSharp =
   let structTuple self typeParser =
     let elems = attempt self <|> typeParser
     parse {
+      let! begin' = getIndex
       do! skipChar '('
       let! xs = sepBy2 (trim elems) (skipChar ',')
       do! skipChar ')'
-      let range = { Begin = minBeginRange xs; End = maxEndRange xs }
+      let! end' = getIndex
+      let range = { Begin = begin'; End = end' }
       return Tuple ({ Elements = xs; IsStruct = true }, atQuery range)
     }
 
@@ -404,14 +417,16 @@ module CSharp =
     }
 
   let arrow _ typeParser =
-    let args =
-      let elems = sepBy1 (trim typeParser) (pstring ",")
-      let elemsWithParen = between (skipChar '(') (skipChar ')') elems
-      attempt elemsWithParen <|> attempt elems <|> (typeParser |>> List.singleton)
+    let argsWithoutParen =
+      sepBy1 (trim typeParser) (pstring ",")
       |>> function
         | [ x ] -> x
         | xs -> Tuple ({ Elements = xs; IsStruct = false }, atQuery { Begin = minBeginRange xs; End = maxEndRange xs })
-    sepBy2 (trim args) (pstring "->")
+
+    let argsWithParen = inParen argsWithoutParen
+
+    let arg = attempt argsWithParen <|> argsWithoutParen
+    sepBy2 (trim arg) (pstring "->")
     |>> (fun xs ->
       let arrow = Arrow.ofLowTypeList xs
       let range = { Begin = minBeginRange xs; End = maxEndRange xs }
