@@ -98,37 +98,33 @@ let printLoadingName (name: LoadingName) (p: SignaturePrinter<_>) =
   | n2 ->
     p.Append(name.RawName).Append(".").Append(printName_full n2)
 
-let rec printLowType isDebug (printTypeInfo: Identifier -> SignaturePrinter<_> -> SignaturePrinter<_>) lowType (p: SignaturePrinter<_>) =
-  p.BeginPrintType(lowType) |> ignore
-  let ret =
-    match lowType with
-    | Wildcard (name, _) ->
-      match name with
-      | Some n -> p.Append("?").Append(n)
-      | None -> p.Append("?")
-    | Variable (source, v, _) -> p.Append(printTypeVariable isDebug source v)
-    | Identifier (i, _) -> p.Append(printTypeInfo i)
-    | Arrow (arrow, _) -> p.Append(printArrow isDebug printTypeInfo arrow)
-    | Tuple ({ Elements = xs; IsStruct = false }, _) -> p.Append(printTuple isDebug printTypeInfo xs)
-    | Tuple ({ Elements = xs; IsStruct = true }, _) -> p.Append(printStructTuple isDebug printTypeInfo xs)
-    | LowType.Patterns.Array (name, elem, _) ->
-      match elem with
-      | Tuple ({ IsStruct = false }, _) | Arrow _ ->
-        p.Append("(")
-          .Append(printLowType isDebug printTypeInfo elem)
-          .Append(")")
-          |> ignore
-      | _ -> p.Append(printLowType isDebug printTypeInfo elem) |> ignore
-      p.Append(name)
-    | Generic (id, args, _) -> p.Append(printGeneric isDebug printTypeInfo id args)
-    | TypeAbbreviation (t, _) -> p.Append(printLowType isDebug printTypeInfo t.Abbreviation)
-    | Delegate (t, _, _) -> p.Append(printLowType isDebug printTypeInfo t)
-    | ByRef (_, t, _) -> p.Append("byref<").Append(printLowType isDebug printTypeInfo t).Append(">")
-    | Subtype (t, _) -> p.Append("#").Append(printLowType isDebug printTypeInfo t)
-    | Choice (_, xs, _) -> p.Append(printChoice isDebug printTypeInfo xs)
-    | LoadingType (name, _) -> p.Append(printLoadingName name)
-  p.EndPrintType(lowType) |> ignore
-  ret
+let rec printLowType' isDebug (printTypeInfo: Identifier -> SignaturePrinter<_> -> SignaturePrinter<_>) lowType (p: SignaturePrinter<_>) =
+  match lowType with
+  | Wildcard (name, _) ->
+    match name with
+    | Some n -> p.Append("?").Append(n)
+    | None -> p.Append("?")
+  | Variable (source, v, _) -> p.Append(printTypeVariable isDebug source v)
+  | Identifier (i, _) -> p.Append(printTypeInfo i)
+  | Arrow (arrow, _) -> p.Append(printArrow isDebug printTypeInfo arrow)
+  | Tuple ({ Elements = xs; IsStruct = false }, _) -> p.Append(printTuple isDebug printTypeInfo xs)
+  | Tuple ({ Elements = xs; IsStruct = true }, _) -> p.Append(printStructTuple isDebug printTypeInfo xs)
+  | LowType.Patterns.Array (name, elem, _) ->
+    match elem with
+    | Tuple ({ IsStruct = false }, _) | Arrow _ -> p.Append(printLowTypeWithParen isDebug printTypeInfo elem) |> ignore
+    | _ -> p.Append(printLowType isDebug printTypeInfo elem) |> ignore
+    p.Append(name)
+  | Generic (id, args, _) -> p.Append(printGeneric isDebug printTypeInfo id args)
+  | TypeAbbreviation (t, _) -> p.Append(printLowType isDebug printTypeInfo t.Abbreviation)
+  | Delegate (t, _, _) -> p.Append(printLowType isDebug printTypeInfo t)
+  | ByRef (_, t, _) -> p.Append("byref<").Append(printLowType isDebug printTypeInfo t).Append(">")
+  | Subtype (t, _) -> p.Append("#").Append(printLowType isDebug printTypeInfo t)
+  | Choice (_, xs, _) -> p.Append(printChoice isDebug printTypeInfo xs)
+  | LoadingType (name, _) -> p.Append(printLoadingName name)
+and printLowType isDebug (printTypeInfo: Identifier -> SignaturePrinter<_> -> SignaturePrinter<_>) lowType (p: SignaturePrinter<_>) =
+  p.BeginPrintType(lowType).Append(printLowType' isDebug printTypeInfo lowType).EndPrintType(lowType)
+and printLowTypeWithParen isDebug printTypeInfo lowType (p: SignaturePrinter<_>) =
+  p.BeginPrintType(lowType).Append("(").Append(printLowType' isDebug printTypeInfo lowType).Append(")").EndPrintType(lowType)
 and printGeneric isDebug printTypeInfo id (args: _ list) (p: SignaturePrinter<_>) =
   p.Append(printLowType isDebug printTypeInfo id)
     .Append("<")
@@ -136,30 +132,21 @@ and printGeneric isDebug printTypeInfo id (args: _ list) (p: SignaturePrinter<_>
     .Append(">")
 and printArrowItem isDebug printTypeInfo (item: LowType) (p: SignaturePrinter<_>) =
   match item with
-  | Arrow _ as a ->
-    p.Append("(")
-      .Append(printLowType isDebug printTypeInfo a)
-      .Append(")")
-  | x -> p.Append(printLowType isDebug printTypeInfo x)
+  | Arrow _ -> p.Append(printLowTypeWithParen isDebug printTypeInfo item)
+  | _ -> p.Append(printLowType isDebug printTypeInfo item)
 and printArrow isDebug printTypeInfo (arrow: Arrow) (p: SignaturePrinter<_>) =
   let ps, ret = arrow
   p.AppendJoin(" -> ", ps, printArrowItem isDebug printTypeInfo).Append(" -> ").Append(printArrowItem isDebug printTypeInfo ret)
 and printTuple isDebug printTypeInfo (xs: _ list) (p: SignaturePrinter<_>) =
   let printItem lowType (p: SignaturePrinter<_>) =
     match lowType with
-    | Tuple _ as t ->
-      p.Append("(")
-        .Append(printLowType isDebug printTypeInfo t)
-        .Append(")")
-    | x -> p.Append(printLowType isDebug printTypeInfo x)
+    | Tuple _ -> p.Append(printLowTypeWithParen isDebug printTypeInfo lowType)
+    | _ -> p.Append(printLowType isDebug printTypeInfo lowType)
   p.AppendJoin(" * ", xs, printItem)
 and printStructTuple isDebug printTypeInfo (xs: _ list) (p: SignaturePrinter<_>) =
   let printItem lowType (p: SignaturePrinter<_>) =
     match lowType with
-    | Tuple ({ IsStruct = false  }, _) | Arrow _ ->
-      p.Append("(")
-        .Append(printLowType isDebug printTypeInfo lowType)
-        .Append(")")
+    | Tuple ({ IsStruct = false  }, _) | Arrow _ -> p.Append(printLowTypeWithParen isDebug printTypeInfo lowType)
     | _ -> p.Append(printLowType isDebug printTypeInfo lowType)
   p.Append("struct (")
     .AppendJoin(" * ", xs, printItem)
@@ -170,6 +157,7 @@ and printChoice isDebug printTypeInfo (xs: _ list) (p: SignaturePrinter<_>) =
     .Append(")")
 
 let printLowType_short isDebug t (p: SignaturePrinter<_>) = p.Append(printLowType isDebug printTypeInfo_short t)
+let printLowTypeWithParen_short isDebug t (p: SignaturePrinter<_>) = p.Append(printLowTypeWithParen isDebug printTypeInfo_short t)
 let printLowType_full isDebug t (p: SignaturePrinter<_>) = p.Append(printLowType isDebug printTypeInfo_full t)
 
 let printParameter tupleParen isDebug (param: Parameter) (p: SignaturePrinter<_>) =
@@ -187,13 +175,9 @@ let printParameter tupleParen isDebug (param: Parameter) (p: SignaturePrinter<_>
 
   match param with
   | { Type = Tuple _ } when tupleParen || hasName ->
-    p.Append("(")
-      .Append(printLowType_short isDebug param.Type)
-      .Append(")")
+    p.Append(printLowTypeWithParen_short isDebug param.Type)
   | { Type = Arrow _ } ->
-    p.Append("(")
-      .Append(printLowType_short isDebug param.Type)
-      .Append(")")
+    p.Append(printLowTypeWithParen_short isDebug param.Type)
   | _ -> p.Append(printLowType_short isDebug param.Type)
 
 let printParameterGroups tupleParen isDebug (pg: ParameterGroups) (p: SignaturePrinter<_>) =
