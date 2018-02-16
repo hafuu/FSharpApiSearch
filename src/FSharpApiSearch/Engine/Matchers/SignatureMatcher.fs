@@ -283,7 +283,7 @@ let instance (options: SearchOptions) =
       yield Rule.terminator
     |]
 
-  let rec run (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
+  let rec run (lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx = 
     Rule.run rule (run, lowTypeMatcher) left right ctx
 
   { new IApiMatcher with

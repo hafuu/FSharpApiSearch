@@ -13,6 +13,46 @@ let assemblyResolver: AssemblyLoader.AssemblyResolver = {
   Directories = []
 }
 
+let positionPrintVisitor printPos lowType =
+  let rec print lowType =
+    printPos lowType;
+    match lowType with
+    | Wildcard _ -> ()
+    | Variable _ -> ()
+    | Identifier _ -> ()
+    | Arrow ((xs, x), _) -> List.iter print xs; print x
+    | Tuple (tpl, _) -> List.iter print tpl.Elements
+    | Generic (id, args, _) -> print id; List.iter print args
+    | TypeAbbreviation (abb, _) -> print abb.Abbreviation; print abb.Original
+    | Delegate (t, (xs, x), _) -> print t; List.iter print xs; print x
+    | ByRef (_, t, _) -> print t
+    | LowType.Subtype (t, _) -> print t
+    | Choice (o, xs, _) -> print o; List.iter print xs
+    | LoadingType _ -> ()
+
+  print lowType
+  lowType
+
+let printQueryPositions (query: Query) =
+  printfn "Query Positions:"
+  query
+  |> LowTypeVisitor.accept_Query (positionPrintVisitor (fun x ->
+    match x.Position with
+    | AtQuery (Some id, _) -> printfn "  %A : %A" id (x.Print())
+    | _ -> ()
+  ))
+  |> ignore
+
+let printSignaturePositions (api: Api) =
+  printfn "Signature Positions:"
+  api.Signature
+  |> LowTypeVisitor.accept_ApiSignature (positionPrintVisitor (fun x ->
+    match x.Position with
+    | AtSignature (id) -> printfn "  %A : %A" id (x.Print())
+    | _ -> ()
+  ))
+  |> ignore
+
 [<EntryPoint>]
 let main argv =
   let args = Args.parse Args.empty (List.ofArray argv)
@@ -43,9 +83,20 @@ let main argv =
 
         let target = apis |> Array.find (fun x -> FSharp.printFullName x = targetName)
         let dummyDict: ApiDictionary = { AssemblyName = "dummy"; Api = [| target |]; TypeDefinitions = dict Seq.empty; TypeAbbreviations = [||] }
-        let _, result = Engine.search dictionaries options [ dummyDict ] query
+        let resultQuery, result = Engine.search dictionaries options [ dummyDict ] query
 
         printfn "Result = %b" (Seq.isEmpty result = false)
+        result
+        |> Seq.iter (fun x ->
+          printfn "Match Positions:"
+          x.MatchPositions
+          |> Map.iter (fun sigId queryId ->
+            printfn "  %A : %A" queryId sigId
+          )
+        )
+
+        printQueryPositions resultQuery
+        printSignaturePositions target
 
         loop()
     with

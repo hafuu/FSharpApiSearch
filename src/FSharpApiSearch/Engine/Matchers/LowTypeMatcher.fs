@@ -554,6 +554,7 @@ let instance options =
           (left.Debug())
           (right.Debug())
           (Equations.debug ctx.Equations))
+        Debug.WriteLine(sprintf "Positions are left:%A right:%A" left.Position right.Position)
         Debug.Indent()
         let result = Rule.run rule this left right ctx |> MatchingResult.mapMatched (MatchPositions.update left right)
         Debug.Unindent()
