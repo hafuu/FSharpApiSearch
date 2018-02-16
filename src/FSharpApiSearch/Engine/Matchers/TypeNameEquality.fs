@@ -89,10 +89,7 @@ let testStringSubstring (cmp: StringComparison) (userInput: string) (actual: str
   if index < 0 then
     Error DifferentName
   else
-    if userInput.Length = actual.Length then
-      Ok 0
-    else
-      Ok 1
+    Ok (actual.Length - userInput.Length)
 
 let testUserInputAndConcreteType (cmp: StringComparison) (testStr: StringComparison -> string -> string -> Result) (userInput: UserInputType) (actual: ConcreteType) =
   let testNameItem (p: NameItem) (f: NameItem) = test {

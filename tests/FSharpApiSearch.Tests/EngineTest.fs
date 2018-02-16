@@ -2029,7 +2029,7 @@ module SubstringTypeNameTest =
       "A", moduleValue (createType "A" []), 0
       "A", moduleValue (createType "_A" []), 1
       "A", moduleValue (createType "A_" []), 1
-      "A", moduleValue (createType "_A_" []), 1
+      "A", moduleValue (createType "_A_" []), 2
       "A.B", moduleValue (createType "A._B" []), 1
       "A.B", moduleValue (createType "_A._B" []), 2
     ]
