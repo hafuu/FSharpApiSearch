@@ -521,7 +521,7 @@ let instance options =
   let rule =
     Rule.compose [|
       yield Rules.choiceRule
-      yield Rules.typeAbbreviationRule
+      
       yield Rules.wildcardGroupRule
       yield Rules.wildcardRule
     
@@ -544,6 +544,8 @@ let instance options =
 
       yield Rules.byrefRule
       yield Rules.subtypeRule isContextual
+
+      yield Rules.typeAbbreviationRule
 
       yield Rule.terminator
     |]
