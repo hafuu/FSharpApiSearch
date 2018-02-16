@@ -1,3 +1,10 @@
+### 4.0.0
+* Add type coloring
+* Add substring matching and `--substring` option
+* Allow `_` for wildcard
+* Fix type variable bug (#139)
+* Improve performance
+
 ### 4.0.0-beta1
 * Add type coloring
 * Fix type variable bug (#139)
