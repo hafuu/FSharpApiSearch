@@ -259,7 +259,7 @@ module Rules =
       |> function
         | Some matched -> matched
         | None -> Failure
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let typeAbbreviationRule (lowTypeMatcher: ILowTypeMatcher) left right ctx =
     match left, right with
@@ -268,7 +268,7 @@ module Rules =
       Debug.WriteLine("type abbreviation rule.")
       Debug.WriteLine(sprintf "(%s) -> (%s)" (LowType.debug abbreviation.Abbreviation) (LowType.debug abbreviation.Original))
       lowTypeMatcher.Test abbreviation.Original other ctx
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let testTypeInfo (nameEquality: TypeNameEquality.Equality) (left: Identifier) (right: Identifier) ctx =
     match nameEquality left right with
@@ -284,7 +284,7 @@ module Rules =
     | Identifier (left, _), Identifier (right, _) ->
       Debug.WriteLine("type info rule.")
       testTypeInfo nameEquality left right ctx
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let variableRule lowTypeMatcher left right ctx =
     match left, right with
@@ -295,7 +295,7 @@ module Rules =
         Matched ctx
       else
         testVariableEquality lowTypeMatcher left right ctx
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let rec distanceFromVariable = function
     | Wildcard _ -> 0
@@ -323,7 +323,7 @@ module Rules =
       else
         testVariableEquality lowTypeMatcher variable other ctx
         |> MatchingResult.mapMatched (Context.addDistance "greedy variable" (distanceFromVariable other))
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let tupleRule (lowTypeMatcher: ILowTypeMatcher) left right ctx =
     match left, right with
@@ -336,7 +336,7 @@ module Rules =
       Debug.WriteLine("tuple rule.")
       let other = [ other ]
       lowTypeMatcher.TestAll tuple.Elements other ctx
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let testArrow (lowTypeMatcher: ILowTypeMatcher) leftElems rightElems ctx =
     lowTypeMatcher.TestArrow leftElems rightElems ctx
@@ -346,7 +346,7 @@ module Rules =
     | Arrow (leftElems, _), Arrow (rightElems, _) ->
       Debug.WriteLine("arrow rule.")
       testArrow lowTypeMatcher leftElems rightElems ctx
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let testArrow_IgnoreParameterStyle (lowTypeMatcher: ILowTypeMatcher) (left: Arrow) (right: Arrow) ctx =
     match left, right with
@@ -368,7 +368,7 @@ module Rules =
     | Arrow (leftElems, _), Arrow (rightElems, _) ->
       Debug.WriteLine("arrow rule (ignore parameter style).")
       testArrow_IgnoreParameterStyle lowTypeMatcher leftElems rightElems ctx
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let genericRule (lowTypeMatcher: ILowTypeMatcher) left right ctx =
     match left, right with
@@ -376,7 +376,7 @@ module Rules =
       Debug.WriteLine("generic rule.")
       lowTypeMatcher.Test leftId rightId ctx
       |> MatchingResult.bindMatched (lowTypeMatcher.TestAllExactly leftArgs rightArgs)
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let wildcardRule _ left right ctx =
     match left, right with
@@ -384,7 +384,7 @@ module Rules =
     | _, Wildcard (None, _) ->
       Debug.WriteLine("wildcard rule.")
       Matched ctx
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let wildcardGroupRule lowTypeMatcher left right ctx =
     match left, right with
@@ -396,7 +396,7 @@ module Rules =
         Matched ctx
       else
         testVariableEquality lowTypeMatcher left right ctx
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let delegateRule nameEquality (lowTypeMatcher: ILowTypeMatcher) left right ctx =
     match left, right with
@@ -411,7 +411,7 @@ module Rules =
       Debug.WriteLine("generic delegate rule.")
       lowTypeMatcher.Test leftId rightId ctx
       |> MatchingResult.bindMatched (lowTypeMatcher.TestAllExactly leftArgs rightArgs)
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let delegateAndArrowRule lowTypeMatcher left right ctx =
     match left, right with
@@ -420,7 +420,7 @@ module Rules =
       Debug.WriteLine("delegate and arrow rule.")
       testArrow lowTypeMatcher leftElems rightElems ctx
       |> MatchingResult.mapMatched (Context.addDistance "delegate and arrow" 1)
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let delegateAndArrowRule_IgnoreParameterStyle lowTypeMatcher left right ctx =
     match left, right with
@@ -429,7 +429,7 @@ module Rules =
       Debug.WriteLine("delegate and arrow rule (ignore parameter style).")
       testArrow_IgnoreParameterStyle lowTypeMatcher leftElems rightElems ctx
       |> MatchingResult.mapMatched (Context.addDistance "delegate and arrow" 1)
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let byrefRule (lowTypeMatcher: ILowTypeMatcher) left right ctx =
     match left, right with
@@ -441,7 +441,7 @@ module Rules =
       Debug.WriteLine("byref rule (byref and type).")
       lowTypeMatcher.Test left right ctx
       |> MatchingResult.mapMatched (Context.addDistance "byref and type" 1)
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let rec subtypeTarget ctx = function
     | Identifier (id, _) -> Some (id, [])
@@ -504,9 +504,9 @@ module Rules =
           | None -> Failure
         | Contextual (Some target) -> lowTypeMatcher.Test baseType target ctx
 
-      | _ -> Continue ctx
+      | _ -> Continue
 
-    | _ -> Continue ctx
+    | _ -> Continue
 
 let instance options =
   let nameEquality = TypeNameEquality.equalityFromOptions options

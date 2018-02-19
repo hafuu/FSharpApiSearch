@@ -48,15 +48,15 @@ module Context =
   let newEquations (oldCtx: Context) (newCtx: Context) =
     newCtx.Equations.Equalities |> List.take (newCtx.Equations.Equalities.Length - oldCtx.Equations.Equalities.Length)
 
+[<Struct>]
 type MatchingResult =
   | Matched of Context
-  | Continue of Context
+  | Continue
   | Failure
 
 module MatchingResult =
-  let inline bindContinue f x = match x with Continue x -> f x | r -> r
   let inline bindMatched f x = match x with Matched x -> f x | r -> r
-  let inline mapMatched f x = match x with Matched x -> Matched (f x) | Continue x -> Continue x | Failure -> Failure
+  let inline mapMatched f x = match x with Matched x -> Matched (f x) | Continue -> Continue | Failure -> Failure
 
   let toBool = function Matched _ -> true | _ -> false
 
@@ -101,19 +101,15 @@ module Rule =
   let terminator _ _ _ _ =
     Debug.WriteLine("It reached the terminator.")
     Failure
-  let continueToFailure (rule: Rule<_, _, _>) matcher left right ctx =
+  let failureToContinue (rule: Rule<_, _, _>) matcher left right ctx =
     match run rule matcher left right ctx with
-    | Failure -> Continue ctx
+    | Failure -> Continue
     | (Matched _ | Continue _) as result -> result
-  let matchedToContinue (rule: Rule<_, _, _>) matcher left right ctx =
-    match run rule matcher left right ctx with
-    | Matched ctx -> Continue ctx
-    | (Continue _ | Failure) as result -> result
   let compose (xs: Rule<_, _, _>[]): Rule<_, _, _> =
     fun test left right ctx ->
       let mutable continue' = true
       let mutable state = ctx
-      let mutable result = Continue ctx
+      let mutable result = Continue
       let mutable index = 0
       while continue' && index < xs.Length do
         let rule = xs.[index]
@@ -121,7 +117,7 @@ module Rule =
         let newResult = run rule test left right state
         result <- newResult
         match newResult with
-        | Continue ctx -> state <- ctx
+        | Continue -> ()
         | _ -> continue' <- false
       result
 

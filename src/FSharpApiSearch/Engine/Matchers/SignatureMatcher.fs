@@ -25,15 +25,15 @@ module Rules =
       |> function
         | Some matched -> matched
         | None -> Failure
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let moduleValueRule (_, lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
-    | SignatureQuery.Signature (Arrow _), ApiSignature.ModuleValue _ -> Continue ctx
+    | SignatureQuery.Signature (Arrow _), ApiSignature.ModuleValue _ -> Continue
     | SignatureQuery.Signature left, ApiSignature.ModuleValue right ->
       Debug.WriteLine("module value rule.")
       lowTypeMatcher.Test left right ctx
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let (|WildcardOrVariable|_|) = function
     | Wildcard _ -> Some ()
@@ -129,7 +129,7 @@ module Rules =
     | SignatureQuery.Signature (Arrow _ as left), ApiSignature.ModuleValue (LowType.Patterns.AbbreviationRoot (Arrow _ as right)) ->
       Debug.WriteLine("module function rule.")
       lowTypeMatcher.Test left right ctx
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let arrowQueryAndDelegateRule (_, lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
@@ -138,14 +138,14 @@ module Rules =
       Debug.WriteLine("arrow query and delegate rule.")
       lowTypeMatcher.Test left right ctx
       |> MatchingResult.mapMatched (Context.addDistance "arrow and delegate" 1)
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let activePatternRule (testArrow: TestArrow) (_, lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
     | SignatureQuery.Signature (Arrow (leftElems, _)), ApiSignature.ActivePatten (_, rightElems) ->
       Debug.WriteLine("active pattern rule.")
       testArrow lowTypeMatcher leftElems rightElems ctx
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let breakArrow = function
     | Arrow (xs, _) -> xs
@@ -169,7 +169,7 @@ module Rules =
       let right = { member' with Parameters = [ rightParams ] }
       lowTypeMatcher.TestReceiver leftReceiver rightReceiver.Type ctx
       |> MatchingResult.bindMatched (testArrow lowTypeMatcher left (Member.toFunction right))
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let staticMemberRule (testArrow: TestArrow) (_, lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
@@ -179,14 +179,14 @@ module Rules =
     | SignatureQuery.Signature left, StaticMember member' ->
       Debug.WriteLine("static member rule.")
       testArrow lowTypeMatcher (breakArrow left) (Member.toFunction member') ctx
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let constructorRule (testArrow: TestArrow) (_, lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
     | SignatureQuery.Signature left, ApiSignature.Constructor (_, member') ->
       Debug.WriteLine("constructor rule.")
       testArrow lowTypeMatcher (breakArrow left) (Member.toFunction member') ctx 
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let (|InstanceMember|_|) = function
     | ApiSignature.InstanceMember (declaringType, member') -> Some (declaringType, member')
@@ -199,7 +199,7 @@ module Rules =
       Debug.WriteLine("arrow and instance member rule.")
       lowTypeMatcher.TestReceiver leftReceiver declaringType ctx
       |> MatchingResult.bindMatched (testArrow lowTypeMatcher (leftMemberParams, leftMemberRet) (Member.toFunction member'))
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let unionCaseRule (testArrow: TestArrow) (_, lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
@@ -211,7 +211,7 @@ module Rules =
     | SignatureQuery.Signature left, ApiSignature.UnionCase { DeclaringType = right; Fields = [] } ->
       Debug.WriteLine("union case rule.")
       lowTypeMatcher.Test left right ctx
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let typeDefRule (_, lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
@@ -220,7 +220,7 @@ module Rules =
       Debug.WriteLine("type def rule.")
       let right = typeDef.LowType
       lowTypeMatcher.Test left right ctx
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let moduleDefRule (_, lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
@@ -229,7 +229,7 @@ module Rules =
       Debug.WriteLine("module def rule.")
       let right = moduleDef.LowType
       lowTypeMatcher.Test left right ctx
-    | _ -> Continue ctx
+    | _ -> Continue
 
   let typeAbbreviationRule (_, lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
@@ -243,7 +243,7 @@ module Rules =
       let dummy = abbreviation.Original
       let right = Choice.create (dummy, [ abbreviation.Abbreviation; abbreviation.Original ])
       lowTypeMatcher.Test left right ctx
-    | _ -> Continue ctx
+    | _ -> Continue
 
 let tryGetSignatureQuery = function
   | QueryMethod.BySignature s -> Some s
@@ -266,7 +266,7 @@ let instance (options: SearchOptions) =
       yield Rules.moduleFunctionRule testArrow
       yield Rules.activePatternRule testArrow
 
-      yield Rule.continueToFailure (Rules.extensionMemberRule testArrow)
+      yield Rule.failureToContinue (Rules.extensionMemberRule testArrow)
       yield Rules.staticMemberRule testArrow
       yield Rules.constructorRule testArrow
         

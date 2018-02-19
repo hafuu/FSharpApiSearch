@@ -34,11 +34,9 @@ let syntaxRule (_: ILowTypeMatcher) (query: ComputationExpressionQuery) (builder
     )
   ) (Matched ctx)
 
-let ceBuilderRules : ComputationExpressionBuilderRule =
-  Rule.compose [|
-    ceBuilderTypeRule |> Rule.matchedToContinue
-    syntaxRule
-  |]
+let ceBuilderRules : ComputationExpressionBuilderRule = fun lowTypeMatcher query builder ctx ->
+  Rule.run ceBuilderTypeRule lowTypeMatcher query builder ctx
+  |> MatchingResult.bindMatched (Rule.run syntaxRule lowTypeMatcher query builder)
 
 let test (lowTypeMatcher: ILowTypeMatcher) (builderTypes: LowType) (ctx: Context) (api: Api) =
   match api.Signature with
