@@ -17,7 +17,7 @@ let test api ctx =
   | ApiSignature.TypeAbbreviation _
   | ApiSignature.TypeExtension _
   | ApiSignature.UnionCase _
-  | ApiSignature.ComputationExpressionBuilder _ -> Failure
+  | ApiSignature.ComputationExpressionBuilder _ -> Failure FailureInfo.None
 
 let instance (_: SearchOptions) =
   { new IApiMatcher with

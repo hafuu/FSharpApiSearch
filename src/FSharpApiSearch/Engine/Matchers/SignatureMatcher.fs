@@ -24,7 +24,7 @@ module Rules =
       |> Seq.tryPick (fun result -> match result with Matched _ as m -> Some m | _ -> None)
       |> function
         | Some matched -> matched
-        | None -> Failure
+        | None -> Failure FailureInfo.None
     | _ -> Continue
 
   let moduleValueRule (_, lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
@@ -67,7 +67,7 @@ module Rules =
       lowTypeMatcher.TestArrow left right ctx
     match (fst left), (fst right) with
     | [ WildcardOrVariable ], [ [ _ ] ] -> test ctx
-    | [ WildcardOrVariable ], [ _ ] -> Failure
+    | [ WildcardOrVariable ], [ _ ] -> Failure FailureInfo.None
     | _ -> test ctx
 
   let (|Right_CurriedFunction|_|) (right: Function) =
@@ -175,7 +175,7 @@ module Rules =
     match left, right with
     | SignatureQuery.Signature (Arrow _), StaticMember (NoArgsMember _) ->
       Debug.WriteLine("Arrow and static no args member do not match.")
-      Failure
+      Failure FailureInfo.None
     | SignatureQuery.Signature left, StaticMember member' ->
       Debug.WriteLine("static member rule.")
       testArrow lowTypeMatcher (breakArrow left) (Member.toFunction member') ctx
@@ -215,7 +215,7 @@ module Rules =
 
   let typeDefRule (_, lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
-    | SignatureQuery.Signature (Arrow _ | Wildcard _ | Variable _), ApiSignature.FullTypeDefinition _ -> Failure
+    | SignatureQuery.Signature (Arrow _ | Wildcard _ | Variable _), ApiSignature.FullTypeDefinition _ -> Failure FailureInfo.None
     | SignatureQuery.Signature left, ApiSignature.FullTypeDefinition typeDef ->
       Debug.WriteLine("type def rule.")
       let right = typeDef.LowType
@@ -224,7 +224,7 @@ module Rules =
 
   let moduleDefRule (_, lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
-    | SignatureQuery.Signature (Arrow _ | Wildcard _ | Variable _ | LowType.Subtype _), ApiSignature.ModuleDefinition _ -> Failure
+    | SignatureQuery.Signature (Arrow _ | Wildcard _ | Variable _ | LowType.Subtype _), ApiSignature.ModuleDefinition _ -> Failure FailureInfo.None
     | SignatureQuery.Signature left, ApiSignature.ModuleDefinition moduleDef ->
       Debug.WriteLine("module def rule.")
       let right = moduleDef.LowType
@@ -233,7 +233,7 @@ module Rules =
 
   let typeAbbreviationRule (_, lowTypeMatcher: ILowTypeMatcher) (left: SignatureQuery) (right: ApiSignature) ctx =
     match left, right with
-    | SignatureQuery.Signature (Arrow _ | Wildcard _ | Variable _), ApiSignature.TypeAbbreviation _ -> Failure
+    | SignatureQuery.Signature (Arrow _ | Wildcard _ | Variable _), ApiSignature.TypeAbbreviation _ -> Failure FailureInfo.None
     | SignatureQuery.Signature (LowType.Subtype _ as left), ApiSignature.TypeAbbreviation { Original = right } ->
       Debug.WriteLine("type abbreviation rule.")
       lowTypeMatcher.Test left right ctx

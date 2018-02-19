@@ -54,9 +54,9 @@ let test strOpt query (api: Api) ctx =
     | ApiName actualName, ApiKind.Constructor ->
       // TypeName or TypeName.new or TypeName..ctor
       let ok = test' strOpt expected actualName.Tail || test' strOpt expected actualName || test' strOpt expected (ctor :: actualName.Tail)
-      if ok then Matched ctx else Failure
-    | ApiName actualName, _ -> if test' strOpt expected actualName then Matched ctx else Failure
-    | _ -> Failure
+      if ok then Matched ctx else Failure FailureInfo.None
+    | ApiName actualName, _ -> if test' strOpt expected actualName then Matched ctx else Failure FailureInfo.None
+    | _ -> Failure FailureInfo.None
   | _ -> Matched ctx
 
 let instance (options: SearchOptions) =

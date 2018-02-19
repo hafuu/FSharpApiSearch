@@ -4,7 +4,7 @@ open EngineTypes
 
 let testAccessibility ctx = function
   | Public -> Matched ctx
-  | Private -> Failure
+  | Private -> Failure FailureInfo.None
 
 let test api ctx =
   match api.Signature with

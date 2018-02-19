@@ -55,7 +55,7 @@ let testSubtypeConstraint (lowTypeMatcher: ILowTypeMatcher) (parentType: LowType
       let testees =
         match parentType with
         | Variable _ -> Seq.singleton (instantiate testeeTypeDef testeeArgs)
-        | _ -> getSuperTypes ctx testeeTypeDef testeeArgs
+        | _ -> getBaseTypes ctx testeeTypeDef testeeArgs
       testees
       |> firstMatched (fun t -> lowTypeMatcher.Test t parentType ctx)
     )
@@ -219,7 +219,7 @@ let rec solve' (lowTypeMatcher: ILowTypeMatcher) (constraints: TypeConstraint li
           let result = solve' lowTypeMatcher constraints ctx newEqualities
           Debug.Unindent()
           result
-      | None -> Failure
+      | None -> Failure FailureInfo.None
         
   Debug.Unindent()
   Debug.WriteLine(sprintf "End solving type constraints. Result=%b" (MatchingResult.toBool result))

@@ -19,7 +19,7 @@ let test (lowTypeMatcher: ILowTypeMatcher) (query: ActivePatternQuery) (api: Api
     | ActivePatternSignature.Specified left ->
       let right = Arrow.create (Function.toArrow right)
       lowTypeMatcher.Test left right ctx
-  | _ -> Failure
+  | _ -> Failure FailureInfo.None
 
 let instance (_: SearchOptions) =
   { new IApiMatcher with

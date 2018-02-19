@@ -22,7 +22,7 @@ let internal test (lowTypeMatcher: ILowTypeMatcher) (apiMatchers: IApiMatcher[])
   if continue' then
     Matched state
   else
-    Failure
+    Failure FailureInfo.None
 
 let internal search' (seqFunc: SeqFunctions) (targets: ApiDictionary seq) (lowTypeMatcher: ILowTypeMatcher) (apiMatchers: IApiMatcher[]) (query: Query) (initialContext: Context) =
   targets

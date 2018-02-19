@@ -19,7 +19,7 @@ let instantiate (t: FullTypeDefinition) (args: LowType list) =
   | [] -> id
   | _ -> Generic.create (id, args)
 
-let rec getSuperTypes (ctx: Context) (t: FullTypeDefinition) (args: LowType list): LowType seq = seq {
+let rec getBaseTypes (ctx: Context) (t: FullTypeDefinition) (args: LowType list): LowType seq = seq {
   let argPair = Map.ofList2 t.GenericParameters args
 
   let thisType = instantiate t args
@@ -43,7 +43,7 @@ let rec getSuperTypes (ctx: Context) (t: FullTypeDefinition) (args: LowType list
         | _ -> failwith "It is not actual type."
       let full = getConcreteType p
       ctx.ApiDictionaries.[full.AssemblyName].TypeDefinitions.[full]
-    yield! getSuperTypes ctx baseTypeDef baseTypeArgs
+    yield! getBaseTypes ctx baseTypeDef baseTypeArgs
 }
 
 open StringPrinter

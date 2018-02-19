@@ -20,8 +20,8 @@ module Equations =
 
 type SubtypeResult =
   | Subtype of LowType
-  | Contextual of LowType option
-  | NonSubtype
+  | MaybeSubtype of LowType
+  | NotSubtype
 
 type SubtypeCache = ConcurrentDictionary<LowType * LowType, SubtypeResult>
 
@@ -48,15 +48,21 @@ module Context =
   let newEquations (oldCtx: Context) (newCtx: Context) =
     newCtx.Equations.Equalities |> List.take (newCtx.Equations.Equalities.Length - oldCtx.Equations.Equalities.Length)
 
+[<RequireQualifiedAccess>]
+type FailureInfo =
+  | None
+  | GenericArgumentsMismatch
+  | Many of FailureInfo list
+
 [<Struct>]
 type MatchingResult =
-  | Matched of Context
+  | Matched of ctx:Context
   | Continue
-  | Failure
+  | Failure of info:FailureInfo
 
 module MatchingResult =
   let inline bindMatched f x = match x with Matched x -> f x | r -> r
-  let inline mapMatched f x = match x with Matched x -> Matched (f x) | Continue -> Continue | Failure -> Failure
+  let inline mapMatched f x = match x with Matched x -> Matched (f x) | Continue -> Continue | Failure _ as failure -> failure
 
   let toBool = function Matched _ -> true | _ -> false
 
@@ -75,7 +81,7 @@ module Extensions =
     member this.TestReceiver (left: LowType) (right: LowType) (ctx: Context) =
       match left, right with
       | Tuple _, Tuple _ -> this.Test left right ctx
-      | Tuple _, _ | _, Tuple _ -> Failure
+      | Tuple _, _ | _, Tuple _ -> Failure FailureInfo.None
       | _ -> this.Test left right ctx 
 
 type IApiMatcher =
@@ -98,12 +104,12 @@ type Rule<'Matcher, 'Left, 'Right> = 'Matcher -> 'Left -> 'Right -> Context -> M
 
 module Rule =
   let run (rule: Rule<_, _, _>) matcher left right ctx = rule matcher left right ctx
-  let terminator _ _ _ _ =
+  let terminator _ _ _ _ : MatchingResult =
     Debug.WriteLine("It reached the terminator.")
-    Failure
+    Failure FailureInfo.None
   let failureToContinue (rule: Rule<_, _, _>) matcher left right ctx =
     match run rule matcher left right ctx with
-    | Failure -> Continue
+    | Failure _ -> Continue
     | (Matched _ | Continue _) as result -> result
   let compose (xs: Rule<_, _, _>[]): Rule<_, _, _> =
     fun test left right ctx ->

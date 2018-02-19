@@ -8,7 +8,7 @@ module Filter =
         member this.Name = "Computation Expression Filter"
         member this.Test lowTypeMatcher query api ctx =
           match api.Kind with
-          | ApiKind.ComputationExpressionBuilder -> Failure
+          | ApiKind.ComputationExpressionBuilder -> Failure FailureInfo.None
           | _ -> Matched ctx }
 
 type ComputationExpressionBuilderRule = ILowTypeMatcher -> ComputationExpressionQuery -> ComputationExpressionBuilder -> Context -> MatchingResult
@@ -30,7 +30,7 @@ let syntaxRule (_: ILowTypeMatcher) (query: ComputationExpressionQuery) (builder
           | AtQuery (Some queryId, _), AtSignature sigId -> { ctx with MatchPositions = Map.add sigId queryId ctx.MatchPositions }
           | _ -> ctx
         Matched newCtx
-      | _ -> Failure
+      | _ -> Failure FailureInfo.None
     )
   ) (Matched ctx)
 
@@ -43,7 +43,7 @@ let test (lowTypeMatcher: ILowTypeMatcher) (builderTypes: LowType) (ctx: Context
   | ApiSignature.ModuleValue (TypeAbbreviation ({ Original = Arrow ((_, ret), _) }, _)) -> lowTypeMatcher.Test builderTypes ret ctx
   | ApiSignature.ModuleValue value -> lowTypeMatcher.Test builderTypes value ctx
   | ApiSignature.ModuleFunction (_, ret) -> lowTypeMatcher.Test builderTypes ret.Type ctx
-  | _ -> Failure
+  | _ -> Failure FailureInfo.None
 
 let search (seqFunc: SeqFunctions) (targets: ApiDictionary seq) (lowTypeMatcher: ILowTypeMatcher) (query: ComputationExpressionQuery) (initialContext: Context) =
   let builderTypes =

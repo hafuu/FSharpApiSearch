@@ -89,7 +89,7 @@ module Equations =
       let newEqs = { eqs with Equalities = (left, right) :: eqs.Equalities }
       Matched (Context.setEquations newEqs ctx)
     else
-      Failure
+      Failure FailureInfo.None
 
 module MatchPositions =
   let update (left: LowType) (right: LowType) (ctx: Context) =
@@ -103,7 +103,7 @@ module MatchPositions =
 module Rules =
   let terminator (_: ILowTypeMatcher) (_: LowType) (_: LowType) (_: Context) =
     Debug.WriteLine("It reached the terminator.")
-    Failure
+    Failure FailureInfo.None
 
   let testLeftEqualities (lowTypeMatcher: ILowTypeMatcher) (leftEqualities: _ list) right ctx =
     let mutable continue' = true
@@ -120,15 +120,15 @@ module Rules =
     if continue' then
       Matched state
     else
-      Failure
+      Failure FailureInfo.None
 
   let testVariableEquality (lowTypeMatcher: ILowTypeMatcher) left right (ctx: Context) =
     let left, right = Equations.sortTerm left right
     Debug.WriteLine(sprintf "Test equaliity of \"%s\" and \"%s\"." (LowType.debug left) (LowType.debug right))
     if Equations.isRecirsive left right then
-      Failure
+      Failure FailureInfo.None
     elif Equations.isCircular left right ctx.Equations then
-      Failure
+      Failure FailureInfo.None
     else
       let leftEqualities = ctx.Equations |> Equations.findEqualities left
       Debug.WriteLine(
@@ -144,7 +144,7 @@ module Rules =
       Debug.WriteLine(
         match result with
         | Matched _ -> sprintf "It passed the test. The equality has been added.: \"%s\" = \"%s\"" (LowType.debug left) (LowType.debug right)
-        | Continue _ | Failure -> sprintf "It failed to add the equality.: \"%s\" = \"%s\"" (LowType.debug left) (LowType.debug right))
+        | Continue | Failure _ -> sprintf "It failed to add the equality.: \"%s\" = \"%s\"" (LowType.debug left) (LowType.debug right))
       result
 
   type Swapped = bool
@@ -194,10 +194,10 @@ module Rules =
 
     let complementNumber = long.Length - short.Length
     if complementNumber > complementNumberLimit then
-      Failure
+      Failure FailureInfo.None
     elif short.Length <> long.Length && containsWildcard long then
       Debug.WriteLine("There is a wildcard.")
-      Failure
+      Failure FailureInfo.None
     else
       let mutable continue' = true
       let mutable state = ctx, Array.empty, long, 0
@@ -221,13 +221,13 @@ module Rules =
         let ctx, _, _, swapNumber = state
         Matched (ctx |> Context.addDistance "swap and complement" (swapNumber + complementNumber))
       else
-        Failure
+        Failure FailureInfo.None
 
   let testAllExactly (lowTypeMatcher: ILowTypeMatcher) (leftTypes: LowType seq) (rightTypes: LowType seq) (ctx: Context): MatchingResult =
     Debug.WriteLine(sprintf "Test %A and %A." (Seq.map LowType.debug leftTypes |> Seq.toList) (Seq.map LowType.debug rightTypes |> Seq.toList))
     if Seq.length leftTypes <> Seq.length rightTypes then
       Debug.WriteLine("The numbers of the parameters are different.")
-      Failure
+      Failure FailureInfo.None
     else
       let mutable continue' = true
       let mutable state = ctx
@@ -246,7 +246,17 @@ module Rules =
       if continue' then
         Matched state
       else
-        Failure
+        Failure FailureInfo.None
+
+  let testChoice (lowTypeMatcher: ILowTypeMatcher) (valueToFind: LowType) (choices: LowType list) ctx =
+    let rec loop failureInfo = function
+      | current :: rest ->
+        match lowTypeMatcher.Test valueToFind current ctx with
+        | Matched _ as matched -> matched
+        | Failure info -> loop (info :: failureInfo) rest
+        | Continue -> loop failureInfo rest
+      | [] -> Failure (FailureInfo.Many failureInfo)
+    loop [] choices
 
   let choiceRule (lowTypeMatcher: ILowTypeMatcher) left right ctx =
     match left, right with
@@ -254,11 +264,8 @@ module Rules =
     | other, Choice (_, choices, _) ->
       Debug.WriteLine("choice rule.")
       Debug.WriteLine(sprintf "test %A and %s" (choices |> List.map (fun x -> x.Debug())) (other.Debug()))
-      choices
-      |> Seq.tryPick (fun c -> match lowTypeMatcher.Test c other ctx with Matched _ as m -> Some m | _ -> None)
-      |> function
-        | Some matched -> matched
-        | None -> Failure
+
+      testChoice lowTypeMatcher other choices ctx
     | _ -> Continue
 
   let typeAbbreviationRule (lowTypeMatcher: ILowTypeMatcher) left right ctx =
@@ -277,7 +284,7 @@ module Rules =
       Matched (ctx |> Context.addDistance "substring matching of type name" distance)
     | failed ->
       Debug.WriteLine(sprintf "There are deferent type. The reason is %A" failed)
-      Failure
+      Failure FailureInfo.None
 
   let typeInfoRule nameEquality _ left right ctx =
     match left, right with
@@ -375,7 +382,11 @@ module Rules =
     | Generic (leftId, leftArgs, _), Generic (rightId, rightArgs, _) ->
       Debug.WriteLine("generic rule.")
       lowTypeMatcher.Test leftId rightId ctx
-      |> MatchingResult.bindMatched (lowTypeMatcher.TestAllExactly leftArgs rightArgs)
+      |> MatchingResult.bindMatched (fun ctx ->
+        match lowTypeMatcher.TestAllExactly leftArgs rightArgs ctx with
+        | Failure _ -> Failure FailureInfo.GenericArgumentsMismatch
+        | (Matched _ | Continue) as result -> result
+      )
     | _ -> Continue
 
   let wildcardRule _ left right ctx =
@@ -455,31 +466,43 @@ module Rules =
 
   let (|SubtypeTarget|_|) ctx = subtypeTarget ctx
 
-  let testSubtype (lowTypeMatcher: ILowTypeMatcher) baseType targetId targetArgs ctx =
+  let rec containsGenericArgumentsMismatch = function
+    | FailureInfo.GenericArgumentsMismatch -> true
+    | FailureInfo.Many xs -> List.exists containsGenericArgumentsMismatch xs
+    | FailureInfo.None -> false
+
+  let findBaseTypeInTarget dependsOnVariable (lowTypeMatcher: ILowTypeMatcher) baseType targetId targetArgs ctx =
     let targetIdDef = TypeHierarchy.fullTypeDef ctx targetId
-    targetIdDef
-    |> Seq.collect (fun td -> TypeHierarchy.getSuperTypes ctx td targetArgs)
-    |> Seq.tryPick (fun target ->
+
+    let targetBaseTypes = targetIdDef |> Seq.collect (fun td -> TypeHierarchy.getBaseTypes ctx td targetArgs)
+
+    let mutable result = None
+    let mutable found = false
+    use iterator = targetBaseTypes.GetEnumerator()
+
+    while (iterator.MoveNext() && not found) do
+      let target = iterator.Current
+
       match lowTypeMatcher.Test baseType target ctx with
-      | Matched ctx -> Some (ctx, target)
-      | _ -> None
-    )
+      | Matched _ ->
+        result <- Some target
+        found <- true
+      | Failure failureInfo when dependsOnVariable && containsGenericArgumentsMismatch failureInfo ->
+        result <- Some target
+      | Failure _ | Continue -> ()
 
-  let subtypeCacheValue contextualType (lowTypeMatcher: ILowTypeMatcher) baseType targetId targetArgs ctx =
-    testSubtype lowTypeMatcher baseType targetId targetArgs ctx
-    |> function
-      | Some (_, target) ->
-        if contextualType() then
-          Contextual (Some target)
-        else
-          Subtype target
-      | None ->
-        if contextualType() then
-          Contextual None
-        else
-          NonSubtype
+    result
+    
+  let testSubtype dependsOnVariable (lowTypeMatcher: ILowTypeMatcher) baseType targetId targetArgs ctx =
+    match findBaseTypeInTarget dependsOnVariable lowTypeMatcher baseType targetId targetArgs ctx with
+    | None -> SubtypeResult.NotSubtype
+    | Some target ->
+      if dependsOnVariable then
+        SubtypeResult.MaybeSubtype target
+      else
+        SubtypeResult.Subtype target
 
-  let subtypeRule isContextual (lowTypeMatcher: ILowTypeMatcher) left right ctx =
+  let subtypeRule dependsOnVariable (lowTypeMatcher: ILowTypeMatcher) left right ctx =
     match left, right with
     | LowType.Subtype (baseType, _), target
     | target, LowType.Subtype (baseType, _) ->
@@ -487,23 +510,13 @@ module Rules =
       | SubtypeTarget ctx (targetId, targetArgs) ->
         Debug.WriteLine("subtype rule.")
 
-        let valueFactory _ =
-          let contextualType() = isContextual baseType || isContextual target
-          subtypeCacheValue contextualType lowTypeMatcher baseType targetId targetArgs ctx
+        let valueFactory _ = testSubtype (dependsOnVariable baseType || dependsOnVariable target) lowTypeMatcher baseType targetId targetArgs ctx
 
         let key = (baseType, target)
         let result = ctx.SubtypeCache.GetOrAdd(key, valueFactory)
         match result with
-        | Subtype target -> lowTypeMatcher.Test baseType target ctx
-        | NonSubtype -> Failure
-        | Contextual None ->
-          match testSubtype lowTypeMatcher baseType targetId targetArgs ctx with
-          | Some (ctx, target) ->
-            ctx.SubtypeCache.TryUpdate(key, (Contextual (Some target)), result) |> ignore
-            Matched ctx
-          | None -> Failure
-        | Contextual (Some target) -> lowTypeMatcher.Test baseType target ctx
-
+        | SubtypeResult.Subtype target | SubtypeResult.MaybeSubtype target -> lowTypeMatcher.Test baseType target ctx
+        | SubtypeResult.NotSubtype -> Failure FailureInfo.None
       | _ -> Continue
 
     | _ -> Continue
@@ -511,7 +524,7 @@ module Rules =
 let instance options =
   let nameEquality = TypeNameEquality.equalityFromOptions options
 
-  let isContextual =
+  let dependsOnVariable =
     let f =
       match options.GreedyMatching with
       | Enabled -> LowType.collectVariableOrWildcardGroup
@@ -543,7 +556,7 @@ let instance options =
       | Disabled -> yield Rules.delegateAndArrowRule
 
       yield Rules.byrefRule
-      yield Rules.subtypeRule isContextual
+      yield Rules.subtypeRule dependsOnVariable
 
       yield Rules.typeAbbreviationRule
 
