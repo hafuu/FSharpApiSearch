@@ -41,7 +41,8 @@ type FSharpApiSearchClient(targets: string seq, database: Database) =
         | _ -> 2
       let distance = result.Distance
       let name = FSharp.printApiName result.Api
-      (kind, distance, name)
+      let type' = FSharp.printAccessPath None result.Api
+      (kind, distance, name, type')
     match results with
     | :? pseq<Result> as xs -> PSeq.sortBy sortKey xs :> seq<Result>
     | xs -> Seq.sortBy sortKey xs
