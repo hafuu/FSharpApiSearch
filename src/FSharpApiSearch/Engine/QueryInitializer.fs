@@ -98,7 +98,7 @@ let singleTypeAsNameQuery (query: Query) =
           {
             Expected = match n.Name with SymbolName s -> s | _ -> failwith "It is not symbol name."
             GenericParameters = n.GenericParameters |> List.map (fun v -> v.Name)
-            MatchMethod = NameMatchMethod.StringCompare
+            MatchMethod = NameMatchMethod.Default
           }
         )
       QueryMethod.ByNameOrSignature (expected, bySig)

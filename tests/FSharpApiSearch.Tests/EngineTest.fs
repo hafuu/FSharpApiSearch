@@ -95,6 +95,8 @@ let nameMatchTest =
   let typeAConstructorName = Name.ofString "Test.A.new"
   let typeAConstructor = constructor' typeA (method' "new" [ [ ptype unit ] ] typeA)
 
+  let options = defaultTestOptions |> SearchOptions.Substring.Set Disabled
+
   parameterize {
     source [
       "map : _", Name.ofString "Microsoft.FSharp.Collections.List.map", listMap, true
@@ -139,13 +141,15 @@ let nameMatchTest =
       "a<'t> : _", Name.ofString "a<'x>", (moduleValue (userInput "x")), true
       "a<'t, 'u> : _", Name.ofString "a<'x>", (moduleValue (userInput "x")), false
     ]
-    run (fun (query, targetName, targetSig, expected) -> matchTest false [||] (defaultTestOptions, query, targetName, targetSig, expected))
+    run (fun (query, targetName, targetSig, expected) -> matchTest false [||] (options, query, targetName, targetSig, expected))
   }
 
 let partialNameMatchTest = 
   let createMap m = moduleFunction' [ [ ptype (arrow [ variableA; variableB ]) ]; [ ptype (m variableA) ]; [ ptype (m variableB) ] ]
   let listMap = createMap list
   
+  let options = defaultTestOptions |> SearchOptions.Substring.Set Disabled
+
   parameterize {
     source [
       "ma* : _", Name.ofString "map", listMap, true
@@ -162,8 +166,25 @@ let partialNameMatchTest =
       "*map* : _", Name.ofString "semaphore", listMap, true
       "*map* : _", Name.ofString "xxxxxxxxxxxxxxx", listMap, false
     ]
-    run (fun (query, targetName, targetSig, expected) -> matchTest false [||] (defaultTestOptions, query, targetName, targetSig, expected))
-  }  
+    run (fun (query, targetName, targetSig, expected) -> matchTest false [||] (options, query, targetName, targetSig, expected))
+  }
+
+let substringNameMatchTest =
+  let cases = [
+    "a", Name.ofString "func_a", WhenEnabled true
+    "a : _", Name.ofString "func_a", WhenEnabled true
+  ]
+  parameterize {
+    source [
+      for opt in [ Enabled; Disabled ] do
+        for (query, targetName, expected) in cases do
+          let options = { defaultTestOptions with Substring = opt }
+          let expected = expectedValue opt expected
+          let targetSig = moduleValue (variable "'v")
+          yield (options, query, targetName, targetSig, expected)
+    ]
+    run (fun (options, query, targetName, targetSig, expected) -> matchTest false [||] (options, query, targetName, targetSig, expected))
+  }
 
 let ignoreCaseMatchTest =
   let dummyName = Name.ofString "dummy"
@@ -2076,17 +2097,17 @@ module InitializeTest =
 
   let fsharpTypeAbbreviationTest =  parameterize {
     source [
-      "a", byNameOrSignature [ byName "a" Compare ] (userInput "a")
-      "string", byNameOrSignature [ byName "string" Compare ] string
+      "a", byNameOrSignature [ byName "a" Default ] (userInput "a")
+      "string", byNameOrSignature [ byName "string" Default ] string
       "Option<string>", bySignature (generic (userInput "Option") [ string ])
       "'a list",
-        byNameOrSignature [ byGenericName "list" [ "T0" ] Compare ]
+        byNameOrSignature [ byGenericName "list" [ "T0" ] Default ]
           (choice (generic (userInput "list") [ queryVariable "'a" ]) [
             typeAbbreviation (generic (userInput "List") [ queryVariable "'a" ]) (generic (userInput "list") [ queryVariable "'a" ])
             generic (userInput "list") [ queryVariable "'a" ]
           ])
       "'b list",
-        byNameOrSignature [ byGenericName "list" [ "T0" ] Compare ]
+        byNameOrSignature [ byGenericName "list" [ "T0" ] Default ]
           (choice (generic (userInput "list") [ queryVariable "'b" ]) [
             typeAbbreviation (generic (userInput "List") [ queryVariable "'b" ]) (generic (userInput "list") [ queryVariable "'b" ])
             generic (userInput "list") [ queryVariable "'b" ]
@@ -2103,22 +2124,22 @@ module InitializeTest =
             typeAbbreviation (generic (userInput "List") [ string ]) (generic (userInput "list") [ userInput "string" ])
             generic (userInput "list") [ string ]
           ])
-      "map<'a, 'b, 'c>", byNameOrSignature [ byGenericName "map" [ "T0"; "T1"; "T2" ] Compare ] (generic (userInput "map") [ queryVariable "'a"; queryVariable "'b"; queryVariable "'c" ])
-      "list", byNameOrSignature [ byName "list" Compare ] (userInput "list")
+      "map<'a, 'b, 'c>", byNameOrSignature [ byGenericName "map" [ "T0"; "T1"; "T2" ] Default ] (generic (userInput "map") [ queryVariable "'a"; queryVariable "'b"; queryVariable "'c" ])
+      "list", byNameOrSignature [ byName "list" Default ] (userInput "list")
       "intList",
-        byNameOrSignature [ byName "intList" Compare ]
+        byNameOrSignature [ byName "intList" Default ]
           (choice (userInput "intList") [
             typeAbbreviation (generic (userInput "List") [ userInput "int" ]) (userInput "intList")
             userInput "intList"
           ])
       "intKeyMap<'value>",
-        byNameOrSignature [ byGenericName "intKeyMap" [ "T0" ] Compare ]
+        byNameOrSignature [ byGenericName "intKeyMap" [ "T0" ] Default ]
           (choice (generic (userInput "intKeyMap") [ queryVariable "'value" ]) [
             typeAbbreviation (generic (userInput "Map") [ userInput "int"; queryVariable "'value" ]) (generic (userInput "intKeyMap") [ queryVariable "'value" ])
             generic (userInput "intKeyMap") [ queryVariable "'value" ]
           ])
       "reverseArg<'front, 'end>",
-        byNameOrSignature [ byGenericName "reverseArg" [ "T0"; "T1" ] Compare ]
+        byNameOrSignature [ byGenericName "reverseArg" [ "T0"; "T1" ] Default ]
           (choice (generic (userInput "reverseArg") [ queryVariable "'front"; queryVariable "'end" ]) [
             typeAbbreviation (generic (userInput "ReverseArg") [ queryVariable "'end"; queryVariable "'front" ]) (generic (userInput "reverseArg") [ queryVariable "'front"; queryVariable "'end" ])
             generic (userInput "reverseArg") [ queryVariable "'front"; queryVariable "'end" ]
@@ -2130,39 +2151,39 @@ module InitializeTest =
             generic (userInput "samemap") [ userInput "int" ]
           ])
       "conflict",
-        byNameOrSignature [ byName "conflict" Compare ]
+        byNameOrSignature [ byName "conflict" Default ]
          (choice (userInput "conflict") [
             typeAbbreviation (userInput "A.NonHidden") (userInput "conflict")
             typeAbbreviation (userInput "B.Type") (userInput "conflict")
             userInput "conflict"
           ])
       "B.conflict",
-        byNameOrSignature [ byName "conflict" Compare; byName "B" Compare ]
+        byNameOrSignature [ byName "conflict" Default; byName "B" Default ]
           (choice (userInput "B.conflict") [
             typeAbbreviation (userInput "B.Type") (userInput "B.conflict")
             userInput "B.conflict"
           ])
       "A.conflict",
-        byNameOrSignature [ byName "conflict" Compare; byName "A" Compare ]
+        byNameOrSignature [ byName "conflict" Default; byName "A" Default ]
           (choice (userInput "A.conflict") [
             typeAbbreviation (userInput "A.NonHidden") (userInput "A.conflict")
             userInput "A.conflict"
           ])
       "conflict<'a>",
-        byNameOrSignature [ byGenericName "conflict" [ "T0" ] Compare ]
+        byNameOrSignature [ byGenericName "conflict" [ "T0" ] Default ]
           (choice (generic (userInput "conflict") [ queryVariable "'a" ]) [
             typeAbbreviation (generic (userInput "A.NonHidden") [ queryVariable "'a" ]) (generic (userInput "conflict") [ queryVariable "'a" ])
             typeAbbreviation (generic (userInput "B.Type") [ queryVariable "'a" ]) (generic (userInput "conflict") [ queryVariable "'a" ])
             generic (userInput "conflict") [ queryVariable "'a" ]
           ])
       "B.conflict<'a>",
-        byNameOrSignature [ byGenericName "conflict" [ "T0" ] Compare; byName "B" Compare ]
+        byNameOrSignature [ byGenericName "conflict" [ "T0" ] Default; byName "B" Default ]
           (choice (generic (userInput "B.conflict") [ queryVariable "'a" ]) [
             typeAbbreviation (generic (userInput "B.Type") [ queryVariable "'a" ]) (generic (userInput "B.conflict") [ queryVariable "'a" ])
             generic (userInput "B.conflict") [ queryVariable "'a" ]
           ])
       "A.conflict<'a>",
-        byNameOrSignature [ byGenericName "conflict" [ "T0" ] Compare; byName "A" Compare ]
+        byNameOrSignature [ byGenericName "conflict" [ "T0" ] Default; byName "A" Default ]
           (choice (generic (userInput "A.conflict") [ queryVariable "'a" ]) [
             typeAbbreviation (generic (userInput "A.NonHidden") [ queryVariable "'a" ]) (generic (userInput "A.conflict") [ queryVariable "'a" ])
             generic (userInput "A.conflict") [ queryVariable "'a" ]
@@ -2196,11 +2217,11 @@ module InitializeTest =
     let byNameQuery name s = QueryMethod.ByName (name, SignatureQuery.Signature s)
     parameterize {
       source [
-        "a", byNameOrSignature [ byName "a" Compare ] (userInput "a")
-        "a<'b>", byNameOrSignature [ byGenericName "a" [ "T0" ] Compare ] (generic (userInput "a") [ queryVariable "'b" ])
+        "a", byNameOrSignature [ byName "a" Default ] (userInput "a")
+        "a<'b>", byNameOrSignature [ byGenericName "a" [ "T0" ] Default ] (generic (userInput "a") [ queryVariable "'b" ])
         "a<b>", bySignature (generic (userInput "a") [ userInput "b" ])
         "a -> a", bySignature (arrow [ userInput "a"; userInput "a" ])
-        "name : a", byNameQuery [ byName "name" Compare ] (userInput "a")
+        "name : a", byNameQuery [ byName "name" Default ] (userInput "a")
       ]
       run (fun (query, expected) -> test {
         let dictionaries = Array.singleton { AssemblyName = "test"; Api = Array.empty; TypeDefinitions = IDictionary.empty; TypeAbbreviations = Array.empty }
@@ -2233,9 +2254,9 @@ module InitializeTest =
 
   let csharpAliasTest = parameterize {
     source [
-      "A", byNameOrSignature [ byName "A" Compare ] (userInput "A")
+      "A", byNameOrSignature [ byName "A" Default ] (userInput "A")
       "int",
-        byNameOrSignature [ byName "int" Compare ]
+        byNameOrSignature [ byName "int" Default ]
           (choice (userInput "int") [
             typeAbbreviation (SpecialTypes.LowType.ofDotNetType typeof<System.Int32>) (userInput "int")
             userInput "int"

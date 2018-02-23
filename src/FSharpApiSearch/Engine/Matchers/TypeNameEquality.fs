@@ -12,7 +12,7 @@ type FailureReason =
 type Result = Result<Distance, FailureReason>
 
 type TestBuilder() =
-  member inline __.Bind(x, f) =
+  member inline __.Bind(x, f) : Result =
     match x with
     | Ok d1 ->
       match f() with
@@ -20,9 +20,9 @@ type TestBuilder() =
       | failure -> failure
     | failure -> failure
 
-  member inline __.Zero() = Ok 0
+  member inline __.Zero() : Result = Ok 0
 
-let private test = TestBuilder()
+let test = TestBuilder()
 
 let testee (x: NameItem) =
   match x.Name with
@@ -30,7 +30,7 @@ let testee (x: NameItem) =
   | OperatorName (_, n) -> n
   | WithCompiledName (n, _) -> n
 
-let private forall2 (f: 'a -> 'a -> Result) (xs: 'a list) (ys: 'a list) : Result =
+let forall2 (f: 'a -> 'b -> Result) (xs: 'a list) (ys: 'b list) : Result =
   let distance = ref 0
   let rec loop xs ys =
     match xs, ys with

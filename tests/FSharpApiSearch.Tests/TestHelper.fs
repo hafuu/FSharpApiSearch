@@ -165,7 +165,8 @@ module DSL =
       defName |> List.rev |> List.map toFullName |> String.concat "."
     { Name = defName; FullName = fullName; AssemblyName = "test"; Accessibility = Public; GenericParameters = defName.Head.GenericParameters; Abbreviated = original; Original = original }
 
-  let Compare = NameMatchMethod.StringCompare
+  let Default = NameMatchMethod.Default
+  let Equalas = NameMatchMethod.Equals
   let Regex = NameMatchMethod.Regex
   let StartsWith = NameMatchMethod.StartsWith
   let EndsWith = NameMatchMethod.EndsWith

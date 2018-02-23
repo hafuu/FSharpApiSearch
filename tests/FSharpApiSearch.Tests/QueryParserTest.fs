@@ -144,27 +144,27 @@ module FSharp =
 
       parameterize {
         source [
-          "map : _", [ byName "map" Compare  ], SignatureQuery.Wildcard
-          "a_'3 : _", [ byName "a_'3" Compare ], SignatureQuery.Wildcard
-          "bind : ('a -> 'b option) -> 'a option -> 'b option", [ byName "bind" Compare ], (SignatureQuery.Signature (arrow [ (arrow [ alpha; option_beta ]); option_alpha; option_beta ]))
-          "(+) : _", [ byName "op_Addition" Compare ], SignatureQuery.Wildcard
-          "( + ) : _", [ byName "op_Addition" Compare ], SignatureQuery.Wildcard
-          "A.B : _", [ byName "B" Compare; byName "A" Compare ], SignatureQuery.Wildcard
+          "map : _", [ byName "map" Default  ], SignatureQuery.Wildcard
+          "a_'3 : _", [ byName "a_'3" Default ], SignatureQuery.Wildcard
+          "bind : ('a -> 'b option) -> 'a option -> 'b option", [ byName "bind" Default ], (SignatureQuery.Signature (arrow [ (arrow [ alpha; option_beta ]); option_alpha; option_beta ]))
+          "(+) : _", [ byName "op_Addition" Equalas ], SignatureQuery.Wildcard
+          "( + ) : _", [ byName "op_Addition" Equalas ], SignatureQuery.Wildcard
+          "A.B : _", [ byName "B" Default; byName "A" Default ], SignatureQuery.Wildcard
           "* : _", [ byName "*" Any ], SignatureQuery.Wildcard
-          "( * ) : _", [ byName "op_Multiply" Compare ], SignatureQuery.Wildcard
+          "( * ) : _", [ byName "op_Multiply" Equalas ], SignatureQuery.Wildcard
 
-          ".ctor : _", [ byName ".ctor" Compare ], SignatureQuery.Wildcard
-          "A..ctor : _", [ byName ".ctor" Compare; byName "A" Compare ], SignatureQuery.Wildcard
+          ".ctor : _", [ byName ".ctor" Default ], SignatureQuery.Wildcard
+          "A..ctor : _", [ byName ".ctor" Default; byName "A" Default ], SignatureQuery.Wildcard
 
           "ma* : _", [ byName "ma" StartsWith ], SignatureQuery.Wildcard
           "m*p : _", [ byName "^m.*p$" Regex ], SignatureQuery.Wildcard
           "*a* : _", [ byName "a" Contains ], SignatureQuery.Wildcard
           "*ap : _", [ byName "ap" EndsWith ], SignatureQuery.Wildcard
-          "A.ma* : _", [ byName "ma" StartsWith; byName "A" Compare ], SignatureQuery.Wildcard
-          "A.*ap : _", [ byName "ap" EndsWith; byName "A" Compare ], SignatureQuery.Wildcard
+          "A.ma* : _", [ byName "ma" StartsWith; byName "A" Default ], SignatureQuery.Wildcard
+          "A.*ap : _", [ byName "ap" EndsWith; byName "A" Default ], SignatureQuery.Wildcard
 
-          "A<'t> : _", [ byGenericName "A" [ "t" ] Compare ], SignatureQuery.Wildcard
-          "A<'t>.B<'u> : _", [ byGenericName "B" [ "u" ] Compare; byGenericName "A" [ "t" ] Compare ], SignatureQuery.Wildcard
+          "A<'t> : _", [ byGenericName "A" [ "t" ] Default ], SignatureQuery.Wildcard
+          "A<'t>.B<'u> : _", [ byGenericName "B" [ "u" ] Default; byGenericName "A" [ "t" ] Default ], SignatureQuery.Wildcard
         ]
         run runByNameTest
       }
@@ -252,10 +252,10 @@ module FSharp =
 
     let byNameTest =
       let cases = [
-        [ "name"; ":"; "a" ], ([ byName "name" Compare  ], SignatureQuery.Signature (userInput "a"))
-        [ "map"; ":"; "_" ], ([ byName "map" Compare  ], SignatureQuery.Wildcard)
-        [ "("; "+"; ")"; ": _" ], ([ byName "op_Addition" Compare ], SignatureQuery.Wildcard)
-        [ "A"; "."; ".ctor";  ": _" ], ([ byName ".ctor" Compare; byName "A" Compare ], SignatureQuery.Wildcard)
+        [ "name"; ":"; "a" ], ([ byName "name" Default  ], SignatureQuery.Signature (userInput "a"))
+        [ "map"; ":"; "_" ], ([ byName "map" Default  ], SignatureQuery.Wildcard)
+        [ "("; "+"; ")"; ": _" ], ([ byName "op_Addition" Equalas ], SignatureQuery.Wildcard)
+        [ "A"; "."; ".ctor";  ": _" ], ([ byName ".ctor" Default; byName "A" Default ], SignatureQuery.Wildcard)
       ]
       parameterize {
         source (buildSpaceTestSource cases)
@@ -404,7 +404,7 @@ module CSharp =
   module ByName =
     let runByNameTest (input, expectedName, expectedSignature) = runParseTest (input, QueryMethod.ByName (expectedName, expectedSignature))
 
-    let Compare = NameMatchMethod.StringCompare
+    let Default = NameMatchMethod.Default
     let Regex = NameMatchMethod.Regex
     let StartsWith = NameMatchMethod.StartsWith
     let EndsWith = NameMatchMethod.EndsWith
@@ -416,9 +416,9 @@ module CSharp =
 
     let byNameTest = parameterize {
       source [
-        "a.b : _", [ byName "b" Compare; byName "a" Compare ], SignatureQuery.Wildcard
+        "a.b : _", [ byName "b" Default; byName "a" Default ], SignatureQuery.Wildcard
         "* : _", [ byName "*" Any ], SignatureQuery.Wildcard
-        "a.* : B", [ byName "*" Any; byName "a" Compare ], SignatureQuery.Signature (userInput "B")
+        "a.* : B", [ byName "*" Any; byName "a" Default ], SignatureQuery.Signature (userInput "B")
         "a* : _", [ byName "a" StartsWith ], SignatureQuery.Wildcard
       ]
 
@@ -427,11 +427,11 @@ module CSharp =
 
     let byNameAndVariableTest = parameterize {
       source [
-        "test<A, B, C> : B", [ byName2 "test" [ "A"; "B"; "C" ] Compare ], SignatureQuery.Signature (queryVariable "'B")
+        "test<A, B, C> : B", [ byName2 "test" [ "A"; "B"; "C" ] Default ], SignatureQuery.Signature (queryVariable "'B")
         "*<A, B, C> : B", [ byName2 "*" [ "A"; "B"; "C" ] Any ], SignatureQuery.Signature (queryVariable "'B")
-        "class.method<B> : A, C -> B", [ byName2 "method" [ "B" ] Compare; byName2 "class" [] Compare ],
+        "class.method<B> : A, C -> B", [ byName2 "method" [ "B" ] Default; byName2 "class" [] Default ],
           SignatureQuery.Signature (arrow [ tuple [ userInput "A"; userInput "C" ]; queryVariable "'B" ])
-        "class<A>.method<B> : A, C -> B", [ byName2 "method" [ "B" ] Compare; byName2 "class" [ "A" ] Compare ],
+        "class<A>.method<B> : A, C -> B", [ byName2 "method" [ "B" ] Default; byName2 "class" [ "A" ] Default ],
           SignatureQuery.Signature (arrow [ tuple [ queryVariable "'A"; userInput "C" ]; queryVariable "'B" ])
       ]
 

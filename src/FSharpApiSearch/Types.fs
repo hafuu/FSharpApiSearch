@@ -616,7 +616,8 @@ type SignatureQuery =
 
 [<RequireQualifiedAccess>]
 type NameMatchMethod =
-  | StringCompare
+  | Default // equals or substring
+  | Equals
   | Regex
   | StartsWith
   | EndsWith
@@ -638,7 +639,7 @@ module NameMatchMethod =
       let pattern = sprintf "^%s$" (str.Replace("*",".*"))
       pattern, NameMatchMethod.Regex
     else
-      str, NameMatchMethod.StringCompare
+      str, NameMatchMethod.Default
 
 type ByName = {
   Expected: string
