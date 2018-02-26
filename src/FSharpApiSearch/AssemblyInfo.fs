@@ -6,8 +6,8 @@ open System.Runtime.CompilerServices
 [<assembly: AssemblyTitleAttribute("FSharpApiSearch")>]
 [<assembly: AssemblyProductAttribute("FSharpApiSearch")>]
 [<assembly: AssemblyDescriptionAttribute("F# API search engine")>]
-[<assembly: AssemblyVersionAttribute("4.0.0")>]
-[<assembly: AssemblyFileVersionAttribute("4.0.0")>]
+[<assembly: AssemblyVersionAttribute("4.0.1")>]
+[<assembly: AssemblyFileVersionAttribute("4.0.1")>]
 [<assembly: AssemblyConfigurationAttribute("Release")>]
 [<assembly: InternalsVisibleToAttribute("FSharpApiSearch.Tests")>]
 do ()
@@ -16,7 +16,7 @@ module internal AssemblyVersionInformation =
     let [<Literal>] AssemblyTitle = "FSharpApiSearch"
     let [<Literal>] AssemblyProduct = "FSharpApiSearch"
     let [<Literal>] AssemblyDescription = "F# API search engine"
-    let [<Literal>] AssemblyVersion = "4.0.0"
-    let [<Literal>] AssemblyFileVersion = "4.0.0"
+    let [<Literal>] AssemblyVersion = "4.0.1"
+    let [<Literal>] AssemblyFileVersion = "4.0.1"
     let [<Literal>] AssemblyConfiguration = "Release"
     let [<Literal>] InternalsVisibleTo = "FSharpApiSearch.Tests"

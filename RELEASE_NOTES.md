@@ -1,3 +1,8 @@
+### 4.0.1
+* Fix to allow substring matching in name search
+* Improve sort order
+* Improve performance
+
 ### 4.0.0
 * Add type coloring
 * Add substring matching and `--substring` option
