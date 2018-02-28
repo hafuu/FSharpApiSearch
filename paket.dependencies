@@ -22,9 +22,7 @@ group Build
 
   source https://nuget.org/api/v2
   
-  nuget SourceLink.Fake
   nuget FAKE
-  nuget FSharp.Formatting
   nuget FAKE.Persimmon
 
   github fsharp/FAKE modules/Octokit/Octokit.fsx
