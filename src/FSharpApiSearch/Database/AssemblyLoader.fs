@@ -3,6 +3,7 @@
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open System.IO
 open System.Reflection
+open System.Collections.Generic
 
 type AssemblyResolver = {
   FSharpCore: string
@@ -10,7 +11,7 @@ type AssemblyResolver = {
   Directories: string list
 }
 with
-  member this.Resolve(assemblyName: string) =
+  member this.TryResolve(assemblyName: string) =
     let assemblyName = if assemblyName.EndsWith(".dll") = false then assemblyName + ".dll" else assemblyName
     let result =
       if assemblyName = "FSharp.Core.dll" then
@@ -21,14 +22,34 @@ with
         |> Seq.tryFindBack File.Exists
     result |> Option.map Path.GetFullPath
 
+  member this.Resolve(assemblyName: string) =
+    match this.TryResolve(assemblyName) with
+    | Some path -> path
+    | None -> raise (FileNotFoundException("Assembly is not found.", assemblyName))
+
   member this.ResolveAll(assemblyNames: string seq) =
-    [|
-      for name in assemblyNames do
-        match this.Resolve(name) with
-        | Some path -> yield path
-        | None -> raise (FileNotFoundException("Assembly is not found.", name))
-    |]
-    |> Array.distinct
+    let assemblyPathes = assemblyNames |> Seq.map this.Resolve |> Seq.toArray
+
+    let resolved = System.Linq.Enumerable.ToDictionary(assemblyPathes, fun p -> Path.GetFileNameWithoutExtension(p))
+
+    let rec resolveImplicitReferences (path: string) : unit =
+      let m = Mono.Cecil.ModuleDefinition.ReadModule(path)
+
+      for reference in m.AssemblyReferences do
+        let refName = reference.Name
+        if resolved.ContainsKey(refName) = false then
+          match this.TryResolve(refName) with
+          | Some refPath ->
+            resolved.Add(refName, refPath)
+            resolveImplicitReferences refPath
+          | None -> ()
+          
+    
+    assemblyPathes |> Array.iter resolveImplicitReferences
+
+    resolved.Values
+    |> Seq.toArray
+    |> Array.sort
 
 let internal ignoreFSharpCompilerServiceError() =
   typeof<FSharpChecker>.Assembly.GetType("Microsoft.FSharp.Compiler.AbstractIL.Diagnostics")

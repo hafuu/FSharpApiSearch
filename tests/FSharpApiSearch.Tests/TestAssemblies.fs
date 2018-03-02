@@ -54,9 +54,6 @@ let assemblies = test {
     yield Path.GetFullPath(valueTupleAssemblyPath)
     yield Path.GetFullPath(fparsecAssenmblyPath)
     yield Path.GetFullPath(fparsecCSAssenmblyPath)
-    yield! FSharpApiSearch.FSharpApiSearchClient.DefaultReferences
-
-    yield "System.Runtime"
   ]
   return FSharpApiSearch.AssemblyLoader.load assemblyResolver assemblies
 }

@@ -79,7 +79,10 @@ let main argv =
     0
   | _ ->
     try
-      let assemblies = Seq.concat [ FSharpApiSearchClient.DefaultReferences; List.rev args.References ]
+      let assemblies =
+        match args.References with
+        | [] -> FSharpApiSearchClient.DefaultTargets
+        | _ -> List.rev args.References
       printAssemblies args.AssemblyResolver assemblies
       let database =
         AssemblyLoader.load args.AssemblyResolver assemblies

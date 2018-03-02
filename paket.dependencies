@@ -9,6 +9,7 @@ group App
   nuget FSharp.Collections.ParallelSeq >= 1.0.2
   nuget MessagePack >= 1.7.2
   nuget MessagePack.FSharpExtensions >= 1.4.0
+  nuget Mono.Cecil >= 0.9.6.4
 
   nuget Persimmon
   nuget Persimmon.Console
