@@ -47,10 +47,10 @@ options:
   --help, -h
       Print this message."""
 
-let printAssemblies (assemblyResolver: AssemblyLoader.AssemblyResolver) assemblies =
+let printAssemblies (assemblies: AssemblyLoader.AssemblyInfo[]) =
   printfn "Create the database of the following assemblies."
-  assemblyResolver.ResolveAll(assemblies)
-  |> Array.iter (fun path -> printfn "  %s" path)
+  assemblies
+  |> Array.iter (fun a -> printfn "  %s" a.Path)
 
 let printForwardingLogs (apiDict: ApiDictionary, logs: seq<ApiLoader.TypeForward>) =
   if Seq.isEmpty logs then
@@ -83,14 +83,18 @@ let main argv =
         match args.References with
         | [] -> FSharpApiSearchClient.DefaultTargets
         | _ -> List.rev args.References
-      printAssemblies args.AssemblyResolver assemblies
-      let database =
-        AssemblyLoader.load args.AssemblyResolver assemblies
+      let assemblies = args.AssemblyResolver.ResolveAll(assemblies)
+      printAssemblies assemblies
+      let databaseResult =
+        AssemblyLoader.load assemblies
         |> ApiLoader.loadWithLogs
       
-      database |> Array.iter printForwardingLogs
+      databaseResult |> Array.iter printForwardingLogs
 
-      let database = Array.map fst database
+      let database =
+        databaseResult
+        |> Array.map fst 
+        |> Database.compact assemblies
 
       printApiNumber database
 

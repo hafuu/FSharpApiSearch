@@ -15,7 +15,7 @@ let assemblyPath =
     , assemblyName + ".dll")
 
 let testClient = test {
-  let assemblies = AssemblyLoader.load TestAssemblies.assemblyResolver [ assemblyPath ]
+  let assemblies = AssemblyLoader.load (TestAssemblies.assemblyResolver.ResolveAll([ assemblyPath ]))
   let dictionaries = ApiLoader.load assemblies
   return FSharpApiSearchClient([ assemblyName ], dictionaries)
 }

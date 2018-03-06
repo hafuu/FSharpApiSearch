@@ -77,6 +77,7 @@
     <Compile Include="EngineTest.fs" />
     <Compile Include="ComputationExpressionMatcherTest.fs" />
     <Compile Include="ApiLoaderTest.fs" />
+    <Compile Include="DatabaseTest.fs" />
     <Compile Include="FSharpApiSearchClientTest.fs" />
     <Compile Include="LinkGeneratorTest.fs" />
   </ItemGroup>

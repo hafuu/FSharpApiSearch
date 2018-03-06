@@ -55,7 +55,7 @@ let assemblies = test {
     yield Path.GetFullPath(fparsecAssenmblyPath)
     yield Path.GetFullPath(fparsecCSAssenmblyPath)
   ]
-  return FSharpApiSearch.AssemblyLoader.load assemblyResolver assemblies
+  return FSharpApiSearch.AssemblyLoader.load (assemblyResolver.ResolveAll(assemblies))
 }
 
 let database = test {

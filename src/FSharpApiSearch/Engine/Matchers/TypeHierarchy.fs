@@ -1,6 +1,7 @@
 ﻿module internal FSharpApiSearch.TypeHierarchy
 
 open FSharpApiSearch.EngineTypes
+open StringPrinter
 
 let transferVariableArgument (inheritArgs: Map<TypeVariable, LowType>) (baseType: LowType): LowType list =
   let rec genericArguments = function
@@ -18,6 +19,15 @@ let instantiate (t: FullTypeDefinition) (args: LowType list) =
   match args with
   | [] -> id
   | _ -> Generic.create (id, args)
+
+let fullTypeDefOfConcreteType (ctx: Context) (concreteType: ConcreteType) =
+  let assemblyName = concreteType.AssemblyName
+  match ctx.ApiDictionaries.TryGetValue(assemblyName) with
+  | true, apiDict ->
+    match apiDict.TypeDefinitions.TryGetValue(concreteType) with
+    | true, typeDef -> typeDef
+    | false, _ -> failwithf """type %s" in "%s" is not found.""" (concreteType.Name.Print()) assemblyName
+  | false, _ -> failwithf """Assembly "%s" is not found.""" assemblyName
 
 let rec getBaseTypes (ctx: Context) (t: FullTypeDefinition) (args: LowType list): LowType seq = seq {
   let argPair = Map.ofList2 t.GenericParameters args
@@ -40,20 +50,12 @@ let rec getBaseTypes (ctx: Context) (t: FullTypeDefinition) (args: LowType list)
         | Identifier (ConcreteType full, _) -> full
         | Generic (Identifier (ConcreteType full, _), _, _) -> full
         | TypeAbbreviation ({ Original = o }, _) -> getConcreteType o
-        | _ -> failwith "It is not actual type."
-      let full = getConcreteType p
-      ctx.ApiDictionaries.[full.AssemblyName].TypeDefinitions.[full]
+        | _ -> failwith "It is not concrete type."
+      getConcreteType p
+      |> fullTypeDefOfConcreteType ctx
     yield! getBaseTypes ctx baseTypeDef baseTypeArgs
 }
 
-open StringPrinter
-
 let fullTypeDef (ctx: Context) = function
-  | ConcreteType i ->
-    match ctx.ApiDictionaries.TryGetValue(i.AssemblyName) with
-    | true, apiDict ->
-      match apiDict.TypeDefinitions.TryGetValue(i) with
-      | true, typeDef -> Array.singleton typeDef
-      | false, _ -> failwithf """Type "%s" in "%s" is not found.""" (i.Name.Print()) i.AssemblyName
-    | false, _ -> failwithf """Assembly "%s" is not found.""" i.AssemblyName
+  | ConcreteType i -> [| fullTypeDefOfConcreteType ctx i |]
   | UserInputType i -> ctx.QueryTypes.[i]

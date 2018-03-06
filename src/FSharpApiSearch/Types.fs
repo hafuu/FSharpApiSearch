@@ -931,6 +931,12 @@ module LowTypeVisitor =
     | ApiSignature.UnionCase uc -> ApiSignature.UnionCase (accept_UnionCase visitor uc)
     | ApiSignature.ComputationExpressionBuilder b -> ApiSignature.ComputationExpressionBuilder (accept_ComputationExpressionBuilder visitor b)
 
+  let accept_Api (visitor: Visitor) (api: Api) =
+    { api with
+        Signature = api.Signature |> accept_ApiSignature visitor
+        TypeConstraints = api.TypeConstraints |> List.map (accept_TypeConstraint visitor)
+    }
+
   let accept_SignatureQuery (visitor: Visitor) = function
     | SignatureQuery.Signature s -> SignatureQuery.Signature (visitor s)
     | SignatureQuery.Wildcard as x -> x

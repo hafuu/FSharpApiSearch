@@ -3,7 +3,12 @@
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open System.IO
 open System.Reflection
-open System.Collections.Generic
+
+type AssemblyInfo = {
+  Name: string
+  Path: string
+  Implicit: bool
+}
 
 type AssemblyResolver = {
   FSharpCore: string
@@ -11,7 +16,7 @@ type AssemblyResolver = {
   Directories: string list
 }
 with
-  member this.TryResolve(assemblyName: string) =
+  member this.TryResolve(assemblyName: string) : AssemblyInfo option =
     let assemblyName = if assemblyName.EndsWith(".dll") = false then assemblyName + ".dll" else assemblyName
     let result =
       if assemblyName = "FSharp.Core.dll" then
@@ -20,36 +25,36 @@ with
         seq { yield! this.Directories; yield! this.Framework }
         |> Seq.map (fun dir -> Path.Combine(dir, assemblyName))
         |> Seq.tryFindBack File.Exists
-    result |> Option.map Path.GetFullPath
+    result |> Option.map (fun path -> { Name = Path.GetFileNameWithoutExtension(path); Path = Path.GetFullPath(path); Implicit = false })
 
-  member this.Resolve(assemblyName: string) =
+  member this.Resolve(assemblyName: string) : AssemblyInfo =
     match this.TryResolve(assemblyName) with
     | Some path -> path
     | None -> raise (FileNotFoundException("Assembly is not found.", assemblyName))
 
-  member this.ResolveAll(assemblyNames: string seq) =
-    let assemblyPathes = assemblyNames |> Seq.map this.Resolve |> Seq.toArray
+  member this.ResolveAll(assemblyNames: string seq) : AssemblyInfo[] =
+    let mainAssemblies = assemblyNames |> Seq.map this.Resolve |> Seq.toArray
 
-    let resolved = System.Linq.Enumerable.ToDictionary(assemblyPathes, fun p -> Path.GetFileNameWithoutExtension(p))
+    let resolved = System.Linq.Enumerable.ToDictionary(mainAssemblies, fun a -> a.Name)
 
-    let rec resolveImplicitReferences (path: string) : unit =
-      let m = Mono.Cecil.ModuleDefinition.ReadModule(path)
+    let rec resolveImplicitReferences (assembly: AssemblyInfo) : unit =
+      let m = Mono.Cecil.ModuleDefinition.ReadModule(assembly.Path)
 
       for reference in m.AssemblyReferences do
         let refName = reference.Name
         if resolved.ContainsKey(refName) = false then
           match this.TryResolve(refName) with
-          | Some refPath ->
-            resolved.Add(refName, refPath)
-            resolveImplicitReferences refPath
+          | Some assembly ->
+            let assembly = { assembly with Implicit = true }
+            resolved.Add(refName, assembly)
+            resolveImplicitReferences assembly
           | None -> ()
-          
     
-    assemblyPathes |> Array.iter resolveImplicitReferences
+    mainAssemblies |> Array.iter resolveImplicitReferences
 
     resolved.Values
     |> Seq.toArray
-    |> Array.sort
+    |> Array.sortBy (fun a -> a.Path)
 
 let internal ignoreFSharpCompilerServiceError() =
   typeof<FSharpChecker>.Assembly.GetType("Microsoft.FSharp.Compiler.AbstractIL.Diagnostics")
@@ -60,7 +65,7 @@ let internal ignoreFSharpCompilerServiceError() =
   |> Option.bind (tryUnbox<ref<Option<System.IO.TextWriter>>>)
   |> Option.iter (fun x -> x := None)
 
-let load (assemblyResolver: AssemblyResolver) references =
+let load (references: AssemblyInfo[]) =
   ignoreFSharpCompilerServiceError()
 
   let checker = FSharpChecker.Create()
@@ -84,8 +89,8 @@ let load (assemblyResolver: AssemblyResolver) references =
           yield "--target:library" 
           yield fileName1
 
-          for r in assemblyResolver.ResolveAll(references) do
-            yield "-r:" + r
+          for r in references do
+            yield "-r:" + r.Path
         |]
       )
   let refAssemblies =
