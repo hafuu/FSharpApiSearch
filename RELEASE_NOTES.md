@@ -1,3 +1,7 @@
+### 4.1.0 - Unreleased
+* Load implicit assemblies automatically
+* Improve database size
+
 ### 4.0.1
 * Fix to allow substring matching in name search
 * Improve sort order
