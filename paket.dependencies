@@ -3,13 +3,13 @@ group App
 
   source https://nuget.org/api/v2
 
-  nuget FSharp.Core >= 4.2.3
-  nuget FParsec >= 1.0.3
-  nuget FSharp.Compiler.Service >= 17.0.1
-  nuget FSharp.Collections.ParallelSeq >= 1.0.2
-  nuget MessagePack >= 1.7.2
-  nuget MessagePack.FSharpExtensions >= 1.4.0
-  nuget Mono.Cecil >= 0.9.6.4
+  nuget FSharp.Core
+  nuget FParsec
+  nuget FSharp.Compiler.Service
+  nuget FSharp.Collections.ParallelSeq
+  nuget MessagePack
+  nuget MessagePack.FSharpExtensions
+  nuget Mono.Cecil
 
   nuget Persimmon
   nuget Persimmon.Console

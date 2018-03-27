@@ -15,3 +15,11 @@ summary
     F# API search engine
 description
     F# API search engine
+dependencies
+    FSharp.Core >= LOCKEDVERSION
+    FParsec >= LOCKEDVERSION
+    FSharp.Compiler.Service >= LOCKEDVERSION
+    FSharp.Collections.ParallelSeq >= LOCKEDVERSION
+    MessagePack >= LOCKEDVERSION
+    MessagePack.FSharpExtensions >= LOCKEDVERSION
+    Mono.Cecil >= LOCKEDVERSION
