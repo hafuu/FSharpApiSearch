@@ -72,6 +72,7 @@
     <Compile Include="FSharp41.fs" />
     <Compile Include="CompiledNames.fs" />
     <Compile Include="ParamArray.fs" />
+    <Compile Include="AccessPath.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

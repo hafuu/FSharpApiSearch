@@ -1,4 +1,5 @@
-﻿module FSharpCompilerServiceTest
+﻿[<Persimmon.Category("fcs")>]
+module FSharpCompilerServiceTest
 
 open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
@@ -81,4 +82,18 @@ let ``ValueTuple test (C#)`` = test {
   else
     do! actual.IsTupleType |> assertEquals true
     do! actual.IsStructTupleType |> assertEquals true
+}
+
+let ``accesspath test`` = test {
+  let! assemblies = assemblies
+  let assembly = assemblies |> Array.find (fun x -> x.FileName = Some fsharpAssemblyPath )
+  let module' = assembly.Contents.Entities |> Seq.find (fun x -> x.DisplayName = "M2")
+
+  let c = module'.DeclaringEntity |> Option.get
+  do! c.DisplayName |> assertEquals "C"
+
+  let b = c.DeclaringEntity |> Option.get
+  do! b.DisplayName |> assertEquals "B"
+
+  do! b.DeclaringEntity |> assertEquals None
 }
