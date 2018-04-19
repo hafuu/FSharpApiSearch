@@ -433,22 +433,22 @@ module internal Impl =
         elif x.IsProperty then
           propertyMember isFSharp x
         else
-          let existingTypeParameters = x.LogicalEnclosingEntity.GenericParameters |> Seq.map (fun x -> x.TypeVariable) |> Seq.toArray
+          let existingTypeParameters = x.ApparentEnclosingEntity.GenericParameters |> Seq.map (fun x -> x.TypeVariable) |> Seq.toArray
           let removeExistingTypeParameters xs = xs |> List.filter (fun p -> existingTypeParameters |> Array.exists ((=)p) = false)
           methodMember isFSharp x
           |> Option.map (fun (n, m) -> (n, { m with GenericParameters = removeExistingTypeParameters m.GenericParameters }))
 
       let modifier = x.MemberModifier
-      let existingType = fsharpEntityToLowType x.LogicalEnclosingEntity
+      let existingType = fsharpEntityToLowType x.ApparentEnclosingEntity
       let signature = ApiSignature.TypeExtension { ExistingType = existingType; Declaration = declaringModuleName; MemberModifier = modifier; Member = member' }
       let name =
-        let memberAssemblyName = x.LogicalEnclosingEntity.Assembly.SimpleName
-        let memberTypeName = x.LogicalEnclosingEntity.FullName
+        let memberAssemblyName = x.ApparentEnclosingEntity.Assembly.SimpleName
+        let memberTypeName = x.ApparentEnclosingEntity.FullName
         let memberName =
           let name = x.GetDisplayName
           let genericParameters =
             let memberGenericParameters = x.GenericParametersAsTypeVariable
-            let existingTypeGenericParameters = x.LogicalEnclosingEntity.GenericParameters |> Seq.map (fun x -> x.TypeVariable) |> Seq.toList
+            let existingTypeGenericParameters = x.ApparentEnclosingEntity.GenericParameters |> Seq.map (fun x -> x.TypeVariable) |> Seq.toList
             memberGenericParameters |> List.except existingTypeGenericParameters
           { name with GenericParameters = genericParameters }
         LoadingApiName { AssemblyName = memberAssemblyName; RawName = memberTypeName; MemberName = [ memberName ] }
