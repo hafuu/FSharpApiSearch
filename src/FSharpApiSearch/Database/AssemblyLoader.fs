@@ -3,6 +3,7 @@
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open System.IO
 open System.Reflection
+open System.Collections.Generic
 
 type AssemblyInfo = {
   Name: string
@@ -35,7 +36,12 @@ with
   member this.ResolveAll(assemblyNames: string seq) : AssemblyInfo[] =
     let mainAssemblies = assemblyNames |> Seq.map this.Resolve |> Seq.toArray
 
-    let resolved = System.Linq.Enumerable.ToDictionary(mainAssemblies, fun a -> a.Name)
+    let resolved = Dictionary<_, _>()
+    mainAssemblies
+    |> Array.iter (fun a ->
+      if resolved.ContainsKey(a.Name) = false then
+        resolved.Add(a.Name, a)
+    )
 
     let rec resolveImplicitReferences (assembly: AssemblyInfo) : unit =
       let m = Mono.Cecil.ModuleDefinition.ReadModule(assembly.Path)
