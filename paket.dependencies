@@ -1,5 +1,5 @@
 group App
-  framework: auto-detect
+  framework: net45, net462
 
   source https://nuget.org/api/v2
 
@@ -19,7 +19,7 @@ group App
   nuget BenchmarkDotNet
 
 group Build
-  framework: auto-detect
+  framework: net45, net462
 
   source https://nuget.org/api/v2
   
@@ -27,3 +27,13 @@ group Build
   nuget FAKE.Persimmon
 
   github fsharp/FAKE modules/Octokit/Octokit.fsx
+
+group Desktop
+  framework: net45, net462
+
+  source https://nuget.org/api/v2
+
+  nuget FSharp.Core
+  nuget FSharpApiSearch
+  nuget FSharp.ViewModule.Core
+  nuget FsXaml.Wpf

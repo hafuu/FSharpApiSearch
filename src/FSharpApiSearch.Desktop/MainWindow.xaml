@@ -1,0 +1,42 @@
+﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:FSharpApiSearch.Desktop;assembly=FSharpApiSearch.Desktop"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800">
+    <Window.DataContext>
+        <local:MainWindowViewModel />
+    </Window.DataContext>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="50" />
+            </Grid.ColumnDefinitions>
+            <TextBox Name="QueryInput" Text="{Binding Path=Query, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Grid.Column="0">
+                <TextBox.InputBindings>
+                    <KeyBinding  Gesture="Enter" Command="{Binding Path=Search}"/>
+                </TextBox.InputBindings>
+            </TextBox>
+            <Button Grid.Column="1" Content="Search" Command="{Binding Path=Search}" />
+        </Grid>
+        <ListView Padding="0" ItemsSource="{Binding Path=Results}" Grid.Row="1">
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Orientation="Horizontal">
+                        <Label Content="{Binding Path=AccessPath, Mode=OneTime}" Foreground="DarkGray" Padding="0" />
+                        <Label Content="." Padding="0" />
+                        <Label Content="{Binding Path=Name, Mode=OneTime}" Padding="0" />
+                        <Label Content=" : " Padding="0" />
+                        <Label Content="{Binding Path=Signature, Mode=OneTime}" Padding="0" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+    </Grid>
+</Window>

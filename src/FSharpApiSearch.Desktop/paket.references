@@ -1,0 +1,6 @@
+﻿group Desktop
+
+FSharp.Core
+FSharpApiSearch
+FSharp.ViewModule.Core
+FsXaml.Wpf
