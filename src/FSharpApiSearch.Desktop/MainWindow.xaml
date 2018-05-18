@@ -5,27 +5,29 @@
         xmlns:local="clr-namespace:FSharpApiSearch.Desktop;assembly=FSharpApiSearch.Desktop"
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
+    <Window.Resources>
+        <local:BooleanVisibilityConverter x:Key="BooleanVisibilityConverter" />
+    </Window.Resources>
     <Window.DataContext>
         <local:MainWindowViewModel />
     </Window.DataContext>
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
-        <Grid Grid.Row="0">
+    <DockPanel>
+        <Grid DockPanel.Dock="Top">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="50" />
             </Grid.ColumnDefinitions>
-            <TextBox Name="QueryInput" Text="{Binding Path=Query, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Grid.Column="0">
+
+            <TextBox Grid.Column="0" Name="QueryInput" Text="{Binding Path=Query, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                 <TextBox.InputBindings>
                     <KeyBinding  Gesture="Enter" Command="{Binding Path=Search}"/>
                 </TextBox.InputBindings>
             </TextBox>
             <Button Grid.Column="1" Content="Search" Command="{Binding Path=Search}" />
         </Grid>
-        <ListView Padding="0" ItemsSource="{Binding Path=Results}" Grid.Row="1">
+        <Label DockPanel.Dock="Top" Content="{Binding Path=ErrorMessage}" Visibility="{Binding Path=HasError, Converter={StaticResource BooleanVisibilityConverter}}" />
+        <Label DockPanel.Dock="Top" Content="{Binding Path=ResultCount}" ContentStringFormat="{}{0} results" Visibility="{Binding Path=Searched, Converter={StaticResource BooleanVisibilityConverter}}" />
+        <ListView Padding="0" ItemsSource="{Binding Path=Results}" Visibility="{Binding Path=Searched, Converter={StaticResource BooleanVisibilityConverter}}" BorderThickness="0">
             <ListView.ItemTemplate>
                 <DataTemplate>
                     <StackPanel Orientation="Horizontal">
@@ -38,5 +40,5 @@
                 </DataTemplate>
             </ListView.ItemTemplate>
         </ListView>
-    </Grid>
+    </DockPanel>
 </Window>
