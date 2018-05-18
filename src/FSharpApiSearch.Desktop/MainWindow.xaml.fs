@@ -62,11 +62,15 @@ type MainWindowViewModel(session: FSharpApiSearchSession) as this =
     this.ResultCount <- results.Length
     this.Results <- results
 
-  member val Search = this.Factory.CommandAsync(fun _ -> async {
+  member val Search = this.Factory.CommandAsync(fun ctx -> async {
     try
       do this.ClearResults()
       do this.ClearError()
-      let! results = session.SearchAsync(this.Query)
+      
+      do! Async.SwitchToThreadPool()
+      let results = session.Search(this.Query)
+      do! Async.SwitchToContext ctx
+
       do this.SetResults(results)
     with
       ex -> this.SetError(ex)
