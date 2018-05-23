@@ -36,4 +36,3 @@ group Desktop
   nuget FSharp.Core
   nuget FSharpApiSearch
   nuget FSharp.ViewModule.Core
-  nuget FsXaml.Wpf

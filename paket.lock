@@ -220,7 +220,6 @@ NUGET
       FSharp.Core (>= 4.2.3)
       MessagePack (>= 1.7.2)
       MessagePack.FSharpExtensions (>= 1.4)
-    FsXaml.Wpf (3.1.6)
     MessagePack (1.7.3.4)
       System.Threading.Tasks.Extensions (>= 4.3)
       System.ValueTuple (>= 4.3)

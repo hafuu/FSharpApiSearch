@@ -1,14 +1,11 @@
 ﻿namespace FSharpApiSearch.Desktop
 
-open FsXaml
 open ViewModule
 open ViewModule.FSharp
 open FSharpApiSearch
 open System.Windows.Data
 open System.Windows
 open System
-
-type MainWindow = XAML<"MainWindow.xaml">
 
 type BooleanVisibilityConverter() =
   interface IValueConverter with
