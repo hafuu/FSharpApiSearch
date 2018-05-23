@@ -18,16 +18,16 @@
                 <ColumnDefinition Width="50" />
             </Grid.ColumnDefinitions>
 
-            <TextBox Grid.Column="0" Name="QueryInput" Text="{Binding Path=Query, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+            <TextBox Grid.Column="0" Name="QueryInput" Text="{Binding Path=Query.Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                 <TextBox.InputBindings>
-                    <KeyBinding  Gesture="Enter" Command="{Binding Path=Search}"/>
+                    <KeyBinding  Gesture="Enter" Command="{Binding Path=SearchCommand}"/>
                 </TextBox.InputBindings>
             </TextBox>
-            <Button Grid.Column="1" Content="Search" Command="{Binding Path=Search}" />
+            <Button Grid.Column="1" Content="Search" Command="{Binding Path=SearchCommand}" />
         </Grid>
-        <Label DockPanel.Dock="Top" Content="{Binding Path=ErrorMessage}" Visibility="{Binding Path=HasError, Converter={StaticResource BooleanVisibilityConverter}}" />
-        <Label DockPanel.Dock="Top" Content="{Binding Path=ResultCount}" ContentStringFormat="{}{0} results" Visibility="{Binding Path=Searched, Converter={StaticResource BooleanVisibilityConverter}}" />
-        <ListView Padding="0" ItemsSource="{Binding Path=Results}" Visibility="{Binding Path=Searched, Converter={StaticResource BooleanVisibilityConverter}}" BorderThickness="0">
+        <Label DockPanel.Dock="Top" Content="{Binding Path=ErrorMessage.Value, Mode=OneWay}" Visibility="{Binding Path=HasError.Value, Mode=OneWay, Converter={StaticResource BooleanVisibilityConverter}}" />
+        <Label DockPanel.Dock="Top" Content="{Binding Path=ResultCount.Value, Mode=OneWay}" ContentStringFormat="{}{0} results" Visibility="{Binding Path=Searched.Value, Mode=OneWay, Converter={StaticResource BooleanVisibilityConverter}}" />
+        <ListView Padding="0" ItemsSource="{Binding Path=Results.Value, Mode=OneWay}" Visibility="{Binding Path=Searched.Value, Mode=OneWay, Converter={StaticResource BooleanVisibilityConverter}}" BorderThickness="0">
             <ListView.ItemTemplate>
                 <DataTemplate>
                     <StackPanel Orientation="Horizontal">

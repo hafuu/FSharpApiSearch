@@ -1,11 +1,13 @@
 ﻿namespace FSharpApiSearch.Desktop
 
-open ViewModule
-open ViewModule.FSharp
 open FSharpApiSearch
 open System.Windows.Data
 open System.Windows
 open System
+open Reactive.Bindings
+open Reactive.Bindings.Extensions
+open System.Reactive.Disposables
+open ReactivePropertyHelpers
 
 type BooleanVisibilityConverter() =
   interface IValueConverter with
@@ -17,58 +19,64 @@ type BooleanVisibilityConverter() =
     member this.ConvertBack(value, targetType, parameter, culture) =
       raise (NotSupportedException())
 
-type MainWindowViewModel(session: FSharpApiSearchSession) as this =
-  inherit ViewModelBase()
+type MainWindowViewModel(model: FSharpApiSearchSession) as this =
+  inherit NotificationObject()
 
-  let query = this.Factory.Backing(<@ this.Query @>, "")
-  
-  let searched = this.Factory.Backing(<@ this.Searched @>, false)
+  let disposable = new CompositeDisposable()
 
-  let resultCount = this.Factory.Backing(<@ this.ResultCount @>, 0)
-  let results = this.Factory.Backing(<@ this.Results @>, [||])
+  let query =
+    model
+    |> ReactiveProperty.fromPropertyAsSynchronized <@ fun x -> x.Query @> disposable
 
-  let hasError = this.Factory.Backing(<@ this.HasError @>, false)
-  let errorMessage = this.Factory.Backing(<@ this.ErrorMessage @>, "")
+  let searched =
+    model
+    |> Observable.fromProperty <@ fun x -> x.Results @>
+    |> Observable.map Option.isSome
+    |> Observable.toReactiveProperty disposable
 
-  new() = MainWindowViewModel(FSharpApiSearchSession(lazy (Database.loadFromFile Database.databaseName)))
+  let results =
+    model
+    |> Observable.fromProperty <@ fun x -> x.Results @>
+    |> Observable.map (function
+      | Some xs -> xs
+      | None -> Array.empty)
+    |> Observable.toReactiveProperty disposable
 
-  member this.Query with get() = query.Value and set(value) = query.Value <- value
+  let resultCount =
+    results
+    |> Observable.map Array.length
+    |> Observable.toReadOnlyReactiveProperty disposable
 
-  member this.Searched with get() = searched.Value and set(value) = searched.Value <- value
-  member this.ResultCount with get() = resultCount.Value and set(value) = resultCount.Value <- value
-  member this.Results with get() = results.Value and set(value) = results.Value <- value
+  let errorMessage =
+    model
+    |> Observable.fromProperty <@ fun x -> x.ErrorMessage @>
+    |> Observable.map (function
+      | Some msg -> msg
+      | None -> "")
+    |> Observable.toReactiveProperty disposable
 
-  member this.HasError with get() = hasError.Value and set(value) = hasError.Value <- value
-  member this.ErrorMessage with get() = errorMessage.Value and set(value) = errorMessage.Value <- value
+  let hasError =
+    errorMessage
+    |> Observable.map (String.IsNullOrEmpty >> not)
+    |> Observable.toReadOnlyReactiveProperty disposable
 
-  member this.ClearError() =
-    this.HasError <- false
-    this.ErrorMessage <- ""
-
-  member this.SetError(ex: exn) =
-    this.HasError <- true
-    this.ErrorMessage <- ex.Message
-
-  member this.ClearResults() =
-    this.Searched <- false
-    this.ResultCount <- 0
-    this.Results <- [||]
-
-  member this.SetResults(results: SearchResult[]) =
-    this.Searched <- true
-    this.ResultCount <- results.Length
-    this.Results <- results
-
-  member val Search = this.Factory.CommandAsync(fun ctx -> async {
-    try
-      do this.ClearResults()
-      do this.ClearError()
-      
+  let searchCommand =
+    new AsyncReactiveCommand()
+    |> AsyncReactiveCommand.addCallback (fun ctx -> async {
       do! Async.SwitchToThreadPool()
-      let results = session.Search(this.Query)
+      do model.Search()
       do! Async.SwitchToContext ctx
+    })
 
-      do this.SetResults(results)
-    with
-      ex -> this.SetError(ex)
-  })
+  new() = new MainWindowViewModel(FSharpApiSearchSession(lazy (Database.loadFromFile Database.databaseName)))
+
+  member val Query = query
+  member val Searched = searched
+  member val Results = results
+  member val ResultCount = resultCount
+  member val ErrorMessage = errorMessage
+  member val HasError = hasError
+  member val SearchCommand = searchCommand
+
+  interface IDisposable with
+    member this.Dispose() = disposable.Dispose()

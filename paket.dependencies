@@ -35,4 +35,5 @@ group Desktop
 
   nuget FSharp.Core
   nuget FSharpApiSearch
-  nuget FSharp.ViewModule.Core
+  nuget ReactiveProperty
+  nuget FSharp.Control.Reactive
