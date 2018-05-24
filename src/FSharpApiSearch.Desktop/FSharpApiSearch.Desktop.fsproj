@@ -70,7 +70,6 @@
     <Compile Include="Models\FSharpApiSearchSession.fs" />
     <Resource Include="MainWindow.xaml" />
     <Compile Include="MainWindow.xaml.fs" />
-    <Resource Include="App.xaml" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
