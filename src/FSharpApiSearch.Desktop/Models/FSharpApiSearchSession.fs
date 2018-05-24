@@ -22,8 +22,13 @@ type FSharpApiSearchSession(database: Lazy<Database>) =
   member this.Results with get() = _results and set(value) = _results <- value; this.RisePropertyChanged()
   member this.ErrorMessage with get() = _errorMessage and set(value) = _errorMessage <- value; this.RisePropertyChanged()
 
-  member this.InitializeBackground() =
-    async { try do client.Force() |> ignore with _ -> () } |> Async.Start
+  member this.InitializeInBackground() =
+    async {
+      try
+        do client.Force() |> ignore
+      with _ -> ()
+    }
+    |> Async.Start
 
   member this.Clear() =
     this.Results <- None

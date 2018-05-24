@@ -68,6 +68,12 @@ type MainWindowViewModel(model: FSharpApiSearchSession) as this =
       do! Async.SwitchToContext ctx
     })
 
+  let initializeModelCommand =
+    new AsyncReactiveCommand()
+    |> AsyncReactiveCommand.addCallback (fun ctx -> async {
+      do model.InitializeInBackground()
+    })
+
   new() = new MainWindowViewModel(FSharpApiSearchSession(lazy (Database.loadFromFile Database.databaseName)))
 
   member val Query = query
@@ -77,6 +83,7 @@ type MainWindowViewModel(model: FSharpApiSearchSession) as this =
   member val ErrorMessage = errorMessage
   member val HasError = hasError
   member val SearchCommand = searchCommand
+  member val InitializeModelCommand = initializeModelCommand
 
   interface IDisposable with
     member this.Dispose() = disposable.Dispose()
