@@ -30,13 +30,17 @@ module Observable =
     |> ReadOnlyReactiveProperty.addTo container
 
 module ReactiveProperty =
-  let fromProperty propertySelector container subject =
+  let observeProperty propertySelector container subject =
     subject
     |> Observable.fromProperty propertySelector
     |> Observable.toReactiveProperty container
 
-  let fromPropertyAsSynchronized propertySelector container subject =
+  let observePropertyAsSynchronized propertySelector container subject =
     INotifyPropertyChangedExtensions.ToReactivePropertyAsSynchronized(subject, Linq.fromFSharpFuncExpr propertySelector)
+    |> addTo container
+
+  let fromObject propertySelector container target =
+    ReactiveProperty.FromObject(target, Linq.fromFSharpFuncExpr propertySelector)
     |> addTo container
 
   let addTo (container: CompositeDisposable) (prop: ReactiveProperty<_>) = prop.AddTo(container)

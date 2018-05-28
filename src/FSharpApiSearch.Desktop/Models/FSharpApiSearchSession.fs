@@ -2,11 +2,20 @@
 
 open FSharpApiSearch
 open System.Threading
+open System.Windows.Media
 
+[<CLIMutable>]
+type SignatureItem = {
+  Text: string
+  Color: Color option
+}
+
+[<CLIMutable>]
 type SearchResult = {
   AccessPath: string
+  DeclarationType: string
   Name: string
-  Signature: string
+  Signature: SignatureItem[]
 }
 
 type FSharpApiSearchSession(database: Lazy<Database>) =
@@ -17,6 +26,13 @@ type FSharpApiSearchSession(database: Lazy<Database>) =
   let mutable _query = ""
   let mutable _results : SearchResult[] option = None
   let mutable _errorMessage : string option = None
+
+  let colorTable = [|
+    Colors.LightGreen
+    Colors.Red
+    Colors.Orange
+    Colors.Cyan
+  |]
 
   member this.Query with get() = _query and set(value) = _query <- value; this.RisePropertyChanged()
   member this.Results with get() = _results and set(value) = _results <- value; this.RisePropertyChanged()
@@ -44,11 +60,19 @@ type FSharpApiSearchSession(database: Lazy<Database>) =
 
       let results =
         client.Sort(results)
-        |> Seq.map (fun x ->
+        |> Seq.map (fun result ->
           {
-            AccessPath = StringPrinter.FSharp.printAccessPath None x.Api
-            Name = StringPrinter.FSharp.printApiName x.Api
-            Signature = StringPrinter.FSharp.printSignature x.Api
+            AccessPath = StringPrinter.FSharp.printAccessPath None result.Api
+            DeclarationType = StringPrinter.FSharp.printAccessPath (Some 1) result.Api
+            Name = StringPrinter.FSharp.printApiName result.Api
+            Signature =
+              (HtmlPrintHelper.signature result (Printer.FSharp.printSignature result.Api)).Text
+              |> Array.map (fun (text, colorId) ->
+                {
+                  Text = text
+                  Color = colorId |> Option.map (fun id -> colorTable.[id % colorTable.Length])
+                }
+              )
           })
         |> Seq.toArray
 
