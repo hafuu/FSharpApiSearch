@@ -65,7 +65,7 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <None Include="paket.references" />
-    <Compile Include="NotificationObject.fs" />
+    <Compile Include="WpfHelpers.fs" />
     <Compile Include="ReactivePropertyHelpers.fs" />
     <Compile Include="Models\FSharpApiSearchSession.fs" />
     <Resource Include="MainWindow.xaml" />

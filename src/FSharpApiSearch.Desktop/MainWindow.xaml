@@ -49,7 +49,17 @@
                             </ItemsControl.Template>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Label Content="{Binding Path=Text, Mode=OneTime}" Foreground="{Binding Path=Color, Mode=OneTime}" Padding="0" />
+                                    <Label Content="{Binding Path=Text, Mode=OneTime}" Padding="0">
+                                        <Label.Style>
+                                            <Style TargetType="{x:Type Label}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Path=HasColor, Mode=OneTime}" Value="True">
+                                                        <Setter Property="Foreground" Value="{Binding Path=Color, Mode=OneTime}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Label.Style>
+                                    </Label>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>

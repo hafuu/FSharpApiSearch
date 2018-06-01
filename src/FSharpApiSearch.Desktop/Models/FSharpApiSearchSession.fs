@@ -3,6 +3,7 @@
 open FSharpApiSearch
 open System.Threading
 open System.Windows.Media
+open WpfHelpers
 
 [<CLIMutable>]
 type SignatureItem = {

@@ -10,6 +10,7 @@ open System.Reactive.Disposables
 open ReactivePropertyHelpers
 open System.Windows.Media
 open System.Windows.Controls
+open WpfHelpers
 
 module internal Impl =
   let boolToVisibility = function
@@ -25,10 +26,11 @@ type SignatureItemViewModel(model: SignatureItem) =
   member val Color =
     match model.Color with
     | Some c ->
-      let brush = SolidColorBrush(c)
-      brush.Freeze()
-      brush :> obj
-    | None -> Label.ForegroundProperty.DefaultMetadata.DefaultValue
+      SolidColorBrush(c)
+      |> freeze
+      |> box<obj>
+    | None -> null
+  member val HasColor = model.Color |> Option.isSome
 
 type SearchResultViewModel(model: SearchResult) =
   inherit NotificationObject()
