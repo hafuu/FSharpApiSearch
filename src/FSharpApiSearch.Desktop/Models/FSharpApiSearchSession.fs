@@ -17,6 +17,11 @@ type SearchResult = {
   DeclarationType: string
   Name: string
   Signature: SignatureItem[]
+  Constraints: string option
+  Kind: string
+  Assembly: string
+  Document: string option
+  Link: string option
 }
 
 type FSharpApiSearchSession(database: Lazy<Database>) =
@@ -62,18 +67,24 @@ type FSharpApiSearchSession(database: Lazy<Database>) =
       let results =
         client.Sort(results)
         |> Seq.map (fun result ->
+          let api = result.Api
           {
-            AccessPath = StringPrinter.FSharp.printAccessPath None result.Api
-            DeclarationType = StringPrinter.FSharp.printAccessPath (Some 1) result.Api
-            Name = StringPrinter.FSharp.printApiName result.Api
+            AccessPath = StringPrinter.FSharp.printAccessPath None api
+            DeclarationType = StringPrinter.FSharp.printAccessPath (Some 1) api
+            Name = StringPrinter.FSharp.printApiName api
             Signature =
-              (HtmlPrintHelper.signature result (Printer.FSharp.printSignature result.Api)).Text
+              (HtmlPrintHelper.signature result (Printer.FSharp.printSignature api)).Text
               |> Array.map (fun (text, colorId) ->
                 {
                   Text = text
                   Color = colorId |> Option.map (fun id -> colorTable.[id % colorTable.Length])
                 }
               )
+            Constraints = StringPrinter.FSharp.tryPrintTypeConstraints api
+            Kind = StringPrinter.FSharp.printKind api
+            Assembly = result.AssemblyName
+            Document = api.Document
+            Link = None
           })
         |> Seq.toArray
 

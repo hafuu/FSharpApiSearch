@@ -28,42 +28,55 @@
             </TextBox>
             <Button Grid.Column="1" Content="Search" Command="{Binding Path=SearchCommand}" />
         </Grid>
-        <Label DockPanel.Dock="Top" Content="{Binding Path=ErrorMessage.Value, Mode=OneWay}" Visibility="{Binding Path=HasError.Value, Mode=OneWay}" />
-        <Label DockPanel.Dock="Top" Content="{Binding Path=ResultCount.Value, Mode=OneWay}" ContentStringFormat="{}{0} results" Visibility="{Binding Path=Searched.Value, Mode=OneWay}" />
+        <TextBlock DockPanel.Dock="Top" Text="{Binding Path=ErrorMessage.Value, Mode=OneWay}" Visibility="{Binding Path=HasError.Value, Mode=OneWay}" />
+        <TextBlock DockPanel.Dock="Top" Text="{Binding Path=ResultCount.Value, StringFormat={}{0} results, Mode=OneWay}" Visibility="{Binding Path=Searched.Value, Mode=OneWay}" />
         <ListView Padding="0"
                   ItemsSource="{Binding Path=Results.Value, Mode=OneWay}"
                   Visibility="{Binding Path=Searched.Value, Mode=OneWay}"
                   BorderThickness="0">
             <ListView.ItemTemplate>
                 <DataTemplate>
-                    <StackPanel Orientation="Horizontal">
-                        <Label Content="{Binding Path=DeclarationType, Mode=OneTime}" Foreground="DarkGray" Padding="0" />
-                        <Label Content="." Padding="0" />
-                        <Label Content="{Binding Path=Name, Mode=OneTime}" Padding="0" />
-                        <Label Content=" : " Padding="0" />
-                        <ItemsControl ItemsSource="{Binding Path=Signature, Mode=OneTime}" Padding="0">
-                            <ItemsControl.Template>
-                                <ControlTemplate>
-                                    <StackPanel IsItemsHost="True" Orientation="Horizontal" />
-                                </ControlTemplate>
-                            </ItemsControl.Template>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Label Content="{Binding Path=Text, Mode=OneTime}" Padding="0">
-                                        <Label.Style>
-                                            <Style TargetType="{x:Type Label}">
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Path=HasColor, Mode=OneTime}" Value="True">
-                                                        <Setter Property="Foreground" Value="{Binding Path=Color, Mode=OneTime}" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Label.Style>
-                                    </Label>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
+                    <Expander>
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Path=DeclarationType, Mode=OneTime}" Foreground="DarkGray" />
+                                <TextBlock Text="." />
+                                <TextBlock Text="{Binding Path=Name, Mode=OneTime}" />
+                                <TextBlock Text=" : " />
+                                <ItemsControl ItemsSource="{Binding Path=Signature, Mode=OneTime}">
+                                    <ItemsControl.Template>
+                                        <ControlTemplate>
+                                            <StackPanel IsItemsHost="True" Orientation="Horizontal" />
+                                        </ControlTemplate>
+                                    </ItemsControl.Template>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Path=Text, Mode=OneTime}">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="{x:Type TextBlock}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Path=HasColor, Mode=OneTime}" Value="True">
+                                                                <Setter Property="Foreground" Value="{Binding Path=Color, Mode=OneTime}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Expander.Header>
+
+                        <StackPanel Orientation="Vertical">
+                            <TextBlock Text="{Binding Path=Constraints, Mode=OneTime}" Visibility="{Binding Path=HasConstraints, Mode=OneTime}" />
+                            <TextBlock Text="{Binding Path=AccessPath, StringFormat=namespace: {0}, Mode=OneTime}" />
+                            <TextBlock Text="{Binding Path=Kind, StringFormat=kind: {0}, Mode=OneTime}" />
+                            <TextBlock Text="{Binding Path=Assembly, StringFormat=assembly: {0}, Mode=OneTime}" />
+                            <TextBlock Text="{Binding Path=Document, Mode=OneTime}" Visibility="{Binding Path=HasDocument, Mode=OneTime}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Expander>
+                    
                 </DataTemplate>
             </ListView.ItemTemplate>
         </ListView>

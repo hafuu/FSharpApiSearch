@@ -39,6 +39,14 @@ type SearchResultViewModel(model: SearchResult) =
   member val Name = model.Name
   member val Signature = model.Signature |> Array.map SignatureItemViewModel
 
+  member val Constraints = model.Constraints |> Option.defaultValue ""
+  member val HasConstraints = model.Constraints |> Option.isSome |> boolToVisibility
+  member val AccessPath = model.AccessPath
+  member val Kind = model.Kind
+  member val Assembly = model.Assembly
+  member val Document = model.Document |> Option.defaultValue ""
+  member val HasDocument = model.Document |> Option.isSome |> boolToVisibility
+
 type MainWindowViewModel(model: FSharpApiSearchSession) =
   inherit NotificationObject()
 
