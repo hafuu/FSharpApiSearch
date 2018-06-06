@@ -49,7 +49,10 @@ module ReadOnlyReactiveProperty =
   let addTo (container: CompositeDisposable) (prop: ReadOnlyReactiveProperty<_>) = prop.AddTo(container)
 
 module AsyncReactiveCommand =
-  let addCallback (callback: SynchronizationContext -> Async<unit>) (command: AsyncReactiveCommand) =
-    let callback = callback SynchronizationContext.Current
-    command.Subscribe(Func<Task>(fun () -> Async.StartImmediateAsTask callback :> Task)) |> ignore
+  let addCallback (callback: SynchronizationContext -> Async<unit>) (container: CompositeDisposable) (command: AsyncReactiveCommand) =
+    let observer = command.Subscribe(Func<Task>(fun () ->
+      let ctx = SynchronizationContext.Current
+      Async.StartImmediateAsTask (callback ctx) :> Task)
+    )
+    container.Add(observer)
     command

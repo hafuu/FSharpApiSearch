@@ -28,7 +28,7 @@ type SignatureItemViewModel(model: SignatureItem) =
     | Some c ->
       SolidColorBrush(c)
       |> freeze
-      |> box<obj>
+      :> obj
     | None -> null
   member val HasColor = model.Color |> Option.isSome
 
@@ -89,13 +89,13 @@ type MainWindowViewModel(model: FSharpApiSearchSession) =
       do! Async.SwitchToThreadPool()
       do model.Search()
       do! Async.SwitchToContext ctx
-    })
+    }) disposable
 
   let initializeModelCommand =
     new AsyncReactiveCommand()
     |> AsyncReactiveCommand.addCallback (fun ctx -> async {
       do model.InitializeInBackground()
-    })
+    }) disposable
 
   new() = new MainWindowViewModel(FSharpApiSearchSession(lazy (Database.loadFromFile Database.databaseName)))
 
