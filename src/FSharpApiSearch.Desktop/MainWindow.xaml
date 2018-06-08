@@ -72,6 +72,7 @@
         <ListView Padding="0"
                   ItemsSource="{Binding Path=Results.Value, Mode=OneWay}"
                   Visibility="{Binding Path=Searched.Value, Mode=OneWay}"
+                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                   BorderThickness="0">
             <ListView.ItemTemplate>
                 <DataTemplate>
