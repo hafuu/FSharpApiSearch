@@ -17,12 +17,9 @@
     <Window.Resources>
 
         <ControlTemplate x:Key="ExpanderToggleButton" TargetType="{x:Type ToggleButton}">
-            <Border x:Name="Border" CornerRadius="2,0,0,0" BorderThickness="0,0,1,0">
+            <Border x:Name="Border">
                 <Border.Background>
-                    <LinearGradientBrush EndPoint="0.5,1" StartPoint="0.5,0">
-                        <GradientStop />
-                        <GradientStop />
-                    </LinearGradientBrush>
+                    <LinearGradientBrush />
                 </Border.Background>
             </Border>
         </ControlTemplate>
@@ -36,26 +33,15 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition x:Name="ContentRow" Height="0" />
                             </Grid.RowDefinitions>
-                            <Border x:Name="Border" Grid.Row="0" BorderThickness="1" CornerRadius="2,2,0,0">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <ToggleButton Grid.ColumnSpan="2" HorizontalAlignment="Stretch" Panel.ZIndex="1" OverridesDefaultStyle="True" Template="{StaticResource ExpanderToggleButton}" IsChecked="{Binding IsExpanded, Mode=TwoWay,  RelativeSource={RelativeSource TemplatedParent}}">
-                                    </ToggleButton>
-                                    <ContentPresenter Grid.Column="0" Panel.ZIndex="0" Margin="0" ContentSource="Header" RecognizesAccessKey="True" />
-                                </Grid>
-                            </Border>
-                            <Border x:Name="Content" Grid.Row="1" BorderThickness="1,0,1,1" CornerRadius="0,0,2,2">
-                                <Border.BorderBrush>
-                                    <SolidColorBrush />
-                                </Border.BorderBrush>
-                                <Border.Background>
-                                    <SolidColorBrush />
-                                </Border.Background>
-                                <ContentPresenter Margin="4" />
-                            </Border>
+
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <ToggleButton Grid.Row="0" Panel.ZIndex="1" OverridesDefaultStyle="True" Template="{StaticResource ExpanderToggleButton}" IsChecked="{Binding IsExpanded, Mode=TwoWay,  RelativeSource={RelativeSource TemplatedParent}}" />
+                            <ContentPresenter Grid.Row="0" Panel.ZIndex="0"  Margin="0" ContentSource="Header" RecognizesAccessKey="True" />
+                            
+                            <ContentPresenter Grid.Row="1" Margin="4" />
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsExpanded" Value="True">
@@ -121,7 +107,7 @@
                             </StackPanel>
                         </Expander.Header>
 
-                        <StackPanel Orientation="Vertical">
+                        <StackPanel Orientation="Vertical" HorizontalAlignment="Stretch">
                             <TextBlock Text="{Binding Path=Constraints, Mode=OneTime}" Visibility="{Binding Path=HasConstraints, Mode=OneTime}" />
                             <TextBlock Text="{Binding Path=AccessPath, StringFormat=namespace: {0}, Mode=OneTime}" />
                             <TextBlock Text="{Binding Path=Kind, StringFormat=kind: {0}, Mode=OneTime}" />
