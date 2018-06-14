@@ -1,8 +1,6 @@
 ﻿module FSharpApiSearch.Engine
 
-open System.Diagnostics
 open FSharpApiSearch.EngineTypes
-open FSharpApiSearch.Printer
 
 let internal test (lowTypeMatcher: ILowTypeMatcher) (apiMatchers: IApiMatcher[]) (query: Query) (ctx: Context) (api: Api) =
   let mutable continue' = true

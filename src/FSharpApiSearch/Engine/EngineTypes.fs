@@ -1,6 +1,5 @@
 ﻿module internal FSharpApiSearch.EngineTypes
 
-open System.Diagnostics
 open System.Collections.Generic
 open FSharpApiSearch
 open FSharpApiSearch.StringPrinter
@@ -42,7 +41,7 @@ type Context = {
 module Context =
   let addDistance reason x (ctx: Context) =
     let newDistance = ctx.Distance + x
-    Debug.WriteLine(sprintf "Update distance from %d to %d by %s" ctx.Distance newDistance reason)
+    EngineDebug.WriteLine(sprintf "Update distance from %d to %d by %s" ctx.Distance newDistance reason)
     { ctx with Distance = newDistance }
 
   let newEquations (oldCtx: Context) (newCtx: Context) =
@@ -90,14 +89,14 @@ type IApiMatcher =
 
 module ApiMatcher =
   let test (lowTypeMatcher: ILowTypeMatcher) (apiMatcher: IApiMatcher) (query: Query) (api: Api) (ctx: Context) =
-    Debug.WriteLine(sprintf "Test \"%s\" and \"%s\" by %s. Equations: %s"
+    EngineDebug.WriteLine(sprintf "Test \"%s\" and \"%s\" by %s. Equations: %s"
       query.OriginalString
       (ApiSignature.debug api.Signature)
       apiMatcher.Name
       (Equations.debug ctx.Equations))
-    Debug.Indent()
+    EngineDebug.Indent()
     let result = apiMatcher.Test lowTypeMatcher query api ctx
-    Debug.Unindent()
+    EngineDebug.Unindent()
     result
 
 type Rule<'Matcher, 'Left, 'Right> = 'Matcher -> 'Left -> 'Right -> Context -> MatchingResult
@@ -105,7 +104,7 @@ type Rule<'Matcher, 'Left, 'Right> = 'Matcher -> 'Left -> 'Right -> Context -> M
 module Rule =
   let run (rule: Rule<_, _, _>) matcher left right ctx = rule matcher left right ctx
   let terminator _ _ _ _ : MatchingResult =
-    Debug.WriteLine("It reached the terminator.")
+    EngineDebug.WriteLine("It reached the terminator.")
     Failure FailureInfo.None
   let failureToContinue (rule: Rule<_, _, _>) matcher left right ctx =
     match run rule matcher left right ctx with

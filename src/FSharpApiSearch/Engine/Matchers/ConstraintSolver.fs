@@ -1,6 +1,5 @@
 ﻿module internal FSharpApiSearch.ConstraintSolver
 
-open System.Diagnostics
 open FSharpApiSearch.EngineTypes
 open FSharpApiSearch.SpecialTypes
 open FSharpApiSearch.StringPrinter
@@ -21,15 +20,15 @@ let createConstraintSolver title testConstraint (testeeType: LowType) ctx = seq 
       | ConcreteType a -> ctx.ApiDictionaries.[a.AssemblyName].TypeDefinitions.[a] |> Array.singleton
       | UserInputType u -> ctx.QueryTypes.[u]
     for typeDef in testees do
-      Debug.WriteLine(sprintf "Test %s: %s" title (typeDef.Debug()))
-      Debug.Indent()
+      EngineDebug.WriteLine(sprintf "Test %s: %s" title (typeDef.Debug()))
+      EngineDebug.Indent()
       let nextCtx =
         match testeeType with
         | ConcreteType _ -> ctx
         | UserInputType u -> { ctx with QueryTypes = ctx.QueryTypes |> Map.add u [| typeDef |] }
       let results = testConstraint typeDef testTypeArgs nextCtx |> Seq.cache
-      Debug.Unindent()
-      Debug.WriteLine(
+      EngineDebug.Unindent()
+      EngineDebug.WriteLine(
         if Seq.isEmpty results = false then
           sprintf "Success %s, %d branches." title (Seq.length results)
         else
@@ -94,7 +93,7 @@ let testMemberConstraint (lowTypeMatcher: ILowTypeMatcher) modifier (expectedMem
   createConstraintSolver
     "member constraints"
     (fun testeeTypeDef testeeArgs ctx ->
-      Debug.WriteLine("Member normalize to arrow or function.")
+      EngineDebug.WriteLine("Member normalize to arrow or function.")
       let members =
         match modifier with
         | MemberModifier.Static -> Seq.append testeeTypeDef.StaticMembers testeeTypeDef.ImplicitStaticMembers
@@ -139,7 +138,7 @@ let createConstraintStatusSolver name (get: _ -> ConstraintStatus) =
       |> List.map (fun p -> List.exists ((=)p) dependentVariables)
       |> List.zip args
       |> List.choose (fun (arg, isDependent) -> if isDependent then Some arg else None)
-    Debug.WriteLine(sprintf "Test %s of dependent types: %A" name (testArgs |> List.map (fun x -> x.Debug())))
+    EngineDebug.WriteLine(sprintf "Test %s of dependent types: %A" name (testArgs |> List.map (fun x -> x.Debug())))
     let branches =
       testArgs
       |> Seq.fold (fun contextBranches testeeSignature ->
@@ -149,7 +148,7 @@ let createConstraintStatusSolver name (get: _ -> ConstraintStatus) =
         }
       ) (Seq.singleton ctx)
       |> Seq.cache
-    Debug.WriteLine(sprintf "%d branches from dependent types." (Seq.length branches))
+    EngineDebug.WriteLine(sprintf "%d branches from dependent types." (Seq.length branches))
     branches
   testConstraint
 
@@ -165,10 +164,10 @@ let rec solve' (lowTypeMatcher: ILowTypeMatcher) (constraints: TypeConstraint li
     let variable = Variable.create (VariableSource.Target, variable)
     testEqualities |> List.choose (fun (left, right) -> if left = variable then Some right elif right = variable then Some left else None)
     
-  Debug.WriteLine("Begin solving type constraints.")
-  Debug.WriteLine(sprintf "Equalities: %A" (List.map Equations.debugEquality testEqualities))
-  Debug.WriteLine(sprintf "Constraints: %A" (constraints |> List.map (fun c -> c.Debug())))
-  Debug.Indent()
+  EngineDebug.WriteLine("Begin solving type constraints.")
+  EngineDebug.WriteLine(sprintf "Equalities: %A" (List.map Equations.debugEquality testEqualities))
+  EngineDebug.WriteLine(sprintf "Constraints: %A" (constraints |> List.map (fun c -> c.Debug())))
+  EngineDebug.Indent()
 
   let testConstraint constraint' contextBranches testeeSignature: Context seq = seq {
     let inline pass ctx = Seq.singleton ctx
@@ -202,9 +201,9 @@ let rec solve' (lowTypeMatcher: ILowTypeMatcher) (constraints: TypeConstraint li
     |> Seq.fold (fun contextBranches constraint' ->
       seq {
         for variable in constraint'.Variables do
-          Debug.WriteLine(sprintf "Constraint test: %s" (constraint'.Debug()))
+          EngineDebug.WriteLine(sprintf "Constraint test: %s" (constraint'.Debug()))
           let testSignatures = getTestSignatures variable
-          Debug.WriteLine(sprintf "Constraint test signatures: %A" (testSignatures |> List.map (fun x -> x.Debug())))
+          EngineDebug.WriteLine(sprintf "Constraint test signatures: %A" (testSignatures |> List.map (fun x -> x.Debug())))
           yield! testSignatures |> List.fold (testConstraint constraint'.Constraint) contextBranches
       }
     ) (Seq.singleton initialCtx)
@@ -214,15 +213,15 @@ let rec solve' (lowTypeMatcher: ILowTypeMatcher) (constraints: TypeConstraint li
         match Context.newEquations initialCtx ctx with
         | [] -> Matched ctx
         | newEqualities ->
-          Debug.WriteLine(sprintf "There are new equalities." )
-          Debug.Indent()
+          EngineDebug.WriteLine(sprintf "There are new equalities." )
+          EngineDebug.Indent()
           let result = solve' lowTypeMatcher constraints ctx newEqualities
-          Debug.Unindent()
+          EngineDebug.Unindent()
           result
       | None -> Failure FailureInfo.None
         
-  Debug.Unindent()
-  Debug.WriteLine(sprintf "End solving type constraints. Result=%b" (MatchingResult.toBool result))
+  EngineDebug.Unindent()
+  EngineDebug.WriteLine(sprintf "End solving type constraints. Result=%b" (MatchingResult.toBool result))
   result
 
 let solve lowTypeMatcher constraints ctx = solve' lowTypeMatcher constraints ctx ctx.Equations.Equalities
