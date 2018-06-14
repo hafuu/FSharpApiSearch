@@ -34,7 +34,7 @@ module Args =
 let helpMessage = """usage: FSharpApiSearch.Database.exe <options> <assemblies>
 
 assemblies: Specifies the assembly name or the assembly path.
-            By default, 'mscorlib', 'System', 'System.Core', 'System.Xml', 'System.Configuration' and 'FSharp.Core' are specified.
+            By default, 'mscorlib', 'System', 'System.Core' and 'FSharp.Core' are specified.
 options:
   --lib:<folder-name>
       Specifies a directory to be searched for assemblies that are referenced.
