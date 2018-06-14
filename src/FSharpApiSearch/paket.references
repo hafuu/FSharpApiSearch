@@ -5,4 +5,4 @@ FSharp.Compiler.Service
 FSharp.Collections.ParallelSeq
 MessagePack
 MessagePack.FSharpExtensions
-Mono.Cecil
+System.Reflection.Metadata

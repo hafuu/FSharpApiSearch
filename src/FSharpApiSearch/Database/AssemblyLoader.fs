@@ -4,6 +4,8 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open System.IO
 open System.Reflection
 open System.Collections.Generic
+open System.Reflection.Metadata
+open System.Reflection.PortableExecutable
 
 type AssemblyInfo = {
   Name: string
@@ -44,10 +46,19 @@ with
     )
 
     let rec resolveImplicitReferences (assembly: AssemblyInfo) : unit =
-      let m = Mono.Cecil.ModuleDefinition.ReadModule(assembly.Path)
+      let references =
+        use assemblyRawFile = File.OpenRead(assembly.Path)
+        use assemblyPeFile = new PEReader(assemblyRawFile)
+        let assemblyReader = assemblyPeFile.GetMetadataReader()
 
-      for reference in m.AssemblyReferences do
-        let refName = reference.Name
+        assemblyReader.AssemblyReferences
+        |> Seq.map (fun refHandle ->
+          let entry = assemblyReader.GetAssemblyReference(refHandle)
+          assemblyReader.GetString(entry.Name)
+        )
+        |> Seq.toArray
+
+      for refName in references do
         if resolved.ContainsKey(refName) = false then
           match this.TryResolve(refName) with
           | Some assembly ->

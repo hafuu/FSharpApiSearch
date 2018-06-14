@@ -182,7 +182,7 @@ NUGET
       System.Xml.XPath (>= 4.3) - restriction: || (&& (== net45) (>= net46)) (&& (== net45) (>= netstandard1.3)) (== net462)
 
 GROUP Build
-RESTRICTION: || (== net45) (== net462)
+RESTRICTION: == net462
 NUGET
   remote: https://www.nuget.org/api/v2
     FAKE (4.64.6)
@@ -194,5 +194,5 @@ NUGET
     Persimmon.Console (3.1.1)
 GITHUB
   remote: fsharp/FAKE
-    modules/Octokit/Octokit.fsx (8f21aabb0974b0f4c7b7dab674b2ea2691a9db8c)
+    modules/Octokit/Octokit.fsx (6ba51f5612a914e161be2a9b642907f75e28780f)
       Octokit (>= 0.20)

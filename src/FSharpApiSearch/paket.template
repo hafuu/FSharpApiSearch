@@ -22,4 +22,4 @@ dependencies
     FSharp.Collections.ParallelSeq >= LOCKEDVERSION
     MessagePack >= LOCKEDVERSION
     MessagePack.FSharpExtensions >= LOCKEDVERSION
-    Mono.Cecil >= LOCKEDVERSION
+    System.Reflection.Metadata >= LOCKEDVERSION
