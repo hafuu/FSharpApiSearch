@@ -75,17 +75,6 @@
   </Target>
   -->
   <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.5'">
-      <ItemGroup>
-        <Reference Include="System.Runtime.InteropServices.RuntimeInformation">
-          <HintPath>..\..\packages\app\System.Runtime.InteropServices.RuntimeInformation\lib\net45\System.Runtime.InteropServices.RuntimeInformation.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.6.2'">
       <ItemGroup>
         <Reference Include="mscorlib">
@@ -108,5 +97,4 @@
       </ItemGroup>
     </When>
   </Choose>
-  <Import Project="..\..\packages\app\NETStandard.Library\build\NETStandard.Library.targets" Condition="Exists('..\..\packages\app\NETStandard.Library\build\NETStandard.Library.targets')" Label="Paket" />
 </Project>
