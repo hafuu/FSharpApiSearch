@@ -1003,17 +1003,20 @@ module internal Impl =
     let typeForwarding (context: Context) fromAssemblyName (name: LoadingName) =
       context.Cache
       |> Seq.tryPick (fun (toAssemblyName, assemblyCache) ->
-        let result = tryResolve_Name name assemblyCache
-        result |> Option.iter (fun _ -> context.ForwardingLogs.[name.RawName] <- { Type = name.RawName; From = fromAssemblyName; To = toAssemblyName })
-        result)
+        match tryResolve_Name name assemblyCache with
+        | Some result ->
+          context.ForwardingLogs.[name.RawName] <- { Type = name.RawName; From = fromAssemblyName; To = toAssemblyName }
+          Some (toAssemblyName, result)
+        | None -> None
+      )
 
     let resolve_Name context (name: LoadingName) =
       let resolved = NameCache.tryGetValue name.AssemblyName context.Cache |> Option.bind (tryResolve_Name name)
       match resolved with
-      | Some n -> n
+      | Some resolvedName -> (name.AssemblyName, resolvedName)
       | None ->
         match typeForwarding context name.AssemblyName name with
-        | Some n -> n
+        | Some (resolvedAssemblyName, resolvedName) -> (resolvedAssemblyName, resolvedName)
         | None -> failwithf "%s(%s) is not found." name.RawName name.AssemblyName
   
     let rec resolve_LowType context = function
@@ -1034,7 +1037,9 @@ module internal Impl =
       | ByRef (out, t, p) -> ByRef(out, resolve_LowType context t, p)
       | Subtype (t, p) -> Subtype(resolve_LowType context t, p)
       | Choice (o, xs, p) -> Choice (resolve_LowType context o, List.map (resolve_LowType context) xs, p)
-      | LoadingType (name, p) -> Identifier (ConcreteType { AssemblyName = name.AssemblyName; Name = resolve_Name context name }, p)
+      | LoadingType (name, p) ->
+        let resolvedAssemblyName, resolvedName = resolve_Name context name
+        Identifier (ConcreteType { AssemblyName = resolvedAssemblyName; Name = resolvedName }, p)
     and resolve_Arrow context arrow =
       let ps, ret = arrow
       let ps = List.map (resolve_LowType context) ps
@@ -1046,7 +1051,9 @@ module internal Impl =
 
     let resolve_ApiName context = function
       | ApiName _ as x -> x
-      | LoadingApiName name -> ApiName (resolve_Name context name)
+      | LoadingApiName name ->
+        let _, resolvedName = resolve_Name context name
+        ApiName (resolvedName)
 
     let resolve_Api context (api: Api) =
       { api with

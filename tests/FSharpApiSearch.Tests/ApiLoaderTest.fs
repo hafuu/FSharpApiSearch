@@ -1168,3 +1168,51 @@ let serializationTest = test {
   do! actual.[0].Api |> assertEquals dictionaries.[0].Api
   do! actual.[1].Api |> assertEquals dictionaries.[1].Api
 }
+
+let typeForwardTest = test {
+  let typeDef : FullTypeDefinition = {
+    Name = Name.ofString "Test"
+    FullName = "Test"
+    AssemblyName = "TestAssembly"
+    Accessibility = Accessibility.Public
+    Kind = TypeDefinitionKind.Type
+    BaseType = None
+    AllInterfaces = []
+    GenericParameters = []
+    TypeConstraints = []
+    InstanceMembers = []
+    StaticMembers = []
+
+    ImplicitInstanceMembers = []
+    ImplicitStaticMembers = []
+
+    SupportNull = ConstraintStatus.NotSatisfy
+    ReferenceType = ConstraintStatus.NotSatisfy
+    ValueType = ConstraintStatus.NotSatisfy
+    DefaultConstructor = ConstraintStatus.NotSatisfy
+    Equality = ConstraintStatus.NotSatisfy
+    Comparison = ConstraintStatus.NotSatisfy
+  }
+
+  let assemblyA : ApiDictionary = {
+    AssemblyName = typeDef.AssemblyName
+    Api = [| { Name = ApiName.ApiName typeDef.Name; Signature = ApiSignature.FullTypeDefinition typeDef; TypeConstraints = []; Document = None } |]
+    TypeDefinitions = dict [ typeDef.ConcreteType, typeDef ]
+    TypeAbbreviations = [||]
+  }
+
+  let testApi = ApiSignature.ModuleValue (LoadingType ({ AssemblyName = "old"; RawName = "Test"; MemberName = [] }, Position.Unknown))
+
+  let assemblyB : ApiDictionary = {
+    AssemblyName = "TestAssembly2"
+    Api = [| { Name = ApiName.ApiName (Name.ofString "test"); Signature = testApi; TypeConstraints = []; Document = None } |]
+    TypeDefinitions = IDictionary.empty
+    TypeAbbreviations = [||]
+  }
+
+  let input = [| assemblyA; assemblyB |]
+  let result = ApiLoader.Impl.NameResolve.resolveLoadingName input |> Array.map fst
+  let actual = result.[1].Api.[0].Signature
+  let expected = ApiSignature.ModuleValue (Identifier (ConcreteType { AssemblyName = typeDef.AssemblyName; Name = typeDef.Name }, Position.Unknown))
+  do! actual |> assertEquals expected
+}
