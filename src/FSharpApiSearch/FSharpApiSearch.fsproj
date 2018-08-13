@@ -66,6 +66,7 @@
     <Compile Include="Misc.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="QueryParser.fs" />
+    <Compile Include="Deque.fs" />
     <Compile Include="Print\PrintTypes.fs" />
     <Compile Include="Print\FSharpFormat.fs" />
     <Compile Include="Print\CSharpFormat.fs" />
