@@ -8,6 +8,7 @@
     <Name>Profiling</Name>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <WarningLevel>3</WarningLevel>
+    <OutDir>bin\$(Configuration)</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugType>full</DebugType>

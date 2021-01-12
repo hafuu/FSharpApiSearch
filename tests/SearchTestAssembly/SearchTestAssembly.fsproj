@@ -6,6 +6,7 @@
     <Name>SearchTestAssembly</Name>
     <WarningLevel>3</WarningLevel>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <OutDir>bin\$(Configuration)</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugType>full</DebugType>

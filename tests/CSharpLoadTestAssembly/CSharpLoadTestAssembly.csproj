@@ -6,6 +6,7 @@
     <Product>CSharpLoadTestAssembly</Product>
     <Copyright>Copyright ©  2016</Copyright>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <OutDir>bin\$(Configuration)</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugType>full</DebugType>
