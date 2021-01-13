@@ -1,46 +1,21 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>88a38f77-760f-4e3a-8a2d-7bc80b7c5a8c</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <RootNamespace>FSharpApiSearch.Tests</RootNamespace>
-    <AssemblyName>FSharpApiSearch.Tests</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <TargetFSharpCoreVersion>4.4.1.0</TargetFSharpCoreVersion>
+    <TargetFramework>net45</TargetFramework>
     <Name>FSharpApiSearch.Tests</Name>
-    <TargetFrameworkProfile />
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
-    <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\..\</SolutionDir>
+    <WarningLevel>3</WarningLevel>
+    <OutDir>bin\$(Configuration)</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
     <Tailcalls>false</Tailcalls>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <WarningLevel>3</WarningLevel>
     <StartAction>Project</StartAction>
-    <StartProgram>
-    </StartProgram>
-    <StartArguments>
-    </StartArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
+    <DebugType>portable</DebugType>
     <Tailcalls>true</Tailcalls>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <WarningLevel>3</WarningLevel>
-  </PropertyGroup>
-  <PropertyGroup>
-    <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'EngineDebug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -48,34 +23,8 @@
     <Optimize>false</Optimize>
     <Tailcalls>false</Tailcalls>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <WarningLevel>3</WarningLevel>
-    <StartAction>Project</StartAction>
-    <StartProgram />
-    <StartArguments />
-    <OutputPath>bin\EngineDebug\</OutputPath>
   </PropertyGroup>
-  <Choose>
-    <When Condition="'$(VisualStudioVersion)' == '11.0'">
-      <PropertyGroup Condition="Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')">
-        <FSharpTargetsPath>$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets</FSharpTargetsPath>
-      </PropertyGroup>
-    </When>
-    <Otherwise>
-      <PropertyGroup Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets')">
-        <FSharpTargetsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets</FSharpTargetsPath>
-      </PropertyGroup>
-    </Otherwise>
-  </Choose>
-  <Import Project="$(FSharpTargetsPath)" />
   <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
-  <Import Project="..\..\.paket\paket.targets" />
   <ItemGroup>
     <None Include="paket.references" />
     <Compile Include="TestAssemblies.fs" />
@@ -94,199 +43,11 @@
     <Compile Include="LinkGeneratorTest.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\CSharpLoadTestAssembly\CSharpLoadTestAssembly.csproj">
-      <Name>CSharpLoadTestAssembly</Name>
-      <Project>{6273542c-01f5-4ebf-8aab-9fcaa96bea62}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\LoadTestAssembly\LoadTestAssembly.fsproj">
-      <Name>LoadTestAssembly</Name>
-      <Project>{c05f3812-b549-4220-9853-eb4bbbf6c78b}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\SearchTestAssembly\SearchTestAssembly.fsproj">
-      <Name>SearchTestAssembly</Name>
-      <Project>{73f7a955-3f4b-41a0-a522-3c0284b836c6}</Project>
-      <Private>True</Private>
-    </ProjectReference>
+    <ProjectReference Include="..\CSharpLoadTestAssembly\CSharpLoadTestAssembly.csproj" />
+    <ProjectReference Include="..\LoadTestAssembly\LoadTestAssembly.fsproj" />
+    <ProjectReference Include="..\SearchTestAssembly\SearchTestAssembly.fsproj" />
     <Reference Include="mscorlib" />
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Numerics" />
-    <ProjectReference Include="..\..\src\FSharpApiSearch\FSharpApiSearch.fsproj">
-      <Name>FSharpApiSearch</Name>
-      <Project>{ddc5e009-4efa-49eb-b4aa-46216d00992e}</Project>
-      <Private>True</Private>
-    </ProjectReference>
+    <ProjectReference Include="..\..\src\FSharpApiSearch\FSharpApiSearch.fsproj" />
   </ItemGroup>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.6.2')">
-      <ItemGroup>
-        <Reference Include="Diff.Match.Patch">
-          <HintPath>..\..\packages\app\Diff.Match.Patch\lib\net45\Diff.Match.Patch.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.6.2')">
-      <ItemGroup>
-        <Reference Include="ISymWrapper, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-          <Paket>True</Paket>
-        </Reference>
-        <Reference Include="System.IO">
-          <Paket>True</Paket>
-        </Reference>
-        <Reference Include="System.Runtime">
-          <Paket>True</Paket>
-        </Reference>
-        <Reference Include="FSharp.Compiler.Service">
-          <HintPath>..\..\packages\app\FSharp.Compiler.Service\lib\net45\FSharp.Compiler.Service.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.6.2')">
-      <ItemGroup>
-        <Reference Include="FSharp.Core">
-          <HintPath>..\..\packages\app\FSharp.Core\lib\net45\FSharp.Core.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.6.2')">
-      <ItemGroup>
-        <Reference Include="FSharp.Object.Diff">
-          <HintPath>..\..\packages\app\FSharp.Object.Diff\lib\net45\FSharp.Object.Diff.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.6.2')">
-      <ItemGroup>
-        <Reference Include="MessagePack">
-          <HintPath>..\..\packages\app\MessagePack\lib\net45\MessagePack.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.6.2')">
-      <ItemGroup>
-        <Reference Include="MessagePack.FSharpExtensions">
-          <HintPath>..\..\packages\app\MessagePack.FSharpExtensions\lib\net45\MessagePack.FSharpExtensions.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.6.2')">
-      <ItemGroup>
-        <Reference Include="Persimmon">
-          <HintPath>..\..\packages\app\Persimmon\lib\net45\Persimmon.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.6.2')">
-      <ItemGroup>
-        <Reference Include="Persimmon.MuscleAssert">
-          <HintPath>..\..\packages\app\Persimmon.MuscleAssert\lib\net45\Persimmon.MuscleAssert.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.5'">
-      <ItemGroup>
-        <Reference Include="System.Collections.Immutable">
-          <HintPath>..\..\packages\app\System.Collections.Immutable\lib\netstandard1.0\System.Collections.Immutable.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.6.2'">
-      <ItemGroup>
-        <Reference Include="System.Collections.Immutable">
-          <HintPath>..\..\packages\app\System.Collections.Immutable\lib\netstandard1.3\System.Collections.Immutable.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.6.2')">
-      <ItemGroup>
-        <Reference Include="System.Reflection.Metadata">
-          <HintPath>..\..\packages\app\System.Reflection.Metadata\lib\netstandard1.1\System.Reflection.Metadata.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.6.2')">
-      <ItemGroup>
-        <Reference Include="System.Runtime.CompilerServices.Unsafe">
-          <HintPath>..\..\packages\app\System.Runtime.CompilerServices.Unsafe\lib\netstandard1.0\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.6.2')">
-      <ItemGroup>
-        <Reference Include="System.Threading.Tasks.Extensions">
-          <HintPath>..\..\packages\app\System.Threading.Tasks.Extensions\lib\netstandard1.0\System.Threading.Tasks.Extensions.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.6.2'">
-      <ItemGroup>
-        <Reference Include="System.ValueTuple">
-          <HintPath>..\..\packages\app\System.ValueTuple\lib\net461\System.ValueTuple.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.5'">
-      <ItemGroup>
-        <Reference Include="System.ValueTuple">
-          <HintPath>..\..\packages\app\System.ValueTuple\lib\netstandard1.0\System.ValueTuple.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

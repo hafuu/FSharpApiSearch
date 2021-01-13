@@ -1,2 +1,3 @@
 group App
 System.ValueTuple
+FSharp.Core

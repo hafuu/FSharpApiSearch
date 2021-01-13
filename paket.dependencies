@@ -3,7 +3,7 @@ group App
 
   source https://nuget.org/api/v2
 
-  nuget FSharp.Core 4.3.4
+  nuget FSharp.Core
   nuget FParsec
   nuget FSharp.Compiler.Service
   nuget FSharp.Collections.ParallelSeq
