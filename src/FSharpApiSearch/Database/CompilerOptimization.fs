@@ -1,6 +1,6 @@
 ﻿module internal FSharpApiSearch.CompilerOptimization
 
-open Microsoft.FSharp.Compiler
+open FSharp.Compiler
 
 type ImplicitMember = {
   InstanceMembers: Member list

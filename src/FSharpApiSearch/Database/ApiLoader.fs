@@ -1,6 +1,6 @@
 ﻿module FSharpApiSearch.ApiLoader
 
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 open FSharpApiSearch.SpecialTypes
 open System.Text.RegularExpressions
 open System.IO

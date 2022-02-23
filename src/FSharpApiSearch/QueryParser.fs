@@ -228,7 +228,7 @@ module FSharp =
   let opName =
     trim (skipChar '(') >>. many1Chars (anyOf "!%&*+-./<=>?@^|~:[]")  .>> trim (skipChar ')')
     |>> (fun name ->
-      let compiledOpName = Microsoft.FSharp.Compiler.PrettyNaming.CompileOpName name
+      let compiledOpName = FSharp.Compiler.PrettyNaming.CompileOpName name
       { Expected = compiledOpName; GenericParameters = []; MatchMethod = NameMatchMethod.Equals })
 
   let memberNamePartial =

@@ -3,7 +3,7 @@
 open FSharpApiSearch
 open System.Diagnostics
 open System
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 
 type Args = {
   Query: string option

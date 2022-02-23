@@ -69,7 +69,7 @@ module internal Name =
       | SymbolName n -> n
       | _ -> failwith "It is not symbol name"
     let compiledOpName =
-      Microsoft.FSharp.Compiler.PrettyNaming.CompileOpName (headName.Trim('(', ')', ' '))
+      FSharp.Compiler.PrettyNaming.CompileOpName (headName.Trim('(', ')', ' '))
     let head = { name.Head with Name = OperatorName (headName, compiledOpName) }
     head :: name.Tail
 

@@ -1,6 +1,6 @@
 ﻿namespace FSharpApiSearch
 
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 open FSharpApiSearch.AssemblyLoader
 open FSharpApiSearch.StringPrinter
 open FSharp.Collections.ParallelSeq

@@ -5,7 +5,7 @@ open Persimmon
 open Persimmon.Syntax.UseTestNameByReflection
 open Persimmon.MuscleAssert
 open TestAssemblies
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 
 module InferredFloat =
   let ``is float<1>`` (t: FSharpType) = test {

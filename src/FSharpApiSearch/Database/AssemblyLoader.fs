@@ -1,6 +1,6 @@
 ﻿module FSharpApiSearch.AssemblyLoader
 
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 open System.IO
 open System.Reflection
 open System.Collections.Generic
@@ -74,7 +74,7 @@ with
     |> Array.sortBy (fun a -> a.Path)
 
 let internal ignoreFSharpCompilerServiceError() =
-  typeof<FSharpChecker>.Assembly.GetType("Microsoft.FSharp.Compiler.AbstractIL.Diagnostics")
+  typeof<FSharpChecker>.Assembly.GetType("FSharp.Compiler.AbstractIL.Diagnostics")
   |> Option.ofObj
   |> Option.bind (fun diagMod -> diagMod.GetMember("diagnosticsLog", BindingFlags.NonPublic ||| BindingFlags.Static) |> Array.tryHead)
   |> Option.bind (tryUnbox<PropertyInfo>)
