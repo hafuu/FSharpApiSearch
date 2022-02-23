@@ -75,14 +75,18 @@ module internal Serialization =
       |> ApiLoader.Impl.makeDefAndAbb
     )
 
-let internal initMessagePack = lazy(
-  CompositeResolver.RegisterAndSetAsDefault(FSharpResolver.Instance, StandardResolver.Instance)
-)
+let internal messagePackOptions =
+  let resolver =
+    { new IFormatterResolver with
+      member _.GetFormatter<'T>() =
+        match FSharpResolver.Instance.GetFormatter<'T>() with
+        | null -> StandardResolver.Instance.GetFormatter<'T>()
+        | x -> x
+    }
+  MessagePackSerializerOptions.Standard.WithResolver(resolver)
 
 let saveStream (stream: Stream) (database: Database) : unit =
-  initMessagePack.Force()
-
-  MessagePackSerializer.Serialize(stream, Serialization.toDumpObj database)
+  MessagePackSerializer.Serialize(stream, Serialization.toDumpObj database, messagePackOptions)
 
 let save (path: string) (database: Database) : unit =
   if File.Exists(path) then File.Delete(path)
@@ -90,8 +94,7 @@ let save (path: string) (database: Database) : unit =
   saveStream file database
 
 let loadFromStream (stream: Stream) : Database =
-  initMessagePack.Force()
-  MessagePackSerializer.Deserialize<Serialization.T>(stream) |> Serialization.fromDumpObj
+  MessagePackSerializer.Deserialize<Serialization.T>(stream, messagePackOptions) |> Serialization.fromDumpObj
 
 let loadFromFile (path: string) : Database =
   use file = File.OpenRead(path)
