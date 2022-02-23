@@ -2,7 +2,6 @@
 open BenchmarkDotNet
 open BenchmarkDotNet.Attributes
 open BenchmarkDotNet.Running
-open BenchmarkDotNet.Attributes.Jobs
 
 [<MemoryDiagnoser>]
 [<ShortRunJob>]
