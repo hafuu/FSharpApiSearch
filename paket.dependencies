@@ -1,6 +1,7 @@
 group Core
   framework: netstandard2.0
-  source https://nuget.org/api/v2
+  source https://api.nuget.org/v3/index.json
+  storage: none
 
   nuget FSharp.Core
   nuget FParsec
@@ -13,8 +14,8 @@ group Core
 
 group App
   framework: net60
-
-  source https://nuget.org/api/v2
+  source https://api.nuget.org/v3/index.json
+  storage: none
 
   nuget FSharp.Core
   nuget FParsec
@@ -24,16 +25,18 @@ group App
   nuget MessagePack.FSharpExtensions
   nuget System.Reflection.Metadata
 
-  nuget Persimmon
-  nuget Persimmon.MuscleAssert
-  nuget System.ValueTuple
-
   nuget BenchmarkDotNet
+
+  git https://github.com/hafuu/Persimmon.git master build: "dotnet fake build -t NuGet", Packages: /bin/
+
+  nuget Persimmon = 5.0.1
+  nuget Persimmon.Runner = 5.0.1
+  nuget Persimmon.MuscleAssert
 
 group Build
   framework: net60
-
-  source https://nuget.org/api/v2
+  source https://api.nuget.org/v3/index.json
+  storage: none
   
   nuget FAKE
   nuget FAKE.Persimmon
