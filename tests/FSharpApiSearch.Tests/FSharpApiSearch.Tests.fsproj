@@ -7,6 +7,7 @@
     <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
     <WarningLevel>3</WarningLevel>
     <OutDir>bin\$(Configuration)</OutDir>
+    <OutputType>Exe</OutputType>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugType>portable</DebugType>
@@ -41,6 +42,7 @@
     <Compile Include="DatabaseTest.fs" />
     <Compile Include="FSharpApiSearchClientTest.fs" />
     <Compile Include="LinkGeneratorTest.fs" />
+    <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CSharpLoadTestAssembly\CSharpLoadTestAssembly.csproj" />

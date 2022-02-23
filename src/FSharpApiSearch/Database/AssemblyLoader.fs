@@ -1,6 +1,6 @@
 ﻿module FSharpApiSearch.AssemblyLoader
 
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.CodeAnalysis
 open System.IO
 open System.Reflection
 open System.Collections.Generic
@@ -38,8 +38,20 @@ with
   member this.ResolveAll(assemblyNames: string seq) : AssemblyInfo[] =
     let mainAssemblies = assemblyNames |> Seq.map this.Resolve |> Seq.toArray
 
+    let defaultAssemblies =
+      [|
+        "netstandard.dll"
+        "System.Numerics.dll"
+        "System.dll"
+        "mscorlib.dll"
+      |]
+      |> Array.choose this.TryResolve
+      |> Array.map (fun x -> { x with Implicit = true })
+
+    let mainAndDefault = Array.append mainAssemblies defaultAssemblies
+
     let resolved = Dictionary<_, _>()
-    mainAssemblies
+    mainAndDefault
     |> Array.iter (fun a ->
       if resolved.ContainsKey(a.Name) = false then
         resolved.Add(a.Name, a)
@@ -67,7 +79,7 @@ with
             resolveImplicitReferences assembly
           | None -> ()
     
-    mainAssemblies |> Array.iter resolveImplicitReferences
+    mainAndDefault |> Array.iter resolveImplicitReferences
 
     resolved.Values
     |> Seq.toArray
@@ -95,9 +107,7 @@ let load (references: AssemblyInfo[]) =
       (projFileName,
         [|
           yield "--simpleresolution" 
-          yield "--noframework" 
-          yield "--debug:full" 
-          yield "--define:DEBUG" 
+          yield "--noframework"
           yield "--optimize-" 
           yield "--out:" + dllName
           yield "--warn:3" 
@@ -113,4 +123,5 @@ let load (references: AssemblyInfo[]) =
   let refAssemblies =
     let x = checker.ParseAndCheckProject(options) |> Async.RunSynchronously
     x.ProjectContext.GetReferencedAssemblies()
+
   Array.ofList refAssemblies

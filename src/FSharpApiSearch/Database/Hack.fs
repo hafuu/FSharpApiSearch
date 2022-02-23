@@ -1,6 +1,6 @@
 ﻿module internal FSharpApiSearch.Hack
 
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Symbols
 
 let genericArguments (t: FSharpType) =
   let args = t.GenericArguments |> Seq.toList

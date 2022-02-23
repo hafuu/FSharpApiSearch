@@ -1,6 +1,6 @@
 ﻿module FSharpApiSearch.ApiLoader
 
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Symbols
 open FSharpApiSearch.SpecialTypes
 open System.Text.RegularExpressions
 open System.IO
@@ -523,7 +523,7 @@ module internal Impl =
   let toUnionCaseApi xml (declaringEntity: FSharpEntity) (declaringSignature: LowType) (unionCase: FSharpUnionCase) =
     option {
       let caseName = unionCase.Name
-      let! fields = unionCase.UnionCaseFields |> Seq.mapi (fun i field -> (i + 1, field)) |> Seq.foldOptionMapping (toUnionCaseField unionCase.UnionCaseFields.Count)
+      let! fields = unionCase.Fields |> Seq.mapi (fun i field -> (i + 1, field)) |> Seq.foldOptionMapping (toUnionCaseField unionCase.Fields.Count)
       let returnType = declaringSignature
       let signature = { DeclaringType = returnType; Name = caseName; Fields = List.ofSeq fields } : UnionCase
       let apiName = { Name = SymbolName caseName; GenericParameters = [] } :: accessPath (Some declaringEntity)
@@ -696,7 +696,7 @@ module internal Impl =
             yield! e.FSharpFields
           elif e.IsFSharpUnion then
             for unionCase in e.UnionCases do
-              yield! unionCase.UnionCaseFields
+              yield! unionCase.Fields
         }
         |> Seq.map (fun field -> field.FieldType)
       foldFsharpType cache fields

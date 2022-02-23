@@ -5,7 +5,7 @@ group Core
 
   nuget FSharp.Core
   nuget FParsec
-  nuget FSharp.Compiler.Service
+  nuget FSharp.Compiler.Service = 41.0.2
   nuget FSharp.Collections.ParallelSeq
   nuget MessagePack
   nuget MessagePack.FSharpExtensions
@@ -19,11 +19,12 @@ group App
 
   nuget FSharp.Core
   nuget FParsec
-  nuget FSharp.Compiler.Service
+  nuget FSharp.Compiler.Service = 41.0.2
   nuget FSharp.Collections.ParallelSeq
   nuget MessagePack
   nuget MessagePack.FSharpExtensions
   nuget System.Reflection.Metadata
+  nuget System.ValueTuple
 
   nuget BenchmarkDotNet
 

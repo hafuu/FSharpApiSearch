@@ -6,4 +6,5 @@ MessagePack
 MessagePack.FSharpExtensions
 
 Persimmon
+Persimmon.Runner
 Persimmon.MuscleAssert

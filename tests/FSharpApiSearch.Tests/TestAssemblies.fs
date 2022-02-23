@@ -8,11 +8,10 @@ open Persimmon.Syntax.UseTestNameByReflection
 open FSharpApiSearch
 
 let assemblyResolver: AssemblyLoader.AssemblyResolver = {
-  FSharpCore = Path.Combine(System.Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Reference Assemblies\Microsoft\FSharp\.NETFramework\v4.0\4.4.1.0\")
+  FSharpCore = Path.Combine(System.Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"dotnet\sdk\6.0.102\FSharp\")
   Framework =
     [
-      Path.Combine(System.Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Reference Assemblies\Microsoft\Framework\.NETFramework\v4.6.1\")
-      @"C:\Windows\Microsoft.NET\Framework\v4.0.30319\"
+      Path.Combine(System.Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"dotnet\shared\Microsoft.NETCore.App\6.0.2\")
     ]
   Directories = []
 }
@@ -32,7 +31,7 @@ let csharpAssemblyPath =
 let valueTupleAssemblyName = @"System.ValueTuple"
 let valueTupleAssemblyPath =
   Path.Combine(
-    Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
+    Path.GetDirectoryName(Assembly.Load("System.ValueTuple").Location)
     , valueTupleAssemblyName + ".dll")
 
 let fparsecAssemblyName = @"FParsec";
