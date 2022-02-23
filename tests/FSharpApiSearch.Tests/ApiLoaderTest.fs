@@ -831,10 +831,10 @@ module TypeAbbreviation =
       typeAbbreviationDef "TypeAbbreviations.GenericTypeAbbreviation<'b>" (createType "TypeAbbreviations.Original<'a>" [ variable "'b" ] |> updateAssembly fsharpAssemblyName)
       typeAbbreviationDef "TypeAbbreviations.SpecializedTypeAbbreviation" (createType "TypeAbbreviations.Original<'a>" [ A ] |> updateAssembly fsharpAssemblyName)
       
-      { typeAbbreviationDef "TypeAbbreviations.NestedTypeAbbreviation" (createType "TypeAbbreviations.Original<'a>"[ A ]  |> updateAssembly fsharpAssemblyName) with
+      { typeAbbreviationDef "TypeAbbreviations.NestedTypeAbbreviation" (createType "TypeAbbreviations.Original<'a>" [ A ]  |> updateAssembly fsharpAssemblyName) with
           Abbreviated = createType "TypeAbbreviations.SpecializedTypeAbbreviation" [] |> updateAssembly fsharpAssemblyName
       }
-      typeAbbreviationDef "TypeAbbreviations.NestedModule.TypeAbbreviationInModule<'a>" (createType "TypeAbbreviations.Original<'a>"[ variable "'a" ]  |> updateAssembly fsharpAssemblyName)
+      typeAbbreviationDef "TypeAbbreviations.NestedModule.TypeAbbreviationInModule<'a>" (createType "TypeAbbreviations.Original<'a>" [ variable "'a" ]  |> updateAssembly fsharpAssemblyName)
       typeAbbreviationDef "TypeAbbreviations.FunctionAbbreviation" (arrow [ int; int ])
     ]
     run (fun entry -> test {
