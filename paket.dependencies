@@ -1,5 +1,5 @@
 group App
-  framework: net45, net462
+  framework: netstandard2.0, net60
 
   source https://nuget.org/api/v2
 
@@ -18,7 +18,7 @@ group App
   nuget BenchmarkDotNet
 
 group Build
-  framework: net462
+  framework: net60
 
   source https://nuget.org/api/v2
   
