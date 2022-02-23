@@ -1,5 +1,18 @@
+group Core
+  framework: netstandard2.0
+  source https://nuget.org/api/v2
+
+  nuget FSharp.Core
+  nuget FParsec
+  nuget FSharp.Compiler.Service
+  nuget FSharp.Collections.ParallelSeq
+  nuget MessagePack
+  nuget MessagePack.FSharpExtensions
+  nuget System.Reflection.Metadata
+
+
 group App
-  framework: netstandard2.0, net60
+  framework: net60
 
   source https://nuget.org/api/v2
 

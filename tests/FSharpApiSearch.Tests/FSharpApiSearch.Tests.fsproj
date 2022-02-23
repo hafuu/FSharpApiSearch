@@ -46,7 +46,6 @@
     <ProjectReference Include="..\CSharpLoadTestAssembly\CSharpLoadTestAssembly.csproj" />
     <ProjectReference Include="..\LoadTestAssembly\LoadTestAssembly.fsproj" />
     <ProjectReference Include="..\SearchTestAssembly\SearchTestAssembly.fsproj" />
-    <Reference Include="mscorlib" />
     <ProjectReference Include="..\..\src\FSharpApiSearch\FSharpApiSearch.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

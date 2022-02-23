@@ -23,11 +23,7 @@
     <Optimize>false</Optimize>
     <Tailcalls>false</Tailcalls>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
-  </PropertyGroup>  
-  <ItemGroup>
-    <Reference Include="mscorlib" />
-    <Reference Include="System.Configuration" />
-  </ItemGroup>
+  </PropertyGroup>
   <ItemGroup>
     <None Include="paket.references" />
     <Compile Include="AssemblyInfo.fs" />

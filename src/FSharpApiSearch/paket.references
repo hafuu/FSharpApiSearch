@@ -1,4 +1,4 @@
-group App
+group Core
 FSharp.Core
 FParsec
 FSharp.Compiler.Service

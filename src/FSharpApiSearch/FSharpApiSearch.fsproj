@@ -65,9 +65,5 @@
     <Compile Include="LinkGenerator.fs" />
     <None Include="prim-types-members.fsx" />
   </ItemGroup>
-  <ItemGroup>
-    <Reference Include="mscorlib" />
-    <Reference Include="System.Web" />
-  </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
