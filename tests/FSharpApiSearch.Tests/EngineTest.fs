@@ -65,26 +65,26 @@ let respectNameDifferenceInequalitiesTest =
 
 let matchTest trace abbTable (options, query, name, target, expected) = test {
   use listener = if trace then new System.Diagnostics.TextWriterTraceListener(System.Console.Out) else null
-  do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
+  do if trace then System.Diagnostics.Trace.Listeners.Add(listener) |> ignore
   try
     let targetApi: Api = { Name = ApiName name; Signature = target; TypeConstraints = []; Document = None }
     let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = IDictionary.empty; TypeAbbreviations = Array.append TestHelper.fsharpAbbreviationTable abbTable }
     let actual = Engine.search [| dict |] options [ dict ] query |> snd |> Seq.length = 1
     do! actual |> assertEquals expected
   finally
-    do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
+    do if trace then System.Diagnostics.Trace.Listeners.Remove(listener)
 }
 
 let distanceTest trace opt (query, targetSig, expected) = test { 
   use listener = if trace then new System.Diagnostics.TextWriterTraceListener(System.Console.Out) else null
-  do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
+  do if trace then System.Diagnostics.Trace.Listeners.Add(listener) |> ignore
   try
     let targetApi: Api = { Name = ApiName.ofString "test"; Signature = targetSig; TypeConstraints = []; Document = None }
     let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = IDictionary.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
     let actual = Engine.search [| dict |] opt [ dict ] query |> snd |> Seq.head
     do! actual.Distance |> assertEquals expected
   finally
-    do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
+    do if trace then System.Diagnostics.Trace.Listeners.Remove(listener)
 }
 
 let nameMatchTest =
@@ -1261,7 +1261,7 @@ module TypeConstraintTest =
 
   let testConstraint trace (query, target, constraints, expected) = test {
     use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
-    do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
+    do if trace then System.Diagnostics.Trace.Listeners.Add(listener) |> ignore
     let targetApi: Api = { Name = ApiName.ofString "test"; Signature = target; TypeConstraints = constraints; Document = None }
 
     let dictionaries = [|
@@ -1273,7 +1273,7 @@ module TypeConstraintTest =
     let options = { defaultTestOptions with GreedyMatching = Enabled; RespectNameDifference = Enabled; IgnoreParameterStyle = Enabled; IgnoreCase = Enabled }
     let dummyDict = { AssemblyName = "dummy"; Api = [| targetApi |]; TypeDefinitions = IDictionary.empty; TypeAbbreviations = [||] }
     let actual = Engine.search dictionaries options [ dummyDict ] query |> snd |> Seq.length = 1
-    do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
+    do if trace then System.Diagnostics.Trace.Listeners.Remove(listener)
     do! actual |> assertEquals expected
   }
 
@@ -1381,7 +1381,7 @@ module TypeConstraintTest =
 
   let runSubtypeTest trace greedy (query, target, expected) = test {
       use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
-      do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
+      do if trace then System.Diagnostics.Trace.Listeners.Add(listener) |> ignore
       let targetApi: Api = { Name = ApiName.ofString "test"; Signature = target; TypeConstraints = []; Document = None }
 
       let dictionaries = [|
@@ -1393,7 +1393,7 @@ module TypeConstraintTest =
       let options = { defaultTestOptions with GreedyMatching = greedy; RespectNameDifference = Enabled; IgnoreParameterStyle = Disabled; IgnoreCase = Disabled }
       let dummyDict = { AssemblyName = "dummy"; Api = [| targetApi |]; TypeDefinitions = IDictionary.empty; TypeAbbreviations = [||] }
       let actual = Engine.search dictionaries options [ dummyDict ] query |> snd |> Seq.length = 1
-      do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
+      do if trace then System.Diagnostics.Trace.Listeners.Remove(listener)
       do! actual |> assertEquals expected
     }
 
@@ -1742,7 +1742,7 @@ module TypeConstraintTest =
 module ActivePatternTest =
   let testActivePattern trace (query, target, expected) = test {
     use listener = new System.Diagnostics.TextWriterTraceListener(System.Console.Out)
-    do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
+    do if trace then System.Diagnostics.Trace.Listeners.Add(listener) |> ignore
     try
       let targetApi: Api = { Name = ApiName.ofString "test"; Signature = target; TypeConstraints = []; Document = None }
       let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = IDictionary.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
@@ -1750,7 +1750,7 @@ module ActivePatternTest =
       let actual = Engine.search [| dict |] options [ dict ] query |> snd |> Seq.length = 1
       do! actual |> assertEquals expected
     finally
-      do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
+      do if trace then System.Diagnostics.Trace.Listeners.Remove(listener)
   }
 
   let activePatternTest = parameterize {
@@ -2068,7 +2068,7 @@ module MatchingPositionTest =
     ]
     run (fun (targetSig, query, expected) -> test {
       use listener = if trace then new System.Diagnostics.TextWriterTraceListener(System.Console.Out) else null
-      do if trace then System.Diagnostics.Debug.Listeners.Add(listener) |> ignore
+      do if trace then System.Diagnostics.Trace.Listeners.Add(listener) |> ignore
       try
         let targetApi: Api = { Name = ApiName.ofString "test"; Signature = targetSig; TypeConstraints = []; Document = None }
         let dict: ApiDictionary = { AssemblyName = ""; Api = [| targetApi |]; TypeDefinitions = IDictionary.empty; TypeAbbreviations = TestHelper.fsharpAbbreviationTable }
@@ -2081,7 +2081,7 @@ module MatchingPositionTest =
         let expected = expected |> List.map (fun (s, q) -> (SignatureId s, QueryId q)) |> Map.ofList
         do! actual.MatchPositions |> assertEquals expected
       finally
-        do if trace then System.Diagnostics.Debug.Listeners.Remove(listener)
+        do if trace then System.Diagnostics.Trace.Listeners.Remove(listener)
     })
   }
 

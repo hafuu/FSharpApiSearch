@@ -65,7 +65,7 @@ let main argv =
   let apis = targetAssemblies |> Seq.collect (fun x -> x.Api) |> Seq.toArray
 
   use listener = new TextWriterTraceListener(System.Console.Out)
-  Debug.Listeners.Add(listener) |> ignore
+  Trace.Listeners.Add(listener) |> ignore
   Debug.IndentSize <- 2
 
   let rec loop() =
