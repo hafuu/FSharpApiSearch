@@ -455,7 +455,7 @@ module internal Impl =
         let memberTypeName =
           match x.ApparentEnclosingEntity.TryFullName with
           | Some name -> name
-          | None -> (x.ApparentEnclosingEntity :> FSharpSymbol).FullName
+          | None -> x.ApparentEnclosingEntity.AccessPath + "." + x.ApparentEnclosingEntity.CompiledName
         let memberName =
           let name = x.GetDisplayName
           let genericParameters =
