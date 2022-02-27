@@ -167,7 +167,7 @@ module internal Impl =
 
   let autoGenericVariableLen = "type '".Length
 
-  let isByRef (t: FSharpType) = t.HasTypeDefinition && t.TypeDefinition.IsByRef
+  let isFSharpByRef (t: FSharpType) = t.HasTypeDefinition && t.TypeDefinition.IsByRef && t.GenericArguments.Count = 1
 
   let rec fsharpTypeToLowType (t: FSharpType) =
     if Hack.isMeasure t then
@@ -186,7 +186,7 @@ module internal Impl =
       }
     elif Hack.isFloat t then
       Some SpecialTypes.LowType.float
-    elif isByRef t then
+    elif isFSharpByRef t then
       option {
         let! x = fsharpTypeToLowType (Hack.genericArguments t |> List.head)
         return ByRef.create (false, x)
