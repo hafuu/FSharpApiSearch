@@ -452,7 +452,10 @@ module internal Impl =
       let signature = ApiSignature.TypeExtension { ExistingType = existingType; Declaration = accessPath x.DeclaringEntity; MemberModifier = modifier; Member = member' }
       let name =
         let memberAssemblyName = x.ApparentEnclosingEntity.Assembly.SimpleName
-        let memberTypeName = x.ApparentEnclosingEntity.FullName
+        let memberTypeName =
+          match x.ApparentEnclosingEntity.TryFullName with
+          | Some name -> name
+          | None -> (x.ApparentEnclosingEntity :> FSharpSymbol).FullName
         let memberName =
           let name = x.GetDisplayName
           let genericParameters =
