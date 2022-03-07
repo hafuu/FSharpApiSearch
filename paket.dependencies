@@ -28,10 +28,8 @@ group App
 
   nuget BenchmarkDotNet
 
-  git https://github.com/hafuu/Persimmon.git master build: "dotnet fake build -t NuGet", Packages: /bin/
-
-  nuget Persimmon = 5.0.1
-  nuget Persimmon.Runner = 5.0.1
+  nuget Persimmon
+  nuget Persimmon.Runner
   nuget Persimmon.MuscleAssert
 
 group Build

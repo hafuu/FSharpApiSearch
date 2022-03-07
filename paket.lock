@@ -23,8 +23,8 @@ NUGET
       System.ValueTuple (>= 4.5)
     BenchmarkDotNet.Annotations (0.13.1)
     CommandLineParser (2.8)
-    Diff.Match.Patch (2.1)
-      FSharp.Core (>= 4.1.18)
+    Diff.Match.Patch (3.0.1)
+      FSharp.Core (>= 5.0)
     FParsec (1.1.1)
       FSharp.Core (>= 4.3.4)
     FSharp.Collections.ParallelSeq (1.2)
@@ -57,9 +57,9 @@ NUGET
       System.Threading.Thread (>= 4.3)
       System.Threading.ThreadPool (>= 4.3)
     FSharp.Core (6.0.2)
-    FSharp.Object.Diff (1.0)
-      FSharp.Core (>= 4.1.2)
-    Iced (1.16)
+    FSharp.Object.Diff (2.1)
+      FSharp.Core (>= 5.0)
+    Iced (1.17)
     MessagePack (2.3.85)
       MessagePack.Annotations (>= 2.3.85)
     MessagePack.Annotations (2.3.85)
@@ -111,7 +111,7 @@ NUGET
       System.Memory (>= 4.5.4)
       System.Reflection.Metadata (>= 5.0)
       System.Runtime.CompilerServices.Unsafe (>= 4.5.3)
-    Microsoft.Diagnostics.Tracing.TraceEvent (2.0.74)
+    Microsoft.Diagnostics.Tracing.TraceEvent (2.0.76)
       System.Runtime.CompilerServices.Unsafe (>= 4.5.2)
     Microsoft.DotNet.PlatformAbstractions (3.1.6)
     Microsoft.Extensions.DependencyInjection (6.0)
@@ -145,11 +145,17 @@ NUGET
     Microsoft.Win32.SystemEvents (6.0)
     Perfolizer (0.2.1)
       System.Memory (>= 4.5.3)
-    Persimmon.MuscleAssert (3.0)
-      Diff.Match.Patch (>= 2.1)
-      FSharp.Core (>= 4.3.4)
-      FSharp.Object.Diff (>= 1.0)
-      Persimmon (>= 4.0.1)
+    Persimmon (5.0.1)
+      FSharp.Core (>= 5.0)
+    Persimmon.MuscleAssert (4.0)
+      Diff.Match.Patch (>= 3.0.1)
+      FSharp.Core (>= 5.0)
+      FSharp.Object.Diff (>= 2.1)
+      Persimmon (>= 5.0.1)
+    Persimmon.Runner (5.0.1)
+      FSharp.Core (>= 5.0)
+      Persimmon (>= 5.0 < 6.0)
+      System.Xml.XDocument (>= 4.3)
     runtime.debian.8-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3.3)
     runtime.debian.9-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3.3)
     runtime.fedora.23-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3.3)
@@ -644,18 +650,7 @@ NUGET
       System.Text.Encoding (>= 4.3)
       System.Threading (>= 4.3)
       System.Xml.ReaderWriter (>= 4.3)
-  remote: paket-files/app/github.com/hafuu/Persimmon/bin
-    Persimmon (5.0.1)
-      FSharp.Core (>= 5.0)
-    Persimmon.Runner (5.0.1)
-      FSharp.Core (>= 5.0)
-      Persimmon (>= 5.0 < 6.0)
-      System.Xml.XDocument (>= 4.3)
-GIT
-  remote: https://github.com/hafuu/Persimmon.git
-     (6dd54905b00b41df5f060b7352e9d7f285be2281)
-      build: dotnet fake build -t NuGet
-      path: /bin/
+
 GROUP Build
 STORAGE: NONE
 RESTRICTION: == net6.0
@@ -667,7 +662,7 @@ NUGET
       FAKE.Lib (>= 4.1)
       Persimmon.Console (>= 1.0.2)
     Octokit (0.50)
-    Persimmon.Console (5.0)
+    Persimmon.Console (5.0.1)
 GITHUB
   remote: fsharp/FAKE
     modules/Octokit/Octokit.fsx (e313c3b25a2c3d683d0ceed735a1a2b9b15a4fb4)
