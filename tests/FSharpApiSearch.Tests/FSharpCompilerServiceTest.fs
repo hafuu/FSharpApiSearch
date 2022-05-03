@@ -8,9 +8,11 @@ open TestAssemblies
 open FSharp.Compiler.Symbols
 
 module InferredFloat =
-  let ``is float<1>`` (t: FSharpType) = test {
-    do! t.TypeDefinition.FullName |> assertEquals "Microsoft.FSharp.Core.float`1"
-    do! t.GenericArguments.[0].TypeDefinition.FullName |> assertEquals "Microsoft.FSharp.Core.CompilerServices.MeasureOne"
+  let ``is float`` (t: FSharpType) = test {
+    let entity = t.TypeDefinition
+    do! sprintf "%s.%s" entity.AccessPath entity.CompiledName |> assertEquals "Microsoft.FSharp.Core.float"
+    do! entity.TryFullName |> assertEquals None
+    do! t.GenericArguments.Count |> assertEquals 0
   }
 
   let targetClass = test {
@@ -19,19 +21,12 @@ module InferredFloat =
     return assembly.Contents.Entities |> Seq.find (fun x -> x.DisplayName = "StaticMemberClass") 
   }
 
-  let ``float is inferred to float<1>.`` = test {
+  let ``float is inferred to float`` = test {
     let! class' = targetClass
     let method' = class'.MembersFunctionsAndValues |> Seq.find (fun x -> x.DisplayName = "InferredFloat")
-    do! ``is float<1>`` method'.ReturnParameter.Type
-    do! ``is float<1>`` method'.CurriedParameterGroups.[0].[0].Type
-  }
-
-  let ``is float`` (t: FSharpType) = test {
-    let entity = t.TypeDefinition
-    do! sprintf "%s.%s" entity.AccessPath entity.CompiledName |> assertEquals "Microsoft.FSharp.Core.float"
-    do! entity.TryFullName |> assertEquals None
-    do! t.GenericArguments.Count |> assertEquals 0
-  }
+    do! ``is float`` method'.ReturnParameter.Type
+    do! ``is float`` method'.CurriedParameterGroups.[0].[0].Type
+  } 
 
   let ``annotated float is float`` = test {
     let! class' = targetClass

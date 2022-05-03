@@ -86,9 +86,7 @@ module internal Impl =
   type FSharpType with
     member this.TryLoadingLowType = this.TryLoadingName |> Option.map LoadingType.create
     member this.TryLoadingName =
-      if Hack.isFloat this then
-        failwith "float should not run this path."
-      elif this.HasTypeDefinition then
+      if this.HasTypeDefinition then
         Some this.TypeDefinition.LoadingName
       else
         None
@@ -184,8 +182,6 @@ module internal Impl =
         let! args = listLowType t.GenericArguments
         return Tuple.create { Elements = args; IsStruct = Hack.isStructTupleType t }
       }
-    elif Hack.isFloat t then
-      Some SpecialTypes.LowType.float
     elif isFSharpByRef t then
       option {
         let! x = fsharpTypeToLowType (Hack.genericArguments t |> List.head)
@@ -242,8 +238,6 @@ module internal Impl =
   and abbreviationRoot (t: FSharpType) =
     if t.IsAbbreviation then
       abbreviationRoot t.AbbreviatedType
-    elif Hack.isFloat t then
-      Some SpecialTypes.LowType.Double
     elif t.IsFunctionType then
       option {
         let! xs = toFlatArrow t
