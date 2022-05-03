@@ -790,13 +790,13 @@ module SpecialType =
   module ValueTuple =
     let name = Name.ofString "System.ValueTuple<'T1, 'T2>"
     let nullnessTest =
-      testFullTypeDef' valueTupleApi (fun x -> x.SupportNull) (name, NotSatisfy)
+      testFullTypeDef' mscorlibApi (fun x -> x.SupportNull) (name, NotSatisfy)
     let equalityTest =
-      testFullTypeDef' valueTupleApi (fun x -> x.Equality) (name, Dependence [ tv "'T1"; tv "'T2" ])
+      testFullTypeDef' mscorlibApi (fun x -> x.Equality) (name, Dependence [ tv "'T1"; tv "'T2" ])
     let comparisonTest =
-      testFullTypeDef' valueTupleApi (fun x -> x.Comparison) (name, Dependence [ tv "'T1"; tv "'T2" ])
+      testFullTypeDef' mscorlibApi (fun x -> x.Comparison) (name, Dependence [ tv "'T1"; tv "'T2" ])
     let valueTypeTest =
-      testFullTypeDef' valueTupleApi (fun x -> x.ValueType) (name, Satisfy)
+      testFullTypeDef' mscorlibApi (fun x -> x.ValueType) (name, Satisfy)
 
   let arrayName = Name.ofString "Microsoft.FSharp.Core.[]<'T>"
 
