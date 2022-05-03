@@ -36,9 +36,15 @@ group Build
   framework: net60
   source https://api.nuget.org/v3/index.json
   storage: none
-  
-  nuget FAKE
-  nuget FAKE.Persimmon
-  nuget Persimmon.Console
 
-  github fsharp/FAKE modules/Octokit/Octokit.fsx
+  nuget Fake.Api.GitHub
+  nuget Fake.Core.Process
+  nuget Fake.Core.ReleaseNotes 
+  nuget Fake.Core.String
+  nuget Fake.Core.Target
+  nuget Fake.Core.Trace
+  nuget Fake.DotNet.AssemblyInfoFile
+  nuget Fake.DotNet.Cli
+  nuget Fake.IO.FileSystem
+  nuget Fake.IO.Zip
+  nuget Fake.Tools.Git

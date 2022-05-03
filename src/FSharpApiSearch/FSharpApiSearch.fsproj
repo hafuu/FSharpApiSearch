@@ -6,7 +6,7 @@
     <Name>FSharpApiSearch</Name>
     <OtherFlags>--warnon:1182</OtherFlags>
     <WarningLevel>3</WarningLevel>
-    <OutDir>bin\$(Configuration)</OutDir>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugType>portable</DebugType>
@@ -28,6 +28,7 @@
     <None Include="paket.references" />
     <None Include="paket.template" />
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="Attributes.fs" />
     <Compile Include="Misc.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="QueryParser.fs" />

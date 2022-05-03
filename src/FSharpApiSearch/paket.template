@@ -16,10 +16,10 @@ summary
 description
     F# API search engine
 dependencies
-    FSharp.Core >= LOCKEDVERSION-App
-    FParsec >= LOCKEDVERSION-App
-    FSharp.Compiler.Service >= LOCKEDVERSION-App
-    FSharp.Collections.ParallelSeq >= LOCKEDVERSION-App
-    MessagePack >= LOCKEDVERSION-App
-    MessagePack.FSharpExtensions >= LOCKEDVERSION-App
-    System.Reflection.Metadata >= LOCKEDVERSION-App
+    FSharp.Core >= LOCKEDVERSION-Core
+    FParsec >= LOCKEDVERSION-Core
+    FSharp.Compiler.Service >= LOCKEDVERSION-Core
+    FSharp.Collections.ParallelSeq >= LOCKEDVERSION-Core
+    MessagePack >= LOCKEDVERSION-Core
+    MessagePack.FSharpExtensions >= LOCKEDVERSION-Core
+    System.Reflection.Metadata >= LOCKEDVERSION-Core

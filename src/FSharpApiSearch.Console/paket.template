@@ -17,9 +17,11 @@ summary
 description
     The console of FSharpApiSearch.
 files
-	../../bin/FSharpApiSearch.Database/*.dll ==> tools
-	../../bin/FSharpApiSearch.Database/*.exe ==> tools
-	../../bin/FSharpApiSearch.Database/*.config ==> tools
-	../../bin/FSharpApiSearch.Console/*.dll ==> tools
-	../../bin/FSharpApiSearch.Console/*.exe ==> tools
-	../../bin/FSharpApiSearch.Console/*.config ==> tools
+	../../bin/FSharpApiSearch.Database/*/*.dll ==> tools
+	../../bin/FSharpApiSearch.Database/*/*.exe ==> tools
+	../../bin/FSharpApiSearch.Database/*/*.config ==> tools
+	../../bin/FSharpApiSearch.Database/*/*.json ==> tools
+	../../bin/FSharpApiSearch.Console/*/*.dll ==> tools
+	../../bin/FSharpApiSearch.Console/*/*.exe ==> tools
+	../../bin/FSharpApiSearch.Console/*/*.config ==> tools
+	../../bin/FSharpApiSearch.Console/*/*.json ==> tools
