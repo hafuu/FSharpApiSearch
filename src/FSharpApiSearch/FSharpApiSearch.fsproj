@@ -62,7 +62,6 @@
     <Compile Include="Database\ApiLoader.fs" />
     <Compile Include="Database\Database.fs" />
     <Compile Include="FSharpApiSearchClient.fs" />
-    <Compile Include="LinkGenerator.fs" />
     <None Include="prim-types-members.fsx" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

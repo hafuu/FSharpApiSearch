@@ -41,7 +41,6 @@
     <Compile Include="ApiLoaderTest.fs" />
     <Compile Include="DatabaseTest.fs" />
     <Compile Include="FSharpApiSearchClientTest.fs" />
-    <Compile Include="LinkGeneratorTest.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
