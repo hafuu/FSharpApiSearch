@@ -1097,7 +1097,7 @@ module CSharp =
     let t = createType "CSharpLoadTestAssembly.Operators" [] |> updateAssembly csharpAssemblyName
     parameterize {
       source [
-        (Name.ofString "CSharpLoadTestAssembly.Operators.op_Addition"), [ staticMember t (method' "op_Addition" [ [ pname "x" >> ptype t; pname "y" >> ptype t ] ] t) ]
+        (Name.ofString "CSharpLoadTestAssembly.Operators.(+)"), [ staticMember t (method' "op_Addition" [ [ pname "x" >> ptype t; pname "y" >> ptype t ] ] t) ]
         (Name.ofString "CSharpLoadTestAssembly.Operators.op_Implicit"), [ staticMember t (method' "op_Implicit" [ [ pname "x" >> ptype string ] ] t) ]
       ]
       run testApi  
