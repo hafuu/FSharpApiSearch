@@ -858,7 +858,7 @@ module TypeConstraintTest =
 
   let Object = {
     empty with
-      AssemblyName = "mscorlib"
+      AssemblyName = "System.Private.CoreLib"
       Name = Name.ofString "System.Object"
       FullName = "System.Object"
       SupportNull = Satisfy
@@ -868,7 +868,7 @@ module TypeConstraintTest =
     empty with
       Name = Name.ofString "System.Tuple<'T1, 'T2>"
       FullName = "System.Tuple`2"
-      AssemblyName = "mscorlib"
+      AssemblyName = "System.Private.CoreLib"
       BaseType = Some (instantiate Object [])
       GenericParameters = [ tv "'T1"; tv "'T2" ]
       InstanceMembers =
@@ -884,7 +884,7 @@ module TypeConstraintTest =
     empty with
       Name = Name.ofString "System.Tuple<'T1, 'T2, 'T3>"
       FullName = "System.Tuple`3"
-      AssemblyName = "mscorlib"
+      AssemblyName = "System.Private.CoreLib"
       BaseType = Some (instantiate Object [])
       GenericParameters = [ tv "'T1"; tv "'T2"; tv "'T3" ]
       InstanceMembers =
@@ -900,12 +900,12 @@ module TypeConstraintTest =
   let Array' = {
     empty with
       Name = Name.ofString "System.Array"
-      AssemblyName = "mscorlib"
+      AssemblyName = "System.Private.CoreLib"
       BaseType = Some (instantiate Object [])
   }
 
   let mscorlibDict = {
-    AssemblyName = "mscorlib"
+    AssemblyName = "System.Private.CoreLib"
     Api = [||]
     TypeDefinitions =
       [|

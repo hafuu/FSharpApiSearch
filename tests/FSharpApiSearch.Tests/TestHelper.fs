@@ -198,7 +198,7 @@ let fsharpAbbreviationTable: TypeAbbreviationDefinition[] = [|
   |]
 
 module Types =
-  let mscorlib = "mscorlib"
+  let mscorlib = "System.Private.CoreLib"
   let fscore = "FSharp.Core"
 
   let object' = createType "System.Object" [] |> updateAssembly mscorlib

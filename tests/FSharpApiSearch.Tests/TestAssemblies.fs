@@ -82,7 +82,7 @@ let fscoreApi = test {
 
 let mscorlibApi = test {
   let! apiDictionary = database
-  return apiDictionary |> Array.find (fun x -> x.AssemblyName = "mscorlib")
+  return apiDictionary |> Array.find (fun x -> x.AssemblyName = "System.Private.CoreLib")
 }
 
 let systemCoreApi = test {

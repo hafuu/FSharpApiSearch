@@ -738,7 +738,7 @@ module internal SpecialTypes =
 
   let arrayRegexPattern = @"\[,*\]"
 
-  let mscorlib = "mscorlib"
+  let mscorlib = "System.Private.CoreLib"
   let fscore = "FSharp.Core"
 
   let UnitLoadingType = { AssemblyName = fscore; RawName = typeof<Unit>.FullName; MemberName = [] }
