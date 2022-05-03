@@ -104,8 +104,8 @@ module FSharp =
       "PublicModule.array", [ moduleValue (array int) ]
       "PublicModule.array2d", [ moduleValue (array2D int) ]
       "PublicModule.nestedArray", [ moduleValue (array (array2D int)) ]
-      "PublicModule.( |ActivePattern| )", [ activePattern [ [ pname "x" >> ptype int ]; [ ptype string ] ] ]
-      "PublicModule.( |PartialActivePattern|_| )<'a>", [ partialActivePattern [ [ pname "y" >> ptype (variable "'a") ]; [ pname "x" >> ptype (variable "'a") ]; [ ptype (option (variable "'a")) ] ] ]
+      "PublicModule.(|ActivePattern|)", [ activePattern [ [ pname "x" >> ptype int ]; [ ptype string ] ] ]
+      "PublicModule.(|PartialActivePattern|_|)<'a>", [ partialActivePattern [ [ pname "y" >> ptype (variable "'a") ]; [ pname "x" >> ptype (variable "'a") ]; [ ptype (option (variable "'a")) ] ] ]
     ]
     run testApi
   }
@@ -675,8 +675,8 @@ module FSharp =
     let t = createType "Operators.A" [] |> updateAssembly fsharpAssemblyName
     parameterize {
       source [
-        (Name.ofOperatorString "Operators.( + )"), [ moduleFunction' [ [ pname "x" >> ptype int ]; [ pname "y" >> ptype int ]; [ ptype int ] ] ]
-        (Name.ofOperatorString "Operators.A.( - )"), [ staticMember t (method' "op_Subtraction" [ [ pname "x" >> ptype t; pname "y" >> ptype t ] ] t) ]
+        (Name.ofOperatorString "Operators.(+)"), [ moduleFunction' [ [ pname "x" >> ptype int ]; [ pname "y" >> ptype int ]; [ ptype int ] ] ]
+        (Name.ofOperatorString "Operators.A.(-)"), [ staticMember t (method' "op_Subtraction" [ [ pname "x" >> ptype t; pname "y" >> ptype t ] ] t) ]
       ]
       run testApi  
     }
