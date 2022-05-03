@@ -28,8 +28,8 @@ let fsharpTest = parameterize {
   ]
   run (fun (name, expected) -> test {
     let! apiDict = fscoreApi
-    let api = apiDict.Api |> Array.find (fun a -> a.Name.Print() = name)
-    let actual = LinkGenerator.FSharp.generate api
+    let api = apiDict.Api |> Array.tryFind (fun a -> a.Name.Print() = name)
+    let actual = api |> Option.bind (LinkGenerator.FSharp.generate)
     do! actual |> assertEquals expected
   })
 }
@@ -43,8 +43,8 @@ let msdnTest = parameterize {
   ]
   run (fun (name, expected) -> test {
     let! apiDict = mscorlibApi
-    let api = apiDict.Api |> Array.find (fun a -> a.Name.Print() = name)
-    let actual = LinkGenerator.Msdn.generate api
+    let api = apiDict.Api |> Array.tryFind (fun a -> a.Name.Print() = name)
+    let actual = api |> Option.bind (LinkGenerator.Msdn.generate)
     do! actual |> assertEquals expected
   })
 }
@@ -155,8 +155,8 @@ let dotNetApiBrowserTest = parameterize {
     ]
   run (fun (dict, name, signature, expected) -> test {
     let! apiDict = dict
-    let api = apiDict.Api |> Array.find (fun a -> a.Name.Print() = name && a.Signature.Print() = signature)
-    let actual = LinkGenerator.DotNetApiBrowser.generate "netframework-4.7" api
+    let api = apiDict.Api |> Array.tryFind (fun a -> a.Name.Print() = name && a.Signature.Print() = signature)
+    let actual = api |> Option.bind (LinkGenerator.DotNetApiBrowser.generate "netframework-4.7")
     do! actual |> assertEquals expected
   })
 }
@@ -185,8 +185,8 @@ let dotNetApiBrowserViewTest = parameterize {
     ]
   run (fun (name, signature, view, expected) -> test {
     let! apiDict = mscorlibApi
-    let api = apiDict.Api |> Array.find (fun a -> a.Name.Print() = name && a.Signature.Print() = signature)
-    let actual = LinkGenerator.DotNetApiBrowser.generate view api
+    let api = apiDict.Api |> Array.tryFind (fun a -> a.Name.Print() = name && a.Signature.Print() = signature)
+    let actual = api |> Option.bind (LinkGenerator.DotNetApiBrowser.generate view)
     do! actual |> assertEquals expected
   })
 }
@@ -210,8 +210,8 @@ let fparsecLinkTest = parameterize {
   ]
   run (fun (name, signature, expected) -> test {
     let! apiDict = fparsecApi
-    let api = apiDict.Api |> Array.find (fun a -> a.Name.Print() = name && a.Signature.Print() = signature)
-    let actual = LinkGenerator.FParsec.generate api
+    let api = apiDict.Api |> Array.tryFind (fun a -> a.Name.Print() = name && a.Signature.Print() = signature)
+    let actual = api |> Option.bind (LinkGenerator.FParsec.generate)
     do! actual |> assertEquals expected 
   })
 }
