@@ -8,10 +8,13 @@ open Persimmon.Syntax.UseTestNameByReflection
 open FSharpApiSearch
 
 let assemblyResolver: AssemblyLoader.AssemblyResolver = {
-  FSharpCore = Path.Combine(System.Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"dotnet\sdk\6.0.102\FSharp\")
+  FSharpCore = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
   Framework =
     [
-      Path.Combine(System.Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"dotnet\shared\Microsoft.NETCore.App\6.0.2\")
+      Path.Combine(
+        System.Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles)
+        , @"dotnet\shared\Microsoft.NETCore.App\"
+        , string System.Environment.Version)
     ]
   Directories = []
 }
