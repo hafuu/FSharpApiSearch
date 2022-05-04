@@ -1,0 +1,36 @@
+name: Build and Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: |
+          6.0.x
+
+    - uses: actions/cache@v2
+      with:
+        path: ~/.nuget/packages
+        key: nuget-${{ hashFiles('**/paket.lock') }}
+        restore-keys: |
+          nuget-${{ hashFiles('**/paket.lock') }}
+          nuget
+
+    - name: Restore
+      run: |
+        dotnet tool restore
+        dotnet restore
+
+    - name: Build
+      run: |
+        dotnet fake build -t All
