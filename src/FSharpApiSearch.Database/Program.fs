@@ -3,7 +3,8 @@
 open FSharpApiSearch
 open CommandLine
 open System.IO
-open System.Configuration
+open System.Reflection
+open System
 
 type Args = {
   AssemblyResolver : AssemblyLoader.AssemblyResolver
@@ -15,8 +16,14 @@ module Args =
   let defaultArg = {
     AssemblyResolver =
       {
-        FSharpCore = ConfigurationManager.AppSettings.Get("FSharpCore")
-        Framework = ConfigurationManager.AppSettings.Get("Framework").Split(';') |> Array.toList |> List.rev
+        FSharpCore = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
+        Framework =
+          [
+            Path.Combine(
+              System.Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles)
+              , @"dotnet\shared\Microsoft.NETCore.App\"
+              , string System.Environment.Version)
+          ]
         Directories = []
       }
     References = []

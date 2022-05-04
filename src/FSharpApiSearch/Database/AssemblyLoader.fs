@@ -40,9 +40,6 @@ with
 
     let defaultAssemblies =
       [|
-        "netstandard.dll"
-        "System.Numerics.dll"
-        "System.dll"
         "mscorlib.dll"
       |]
       |> Array.choose this.TryResolve
